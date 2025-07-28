@@ -4,7 +4,7 @@ import click
 from cookiecutter.exceptions import RepositoryNotFound
 from cookiecutter.main import cookiecutter
 
-REPO_URL = "https://github.com/saya-ashen/dingent.git"
+REPO_URL = "https://github.com/saya-ashen/Dingent.git"
 
 AVAILABLE_TEMPLATES = ["basic", "with-tools"]
 

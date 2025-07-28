@@ -803,6 +803,7 @@ backend = [
     { name = "sqlmodel" },
 ]
 cli = [
+    { name = "click" },
     { name = "cookiecutter" },
 ]
 dev = [
@@ -862,7 +863,10 @@ backend = [
     { name = "sqlglot", extras = ["rs"], specifier = ">=26.15.0" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
 ]
-cli = [{ name = "cookiecutter", specifier = ">=2.6.0" }]
+cli = [
+    { name = "click", specifier = ">=8.2.1" },
+    { name = "cookiecutter", specifier = ">=2.6.0" },
+]
 dev = [
     { name = "aiobotocore", specifier = ">=2.22.0" },
     { name = "anyio", specifier = ">=4.9.0" },
