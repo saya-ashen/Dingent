@@ -1,22 +1,19 @@
 [[llms]]
 name = "gpt-4.1"
 provider = "openai"
-base_url = "https://www.dmxapi.cn/v1"
 [[llms]]
 name = "gpt-4.1-mini"
 provider = "openai"
-base_url = "https://www.dmxapi.cn/v1"
 [[databases]]
 name = "bioka"
-uri_env = "BIOKA_DATABASE_URL"
+uri = "mcp/data/bioka.db"
 schemas_file = "schemas/bioka.py"
 [[databases]]
 name = "idog"
-uri_env = "IDOG_DATABASE_URL"
+uri = "mcp/data/idog.db"
 schemas_file = "schemas/idog.py"
 [[mcp_servers]]
 name = "bioka"
-icon = "test"
 llm.provider = "openai"
 llm.name = "gpt-4.1"
 database = "bioka"
@@ -26,7 +23,6 @@ port = "8888"
 description = "This assistant can only answer questions about the biological markers stored in the database. The query should be about finding or describing biomarkers based on their known attributes.\n\n**Use this tool for questions about:**\n- **Biomarker Details:** Find biomarkers by their name, type (e.g., protein, gene), or associated species (e.g., Human, Mouse).\n- **Disease Association:** Find biomarkers linked to a specific disease.\n- **Application & Technology:** Inquire about the usage of a biomarker (biomarker_usage), the techniques used for its detection (techs), or its scientific references (reference).\n- **Relationships:** Explore the connections between diseases, biomarkers, and species.\n\n"
 [[mcp_servers]]
 name = "idog"
-icon = "test"
 llm.provider = "openai"
 llm.name = "gpt-4.1"
 database = "idog"

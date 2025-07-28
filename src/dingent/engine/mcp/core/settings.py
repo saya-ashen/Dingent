@@ -10,8 +10,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class LLMSettings(BaseModel):
-    name: str 
-    provider: str 
+    name: str
+    provider: str
     base_url:str = "https://www.dmxapi.cn/v1"
     api_key: str|None = None
 
@@ -19,7 +19,7 @@ class LLMSettings(BaseModel):
 class ToolSettings(BaseModel):
     name: str
     enabled: bool = True
-    icon: str
+    icon: str |None = None
     description: str
     class_name: str | None = Field(None, alias="class")  # 使用 alias 来处理 'class' 这个 Python 关键字
     exclude_args: list[str] = []
@@ -27,7 +27,7 @@ class ToolSettings(BaseModel):
 
 class MCPSettings(BaseModel):
     name: str
-    icon: str
+    icon: str |None = None
     llm: dict[str, str]
     database: str | None = None
     enabled_tools: list[str] = []
@@ -41,7 +41,7 @@ class DatabaseSettings(BaseModel):
     uri: str = ""
     uri_env: str = ""
     schemas_file: str
-    type: Literal["mysql", "postgresql"] | None = None
+    type: str | None = None
 
     @model_validator(mode="after")
     def determine_type_from_uri(self) -> "DatabaseSettings":
@@ -61,11 +61,12 @@ class DatabaseSettings(BaseModel):
                 "A database URI must be provided either via 'uri' field or 'uri_env' environment variable."
             )
 
-        # 步骤 2: 推断类型
         if db_uri.startswith("postgresql"):
             self.type = "postgresql"
         elif db_uri.startswith("mysql"):
             self.type = "mysql"
+        elif db_uri.startswith("sqlite"):
+            self.type = "sqlite"
         else:
             raise ValueError(f"Could not determine database type from URI: '{db_uri[:30]}...'")
 
@@ -74,7 +75,7 @@ class DatabaseSettings(BaseModel):
 
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8", extra="ignore")
     databases: list[DatabaseSettings] = []
     llms: list[LLMSettings] = []
     mcp_servers: list[MCPSettings] = []
@@ -126,7 +127,8 @@ def get_settings() -> AppSettings:
         # .joinpath() 用于附加文件名
         # .as_file() 是一个上下文管理器，它能确保我们得到一个真实的文件系统路径
         # （如果资源在 zip 中，它会临时解压出来）
-        traversable = importlib.resources.files("mcp_servers.resources").joinpath("default_settings.toml")
+        traversable = importlib.resources.files("mcp.resources").joinpath("default_settings.toml")
+        import pdb;pdb.set_trace()
         with importlib.resources.as_file(traversable) as default_config_path:
             print(f"Loading built-in config from: {default_config_path}")
             base_data = toml.load(default_config_path)

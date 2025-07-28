@@ -39,7 +39,7 @@ class DiseaseGeneAssociation(SQLModel, table=True):
 
 
 class Breed(SQLModel, table=True):
-    __tablename__ = "breed_view"  # type: ignore
+    __tablename__ = "breed"  # type: ignore
     __table_args__ = ({"info": {"title": "品种", "must_queried_columns": ["breed_id", "src_breed_name"]}},)
 
     breed_id: int = Field(
@@ -47,7 +47,6 @@ class Breed(SQLModel, table=True):
         primary_key=True,
         description="Gene unique identify",
     )
-    # breed_number: str | None = Field(None, description="character numbers of breed")
     src_breed_name: str = Field(
         "",
         alias="物种名称",
@@ -61,7 +60,6 @@ class Breed(SQLModel, table=True):
         markdown_link = f"[{v}]({urllib.parse.quote(link_pattern, safe=':/?=')})"
         return markdown_link
 
-    other_name: str | None = Field(None, description="common or nickname")
     image: str | None = Field(None)
 
     @computed_field(alias="图片")
@@ -87,18 +85,11 @@ class Breed(SQLModel, table=True):
         None,
         description="The dog's willingness to train, e.g.: 'Eager To Please' Independent 'Responds Well' Agreeable 'May be Stubborn' 'Easy Training'",
     )
-    min_height_cm: float | None = Field(None, alias="最小身高", description="最小身高，单位cm")
-    max_height_cm: float | None = Field(None, alias="最大身高", description="最大身高，单位cm")
-    min_weight_kg: float | None = Field(None, alias="最小体重", description="最小体重，单位kg")
-    max_weight_kg: float | None = Field(None, alias="最大体重", description="最大体重，单位kg")
     min_life: str | None = Field(None, description="最小寿命")
     max_life: str | None = Field(None, description="最大寿命")
     diseases: list["Disease"] = Relationship(back_populates="breeds", link_model=BreedDiseaseAssociation)
     original: str | None = Field(None, alias="原产地", description="原产地国家")
     colors: str | None = Field(None, alias="颜色", description="颜色")
-    breed_web_source: str | None = Field(
-        None, alias="品种来源", description="品种来源网站,包括：AKC,UKC,CKC,FCI,wikipedia"
-    )
 
     @computed_field(alias="疾病名称")
     @property

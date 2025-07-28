@@ -1,20 +1,17 @@
+default_active_agent="idog"
 [[llms]]
 name = "gpt-4.1-mini"
 provider = "openai"
-base_url = "https://www.dmxapi.cn/v1"
 [[llms]]
 name = "gpt-4.1"
 provider = "openai"
-base_url = "https://www.dmxapi.cn/v1"
 [[mcp_servers]]
 name = "idog"
-icon = "test"
 host = "127.0.0.1"
 port = "8889"
 routable_nodes= ["bioka"]
 [[mcp_servers]]
 name = "bioka"
-icon = "test"
 host = "127.0.0.1"
 port = "8888"
 routable_nodes= []

@@ -14,45 +14,6 @@ dependencies = [
     "jinja2>=3.1.6",
     "ipython>=9.4.0",
 ]
-
-[dependency-groups]
-backend = [
-    "copilotkit>=0.1.56",
-    "danticsql>=0.1.0",
-    "datasets<3.0.0,>=2.20.0",
-    "fastapi>=0.115.6",
-    "langchain>=0.3.23",
-    "langchain-chroma>=0.2.3",
-    "langchain-community>=0.3.21",
-    "langchain-experimental>=0.3.4",
-    "langchain-openai>=0.3.14,<1.0.0",
-    "langdetect>=1.0.9",
-    "langfuse>=3.0.8",
-    "langgraph>=0.3.31,<1.0.0",
-    "langgraph-cli[inmem]>=0.1.73",
-    "langgraph-supervisor>=0.0.27",
-    "langgraph-swarm>=0.0.12",
-    "matplotlib>=3.10.1",
-    "numpy>=2.3.0",
-    "pandas>=2.2.3",
-    "psycopg2-binary>=2.9.10",
-    "pymysql>=1.1.1",
-    "sqlglot[rs]>=26.15.0",
-    "sqlmodel>=0.0.24",
-]
-
-mcp = [
-    "fastmcp>=2.2.0",
-    "langchain-mcp-adapters>=0.0.11",
-    "mcp[cli]>=1.7.1",
-]
-
-cli = [
-    "click>=8.2.1",
-    "cookiecutter>=2.6.0",
-]
-
-# 开发环境依赖，保持不变
 dev = [
     "aiobotocore>=2.22.0",
     "anyio>=4.9.0",
@@ -70,6 +31,45 @@ dev = [
     "ruff<1.0.0,>=0.11.3",
     "taot>=0.2.4",
     "ty>=0.0.1a6",
+]
+
+[project.optional-dependencies]
+backend = [
+    "copilotkit>=0.1.56",
+    "fastapi>=0.115.6",
+    "langchain>=0.3.23",
+    "langchain-chroma>=0.2.3",
+    "langchain-community>=0.3.21",
+    "langchain-experimental>=0.3.4",
+    "langchain-openai>=0.3.14,<1.0.0",
+    "langgraph>=0.3.31,<1.0.0",
+    "langgraph-cli[inmem]>=0.1.73",
+    "langgraph-swarm>=0.0.12",
+    "numpy>=2.3.0",
+]
+
+mcp = [
+    "langchain-openai>=0.3.14,<1.0.0",
+    "pymysql>=1.1.1",
+    "sqlglot[rs]>=26.15.0",
+    "danticsql>=0.1.0",
+    "langchain>=0.3.23",
+    "langdetect>=1.0.9",
+    "fastmcp>=2.2.0",
+    "langchain-mcp-adapters>=0.0.11",
+    "mcp[cli]>=1.7.1",
+    "pandas>=2.2.3",
+    "sqlmodel>=0.0.24",
+    "psycopg2-binary>=2.9.10",
+]
+
+cli = [
+    "click>=8.2.1",
+    "cookiecutter>=2.6.0",
+]
+
+full = [
+    "Dingent[backend,mcp,cli]",
 ]
 
 [build-system]

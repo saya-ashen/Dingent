@@ -23,7 +23,9 @@ from langgraph_swarm.swarm import SwarmState
 from mcp.types import TextResourceContents
 from pydantic import BaseModel, Field
 
-from dingent.engine.backend import LLMManager, get_async_mcp_manager, get_settings
+from .llm_manager import LLMManager
+from .mcp_manager import get_async_mcp_manager
+from .settings import get_settings
 
 # 配置日志记录
 logging.basicConfig(
@@ -280,16 +282,20 @@ async def make_graph(config):
     model_provider = config.get("configurable", {}).get("model_provider", "openai")
     server_config = settings.mcp_servers
     model_name = config.get("configurable", {}).get("model_name", "gpt-4.1-mini")
-    default_route = config.get("configurable", {}).get("default_route")
+    default_active_agent =  config.get("configurable", {}).get("default_route") or settings.default_agent
     async with get_async_mcp_manager(server_config, log_handler=None) as mcp:
         assistants = await create_assistants(settings.mcp_servers, mcp.active_clients, model_provider, model_name)
         assert len(assistants) > 0
-        if not default_route:
-            default_route = list(assistants.keys())[0]
+        if not default_active_agent:
+            print("No default active agent specified, using the first available assistant.")
+            default_active_agent = list(assistants.keys())[0]
+        else:
+            default_active_agent = f"{default_active_agent}_assistant"
+
         swarm = create_swarm(
             agents=list(assistants.values()),
             state_schema=MainState,
-            default_active_agent=default_route,
+            default_active_agent=default_active_agent,
             config_schema=ConfigSchema,
         )
         graph = swarm.compile()

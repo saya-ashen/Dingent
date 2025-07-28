@@ -2,7 +2,7 @@ import logging
 import uuid
 from collections import OrderedDict
 
-from dingent.engine.backend import ToolOutput
+from ..tools.types import ToolOutput
 
 # Configure logger
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -14,7 +14,6 @@ from anyio import Path
 from sqlmodel import Session, SQLModel, create_engine, select, text
 
 from .settings import DatabaseSettings
-from .language_manager import language_manager
 
 # 设置一个日志记录器，方便调试
 logger = logging.getLogger(__name__)
@@ -48,9 +47,8 @@ def pydantic_to_dict(
         if not ignore_empty or getattr(obj, key):
             fields_to_include.append(key)
     dumped_json = obj.model_dump(mode="json", by_alias=True, include=fields_to_include)
-    _ = language_manager.get_translator(lang=lang)
     for key in list(dumped_json.keys()):
-        dumped_json[_(key)] = dumped_json.pop(key)
+        dumped_json[key] = dumped_json.pop(key)
     return dumped_json
 
 
@@ -297,3 +295,4 @@ class DBManager:
     def list_available_databases(self) -> list[str]:
         """返回所有已配置的数据库名称列表。"""
         return list(self._configs.keys())
+

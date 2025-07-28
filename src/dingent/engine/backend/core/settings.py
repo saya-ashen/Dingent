@@ -21,9 +21,11 @@ class MCPServerInfo(BaseModel):
 
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8", extra="ignore")
     llms: list[LLMSettings] = []
     mcp_servers: list[MCPServerInfo] = []
+    default_agent:str|None = None
+
 
 
 @lru_cache
@@ -39,5 +41,4 @@ def get_settings() -> AppSettings:
     else:
         user_data = {}
 
-    # --- 4. 实例化并返回 ---
     return AppSettings(**user_data)

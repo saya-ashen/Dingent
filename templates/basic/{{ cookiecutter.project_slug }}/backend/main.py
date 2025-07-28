@@ -1,10 +1,12 @@
-from dingent.engine import make_graph
+from dingent.engine.backend import build_agent_api, make_graph
 
+api = build_agent_api()
+graph = make_graph
 if __name__ == "__main__":
     import asyncio
 
     async def main():
-        async with make_graph({}) as graph:
+        async with graph({}) as graph:
             async for chunk in graph.astream(
                 {
                     "messages": [

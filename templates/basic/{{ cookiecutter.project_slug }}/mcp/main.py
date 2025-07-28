@@ -2,7 +2,7 @@ import argparse
 import multiprocessing
 import sys
 
-from dingent.engine import create_all_mcp_server
+from dingent.engine.mcp import create_all_mcp_server
 
 
 async def main():

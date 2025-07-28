@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from dingent.engine.mcp import BaseTool, ToolSettings
+from ..tools.base_tool import BaseTool
+from .settings import ToolSettings
 
 
 class ToolManager:
