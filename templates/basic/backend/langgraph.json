@@ -1,0 +1,13 @@
+{
+  "python_version": "3.13",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agent": "./main.py:make_graph"
+  },
+  "http": {
+    "app": "./server.py:app"
+  },
+  "env": ".env"
+}

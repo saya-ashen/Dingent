@@ -1,0 +1,111 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "Dingent"
+version = "0.1.0"
+description = "AI agent"
+readme = "README.md"
+authors = [
+    {name = "saya", email = "c3313433633@gmail.com"},
+]
+requires-python = ">=3.12, <3.14"
+
+dependencies = [
+    "toml>=0.10.2",
+    "pydantic-settings<3.0.0,>=2.4.0",
+    "jinja2>=3.1.6",
+    "ipython>=9.4.0",
+]
+
+[dependency-groups]
+backend = [
+    "copilotkit>=0.1.56",
+    "danticsql>=0.1.0",
+    "datasets<3.0.0,>=2.20.0",
+    "fastapi>=0.115.6",
+    "langchain>=0.3.23",
+    "langchain-chroma>=0.2.3",
+    "langchain-community>=0.3.21",
+    "langchain-experimental>=0.3.4",
+    "langchain-openai>=0.3.14,<1.0.0",
+    "langdetect>=1.0.9",
+    "langfuse>=3.0.8",
+    "langgraph>=0.3.31,<1.0.0",
+    "langgraph-cli[inmem]>=0.1.73",
+    "langgraph-supervisor>=0.0.27",
+    "langgraph-swarm>=0.0.12",
+    "matplotlib>=3.10.1",
+    "numpy>=2.3.0",
+    "pandas>=2.2.3",
+    "psycopg2-binary>=2.9.10",
+    "pymysql>=1.1.1",
+    "sqlglot[rs]>=26.15.0",
+    "sqlmodel>=0.0.24",
+]
+
+mcp = [
+    "fastmcp>=2.2.0",
+    "langchain-mcp-adapters>=0.0.11",
+    "mcp[cli]>=1.7.1",
+]
+
+cli = [
+    "cookiecutter>=2.6.0",
+]
+
+# 开发环境依赖，保持不变
+dev = [
+    "aiobotocore>=2.22.0",
+    "anyio>=4.9.0",
+    "basedpyright>=1.28",
+    "chromadb>=1.0.12",
+    "coverage<8.0.0,>=7.4.3",
+    "ipython>=8.32.0",
+    "langchain-google-genai>=2.1.5",
+    "line-profiler[ipython]>=4.2.0",
+    "pre-commit<4.0.0,>=3.6.2",
+    "pytest<9.0.0,>=8.4.1",
+    "pytest-asyncio>=0.26.0",
+    "pytest-mock>=3.14.1",
+    "python-dotenv>=1.1.0",
+    "ruff<1.0.0,>=0.11.3",
+    "taot>=0.2.4",
+    "ty>=0.0.1a6",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = [ "E", "W", "F", "I", "B", "C4", "UP", "ARG001" ]
+ignore = [
+    "B008", # do not perform function calls in argument defaults
+    "B904", # Allow raising exceptions without from e, for HTTPException
+]
+
+[tool.ruff.lint.pyupgrade]
+# Preserve types, even if a file imports `from __future__ import annotations`.
+keep-runtime-typing = true
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 20
+quote-style = "double"
+indent-style = "space"
+
+[tool.basedpyright]
+include = ["src/"]
+exclude = [ "**/__pycache__" ]
+defineConstant = { DEBUG = true }
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+pythonVersion = "3.13"
+pythonPlatform = "Linux"
+typeCheckingMode = "standard"
+[tool.hatch.build]
+[tool.uv]
+link-mode = "symlink"
+default-groups = "all"

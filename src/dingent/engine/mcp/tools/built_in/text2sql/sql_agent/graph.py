@@ -1,0 +1,194 @@
+from collections import defaultdict
+from typing import Any, Literal, cast
+
+from fastmcp import Context
+from langchain.chat_models.base import BaseChatModel
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableConfig
+from langdetect import detect
+from langgraph.graph import END, StateGraph
+from pydantic import BaseModel, Field
+
+from dingent.engine.mcp import Database
+from dingent.engine.mcp.prompts.prompts import COMMON_SQL_GEN_PROMPT, TRANSLATOR_PROMPT
+
+from ..handlers.base import DBRequest, Handler
+from .state import SQLState
+
+
+class SQLGeneraterResponse(BaseModel):
+    """Always use this tool to structure your response to the user."""
+
+    sql_query: str = Field(description="The generated SQL query based on the user's question.")
+
+
+class Text2SqlAgent:
+    """An agent that converts natural language to SQL queries and executes them."""
+
+    def __init__(
+        self,
+        llm: BaseChatModel,
+        db: Database,
+        language_manager,
+        sql_statement_handler: Handler,
+        sql_result_handler: Handler,
+        vectorstore=None,
+    ):
+        self.llm = llm
+        self.db = db
+        if vectorstore:
+            self.retriever = vectorstore.as_retriever(search_kwargs={"k": 50})
+        else:
+            self.retriever = None
+        self.language_manager = language_manager
+        self.sql_statement_handler = sql_statement_handler
+        self.sql_result_handler = sql_result_handler
+        self.graph = self._build_graph()
+        if self.retriever:
+            prompt_template = COMMON_SQL_GEN_PROMPT+"\n\n### Contextual Examples (for reference only):\n{similar_rows}"
+        else:
+            prompt_template = COMMON_SQL_GEN_PROMPT
+        prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", prompt_template),
+                ("placeholder", "{messages}"),
+            ]
+        )
+
+        self.query_gen_chain = prompt | self.llm.bind_tools([SQLGeneraterResponse])
+
+    def _build_graph(self):
+        """Builds the LangGraph agent."""
+        workflow = StateGraph(SQLState)
+
+        workflow.add_node("generate_sql", self._generate_sql)
+        workflow.add_node("execute_sql", self._execute_sql)
+
+        workflow.set_entry_point("generate_sql")
+        workflow.add_edge("generate_sql", "execute_sql")
+        workflow.add_conditional_edges("execute_sql", self._should_retry)
+
+        return workflow.compile()
+
+    def _should_retry(self, state: SQLState) -> Literal["generate_sql", END]:
+        """Determines whether to retry SQL generation after an execution error."""
+        last_message = state["messages"][-1]
+        # If the last message is a HumanMessage starting with "Error:", it indicates a failure.
+        if isinstance(last_message, HumanMessage) and last_message.content.startswith("Error:"):
+            return "generate_sql"
+        return END
+
+    async def _similarity_search(self, query: str) -> str:
+        """Performs similarity search to find relevant schema/data examples."""
+        if detect(query) != "en":
+            translation_prompt = TRANSLATOR_PROMPT.format(question=query)
+            translated_message = await self.llm.ainvoke(translation_prompt)
+            query = cast(str, translated_message.content)
+
+        assert self.retriever is not None
+        docs = self.retriever.invoke(query)
+        columns_data = defaultdict(list)
+        for doc in docs:
+            columns_data[doc.metadata["column"]].append(doc.page_content)
+
+        text = ""
+        for column, values in columns_data.items():
+            text += f"{column}: {','.join(values[:5])}\n"
+        return text
+
+    async def _generate_sql(self, state: SQLState, config: RunnableConfig) -> dict[str, Any]:
+        """Generates the SQL query from the user question."""
+        lang = config.get("configurable", {}).get("lang", "en-US")
+        dialect = config.get("configurable", {}).get("dialect", "mysql")
+
+        user_query = cast(str,state["messages"][-1].content)
+        tables_info = str(self.db.get_tables_info())
+        if self.retriever:
+            similar_rows = await self._similarity_search(user_query)
+        else:
+            similar_rows = ""
+
+
+        response = await self.query_gen_chain.ainvoke(
+            {
+                "messages": state["messages"],
+                "tables_info": tables_info,
+                "similar_rows": similar_rows,
+                "dialect": dialect,
+            }
+        )
+
+        tool_call_args = cast(AIMessage, response).tool_calls[0]["args"]
+        sql_query = tool_call_args.get("sql_query", "")
+
+        if not sql_query:
+            raise ValueError("LLM failed to generate a SQL query.")
+
+        # Handle the SQL statement (e.g., validation, modification)
+        try:
+            request = DBRequest(data={"query": sql_query}, metadata={"lang": lang})
+            result = await self.sql_statement_handler.ahandle(request)
+            sql_query = result.data["query"]
+        except Exception as e:
+            print(f"Error handling SQL statement: {e}")
+            return {"messages": [HumanMessage(content=f"Error: {e}")]}
+
+
+        return {"messages": [AIMessage(content=sql_query, role="ai")]}
+
+    async def _execute_sql(self, state: SQLState, config: RunnableConfig) -> dict[str, Any]:
+        """Executes the SQL query against the database."""
+        lang = config.get("configurable", {}).get("lang", "en-US")
+
+        sql_query = str(state["messages"][-1].content)
+        request: DBRequest = DBRequest(data={"query": sql_query}, metadata={"lang": lang})
+
+        try:
+            response = await self.sql_result_handler.ahandle(request)
+
+            # Message for the next step (summarization or end)
+            tool_message = HumanMessage(content=response.data["str_result"], name="db_query_tool")
+
+            return {
+                "messages": [tool_message],
+                "sql_result": response.data.get("data_to_show", {}),
+            }
+
+        except Exception as e:
+            print(f"Error executing SQL query: {e}")
+            # Error message to trigger the retry mechanism
+            error_message = HumanMessage(
+                content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}"
+            )
+            return {"messages": [error_message]}
+
+    async def arun(
+        self,
+        user_query: str,
+        lang: Literal["en-US", "zh-CN"],
+        ctx: Context | None,
+        dialect: Literal["mysql", "postgresql"] = "mysql",
+        recursion_limit: int = 15,
+    ) -> tuple[str | None, str, dict]:
+        """Runs the complete text-to-SQL process."""
+        config = {"recursion_limit": recursion_limit, "configurable": {"lang": lang, "dialect": dialect}}
+        initial_state = {"messages": [HumanMessage(content=user_query)]}
+
+        final_state = {}
+        query = ""
+        sql_result = {}
+        text_result = ""
+
+        async for chunk in self.graph.astream(initial_state, config=config, stream_mode="updates"):
+            # Process streaming output for logging or real-time updates
+            if "generate_sql" in chunk:
+                # The AIMessage with the SQL query
+                query = chunk["generate_sql"]["messages"][-1].content
+            if "execute_sql" in chunk:
+                final_state = chunk["execute_sql"]
+                sql_result = final_state.get("sql_result", {})
+                text_result = final_state["messages"][-1].content
+
+        context = f"=== Generated SQL Query ===\n{query}\n\n=== SQL Result ===\n{text_result}\n\n"
+        return None, context, sql_result

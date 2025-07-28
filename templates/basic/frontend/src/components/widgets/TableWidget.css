@@ -1,0 +1,81 @@
+/* src/components/TableWidget.css */
+
+.table-widget-container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 20px auto;
+  max-width: 95%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.table-widget-title {
+  margin: 0;
+  padding: 16px 24px;
+  font-size: 1.25rem; /* 20px */
+  font-weight: 600;
+  color: #1a202c; /* 深灰色 */
+  background-color: #f7fafc; /* 非常浅的灰色 */
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.table-wrapper {
+  overflow-x: auto; /* 当表格内容过宽时，允许水平滚动 */
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 12px 24px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0; /* 更柔和的边框颜色 */
+  vertical-align: top; /* 保证内容顶部对齐 */
+  white-space: normal; /* 允许文本自然换行 */
+  word-break: break-word;
+}
+
+th {
+  background-color: #f7fafc;
+  font-weight: 600;
+  color: #4a5568; /* 中灰色 */
+  text-transform: uppercase;
+  font-size: 0.75rem; /* 12px */
+  letter-spacing: 0.05em;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background-color: #edf2f7;
+}
+
+/* 折叠/展开按钮的样式 */
+.toggle-button {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid #cbd5e0;
+  border-radius: 12px; /* 胶囊形状 */
+  background-color: #fff;
+  color: #4299e1; /* 蓝色 */
+  cursor: pointer;
+  font-size: 0.75rem; /* 12px */
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.toggle-button:hover {
+  background-color: #ebf8ff;
+  border-color: #90cdf4;
+}
+
+.toggle-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.5);
+}

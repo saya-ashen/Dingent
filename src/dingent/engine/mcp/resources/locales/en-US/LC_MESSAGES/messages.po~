@@ -1,0 +1,203 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-06-30 16:49+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: app/schemas/ewas.py:27
+msgid "基因"
+msgstr "Gene"
+
+#: app/schemas/ewas.py:32
+msgid "基因名称"
+msgstr "Gene Name"
+
+#: app/schemas/ewas.py:37
+msgid "Ensembl_id"
+msgstr "Ensembl ID"
+
+#: app/schemas/ewas.py:47 app/schemas/ewas.py:114
+msgid "雷达图"
+msgstr "Radar Chart"
+
+#: app/schemas/ewas.py:55 app/schemas/ewas.py:160
+msgid "关联位点"
+msgstr "Related Probes"
+
+#: app/schemas/ewas.py:61 app/schemas/ewas.py:132 app/schemas/ewas.py:165
+msgid "关联性状"
+msgstr "Related Traits"
+
+#: app/schemas/ewas.py:92
+msgid "位点"
+msgstr "Probes"
+
+#: app/schemas/ewas.py:97
+msgid "Probe ID"
+msgstr "Probe ID"
+
+#: app/schemas/ewas.py:122
+msgid "关联研究"
+msgstr "Related Studies"
+
+#: app/schemas/ewas.py:128
+msgid "关联基因"
+msgstr "Related Genes"
+
+#: app/schemas/ewas.py:142
+msgid "研究"
+msgstr "Studies"
+
+#: app/schemas/ewas.py:151
+msgid "文章标题"
+msgstr "Title"
+
+#: app/schemas/ewas.py:152
+msgid "文章PMID"
+msgstr "PMID"
+
+#: app/schemas/ewas.py:154
+msgid "发布日期"
+msgstr "Publication Date"
+
+#: app/schemas/ewas.py:156
+msgid "GO标签"
+msgstr "GO Terms"
+
+#: app/schemas/ewas.py:177
+msgid "性状"
+msgstr "Traits"
+
+#: app/schemas/ewas.py:182
+msgid "Trait名称"
+msgstr "Trait Name"
+
+#: app/schemas/ewas.py:187
+msgid "Trait类型"
+msgstr "Trait Type"
+
+#: app/schemas/ewas.py:198
+msgid "研究来源"
+msgstr "Source"
+
+#: app/servers/ewas_server.py:70
+msgid "数据库检索"
+msgstr "Database Search"
+
+#: app/servers/ewas_server.py:93
+msgid "暴露/生活方式"
+msgstr "Exposure/Lifestyle"
+
+#: app/servers/ewas_server.py:97
+msgid "空气污染会显著改变哪些基因的甲基化水平？"
+msgstr ""
+"Which genes  show significant changes in methylation levels due to air "
+"pollution ?"
+
+#: app/servers/ewas_server.py:101
+msgid "不同的饮食模式（例如地中海饮食）与哪些基因位点的甲基化状态相关联？"
+msgstr ""
+"What methylation statuses at specific gene loci are associated with "
+"different dietary patterns (e.g., the Mediterranean diet)?"
+
+#: app/servers/ewas_server.py:106
+msgid "关于特定基因"
+msgstr "Specific Genes"
+
+#: app/servers/ewas_server.py:110
+msgid "GFI1基因的甲基化状态可以作为哪些疾病风险的生物标志物？"
+msgstr ""
+"The methylation status of the GFI1 gene can be a biomarker for which disease "
+"risks?"
+
+#: app/servers/ewas_server.py:114
+msgid "F2RL3基因的甲基化水平与其哪些健康结果有关？"
+msgstr ""
+"What health outcomes are related to the methylation level of the F2RL3 gene?"
+
+#: app/servers/ewas_server.py:119
+msgid "关于特定疾病"
+msgstr "Specific Diseases"
+
+#: app/servers/ewas_server.py:123
+msgid "关于Alzheimer's disease，有哪些EWAS文章报道了特异性甲基化改变？"
+msgstr ""
+"Regarding Alzheimer's disease, which EWAS articles have reported specific "
+"methylation changes?"
+
+#: app/servers/ewas_server.py:127
+msgid "有哪些EWAS研究是关于焦虑(anxiety)的？它们发现了哪些关键基因？"
+msgstr ""
+"What EWAS studies exist for anxiety, and what key genes have they identified?"
+
+#: app/utils.py:116
+msgid "生成SQL查询"
+msgstr "Generate SQL Query"
+
+#: app/utils.py:117
+msgid "正在生成SQL查询..."
+msgstr "Generating SQL query..."
+
+#: app/utils.py:127
+msgid "生成查询完成"
+msgstr "Query Generation Complete"
+
+#: app/utils.py:128
+msgid "SQL 查询已生成。"
+msgstr "SQL query has been generated."
+
+#: app/utils.py:186
+msgid "执行SQL查询"
+msgstr "Execute SQL Query"
+
+#: app/utils.py:187
+msgid "正在执行SQL..."
+msgstr "Executing SQL..."
+
+#: app/utils.py:197
+msgid "失败重试"
+msgstr "Retry on Failure"
+
+#: app/utils.py:198
+msgid "SQL查询执行失败，正在重试..."
+msgstr "SQL query execution failed, retrying..."
+
+#: app/utils.py:220
+msgid "执行完毕"
+msgstr "Execution Finished"
+
+#: app/utils.py:221
+msgid "SQL查询执行完成。"
+msgstr "SQL query execution complete."
+
+#~ msgid "长期饮酒会引起哪些基因的甲基化修饰？"
+#~ msgstr "Which genes experience changes in methylation due to smoking?"
+
+#~ msgid "在肿瘤研究中，CDKN2A（p16）基因启动子区域的甲基化通常预示着什么？"
+#~ msgstr ""
+#~ "In cancer research, what does the methylation of the promoter region of "
+#~ "the CDKN2A (p16) gene typically indicate?"
+
+#~ msgid "有哪些EWAS研究揭示了与2型糖尿病发病风险相关的甲基化位点？"
+#~ msgstr ""
+#~ "Which EWAS studies have identified methylation sites associated with the "
+#~ "risk of developing Type 2 diabetes?"
+
+#~ msgid "AHRR基因可能与哪些性状相关呢？"
+#~ msgstr "What traits may be associated with the AHRR gene?"
+
+#~ msgid "肺癌相关的EWAS研究有哪些文章？"
+#~ msgstr "What are the EWAS studies related to lung cancer?"
