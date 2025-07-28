@@ -2,4 +2,4 @@
 
 {{ cookiecutter.description }}
 
-Author: {{ cookiecutter.author_name }} <{{ cookiecutter.email }}>
+Author: {{ cookiecutter.author_name }} <{{ cookiecutter.author_name }}>
