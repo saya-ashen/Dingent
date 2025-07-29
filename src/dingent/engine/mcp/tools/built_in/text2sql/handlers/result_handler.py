@@ -39,12 +39,12 @@ class ContextBuilder(Handler):
             length = len(result)
             if length > self.max_length:
                 result = result.iloc[: self.max_length]
-                str_result = f"其中前{self.max_length}条数据的内容如下："
+                str_result = f"The content of the first {self.max_length} data entries is as follows:"
                 str_result += str(result.to_dict(orient="records"))
             elif length == 0:
-                str_result = "SQL查询结果为空。"
+                str_result = "SQL query result is empty."
             else:
-                str_result = "内容如下："
+                str_result = "Content is as follows:"
                 str_result += str(result.to_dict(orient="records"))
             request.data["str_result"] += str_result
         else:
