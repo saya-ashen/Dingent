@@ -158,19 +158,16 @@ class TestText2SqlAgent:
         self.mock_db = MagicMock(spec=Database)
         self.mock_vector_store = MagicMock()
         self.mock_retriever = MagicMock()
-        self.mock_language_manager = MagicMock()
         self.mock_sql_statement_handler = MagicMock()
         self.mock_sql_result_handler = MagicMock()
         self.mock_ctx = MagicMock()
 
         self.mock_vector_store.as_retriever.return_value = self.mock_retriever
-        self.mock_language_manager.get_translator.return_value = lambda s: s
 
         # 使用 self 将 agent 实例暴露给测试方法
         self.agent = Text2SqlAgent(
             llm=self.mock_llm,
             db=self.mock_db,
-            language_manager=self.mock_language_manager,
             sql_statement_handler=self.mock_sql_statement_handler,
             sql_result_handler=self.mock_sql_result_handler,
             vectorstore=self.mock_vector_store,
@@ -267,11 +264,9 @@ class TestText2SqlTool:
         retriever.invoke.return_value = []
         self.mock_vectorstore.as_retriever.return_value = retriever
         self.mock_resource_manager = MagicMock()
-        self.mock_language_manager = MagicMock()
         self.text2sql_tool = Text2SqlTool(
             db=mock_db,
             llm=self.mock_llm,
-            language_manager=self.mock_language_manager,
             vectorstore=self.mock_vectorstore,
             resource_manager=self.mock_resource_manager,
         )

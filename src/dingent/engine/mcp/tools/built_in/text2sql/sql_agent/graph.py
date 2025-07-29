@@ -30,7 +30,6 @@ class Text2SqlAgent:
         self,
         llm: BaseChatModel,
         db: Database,
-        language_manager,
         sql_statement_handler: Handler,
         sql_result_handler: Handler,
         vectorstore=None,
@@ -41,7 +40,6 @@ class Text2SqlAgent:
             self.retriever = vectorstore.as_retriever(search_kwargs={"k": 50})
         else:
             self.retriever = None
-        self.language_manager = language_manager
         self.sql_statement_handler = sql_statement_handler
         self.sql_result_handler = sql_result_handler
         self.graph = self._build_graph()

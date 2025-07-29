@@ -37,7 +37,6 @@ class Text2SqlTool(BaseTool):
         self,
         db: Database,
         llm: BaseChatModel,
-        language_manager,
         vectorstore: VectorStore,
         resource_manager:ResourceManager,
     ):
@@ -50,7 +49,6 @@ class Text2SqlTool(BaseTool):
             llm=llm,
             db=db,
             vectorstore=vectorstore,
-            language_manager=language_manager,
             sql_statement_handler=sql_handler,
             sql_result_handler=result_handler,
         )
