@@ -6,7 +6,8 @@ from langchain_core.vectorstores import VectorStore
 from pandas import DataFrame
 from pydantic import Field
 
-from dingent.engine.mcp import BaseTool, Database, ResourceManager, ToolOutput
+from dingent.engine.mcp import BaseTool, Database, ToolOutput
+from dingent.engine.mcp.core.resource_manager import ResourceManager
 
 from .handlers.handler_builder import ChainFactory
 from .sql_agent.graph import Text2SqlAgent
@@ -23,7 +24,7 @@ def format_sql_tool_output(sql_result: dict|DataFrame, output_type: Literal["tab
         return tool_output
     elif isinstance(sql_result,DataFrame):
         data = sql_result.to_dict(orient='split')
-        return [{"type": output_type, "payload": {"rows": data["rows"], "columns": data["columns"]}}]
+        return [{"type": output_type, "payload": {"rows": data["columns"], "columns": data["columns"]}}]
 
 
 

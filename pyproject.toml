@@ -110,5 +110,12 @@ typeCheckingMode = "standard"
 [tool.uv]
 link-mode = "symlink"
 default-groups = "all"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+]
 [project.scripts]
 dingent = "dingent.cli:cli"

@@ -1,22 +1,14 @@
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from langchain_community.chat_models.fake import FakeMessagesListChatModel
-import pytest
-from langchain_core.tools import tool
-
-from backend.core.graph import create_assistants
-from backend.core.llm_manager import LLMManager
-from backend.core.settings import AppSettings, MCPServerInfo
-import json
-from unittest.mock import patch, MagicMock, AsyncMock
-
-import pytest
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.tools import StructuredTool, tool
 
-
-from backend.core.graph import make_graph, create_assistants
-from backend.core.settings import MCPServerInfo  # Assuming this import is correct
+from dingent.engine.backend.core.graph import create_assistants, make_graph
+from dingent.engine.backend.core.llm_manager import LLMManager
+from dingent.engine.backend.core.settings import AppSettings, MCPServerInfo
 
 
 @tool
@@ -79,8 +71,8 @@ class TestAgentGraph:
         )
 
     @pytest.mark.asyncio
-    @patch("backend.core.graph.llm_manager")
-    @patch("backend.core.graph.load_mcp_tools", new_callable=AsyncMock)
+    @patch("dingent.engine.backend.core.graph.llm_manager")
+    @patch("dingent.engine.backend.core.graph.load_mcp_tools", new_callable=AsyncMock)
     async def test_create_assistants(self, mock_load_mcp_tools, mock_llm_manager):
         """
         Tests the `create_assistants` function to ensure it correctly builds assistants
@@ -115,10 +107,10 @@ class TestAgentGraph:
         assert self.mock_client.read_resource.call_count == 2
 
     @pytest.mark.asyncio
-    @patch("backend.core.graph.llm_manager", spec=LLMManager)
-    @patch("backend.core.graph.get_async_mcp_manager", autospec=True)
-    @patch("backend.core.graph.load_mcp_tools", new_callable=AsyncMock)
-    @patch("backend.core.graph.settings", spec=AppSettings)
+    @patch("dingent.engine.backend.core.graph.llm_manager", spec=LLMManager)
+    @patch("dingent.engine.backend.core.graph.get_async_mcp_manager", autospec=True)
+    @patch("dingent.engine.backend.core.graph.load_mcp_tools", new_callable=AsyncMock)
+    @patch("dingent.engine.backend.core.graph.settings", spec=AppSettings)
     async def test_full_agent_flow_with_handoff(
         self, mock_settings, mock_load_mcp_tools, mock_get_mcp_manager, mock_llm_manager
     ):
@@ -188,7 +180,7 @@ class TestAgentGraph:
                 "content": "In idog, find top diseases for Shiba Inu, then in bioka, find their biomarkers.",
             }
         ]
-        config = {"configurable": {"model_provider": "fake", "model_name": "fake", "default_route": "idog_assistant"}}
+        config = {"configurable": {"model_provider": "fake", "model_name": "fake", "default_agent": "idog"}}
 
         final_state = None
         async with make_graph(config) as graph:

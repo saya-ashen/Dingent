@@ -1,9 +1,8 @@
 
-from mcp_servers.core.db_manager import Database
+from dingent.engine.mcp.core.db_manager import Database
 
 from . import result_handler, sql_handler
 from .base import Handler
-
 
 
 class ChainFactory:

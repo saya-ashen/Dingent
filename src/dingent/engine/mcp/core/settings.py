@@ -2,7 +2,6 @@ import importlib.resources
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
 
 import toml
 from pydantic import BaseModel, Field, model_validator
@@ -123,12 +122,7 @@ def get_settings() -> AppSettings:
 
     # --- 1. 定位并加载内置的默认配置 (使用 importlib.resources) ---
     try:
-        # 'my_awesome_tool.resources' 是包含资源的包的 Python 路径
-        # .joinpath() 用于附加文件名
-        # .as_file() 是一个上下文管理器，它能确保我们得到一个真实的文件系统路径
-        # （如果资源在 zip 中，它会临时解压出来）
-        traversable = importlib.resources.files("mcp.resources").joinpath("default_settings.toml")
-        import pdb;pdb.set_trace()
+        traversable = importlib.resources.files("dingent.engine.mcp.resources").joinpath("default_settings.toml")
         with importlib.resources.as_file(traversable) as default_config_path:
             print(f"Loading built-in config from: {default_config_path}")
             base_data = toml.load(default_config_path)

@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any, Optional, TypedDict, cast
 
 from copilotkit import CopilotKitState
-from copilotkit.langgraph import CopilotKitProperties
 from fastmcp import Client
 from langchain_core.messages import AIMessage, ToolCall, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -48,7 +47,7 @@ class MainState(CopilotKitState, SwarmState):
     pass
 
 class SubgraphState(CopilotKitState,AgentState):
-    copilotkit: CopilotKitProperties
+    pass
 
 def call_actions(state, list_of_args: list[dict]):
     actions = state.get("copilotkit", {}).get("actions", [])
@@ -57,14 +56,14 @@ def call_actions(state, list_of_args: list[dict]):
         if action["name"] =="show_data":
             show_data_action = action
     if show_data_action is None:
-        raise ValueError("No action named 'show_data' found in the state.")
+        return []
     action_call_messages = []
     for args in list_of_args:
         tool_call_id = f"{uuid.uuid4()}"
         tool_call = ToolCall(
             name="show_data",
             args=args,
-            id=tool_call_id,  # 生成一个唯一的 ID
+            id=tool_call_id,
         )
         action_call_messages.append(AIMessage(content="", tool_calls=[tool_call]))
         action_call_messages.append(ToolMessage(content="show data", tool_call_id=tool_call_id))
@@ -75,7 +74,7 @@ def create_handoff_tool(*, agent_name: str, description: str | None = None):
 
     @tool(name, description=description)
     async def handoff_tool(
-        state: Annotated[SubgraphState, InjectedState],
+        state: Annotated[dict, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
         config: RunnableConfig,
     ) -> Command:
@@ -282,7 +281,7 @@ async def make_graph(config):
     model_provider = config.get("configurable", {}).get("model_provider", "openai")
     server_config = settings.mcp_servers
     model_name = config.get("configurable", {}).get("model_name", "gpt-4.1-mini")
-    default_active_agent =  config.get("configurable", {}).get("default_route") or settings.default_agent
+    default_active_agent =  config.get("configurable", {}).get("default_agent") or settings.default_agent
     async with get_async_mcp_manager(server_config, log_handler=None) as mcp:
         assistants = await create_assistants(settings.mcp_servers, mcp.active_clients, model_provider, model_name)
         assert len(assistants) > 0

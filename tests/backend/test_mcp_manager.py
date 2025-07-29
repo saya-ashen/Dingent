@@ -1,11 +1,10 @@
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastmcp import Client
 
-from backend.core.settings import MCPServerInfo
-from backend.core.mcp_manager import AsyncMCPManager, get_async_mcp_manager
+from dingent.engine.backend.core.mcp_manager import AsyncMCPManager, get_async_mcp_manager
+from dingent.engine.backend.core.settings import MCPServerInfo
 
 
 # 2. 测试类
@@ -36,7 +35,7 @@ class TestAsyncMCPManager:
         assert not manager._client_managers  # 初始时应为空
 
     @pytest.mark.asyncio
-    @patch("backend.core.mcp_manager.Client")  # 模拟 fastmcp.Client
+    @patch("dingent.engine.backend.core.mcp_manager.Client")  # 模拟 fastmcp.Client
     async def test_aenter_successful_connection(self, MockClient):
         """测试上下文进入时能否成功连接所有客户端。"""
 
@@ -60,7 +59,7 @@ class TestAsyncMCPManager:
             mock_active_client.list_tools.assert_awaited()
 
     @pytest.mark.asyncio
-    @patch("backend.core.mcp_manager.Client")
+    @patch("dingent.engine.backend.core.mcp_manager.Client")
     async def test_aenter_connection_failure(self, MockClient, capsys):
         """测试当部分客户端连接失败时的处理情况。"""
 
@@ -71,7 +70,7 @@ class TestAsyncMCPManager:
             transport = kwargs.get("transport", "")
             if "9002" in transport:  # 模拟 server2 连接失败
                 manager = AsyncMock()
-                manager.__aenter__.side_effect = asyncio.TimeoutError("Connection timed out")
+                manager.__aenter__.side_effect = TimeoutError("Connection timed out")
                 return manager
             else:  # 模拟 server1 连接成功
                 manager = AsyncMock()
@@ -93,7 +92,7 @@ class TestAsyncMCPManager:
             assert "连接到 'server2' (http://127.0.0.1:9002/mcp) 失败" in captured.out
 
     @pytest.mark.asyncio
-    @patch("backend.core.mcp_manager.Client")
+    @patch("dingent.engine.backend.core.mcp_manager.Client")
     async def test_aexit_cleans_up_resources(self, MockClient):
         """测试上下文退出时是否正确清理所有资源。"""
         mock_client_manager = MockClient.return_value

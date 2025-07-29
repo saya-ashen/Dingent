@@ -1,13 +1,11 @@
 from typing import cast, override
 
 import pandas as pd
-
-from mcp_servers.core.db_manager import Database
-from .base import DBRequest, Handler
-from mcp_servers.core.language_manager import language_manager
-from sqlmodel import SQLModel
-from mcp_servers.core.db_manager import pydantic_to_dict
 from danticsql import DanticSQL
+
+from dingent.engine.mcp.core.db_manager import Database, pydantic_to_dict
+
+from .base import DBRequest, Handler
 
 
 class ResultGetHandler(Handler):
@@ -60,8 +58,6 @@ class ResultPydanticHandler(Handler):
 
     async def ahandle(self, request: DBRequest):
         result: pd.DataFrame = request.data["result"]
-        if len(result) >0:
-            result.to_csv("result.csv", index=False)
 
         queried_columns = result.columns.to_list()
 
@@ -87,7 +83,6 @@ class ResultToShowHandler(Handler):
         lang = request.metadata.get("lang", "en-US")
         data_to_show: dict[str, dict] = {}
         queried_columns = request.metadata.get("queried_columns", [])
-        _ = language_manager.get_translator(lang)
         if isinstance(result,dict):
             for __, items in result.items():
                 if not items:
@@ -95,7 +90,7 @@ class ResultToShowHandler(Handler):
                 table_title = items[0].__table__.info.get("title")  # type: ignore
                 if not table_title:
                     continue
-                table_title = _(table_title)
+                table_title = table_title
 
                 model_fields = items[0].__class__.model_fields
                 model_computed_fields = items[0].__class__.model_computed_fields
@@ -103,7 +98,7 @@ class ResultToShowHandler(Handler):
                 all_alias = []
                 for field in all_fields.values():
                     if field.alias:
-                        all_alias.append(_(field.alias))
+                        all_alias.append(field.alias)
                 columns = []
                 parsed_item_0 = pydantic_to_dict(items[0], queried_columns, lang=lang)
 
