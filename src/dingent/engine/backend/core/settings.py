@@ -6,13 +6,6 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class LLMSettings(BaseModel):
-    name: str = "gpt-4.1-mini"
-    provider: str = "openai"
-    base_url: str = "https://www.dmxapi.cn/v1"
-    api_key: str | None = None
-
-
 class MCPServerInfo(BaseModel):
     name: str
     host: str
@@ -22,9 +15,9 @@ class MCPServerInfo(BaseModel):
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8", extra="ignore")
-    llms: list[LLMSettings] = []
     mcp_servers: list[MCPServerInfo] = []
     default_agent:str|None = None
+    llm: dict[str, str]
 
 
 

@@ -13,7 +13,7 @@ settings = get_settings()
 
 
 db_manager = DBManager(settings.databases)
-llm_manager = LLMManager(settings.llms)
+llm_manager = LLMManager()
 resource_manager = ResourceManager()
 
 
@@ -33,7 +33,7 @@ async def create_mcp_server(
     mcp = FastMCP(config.name, stateless_http=True, host=config.host, port=config.port)
 
     # 1. 设置默认依赖项
-    main_llm = llm_manager.get_llm(config.llm["provider"], config.llm["name"])
+    main_llm = llm_manager.get_llm(**config.llm)
     db = await db_manager.get_connection(config.database) if config.database else None
 
     di_container = {

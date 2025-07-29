@@ -15,7 +15,7 @@ class ToolManager:
         self._tool_classes: dict[str, type[Any]] = {}  # Use 'Any' or your BaseTool type
         self._tool_instances: dict[str, Any] = {}
 
-    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path] | None = None):
+    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path]  = []):
         """
         Loads tools specified in the settings from built-in and custom directories.
         """
@@ -25,15 +25,14 @@ class ToolManager:
         search_locations = []
         # Add built-in tools directory
         try:
-            built_in_path = importlib.resources.files("mcp_servers") / "tools" / "built_in"
+            built_in_path = importlib.resources.files("dingent.engine.mcp") / "tools" / "built_in"
             if built_in_path.is_dir():
                 search_locations.append(
-                    {"path": Path(built_in_path), "prefix": "mcp_servers.tools.built_in", "is_custom": False}
+                    {"path": Path(built_in_path), "prefix": "dingent.engine.mcp.tools.built_in", "is_custom": False}
                 )
                 print(f"-> Preparing to search built-in tools at: {built_in_path}")
         except (ModuleNotFoundError, FileNotFoundError):
             print("-> Warning: Could not find built-in tools directory.")
-
         # Add any custom tool directories
         if custom_tool_dirs:
             for directory in custom_tool_dirs:

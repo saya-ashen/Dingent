@@ -13,7 +13,6 @@ from langchain_core.messages import AIMessage, ToolCall, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
 from langchain_mcp_adapters.tools import load_mcp_tools
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt import InjectedState, create_react_agent
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langgraph.types import Command, Send
@@ -37,7 +36,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 settings = get_settings()
-llm_manager = LLMManager(settings.llms)
+llm_manager = LLMManager()
 tool_call_events_queue = Queue()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("GraphLogger")
@@ -209,13 +208,13 @@ def mcp_tool_wrapper(_tool: StructuredTool,client_name):
     return call_tool
 
 
-async def create_assistants(mcp_servers, active_clients: dict[str, Client], model_provider, model_name):
+async def create_assistants(mcp_servers, active_clients: dict[str, Client], model_config:dict[str,str]):
     """
     Creates assistants by first concurrently gathering all server details
     and then concurrently building each assistant.
     """
     # 1. Get the language model once, as it's shared by all assistants.
-    llm = llm_manager.get_llm(model_provider, model_name)
+    llm = llm_manager.get_llm(**model_config)
 
     # 2. Phase 1: Concurrently gather information for all servers.
     # This avoids fetching server_info multiple times.
@@ -274,17 +273,17 @@ class ConfigSchema(TypedDict):
     default_route: str
 
 
-checkpointer = InMemorySaver()
 
 
 @asynccontextmanager
 async def make_graph(config):
-    model_provider = config.get("configurable", {}).get("model_provider", "openai")
     server_config = settings.mcp_servers
-    model_name = config.get("configurable", {}).get("model_name", "gpt-4.1-mini")
     default_active_agent =  config.get("configurable", {}).get("default_agent") or settings.default_agent
+    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
+    if not model_config:
+        model_config = settings.llm
     async with get_async_mcp_manager(server_config, log_handler=None) as mcp:
-        assistants = await create_assistants(settings.mcp_servers, mcp.active_clients, model_provider, model_name)
+        assistants = await create_assistants(settings.mcp_servers, mcp.active_clients, model_config)
         assert len(assistants) > 0
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
@@ -301,3 +300,4 @@ async def make_graph(config):
         graph = swarm.compile()
         graph.name = "Agent"
         yield graph
+

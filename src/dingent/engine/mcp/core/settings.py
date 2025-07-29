@@ -7,8 +7,6 @@ import toml
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dingent.engine.shared.types import LLMSettings
-
 
 class ToolSettings(BaseModel):
     name: str
@@ -71,10 +69,9 @@ class DatabaseSettings(BaseModel):
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8", extra="ignore")
     databases: list[DatabaseSettings] = []
-    llms: list[LLMSettings] = []
     mcp_servers: list[MCPSettings] = []
     tools: list[ToolSettings] = []
-    custom_tools_dirs: list[Path] = Field(default=[], alias="MYAPP_CUSTOM_TOOLS_DIRS")
+    custom_tools_dirs: list[Path] = Field(default=[Path("custom_tools")], alias="MYAPP_CUSTOM_TOOLS_DIRS")
     custom_schemas_dirs: list[Path] = []
 
 
