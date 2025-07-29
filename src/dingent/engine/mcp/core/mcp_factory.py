@@ -2,7 +2,7 @@ from typing import Literal
 
 from fastmcp import Context, FastMCP
 
-from dingent.engine.core.llm_manager import LLMManager
+from dingent.engine.shared.llm_manager import LLMManager
 
 from .db_manager import DBManager
 from .resource_manager import ResourceManager
@@ -127,17 +127,3 @@ async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies
         all_mcp_servers[server_name] = mcp
 
     return all_mcp_servers
-
-def main():
-    """
-    服务的主函数。
-    它会持续运行，直到接收到关闭信号。
-    """
-    print("[Service A] Starting server...")
-    mcp = create_mcp_server(None, None)
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=8889)
-    print("[Service A] Server has shut down.")
-
-
-if __name__ == "__main__":
-    main()

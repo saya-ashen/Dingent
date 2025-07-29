@@ -22,7 +22,7 @@ from langgraph_swarm.swarm import SwarmState
 from mcp.types import TextResourceContents
 from pydantic import BaseModel, Field
 
-from dingent.engine.core.llm_manager import LLMManager
+from dingent.engine.shared.llm_manager import LLMManager
 
 from .mcp_manager import get_async_mcp_manager
 from .settings import get_settings

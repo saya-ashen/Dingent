@@ -8,7 +8,7 @@ from langchain_core.tools import StructuredTool, tool
 
 from dingent.engine.backend.core.graph import create_assistants, make_graph
 from dingent.engine.backend.core.settings import AppSettings, MCPServerInfo
-from dingent.engine.core.llm_manager import LLMManager
+from dingent.engine.shared.llm_manager import LLMManager
 
 
 @tool

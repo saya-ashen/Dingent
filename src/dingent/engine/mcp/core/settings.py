@@ -7,7 +7,7 @@ import toml
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dingent.engine.core.types import LLMSettings
+from dingent.engine.shared.types import LLMSettings
 
 
 class ToolSettings(BaseModel):
