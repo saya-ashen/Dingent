@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -6,10 +7,13 @@ import click
 from cookiecutter.exceptions import RepositoryNotFound
 from cookiecutter.main import cookiecutter
 
-REPO_URL = "https://github.com/saya-ashen/Dingent.git"
-# REPO_URL = "/home/saya/Workspace/Dingent"
+PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
+DEV_REPO_URL = "/home/saya/Workspace/Dingent"
 
 AVAILABLE_TEMPLATES = ["basic", "with-tools"]
+IS_DEV_MODE = os.getenv('DINGENT_DEV')
+
+REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
 @click.group()
 def cli():
