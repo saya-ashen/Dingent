@@ -1,0 +1,9 @@
+from pydantic import BaseModel
+
+
+class LLMSettings(BaseModel):
+    name: str
+    provider: str
+    base_url:str = "https://www.dmxapi.cn/v1"
+    api_key: str|None = None
+

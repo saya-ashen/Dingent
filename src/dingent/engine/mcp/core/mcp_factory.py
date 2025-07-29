@@ -2,8 +2,9 @@ from typing import Literal
 
 from fastmcp import Context, FastMCP
 
+from dingent.engine.core.llm_manager import LLMManager
+
 from .db_manager import DBManager
-from .llm_manager import LLMManager
 from .resource_manager import ResourceManager
 from .settings import MCPSettings, get_settings
 from .tool_manager import ToolManager

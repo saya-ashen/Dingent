@@ -7,12 +7,7 @@ import toml
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class LLMSettings(BaseModel):
-    name: str
-    provider: str
-    base_url:str = "https://www.dmxapi.cn/v1"
-    api_key: str|None = None
+from dingent.engine.core.types import LLMSettings
 
 
 class ToolSettings(BaseModel):

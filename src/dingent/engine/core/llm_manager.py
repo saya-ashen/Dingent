@@ -1,7 +1,7 @@
 from langchain.chat_models import init_chat_model
 from langchain.chat_models.base import BaseChatModel
 
-from .settings import LLMSettings
+from .types import LLMSettings
 
 
 class LLMManager:
@@ -47,7 +47,7 @@ class LLMManager:
             return self._llms[name]
 
         # 2. 检查配置是否存在
-        if name not in self._configs.keys():
+        if name not in self._configs:
             raise ValueError(f"LLM with name '{name}' not found in configuration.")
 
         # 3. 按需实例化
