@@ -25,9 +25,9 @@ export function useMessagesManager() {
     const lastLoadedThreadId = useRef<string>("");
     const lastLoadedAgentName = useRef<string>("");
     const lastLoadedMessages = useRef<string>("");
+    const titleUpdatedRef = useRef(false);
 
     useEffect(() => {
-        // 关键检查：如果 threadId 或 agentName 没有变化，则不重新获取
         if (
             !threadId ||
             !agentSession?.agentName ||
@@ -78,11 +78,11 @@ export function useMessagesManager() {
 
     }, [threadId, agentSession?.agentName, runtimeClient, setMessages]);
     useEffect(() => {
-        if (threadId !== lastLoadedThreadId.current) {
-            return;
-        }
-
-        if (!threadId || !messages || messages.length === 0) {
+        // 当我们切换到新的聊天时，需要重置标记，以便为新聊天设置标题
+        titleUpdatedRef.current = false;
+    }, [threadId]);
+    useEffect(() => {
+        if (titleUpdatedRef.current || !threadId || !messages || messages.length === 0) {
             return;
         }
 
@@ -97,10 +97,25 @@ export function useMessagesManager() {
             }
         }
     }, [messages, threadId, threads, updateThreadTitle]);
+    const widgetIdDependency = useMemo(() => {
+        const allIds = messages
+            .filter(
+                (message): message is ActionExecutionMessage =>
+                    message.type === "ActionExecutionMessage" &&
+                    message.name === "show_data" &&
+                    !!message.arguments.tool_output_ids?.length
+            )
+            .flatMap((message) => message.arguments.tool_output_ids as string[]);
+
+        // 排序以确保顺序稳定
+        const uniqueSortedIds = [...new Set(allIds)].sort();
+
+        // 转换成 JSON 字符串，这是一个稳定的原始类型值
+        return JSON.stringify(uniqueSortedIds);
+    }, [messages]);
 
     useEffect(() => {
         const fetchWidgetData = async () => {
-            // 1. Filter for the relevant messages that contain tool_output_ids. (Unchanged)
             const dataMessages = messages.filter(
                 (message): message is ActionExecutionMessage =>
                     message.type === "ActionExecutionMessage" &&
@@ -109,17 +124,14 @@ export function useMessagesManager() {
             );
 
             if (dataMessages.length === 0) {
-                setWidgets([]); // No data messages, so clear any existing widgets.
+                setWidgets([]);
                 return;
             }
 
             try {
-                // 2. Create promises that resolve to an array of widgets for each message.
                 const widgetArraysPromises = dataMessages.map(async (message) => {
                     const resourceIds = message.arguments.tool_output_ids as string[];
-
-                    // Fetch all resources, pairing each resource with its original ID.
-                    const resourcePromises = resourceIds.map(async (id) => { // Make this function async
+                    const resourcePromises = resourceIds.map(async (id) => {
                         try {
                             const res = await fetch(`/api/resource/${id}`);
                             if (!res.ok) {
@@ -127,44 +139,36 @@ export function useMessagesManager() {
                                 return null;
                             }
                             const resource = await res.json() as FetchedResource;
-                            // Return an object containing both the id and the fetched resource.
                             return { id, resource };
                         } catch (error) {
                             console.error(`Error fetching or parsing resource ${id}:`, error);
                             return null;
                         }
                     });
-
-                    // `Promise.all` will now resolve to an array of `{id, resource}` pairs or null.
                     const fetchedIdResourcePairs = (await Promise.all(resourcePromises)).filter(
-                        // Update the type guard to reflect the new structure.
                         (pair): pair is { id: string; resource: FetchedResource } => pair !== null
                     );
-
-                    // Map each pair to its own Widget object, using the preserved id.
                     return fetchedIdResourcePairs.map((pair): Widget => ({
-                        id: pair.id, // CORRECT: Use the preserved ID from the pair.
+                        id: pair.id,
                         type: pair.resource.type,
                         payload: pair.resource.payload,
                         metadata: pair.resource.metadata,
                     }));
                 });
 
-                // 4. Wait for all data to be fetched, then flatten the array of arrays.
                 const resolvedWidgetArrays = await Promise.all(widgetArraysPromises);
-                const flattenedWidgets = resolvedWidgetArrays.flat(); // Flatten [[w1, w2], [w3]] into [w1, w2, w3]
+                const flattenedWidgets = resolvedWidgetArrays.flat();
 
-                console.log("resolvedWidgets", flattenedWidgets);
                 setWidgets(flattenedWidgets);
-
             } catch (error) {
                 console.error("An error occurred while fetching widget data:", error);
-                setWidgets([]); // Clear widgets on error.
+                setWidgets([]);
             }
         };
 
         void fetchWidgetData();
-    }, [messages]);
+    }, [widgetIdDependency]);
+
 
     return { messages, widgets };
 }

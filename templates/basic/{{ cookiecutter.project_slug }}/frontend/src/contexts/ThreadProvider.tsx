@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, } from 'react';
+import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useCopilotChat } from "@copilotkit/react-core";
 import { ThreadContextType, ChatThread } from '@/types'; // Import from types file
@@ -76,7 +76,7 @@ export function useThreadManager() {
         });
 
     }, [activeThreadId, isInitializing]);
-    const updateThreadTitle = (id: string, title: string) => {
+    const updateThreadTitle = useCallback((id: string, title: string) => {
         setThreads(prevThreads => {
             const newThreads = prevThreads.map(thread =>
                 thread.id === id ? { ...thread, title } : thread
@@ -85,7 +85,7 @@ export function useThreadManager() {
             localStorage.setItem(THREAD_LIST_KEY, JSON.stringify(newThreads));
             return newThreads;
         });
-    };
+    }, []);
 
     const deleteAllThreads = () => {
         // Create a new thread to start with
