@@ -1,5 +1,7 @@
 import os
+import shutil
 import sqlite3
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,6 +16,23 @@ AVAILABLE_TEMPLATES = ["basic", "with-tools"]
 IS_DEV_MODE = os.getenv('DINGENT_DEV')
 
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
+
+
+def is_uv_installed():
+    """Checks if 'uv' is available in the system's PATH."""
+    return shutil.which('uv') is not None
+
+def get_frontend_installer():
+    """
+    Determines the available frontend package manager.
+    Prefers 'bun', falls back to 'npm'.
+    Returns a tuple: (tool_name, install_command_list) or (None, None).
+    """
+    if shutil.which('bun'):
+        return 'bun', ['bun', 'install']
+    if shutil.which('npm'):
+        return 'npm', ['npm', 'install']
+    return None, None
 
 @click.group()
 def cli():
@@ -101,14 +120,98 @@ def init(project_name, template, checkout):
                 summary_color = 'green' if error_count == 0 else 'yellow'
                 click.secho(f"\n✅ Conversion complete. {success_count} succeeded, {error_count} failed.", fg=summary_color)
 
+        # --- 步骤 3: 使用 uv sync 安装依赖 ---
+        click.secho("\n📦 Installing project dependencies with 'uv sync'...", fg='cyan')
 
-        # --- 步骤 3: 显示最终成功信息 ---
+        if not is_uv_installed():
+            click.secho("⚠️ Warning: 'uv' command not found. Skipping dependency installation.", fg='yellow')
+            click.echo("Please install uv (https://github.com/astral-sh/uv) and run 'uv sync' in the 'mcp' and 'backend' directories manually.")
+        else:
+            dirs_to_install = ['mcp', 'backend']
+            install_errors = False
+
+            for subdir_name in dirs_to_install:
+                target_dir = project_path / subdir_name
+                # 检查目标目录和 pyproject.toml 文件是否存在
+                if target_dir.is_dir() and (target_dir / 'pyproject.toml').is_file():
+                    click.echo(f"   -> Found 'pyproject.toml' in '{subdir_name}'. Running 'uv sync'...")
+
+                    try:
+                        # 在目标目录中执行 uv sync 命令
+                        result = subprocess.run(
+                            ['uv', 'sync'],
+                            cwd=str(target_dir), # 设置命令执行的工作目录
+                            capture_output=True, # 捕获标准输出和标准错误
+                            text=True,           # 以文本模式处理输出
+                            check=False          # 我们自己检查返回码，不让它自动抛出异常
+                        )
+
+                        if result.returncode == 0:
+                            click.secho(f"     ✅ Successfully installed dependencies in '{subdir_name}'.", fg='green')
+                        else:
+                            # 如果命令失败，打印错误信息
+                            install_errors = True
+                            click.secho(f"     ❌ Error installing dependencies in '{subdir_name}'.", fg='red')
+                            click.echo("     --- UV Error Output ---")
+                            click.echo(result.stderr)
+                            click.echo("     -----------------------")
+
+                    except Exception as e:
+                        install_errors = True
+                        click.secho(f"     ❌ An unexpected error occurred while running uv in '{subdir_name}': {e}", fg='red')
+                else:
+                    click.secho(f"   -> Skipping '{subdir_name}', directory or 'pyproject.toml' not found.", fg='blue')
+
+            if not install_errors:
+                 click.secho("\n✅ All dependencies installed successfully!", fg='green')
+            else:
+                 click.secho("\n⚠️  Some dependencies failed to install. Please check the errors above.", fg='yellow')
+
+        # --- 步骤 4: 安装前端依赖 (bun install 或 npm install) ---
+        click.secho("\n🌐 Installing frontend dependencies...", fg='cyan')
+
+        tool_name, install_command = get_frontend_installer()
+
+        if not tool_name:
+            click.secho("⚠️ Warning: Neither 'bun' nor 'npm' found. Skipping frontend dependency installation.", fg='yellow')
+            click.echo("   Please install Bun or Node.js and run the install command in the 'frontend' directory manually.")
+        else:
+            frontend_dir_name = 'frontend' # 假设你的前端目录名为 'frontend'
+            frontend_dir = project_path / frontend_dir_name
+
+            if frontend_dir.is_dir() and (frontend_dir / 'package.json').is_file():
+                click.echo(f"   -> Found 'package.json' in '{frontend_dir_name}'. Running '{' '.join(install_command)}'...")
+
+                try:
+                    result = subprocess.run(
+                        install_command,
+                        cwd=str(frontend_dir),
+                        capture_output=True,
+                        text=True,
+                        check=False
+                    )
+                    if result.returncode == 0:
+                        click.secho(f"     ✅ Successfully installed frontend dependencies using {tool_name}.", fg='green')
+                    else:
+                        click.secho(f"     ❌ Error installing frontend dependencies with {tool_name}.", fg='red')
+                        click.echo("     --- Installer Error Output ---")
+                        click.echo(result.stderr)
+                        click.echo("     ----------------------------")
+
+                except Exception as e:
+                    click.secho(f"     ❌ An unexpected error occurred while running {tool_name}: {e}", fg='red')
+            else:
+                 click.secho(f"   -> Skipping '{frontend_dir_name}', directory or 'package.json' not found.", fg='blue')
+        # <--- 新增前端部分结束 --->
+
+
+        # --- 步骤 5: 显示最终成功信息 ---
         final_project_name = project_path.name
         click.secho("\n✅ Project initialized successfully!", fg='green', bold=True)
         click.echo("\nNext steps:")
         click.echo(f"  1. Navigate to your new project: cd {final_project_name}")
-        click.echo("  2. Install dependencies (if any).")
-        click.echo("  3. Start building your agent!")
+        click.echo("  2. Dependencies for backend, mcp, and frontend have been installed.") # <--- 修改了这里的提示
+        click.echo("  3. Start building your amazing agent!")
 
     except RepositoryNotFound:
         click.secho(f"\n❌ Error: Repository not found at {REPO_URL}", fg='red', bold=True)
