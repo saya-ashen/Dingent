@@ -1,21 +1,16 @@
-[[llms]]
-name = "gpt-4.1"
-provider = "openai"
-[[llms]]
-name = "gpt-4.1-mini"
 provider = "openai"
 [[databases]]
 name = "bioka"
-uri = "mcp/data/bioka.db"
+uri = "sqlite:///./data/bioka.db"
 schemas_file = "schemas/bioka.py"
 [[databases]]
 name = "idog"
-uri = "mcp/data/idog.db"
+uri = "sqlite:///./data/idog.db"
 schemas_file = "schemas/idog.py"
 [[mcp_servers]]
 name = "bioka"
 llm.provider = "openai"
-llm.name = "gpt-4.1"
+llm.model = "gpt-4.1"
 database = "bioka"
 enabled_tools = ["text2sql"]
 host = "127.0.0.1"
@@ -24,7 +19,7 @@ description = "This assistant can only answer questions about the biological mar
 [[mcp_servers]]
 name = "idog"
 llm.provider = "openai"
-llm.name = "gpt-4.1"
+llm.model = "gpt-4.1"
 database = "idog"
 enabled_tools = ["text2sql"]
 host = "127.0.0.1"

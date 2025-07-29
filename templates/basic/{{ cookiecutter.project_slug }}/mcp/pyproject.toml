@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "AI agent"
 readme = "README.md"
 authors = [
-    {name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_name }}"},
+    {name = "{{ cookiecutter.author_name }}", email = "{{ cookiecutter.author_email }}"},
 ]
 requires-python = ">=3.12, <3.14"
 

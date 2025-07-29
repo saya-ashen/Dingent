@@ -7,7 +7,7 @@
     "agent": "./main.py:graph"
   },
   "http": {
-    "app": "./main.py:build_agent_api"
+    "app": "./main.py:api"
   },
   "env": ".env"
 }

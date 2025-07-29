@@ -1,10 +1,6 @@
-default_active_agent="idog"
-[[llms]]
-name = "gpt-4.1-mini"
-provider = "openai"
-[[llms]]
-name = "gpt-4.1"
-provider = "openai"
+default_agent="idog"
+llm.provider = "openai"
+llm.model = "gpt-4.1"
 [[mcp_servers]]
 name = "idog"
 host = "127.0.0.1"

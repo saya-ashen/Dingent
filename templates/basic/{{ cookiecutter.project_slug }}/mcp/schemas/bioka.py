@@ -2,7 +2,7 @@ from sqlmodel import Field, SQLModel
 
 
 class Biomarker(SQLModel, table=True):
-    __tablename__ = "overview"  # type: ignore
+    __tablename__ = "biomarker"  # type: ignore
     __table_args__ = (
         {
             "info": {

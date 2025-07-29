@@ -3,9 +3,7 @@ import urllib.parse
 from typing import cast
 
 from pydantic import computed_field, field_validator
-from sqlmodel import Field, Relationship
-
-from sqlmodel import SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class Group(str, enum.Enum):
@@ -23,7 +21,7 @@ class Group(str, enum.Enum):
 
 class BreedDiseaseAssociation(SQLModel, table=True):
     __tablename__ = "breed_associate_disease"  # type: ignore
-    breed_id: int = Field(..., primary_key=True, foreign_key="breed_view.breed_id", description="Breed unique identify")
+    breed_id: int = Field(..., primary_key=True, foreign_key="breed.breed_id", description="Breed unique identify")
     disease_id: str = Field(
         ..., primary_key=True, foreign_key="general_disease_annotate.disease_id", description="Disease unique identify"
     )
@@ -60,13 +58,7 @@ class Breed(SQLModel, table=True):
         markdown_link = f"[{v}]({urllib.parse.quote(link_pattern, safe=':/?=')})"
         return markdown_link
 
-    image: str | None = Field(None)
 
-    @computed_field(alias="图片")
-    @property
-    def add_image_link(self) -> str:
-        markdown_link = f"![{self.image}](https://ngdc.cncb.ac.cn/idog/dogph/images/breed_image_thumb/{self.image})"
-        return markdown_link
 
     breed_group: str | None = Field(None, description="breed group")
     general_appearance: str | None = Field(

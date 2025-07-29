@@ -6,6 +6,7 @@
   "version": "0.1.0",
   "description": "A basic agent created from the template.",
   "_copy_without_render": [
-    "*.tsx"
+    "*.tsx",
+    ".justfile"
   ]
 }
