@@ -11,28 +11,20 @@ requires-python = ">=3.12, <3.14"
 dependencies = [
     "toml>=0.10.2",
     "pydantic-settings<3.0.0,>=2.4.0",
-    "jinja2>=3.1.6",
-    "ipython>=9.4.0",
-    "pytest-mock>=3.14.1",
     "loguru>=0.7.3",
 ]
 dev = [
+    "ipython>=9.4.0",
+    "pytest-mock>=3.14.1",
     "aiobotocore>=2.22.0",
-    "anyio>=4.9.0",
     "basedpyright>=1.28",
-    "chromadb>=1.0.12",
     "coverage<8.0.0,>=7.4.3",
-    "ipython>=8.32.0",
-    "langchain-google-genai>=2.1.5",
-    "line-profiler[ipython]>=4.2.0",
     "pre-commit<4.0.0,>=3.6.2",
     "pytest<9.0.0,>=8.4.1",
     "pytest-asyncio>=0.26.0",
     "pytest-mock>=3.14.1",
     "python-dotenv>=1.1.0",
     "ruff<1.0.0,>=0.11.3",
-    "taot>=0.2.4",
-    "ty>=0.0.1a6",
 ]
 
 [project.optional-dependencies]

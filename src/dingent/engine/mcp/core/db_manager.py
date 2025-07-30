@@ -2,25 +2,23 @@ import enum
 import importlib
 import importlib.util
 import inspect
-import logging
 import os
 import sys
 import types
 import typing
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 import pandas as pd
 from anyio import Path
+from loguru import logger
+from sqlalchemy import inspect as table_inspect
 from sqlmodel import Session, SQLModel, create_engine, select, text
 
 from .settings import DatabaseSettings
 
-# 设置一个日志记录器，方便调试
-logger = logging.getLogger(__name__)
-
 
 def pydantic_to_dict(
-    obj: SQLModel, queried_columns: list | None = None, ignore_empty=False, lang: Literal["en-US", "zh-CN"] = "en-US"
+    obj: SQLModel, queried_columns: list | None = None, ignore_empty=False
 ) -> dict[str, Any] | None:
     """
     Converts a SQLModel object to a dictionary.
@@ -182,19 +180,37 @@ class Database:
             results = session.exec(statement)  # type: ignore
             column_names = results.keys()
             rows = results.all()
-        df = pd.DataFrame(rows, columns=column_names)
+        df = pd.DataFrame(rows, columns=column_names,dtype=object)
         return {"data": df, "metadata": {}}
 
     def _get_tables(self, schemas_path) -> list[type[SQLModel]]:
-        all_tables = find_definitions_from_file(schemas_path, base_class=SQLModel)
+        all_tables:list[type[SQLModel]] = find_definitions_from_file(schemas_path, base_class=SQLModel)
+        # Valite the tables' definition
+        for table in all_tables:
+            try:
+                inspector = table_inspect(table)
+                relationships = inspector.relationships
+            except Exception as e:
+                raise e
         return all_tables
 
     def _get_summarizer(self, schemas_path):
+        def default_summarizer(data: dict[str, list[SQLModel]])->str:
+            summary = ""
+            for table_name, instances in data.items():
+                if not instances:
+                    continue
+                instance_10 = instances[:10]
+                summary += f"Table: {table_name}\n"
+                print(instance_10)
+                summary += f"Sample Data: {', '.join(instance.model_dump_json() for instance in instance_10)}\n"
+            return summary
         try:
             summarizer = find_definitions_from_file(schemas_path, target_name="summarize_data")[0]
-        except IndexError as e:
-            print("没有找到名为 'summarize_data' 的函数。请确保在指定的 schemas_path 中定义了该函数。")
-            raise e
+        except IndexError:
+            logger.warning("没有找到名为 'summarize_data' 的函数。使用默认方法")
+            return default_summarizer
+
         assert callable(summarizer), f"Summarizer in {self.db_name} module is not callable"
         return summarizer
 
@@ -284,10 +300,10 @@ class DBManager:
             # 使用我们上面定义的 Database 包装类
             instance = Database(db_name=config.name, uri=config.uri, schemas_path=str(schemas_path))
             self._connections[name] = instance
-            logger.info(f"数据库连接 '{name}' 已创建并缓存。")
+            logger.info(f"Database connection '{name}' created and cached.")
             return instance
         except Exception as e:
-            logger.error(f"创建数据库连接 '{name}' 失败: {e}")
+            logger.error(f"Failed to create database connection '{name}': {e}")
             raise e
             # 创建失败时，不在缓存中存储任何内容
             return None

@@ -7,6 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
 from langdetect import detect
 from langgraph.graph import END, StateGraph
+from loguru import logger
 from pydantic import BaseModel, Field
 
 from dingent.engine.mcp import Database
@@ -103,6 +104,7 @@ class Text2SqlAgent:
 
         user_query = cast(str, state["messages"][-1].content)
         tables_info = str(self.db.get_tables_info())
+        logger.info(f"Generating SQL for user query: {user_query}; Tables info: {tables_info}")
         if self.retriever:
             similar_rows = await self._similarity_search(user_query)
         else:
@@ -153,11 +155,11 @@ class Text2SqlAgent:
             }
 
         except Exception as e:
-            print(f"Error executing SQL query: {e}")
-            # Error message to trigger the retry mechanism
+            logger.warning(f"Error executing SQL query: {e}. Rewriting")
             error_message = HumanMessage(
                 content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}"
             )
+            raise e
             return {"messages": [error_message]}
 
     async def arun(

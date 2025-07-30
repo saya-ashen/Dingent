@@ -1,6 +1,7 @@
 from typing import Literal
 
 from fastmcp import Context, FastMCP
+from loguru import logger
 
 from dingent.engine.shared.llm_manager import LLMManager
 
@@ -32,7 +33,7 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     main_llm = llm_manager.get_llm(**config.llm)
     db = await db_manager.get_connection(config.database) if config.database else None
 
-    di_container = {"db": db, "llm": main_llm, "resource_manager": resource_manager, "vectorstore": None}
+    di_container = {"db": db, "llm": main_llm, "resource_manager": resource_manager, "vectorstore": None,"logger":logger}
 
     # 2. 应用任何来自 extra_dependencies 的覆盖
     di_container.update(dependencies_override)

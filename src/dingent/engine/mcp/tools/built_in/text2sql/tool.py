@@ -21,8 +21,9 @@ def format_sql_tool_output(sql_result: dict | DataFrame, output_type: Literal["t
             tool_output.append(item)
         return tool_output
     elif isinstance(sql_result, DataFrame):
-        data = sql_result.to_dict(orient="split")
-        return [{"type": output_type, "payload": {"rows": data["columns"], "columns": data["columns"]}}]
+        data = sql_result.to_dict(orient="records")
+        # TODO: pydantic
+        return [{"type": output_type, "payload": {"rows": data, "columns": list(data[0].keys())}}]
 
 
 class Text2SqlTool(BaseTool):
@@ -60,6 +61,7 @@ class Text2SqlTool(BaseTool):
         _, context, sql_result = await self.agent.arun(
             user_query=question, lang=lang,  dialect=dialect, recursion_limit=15
         )
+        self.logger.info(f"SQL Result: {sql_result}")
         tool_outputs = format_sql_tool_output(sql_result)
         tool_output_ids = []
 

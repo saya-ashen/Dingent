@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
-from loguru import Logger
 from loguru import logger as _logger
+from loguru._logger import Logger
 
 from dingent.engine.mcp.core.resource_manager import ResourceManager
 

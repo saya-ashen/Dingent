@@ -1,5 +1,6 @@
 from typing import cast, override
 
+from loguru import logger
 import pandas as pd
 from danticsql import DanticSQL
 
@@ -58,6 +59,7 @@ class ResultPydanticHandler(Handler):
 
     async def ahandle(self, request: DBRequest):
         result: pd.DataFrame = request.data["result"]
+        logger.debug(f"sql query result: {result}")
 
         queried_columns = result.columns.to_list()
 
@@ -66,6 +68,7 @@ class ResultPydanticHandler(Handler):
         helper.connect_all()
 
         pydantic_results = helper.instances
+        logger.debug(f"All pydanitc instances: {len(pydantic_results)}")
         if len(pydantic_results) > 0:
             request.data["result"] = pydantic_results
         request.data["queried_columns"] = queried_columns
