@@ -59,13 +59,14 @@ class ResultPydanticHandler(Handler):
 
     async def ahandle(self, request: DBRequest):
         result: pd.DataFrame = request.data["result"]
+        cte = request.data["cte"]
         logger.debug(f"sql query result: {result}")
+        logger.debug(f"sql mapping: {cte.mapping}")
 
         queried_columns = result.columns.to_list()
 
-        helper = DanticSQL(self.db.tables, cast(list[str], queried_columns))
-        helper.pydantic_all(result)
-        helper.connect_all()
+        helper = DanticSQL(self.db.tables, cast(list[str], queried_columns),cte.mapping)
+        helper.process_df(result)
 
         pydantic_results = helper.instances
         logger.debug(f"All pydanitc instances: {len(pydantic_results)}")

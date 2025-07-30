@@ -1,5 +1,6 @@
 from langgraph.graph.message import MessagesState
 from typing import List
+from danticsql import CteGenerationResult
 
 
 class SQLState(MessagesState):
@@ -11,3 +12,4 @@ class SQLState(MessagesState):
     """
 
     sql_result: List[dict]
+    cte:  CteGenerationResult| None

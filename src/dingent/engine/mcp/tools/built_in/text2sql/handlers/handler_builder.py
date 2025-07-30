@@ -20,6 +20,7 @@ class ChainFactory:
             modifier = sql_handler.AddColumnsHandler(must_queried_columns, table.__table__.name)
             handlers.append(modifier)
         handlers.append(sql_handler.SQLBuilder())
+        handlers.append(sql_handler.SQLAddCTEHandler())
 
         return Handler.build_chain(handlers)
 
