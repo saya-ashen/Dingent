@@ -1,4 +1,3 @@
-
 from dingent.engine.mcp.core.db_manager import Database
 
 from . import result_handler, sql_handler
@@ -10,7 +9,6 @@ class ChainFactory:
         self,
     ):
         pass
-
 
     def build_sql_chain(self, db: Database) -> Handler:
         """Builds the SQL processing chain for a given database."""

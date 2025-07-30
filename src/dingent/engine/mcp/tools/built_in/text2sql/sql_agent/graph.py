@@ -1,7 +1,6 @@
 from collections import defaultdict
 from typing import Any, Literal, cast
 
-from fastmcp import Context
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -44,7 +43,9 @@ class Text2SqlAgent:
         self.sql_result_handler = sql_result_handler
         self.graph = self._build_graph()
         if self.retriever:
-            prompt_template = COMMON_SQL_GEN_PROMPT+"\n\n### Contextual Examples (for reference only):\n{similar_rows}"
+            prompt_template = (
+                COMMON_SQL_GEN_PROMPT + "\n\n### Contextual Examples (for reference only):\n{similar_rows}"
+            )
         else:
             prompt_template = COMMON_SQL_GEN_PROMPT
         prompt = ChatPromptTemplate.from_messages(
@@ -100,13 +101,12 @@ class Text2SqlAgent:
         lang = config.get("configurable", {}).get("lang", "en-US")
         dialect = config.get("configurable", {}).get("dialect", "mysql")
 
-        user_query = cast(str,state["messages"][-1].content)
+        user_query = cast(str, state["messages"][-1].content)
         tables_info = str(self.db.get_tables_info())
         if self.retriever:
             similar_rows = await self._similarity_search(user_query)
         else:
             similar_rows = ""
-
 
         response = await self.query_gen_chain.ainvoke(
             {
@@ -131,7 +131,6 @@ class Text2SqlAgent:
         except Exception as e:
             print(f"Error handling SQL statement: {e}")
             return {"messages": [HumanMessage(content=f"Error: {e}")]}
-
 
         return {"messages": [AIMessage(content=sql_query, role="ai")]}
 
@@ -165,7 +164,6 @@ class Text2SqlAgent:
         self,
         user_query: str,
         lang: Literal["en-US", "zh-CN"],
-        ctx: Context | None,
         dialect: Literal["mysql", "postgresql"] = "mysql",
         recursion_limit: int = 15,
     ) -> tuple[str | None, str, dict]:

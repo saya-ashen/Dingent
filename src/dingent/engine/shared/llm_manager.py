@@ -16,7 +16,7 @@ class LLMManager:
         # 用于缓存已实例化的LLM对象，避免重复创建
         self._llms: dict[Any, BaseChatModel] = {}
 
-    def get_llm(self,**kwargs) -> BaseChatModel:
+    def get_llm(self, **kwargs) -> BaseChatModel:
         """
         获取一个指定名称的LLM实例。
 

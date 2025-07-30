@@ -14,6 +14,7 @@ dependencies = [
     "jinja2>=3.1.6",
     "ipython>=9.4.0",
     "pytest-mock>=3.14.1",
+    "loguru>=0.7.3",
 ]
 dev = [
     "aiobotocore>=2.22.0",

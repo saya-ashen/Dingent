@@ -624,6 +624,7 @@ source = { editable = "." }
 dependencies = [
     { name = "ipython" },
     { name = "jinja2" },
+    { name = "loguru" },
     { name = "pydantic-settings" },
     { name = "pytest-mock" },
     { name = "toml" },
@@ -680,6 +681,7 @@ mcp = [
     { name = "langchain" },
     { name = "langchain-openai" },
     { name = "langdetect" },
+    { name = "langgraph" },
     { name = "mcp", extra = ["cli"] },
     { name = "pandas" },
     { name = "psycopg2-binary" },
@@ -717,8 +719,10 @@ requires-dist = [
     { name = "langchain-openai", marker = "extra == 'mcp'", specifier = ">=0.3.14,<1.0.0" },
     { name = "langdetect", marker = "extra == 'mcp'", specifier = ">=1.0.9" },
     { name = "langgraph", marker = "extra == 'backend'", specifier = ">=0.3.31,<1.0.0" },
+    { name = "langgraph", marker = "extra == 'mcp'", specifier = ">=0.3.31,<1.0.0" },
     { name = "langgraph-cli", extras = ["inmem"], marker = "extra == 'backend'", specifier = ">=0.1.73" },
     { name = "langgraph-swarm", marker = "extra == 'backend'", specifier = ">=0.0.12" },
+    { name = "loguru", specifier = ">=0.7.3" },
     { name = "mcp", extras = ["cli"], marker = "extra == 'mcp'", specifier = ">=1.7.1" },
     { name = "numpy", marker = "extra == 'backend'", specifier = ">=2.3.0" },
     { name = "pandas", marker = "extra == 'mcp'", specifier = ">=2.2.3" },
@@ -1650,6 +1654,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/46/38/0da897697ce29fb78cdaacae2d0fa3a4bc2a0abf23f84f6ecd1947f79245/langsmith-0.4.8.tar.gz", hash = "sha256:50eccb744473dd6bd3e0fe024786e2196b1f8598f8defffce7ac31113d6c140f", size = 352414, upload-time = "2025-07-18T19:36:06.082Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/19/4f/481324462c44ce21443b833ad73ee51117031d41c16fec06cddbb7495b26/langsmith-0.4.8-py3-none-any.whl", hash = "sha256:ca2f6024ab9d2cd4d091b2e5b58a5d2cb0c354a0c84fe214145a89ad450abae0", size = 367975, upload-time = "2025-07-18T19:36:04.025Z" },
+]
+
+[[package]]
+name = "loguru"
+version = "0.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c", size = 61595, upload-time = "2024-12-06T11:20:54.538Z" },
 ]
 
 [[package]]
@@ -3410,6 +3427,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/86/eb/20b6cdf273913d0ad05a6a14aed4b9a85591c18a987a3d47f20fa13dcc47/websockets-15.0.1-cp313-cp313-win32.whl", hash = "sha256:ba9e56e8ceeeedb2e080147ba85ffcd5cd0711b89576b83784d8605a7df455fa", size = 176393, upload-time = "2025-03-05T20:02:53.814Z" },
     { url = "https://files.pythonhosted.org/packages/1b/6c/c65773d6cab416a64d191d6ee8a8b1c68a09970ea6909d16965d26bfed1e/websockets-15.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561", size = 176837, upload-time = "2025-03-05T20:02:55.237Z" },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743, upload-time = "2025-03-05T20:03:39.41Z" },
+]
+
+[[package]]
+name = "win32-setctime"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
 ]
 
 [[package]]

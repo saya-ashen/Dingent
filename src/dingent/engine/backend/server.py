@@ -13,8 +13,10 @@ settings = get_settings()
 assistant_id = "agent"
 mcp_clients = get_async_mcp_manager(settings.mcp_servers)
 
+
 def build_agent_api(**kwargs) -> FastAPI:
     app = FastAPI(**kwargs)
+
     @app.get("/api/resource/{resource_id}")
     async def get_resource(resource_id: str):
         client_name = client_resource_id_map.get(resource_id)
@@ -30,5 +32,5 @@ def build_agent_api(**kwargs) -> FastAPI:
         content = json.dumps(json_data)
         content_type = "application/json"
         return Response(content=content, media_type=content_type, headers={"Cache-Control": "public, max-age=0"})
-    return app
 
+    return app

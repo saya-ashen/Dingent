@@ -2,8 +2,11 @@ import importlib
 import importlib.resources
 import inspect
 import sys
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from ..tools.base_tool import BaseTool
 from .settings import ToolSettings
@@ -15,7 +18,7 @@ class ToolManager:
         self._tool_classes: dict[str, type[Any]] = {}  # Use 'Any' or your BaseTool type
         self._tool_instances: dict[str, Any] = {}
 
-    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path]  = []):
+    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path] = []):
         """
         Loads tools specified in the settings from built-in and custom directories.
         """
@@ -76,8 +79,9 @@ class ToolManager:
                     return  # Success, stop searching for this tool
 
         # If the loop completes without returning, the tool was not found
-        print(f"-> ❌ Warning: Could not find a loadable file/directory for enabled tool '{tool_name}' in any location.")
-
+        print(
+            f"-> ❌ Warning: Could not find a loadable file/directory for enabled tool '{tool_name}' in any location."
+        )
 
     def _import_and_register(self, setting: ToolSettings, module_to_load: str, location_info: dict) -> bool:
         """
@@ -137,6 +141,36 @@ class ToolManager:
             if path_was_added and path_to_add in sys.path:
                 sys.path.remove(path_to_add)
 
+    @staticmethod
+    def _get_all_constructor_params(cls: type) -> OrderedDict[str, inspect.Parameter]:
+        """
+        Inspects a class and its entire inheritance hierarchy (MRO)
+        to collect all unique __init__ parameters.
+        """
+        all_params = OrderedDict()
+        # Iterate over the Method Resolution Order (MRO) from the class to its ancestors
+        for base_class in cls.mro():
+            # Skip the top-level 'object' class
+            if base_class is object:
+                continue
+
+            # Get the signature of the __init__ method for the current class in the hierarchy
+            try:
+                signature = inspect.signature(base_class.__init__)
+                for param in signature.parameters.values():
+                    # Filter out 'self', '*args', and '**kwargs'
+                    if param.name in ('self', 'cls') or param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+                        continue
+
+                    # Add the parameter if it hasn't been seen yet.
+                    # This ensures we get all unique dependencies from the entire chain.
+                    if param.name not in all_params:
+                        all_params[param.name] = param
+            except (ValueError, TypeError):
+                # Some built-in types might not have a retrievable signature
+                continue
+        return all_params
+
     def _get_instance(self, tool_name: str) -> Any:  # BaseTool
         # This dependency injection logic remains unchanged.
         if tool_name in self._tool_instances:
@@ -146,22 +180,29 @@ class ToolManager:
             raise ValueError(f"Tool '{tool_name}' is not registered.")
 
         tool_class = self._tool_classes[tool_name]
-        init_signature = inspect.signature(tool_class.__init__)
-        init_params = init_signature.parameters
+        init_params = self._get_all_constructor_params(tool_class)
+
+        logger.info(f"🛠️  Resolving dependencies for tool '{tool_name}': {list(init_params.keys())}")
 
         dependencies = {}
         for param_name, param in init_params.items():
             if param_name == "self":
                 continue
 
-            dependency_found = self.di_container.get(param_name,None)
+            dependency_found = self.di_container.get(param_name, None)
             if dependency_found is None:
                 dependency_found = self.di_container.get(param.annotation)
 
-            if dependency_found or param_name in self.di_container.keys() or param.annotation in self.di_container.keys():
+            if (
+                dependency_found
+                or param_name in self.di_container.keys()
+                or param.annotation in self.di_container.keys()
+            ):
                 dependencies[param_name] = dependency_found
             else:
-                raise TypeError(f"Cannot satisfy dependency '{param_name}:{param.annotation}' for tool '{tool_name}'.")
+                error_msg = f"Cannot satisfy dependency '{param_name}:{param.annotation}' for tool '{tool_name}'."
+                logger.error(error_msg)
+                raise TypeError(error_msg)
 
         instance = tool_class(**dependencies)
         self._tool_instances[tool_name] = instance

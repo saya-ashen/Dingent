@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ToolSettings(BaseModel):
     name: str
     enabled: bool = True
-    icon: str |None = None
+    icon: str | None = None
     description: str
     class_name: str | None = Field(None, alias="class")  # 使用 alias 来处理 'class' 这个 Python 关键字
     exclude_args: list[str] = []
@@ -19,13 +19,13 @@ class ToolSettings(BaseModel):
 
 class MCPSettings(BaseModel):
     name: str
-    icon: str |None = None
+    icon: str | None = None
     llm: dict[str, str]
     database: str | None = None
     enabled_tools: list[str] = []
-    description:str
-    host:str
-    port:int
+    description: str
+    host: str
+    port: int
 
 
 class DatabaseSettings(BaseModel):
@@ -67,12 +67,14 @@ class DatabaseSettings(BaseModel):
 
 
 class AppSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
     databases: list[DatabaseSettings] = []
     mcp_servers: list[MCPSettings] = []
     tools: list[ToolSettings] = []
     custom_tools_dirs: list[Path] = Field(default=[Path("custom_tools")], alias="MYAPP_CUSTOM_TOOLS_DIRS")
     custom_schemas_dirs: list[Path] = []
+    log_level: str = "INFO"
+    log_sink: str = "logs/backend.log"
 
 
 def merge_configs(base: dict, user: dict) -> dict:

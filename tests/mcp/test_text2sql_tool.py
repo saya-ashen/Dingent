@@ -14,8 +14,6 @@ from dingent.engine.mcp.tools.built_in.text2sql.tool import Text2SqlTool
 pytestmark = pytest.mark.asyncio
 
 
-
-
 class TestSqlProcessingSuite:
     """
     一个测试套件，用于封装所有与 SQL 处理链相关的测试。
@@ -225,7 +223,7 @@ class TestText2SqlAgent:
 
     @pytest.mark.asyncio
     @patch("dingent.engine.mcp.tools.built_in.text2sql.sql_agent.graph.detect", return_value="zh")
-    async def test_run_with_non_english_query(self,  mock_detect):
+    async def test_run_with_non_english_query(self, mock_detect):
         """
         测试非英语查询的流程 (Pytest 版本)。
         """
@@ -319,4 +317,3 @@ class TestText2SqlTool:
         self.mock_llm.ainvoke.assert_called_once()
         # FIXME: changed resource to resource id
         # assert result == ""
-

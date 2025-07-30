@@ -295,4 +295,3 @@ class DBManager:
     def list_available_databases(self) -> list[str]:
         """返回所有已配置的数据库名称列表。"""
         return list(self._configs.keys())
-

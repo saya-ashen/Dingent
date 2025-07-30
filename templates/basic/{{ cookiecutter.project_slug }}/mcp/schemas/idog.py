@@ -58,8 +58,6 @@ class Breed(SQLModel, table=True):
         markdown_link = f"[{v}]({urllib.parse.quote(link_pattern, safe=':/?=')})"
         return markdown_link
 
-
-
     breed_group: str | None = Field(None, description="breed group")
     general_appearance: str | None = Field(
         None,

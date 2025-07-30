@@ -41,19 +41,22 @@ tool_call_events_queue = Queue()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("GraphLogger")
 
-client_resource_id_map:dict[str,str] = {}
+client_resource_id_map: dict[str, str] = {}
+
 
 class MainState(CopilotKitState, SwarmState):
     pass
 
-class SubgraphState(CopilotKitState,AgentState):
+
+class SubgraphState(CopilotKitState, AgentState):
     pass
+
 
 def call_actions(state, list_of_args: list[dict]):
     actions = state.get("copilotkit", {}).get("actions", [])
     show_data_action = None
     for action in actions:
-        if action["name"] =="show_data":
+        if action["name"] == "show_data":
             show_data_action = action
     if show_data_action is None:
         return []
@@ -68,6 +71,7 @@ def call_actions(state, list_of_args: list[dict]):
         action_call_messages.append(AIMessage(content="", tool_calls=[tool_call]))
         action_call_messages.append(ToolMessage(content="show data", tool_call_id=tool_call_id))
     return action_call_messages
+
 
 def create_handoff_tool(*, agent_name: str, description: str | None = None):
     name = f"transfer_to_{agent_name}"
@@ -157,7 +161,7 @@ def create_dynamic_pydantic_class(
     return DynamicClass
 
 
-def mcp_tool_wrapper(_tool: StructuredTool,client_name):
+def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     """
     给从mcp服务中获取的tool添加一个wrapper，使其支持langgraph中的高级功能
     """
@@ -196,9 +200,9 @@ def mcp_tool_wrapper(_tool: StructuredTool,client_name):
         tool_output_ids = response.get("tool_output_ids", {})
         for id in tool_output_ids:
             client_resource_id_map[id] = client_name
-        action_data= {"tool_output_ids":tool_output_ids}
+        action_data = {"tool_output_ids": tool_output_ids}
         messages = [ToolMessage(context, tool_call_id=tool_call_id)]
-        messages.extend(call_actions(state,[action_data]))
+        messages.extend(call_actions(state, [action_data]))
         return Command(
             update={
                 "messages": messages,
@@ -208,7 +212,7 @@ def mcp_tool_wrapper(_tool: StructuredTool,client_name):
     return call_tool
 
 
-async def create_assistants(mcp_servers, active_clients: dict[str, Client], model_config:dict[str,str]):
+async def create_assistants(mcp_servers, active_clients: dict[str, Client], model_config: dict[str, str]):
     """
     Creates assistants by first concurrently gathering all server details
     and then concurrently building each assistant.
@@ -245,7 +249,7 @@ async def create_assistants(mcp_servers, active_clients: dict[str, Client], mode
 
         # Load and prepare tools for this specific assistant
         tools = cast(list[StructuredTool], await load_mcp_tools(client.session))
-        filtered_tools = [mcp_tool_wrapper(tool,name) for tool in tools if not tool.name.startswith("__")]
+        filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]
 
         # Prepare handoff tools for other assistants this one can route to
         transfer_tools = [
@@ -273,13 +277,13 @@ class ConfigSchema(TypedDict):
     default_route: str
 
 
-
-
 @asynccontextmanager
 async def make_graph(config):
     server_config = settings.mcp_servers
-    default_active_agent =  config.get("configurable", {}).get("default_agent") or settings.default_agent
-    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
+    default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_agent
+    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get(
+        "model_config"
+    )
     if not model_config:
         model_config = settings.llm
     async with get_async_mcp_manager(server_config, log_handler=None) as mcp:
@@ -300,4 +304,3 @@ async def make_graph(config):
         graph = swarm.compile()
         graph.name = "Agent"
         yield graph
-

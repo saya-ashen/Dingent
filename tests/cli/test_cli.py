@@ -9,7 +9,6 @@ COOKIEPATH = "dingent.cli.cookiecutter"
 
 
 class TestDingentCli:
-
     def test_init_success_flow(self, mocker, tmp_path):
         """
         测试 'init' 命令的完整成功流程。
@@ -34,9 +33,9 @@ class TestDingentCli:
         CREATE TABLE artists (ArtistId INTEGER PRIMARY KEY, Name TEXT);
         INSERT INTO artists (ArtistId, Name) VALUES (1, 'AC/DC');
         """
-        sql_file.write_text(sql_content, encoding='utf-8')
+        sql_file.write_text(sql_content, encoding="utf-8")
 
-        result = runner.invoke(cli, ['init', 'my-awesome-agent', '--template', 'basic'])
+        result = runner.invoke(cli, ["init", "my-awesome-agent", "--template", "basic"])
 
         # 3. Assert (断言)
         assert result.exit_code == 0
@@ -47,8 +46,8 @@ class TestDingentCli:
         # 验证 mock 对象是否被正确调用
         mock_cookiecutter.assert_called_once()
         call_args = mock_cookiecutter.call_args[1]
-        assert call_args['extra_context'] == {'project_slug': 'my-awesome-agent'}
-        assert call_args['directory'] == 'templates/basic'
+        assert call_args["extra_context"] == {"project_slug": "my-awesome-agent"}
+        assert call_args["directory"] == "templates/basic"
 
         # 验证数据库文件是否已创建和内容是否正确
         db_path = sql_dir / "chinook.db"
@@ -59,7 +58,7 @@ class TestDingentCli:
         cursor.execute("SELECT Name FROM artists WHERE ArtistId = 1;")
         artist_name = cursor.fetchone()[0]
         conn.close()
-        assert artist_name == 'AC/DC'
+        assert artist_name == "AC/DC"
 
     def test_init_cookiecutter_repo_not_found(self, mocker):
         """测试当 cookiecutter 找不到仓库时，是否能优雅地处理异常。"""
@@ -69,7 +68,7 @@ class TestDingentCli:
         mocker.patch(COOKIEPATH, side_effect=RepositoryNotFound("Repo not found"))
 
         # Act
-        result = runner.invoke(cli, ['init', 'any-project'])
+        result = runner.invoke(cli, ["init", "any-project"])
 
         # Assert
         assert result.exit_code == 1

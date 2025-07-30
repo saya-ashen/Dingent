@@ -32,10 +32,10 @@ class ContextBuilder(Handler):
 
     async def ahandle(self, request: DBRequest):
         result = request.data["result"]
-        if isinstance(result,dict) and self.summarizer is not None:
+        if isinstance(result, dict) and self.summarizer is not None:
             summary = self.summarizer(result)
             request.data["str_result"] += summary
-        elif isinstance(result,pd.DataFrame):
+        elif isinstance(result, pd.DataFrame):
             length = len(result)
             if length > self.max_length:
                 result = result.iloc[: self.max_length]
@@ -66,7 +66,7 @@ class ResultPydanticHandler(Handler):
         helper.connect_all()
 
         pydantic_results = helper.instances
-        if len(pydantic_results)>0:
+        if len(pydantic_results) > 0:
             request.data["result"] = pydantic_results
         request.data["queried_columns"] = queried_columns
         return await self._apass_to_next(request)
@@ -83,7 +83,7 @@ class ResultToShowHandler(Handler):
         lang = request.metadata.get("lang", "en-US")
         data_to_show: dict[str, dict] = {}
         queried_columns = request.metadata.get("queried_columns", [])
-        if isinstance(result,dict):
+        if isinstance(result, dict):
             for __, items in result.items():
                 if not items:
                     continue
@@ -115,6 +115,6 @@ class ResultToShowHandler(Handler):
                     if parsed_item:
                         data_to_show[table_title]["rows"].append(parsed_item)
             request.data["data_to_show"] = data_to_show
-        elif isinstance(result,pd.DataFrame):
+        elif isinstance(result, pd.DataFrame):
             request.data["data_to_show"] = result
         return request

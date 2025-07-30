@@ -41,6 +41,7 @@ def get_all_query_tables_and_alias(parsed):
         return tables
     return {}
 
+
 def add_column_sql(parsed, column_name: str):
     if isinstance(parsed, exp.Select):
         # 检查是否存在聚合函数

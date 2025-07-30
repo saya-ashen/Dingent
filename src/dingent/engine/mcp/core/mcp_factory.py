@@ -17,11 +17,7 @@ llm_manager = LLMManager()
 resource_manager = ResourceManager()
 
 
-async def create_mcp_server(
-    custom_tools_dirs: list,
-    config: MCPSettings,
-    dependencies_override: dict = {}
-) -> FastMCP:
+async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, dependencies_override: dict = {}) -> FastMCP:
     """
     创建一个 MCP 服务器实例。
 
@@ -36,12 +32,7 @@ async def create_mcp_server(
     main_llm = llm_manager.get_llm(**config.llm)
     db = await db_manager.get_connection(config.database) if config.database else None
 
-    di_container = {
-        "db": db,
-        "llm": main_llm,
-        "resource_manager": resource_manager,
-        "vectorstore": None
-    }
+    di_container = {"db": db, "llm": main_llm, "resource_manager": resource_manager, "vectorstore": None}
 
     # 2. 应用任何来自 extra_dependencies 的覆盖
     di_container.update(dependencies_override)
@@ -73,7 +64,7 @@ async def create_mcp_server(
         "server_id": config.name,
         "icon": config.icon,
         "tools_info": tools_info,
-        "description":config.description
+        "description": config.description,
     }
 
     @mcp.resource("info://server_info/{lang}")
@@ -82,12 +73,12 @@ async def create_mcp_server(
         return server_info
 
     @mcp.resource("resource:tool_output/{resource_id}")
-    async def get_tool_output(ctx: Context,resource_id:str):
+    async def get_tool_output(ctx: Context, resource_id: str):
         resource = resource_manager.get(resource_id)
         return resource
 
-
     return mcp
+
 
 async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies: dict = {}) -> dict[str, FastMCP]:
     """
@@ -120,9 +111,7 @@ async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies
 
         # 创建 MCP 服务器实例并传入组合后的依赖
         mcp = await create_mcp_server(
-            settings.custom_tools_dirs,
-            mcp_server_config,
-            dependencies_override=dependencies_for_this_server
+            settings.custom_tools_dirs, mcp_server_config, dependencies_override=dependencies_for_this_server
         )
         all_mcp_servers[server_name] = mcp
 
