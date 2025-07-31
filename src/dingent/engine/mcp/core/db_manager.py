@@ -1,4 +1,5 @@
 import enum
+from sqlalchemy.engine.url import make_url
 import importlib
 import importlib.util
 import inspect
@@ -10,6 +11,7 @@ from typing import Any, cast
 
 import pandas as pd
 from anyio import Path
+from danticsql import DanticSQL
 from loguru import logger
 from sqlalchemy import inspect as table_inspect
 from sqlmodel import Session, SQLModel, create_engine, select, text
@@ -17,19 +19,23 @@ from sqlmodel import Session, SQLModel, create_engine, select, text
 from .settings import DatabaseSettings
 
 
-def pydantic_to_dict(
-    obj: SQLModel, queried_columns: list | None = None, ignore_empty=False
-) -> dict[str, Any] | None:
+def pydantic_to_dict(obj: SQLModel, queried_columns: list | None = None, ignore_empty=False) -> dict[str, Any] | None:
     """
     Converts a SQLModel object to a dictionary.
     Relationship fields are converted to the main_key value(s) of the related object(s).
     """
+    logger.debug(f"input objs: {obj.model_dump(by_alias=True)}")
     fields_info = obj.__class__.model_fields
 
     fields_to_include = {field_name for field_name, field_info in fields_info.items() if field_info.alias}
     if queried_columns:
         fields_to_include = set(queried_columns) & fields_to_include
     fields_to_include = list(fields_to_include)
+
+    # add computed fields if they are not None
+    for key in obj.__class__.model_computed_fields.keys():
+        if not ignore_empty or getattr(obj, key):
+            fields_to_include.append(key)
 
     # 判断是否有有效的显示列
     has_vaild_show_column = False
@@ -39,14 +45,10 @@ def pydantic_to_dict(
             break
     if not has_vaild_show_column:
         return None
-
-    # add computed fields if they are not None
-    for key in obj.__class__.model_computed_fields.keys():
-        if not ignore_empty or getattr(obj, key):
-            fields_to_include.append(key)
     dumped_json = obj.model_dump(mode="json", by_alias=True, include=fields_to_include)
     for key in list(dumped_json.keys()):
         dumped_json[key] = dumped_json.pop(key)
+    logger.debug(f"dumped_json: {dumped_json};fields_to_include:{fields_to_include}")
     return dumped_json
 
 
@@ -160,7 +162,7 @@ def find_definitions_from_file(
 
 
 class Database:
-    def __init__(self, uri: str, db_name: str, schemas_path: str | None = None):
+    def __init__(self, uri: str, db_name: str, schemas_path: str | None = None,dialect: str|None=None):
         self.uri = uri
         self.db_name = db_name
         if schemas_path:
@@ -169,6 +171,15 @@ class Database:
         else:
             self._tables = []
         self.db = create_engine(uri)
+        self.tables_has_title = []
+        for table in self.tables:
+            if table.__table__.info.get("title") is not None:
+                self.tables_has_title.append(table)
+        self.dantic = DanticSQL(self.tables_has_title)
+        self.cte = self.dantic.cte
+        url_object = make_url(uri)
+        self.dialect = dialect or url_object.get_dialect().name
+
 
     @property
     def tables(self) -> list[type[SQLModel]]:
@@ -177,14 +188,12 @@ class Database:
     def run(self, query: str):
         with Session(self.db) as session:
             statement = text(query)
-            results = session.exec(statement)  # type: ignore
-            column_names = results.keys()
-            rows = results.all()
-        df = pd.DataFrame(rows, columns=column_names,dtype=object)
+            results = session.exec(statement).all()
+            df = pd.DataFrame(results, dtype=object)
         return {"data": df, "metadata": {}}
 
     def _get_tables(self, schemas_path) -> list[type[SQLModel]]:
-        all_tables:list[type[SQLModel]] = find_definitions_from_file(schemas_path, base_class=SQLModel)
+        all_tables: list[type[SQLModel]] = find_definitions_from_file(schemas_path, base_class=SQLModel)
         # Valite the tables' definition
         for table in all_tables:
             try:
@@ -195,7 +204,7 @@ class Database:
         return all_tables
 
     def _get_summarizer(self, schemas_path):
-        def default_summarizer(data: dict[str, list[SQLModel]])->str:
+        def default_summarizer(data: dict[str, list[SQLModel]]) -> str:
             summary = ""
             for table_name, instances in data.items():
                 if not instances:
@@ -205,6 +214,7 @@ class Database:
                 print(instance_10)
                 summary += f"Sample Data: {', '.join(instance.model_dump_json() for instance in instance_10)}\n"
             return summary
+
         try:
             summarizer = find_definitions_from_file(schemas_path, target_name="summarize_data")[0]
         except IndexError:

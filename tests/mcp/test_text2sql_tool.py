@@ -153,12 +153,14 @@ class TestText2SqlAgent:
         它将所有 mock 对象和样本数据附加到 `self`，以便在测试方法中访问。
         """
         self.mock_llm = MagicMock()
-        self.mock_db = MagicMock(spec=Database)
+        self.mock_db = MagicMock()
+        cte = MagicMock()
+        self.mock_db.cte.return_value = cte
         self.mock_vector_store = MagicMock()
         self.mock_retriever = MagicMock()
         self.mock_sql_statement_handler = MagicMock()
         self.mock_sql_result_handler = MagicMock()
-        self.mock_ctx = MagicMock()
+        self.mock_db.cte.return_value = MagicMock()
 
         self.mock_vector_store.as_retriever.return_value = self.mock_retriever
 
@@ -206,7 +208,7 @@ class TestText2SqlAgent:
 
         # --- Act ---
         # 直接 await 异步函数，不再需要 _run_async 帮助函数
-        _, context, sql_result = await self.agent.arun("Show all users", lang="en-US", ctx=self.mock_ctx)
+        _, context, sql_result = await self.agent.arun("Show all users", lang="en-US" )
 
         # --- Assert ---
         # 使用简单的 assert 语句，更易读
@@ -245,7 +247,7 @@ class TestText2SqlAgent:
         self.mock_sql_result_handler.ahandle = AsyncMock(return_value=self.SUCCESSFUL_HANDLER_RESPONSE)
 
         # --- Act ---
-        _, context, sql_result = await self.agent.arun("显示所有用户", lang="zh-CN", ctx=self.mock_ctx)
+        _, context, sql_result = await self.agent.arun("显示所有用户", lang="zh-CN" )
 
         # --- Assert ---
         self.mock_llm.ainvoke.assert_called_once()
@@ -262,6 +264,8 @@ class TestText2SqlTool:
         retriever.invoke.return_value = []
         self.mock_vectorstore.as_retriever.return_value = retriever
         self.mock_resource_manager = MagicMock()
+        cte = MagicMock()
+        mock_db.cte.return_value = cte
         self.text2sql_tool = Text2SqlTool(
             db=mock_db,
             llm=self.mock_llm,

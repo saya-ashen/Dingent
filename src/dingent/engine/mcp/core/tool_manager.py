@@ -33,7 +33,7 @@ class ToolManager:
                 search_locations.append(
                     {"path": Path(built_in_path), "prefix": "dingent.engine.mcp.tools.built_in", "is_custom": False}
                 )
-                print(f"-> Preparing to search built-in tools at: {built_in_path}")
+                logger.debug(f"-> Preparing to search built-in tools at: {built_in_path}")
         except (ModuleNotFoundError, FileNotFoundError):
             print("-> Warning: Could not find built-in tools directory.")
         # Add any custom tool directories
@@ -42,20 +42,20 @@ class ToolManager:
                 custom_path = Path(directory).resolve()
                 if custom_path.is_dir():
                     search_locations.append({"path": custom_path, "prefix": "", "is_custom": True})
-                    print(f"-> Preparing to search custom tools at: {custom_path}")
+                    logger.debug(f"-> Preparing to search custom tools at: {custom_path}")
                 else:
-                    print(f"-> Warning: Custom tool directory not found, skipping: {custom_path}")
+                    logger.debug(f"-> Warning: Custom tool directory not found, skipping: {custom_path}")
 
         # 2. Iterate through settings and load each enabled tool
         for setting in tools_settings:
             if not setting.enabled:
-                print(f"-> Tool '{setting.name}' is disabled, skipping.")
+                logger.debug(f"-> Tool '{setting.name}' is disabled, skipping.")
                 continue
 
-            print(f"-> Attempting to load tool '{setting.name}'...")
+            logger.debug(f"-> Attempting to load tool '{setting.name}'...")
             self._find_and_register_tool(setting, search_locations)
 
-        print(f"✅ Tool loading complete. {len(self._tool_classes)} total tool classes registered.")
+        logger.debug(f"✅ Tool loading complete. {len(self._tool_classes)} total tool classes registered.")
 
     def _find_and_register_tool(self, setting: ToolSettings, search_locations: list[dict]):
         """
@@ -159,7 +159,7 @@ class ToolManager:
                 signature = inspect.signature(base_class.__init__)
                 for param in signature.parameters.values():
                     # Filter out 'self', '*args', and '**kwargs'
-                    if param.name in ('self', 'cls') or param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
+                    if param.name in ("self", "cls") or param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                         continue
 
                     # Add the parameter if it hasn't been seen yet.
@@ -213,5 +213,5 @@ class ToolManager:
             instance = self._get_instance(tool_name)
             return instance.tool_run
         except (ValueError, TypeError) as e:
-            print(f"❌ Error loading tool '{tool_name}': {e}")
+            logger.error(f"❌ Error loading tool '{tool_name}': {e}")
             return None

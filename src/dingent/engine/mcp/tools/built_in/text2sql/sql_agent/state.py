@@ -12,4 +12,4 @@ class SQLState(MessagesState):
     """
 
     sql_result: List[dict]
-    cte:  CteGenerationResult| None
+    cte: CteGenerationResult | None

@@ -1,7 +1,5 @@
 import asyncio
 import json
-import logging
-import sys
 import uuid
 from asyncio import Queue
 from contextlib import asynccontextmanager
@@ -18,6 +16,7 @@ from langgraph.prebuilt.chat_agent_executor import AgentState
 from langgraph.types import Command, Send
 from langgraph_swarm import create_swarm
 from langgraph_swarm.swarm import SwarmState
+from loguru import logger
 from mcp.types import TextResourceContents
 from pydantic import BaseModel, Field
 
@@ -26,20 +25,9 @@ from dingent.engine.shared.llm_manager import LLMManager
 from .mcp_manager import get_async_mcp_manager
 from .settings import get_settings
 
-# 配置日志记录
-logging.basicConfig(
-    level=logging.INFO,  # 设置日志级别
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),  # 同时输出到控制台
-    ],
-)
-logger = logging.getLogger(__name__)
 settings = get_settings()
 llm_manager = LLMManager()
 tool_call_events_queue = Queue()
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("GraphLogger")
 
 client_resource_id_map: dict[str, str] = {}
 

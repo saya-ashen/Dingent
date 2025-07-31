@@ -1,8 +1,6 @@
+
 import sqlglot
-from typing import Type
 from sqlglot import exp
-from danticsql import generate_cte_with_mapping
-from sqlmodel import SQLModel
 
 from .base import Handler
 
@@ -90,13 +88,15 @@ class SchemaMismatchError(Exception):
         super().__init__(message)
         self.message = message
 
+
 class SQLAddCTEHandler(Handler):
-    def __init__(self):
+    def __init__(self,db):
         super().__init__()
+        self.db = db
 
     async def ahandle(self, request):
         raw_query = request.data["query"]
-        cte = request.data["cte"]
+        cte = self.db.cte
         query = f"""
         {cte.sql_string}
         {raw_query}
@@ -104,6 +104,7 @@ class SQLAddCTEHandler(Handler):
         request.data["query"] = query
         request.data["raw_query"] = raw_query
         return await self._apass_to_next(request)
+
 
 class SQLParser(Handler):
     async def ahandle(self, request):

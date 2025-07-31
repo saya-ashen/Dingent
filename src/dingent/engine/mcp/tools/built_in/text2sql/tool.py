@@ -2,7 +2,6 @@ from typing import Annotated, Literal
 
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.vectorstores import VectorStore
-from pandas import DataFrame
 from pydantic import Field
 
 from dingent.engine.mcp import BaseTool, Database, ToolOutput
@@ -11,19 +10,14 @@ from .handlers.handler_builder import ChainFactory
 from .sql_agent.graph import Text2SqlAgent
 
 
-def format_sql_tool_output(sql_result: dict | DataFrame, output_type: Literal["table"] = "table") -> list[ToolOutput]:
+def format_sql_tool_output(sql_result: dict[str, dict], output_type: Literal["table"] = "table") -> list[ToolOutput]:
     """Formats the raw SQL result into a structured tool output."""
-    if isinstance(sql_result, dict):
-        tool_output = []
-        for key, value in sql_result.items():
-            columns = list(value["rows"][0].keys())
-            item = {"type": output_type, "payload": {"rows": value["rows"], "columns": columns}}
-            tool_output.append(item)
-        return tool_output
-    elif isinstance(sql_result, DataFrame):
-        data = sql_result.to_dict(orient="records")
-        # TODO: pydantic
-        return [{"type": output_type, "payload": {"rows": data, "columns": list(data[0].keys())}}]
+    tool_output = []
+    for key, value in sql_result.items():
+        columns = list(value["rows"][0].keys())
+        item = {"type": output_type, "payload": {"rows": value["rows"], "columns": columns, "title": key}}
+        tool_output.append(item)
+    return tool_output
 
 
 class Text2SqlTool(BaseTool):
@@ -54,12 +48,11 @@ class Text2SqlTool(BaseTool):
         self,
         question: Annotated[str, Field(description="sub question of user's original question")],
         lang: Literal["en-US", "zh-CN"] = "en-US",
-        dialect: Literal["mysql", "postgresql"] = "mysql",
         tool_output=None,
     ) -> dict:
         """Use the tool."""
         _, context, sql_result = await self.agent.arun(
-            user_query=question, lang=lang,  dialect=dialect, recursion_limit=15
+            user_query=question,recursion_limit=15
         )
         self.logger.info(f"SQL Result: {sql_result}")
         tool_outputs = format_sql_tool_output(sql_result)

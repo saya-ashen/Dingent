@@ -1,12 +1,9 @@
-import logging
 import uuid
 from collections import OrderedDict
 
-from ..tools.types import ToolOutput
+from loguru import logger
 
-# Configure logger
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+from ..tools.types import ToolOutput
 
 
 class ResourceManager:

@@ -1,7 +1,6 @@
 from collections import defaultdict
 from typing import Any, Literal, cast
 
-from danticsql import generate_cte_with_mapping, transform_schema_for_llm
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
@@ -22,7 +21,6 @@ class SQLGeneraterResponse(BaseModel):
     """Always use this tool to structure your response to the user."""
 
     sql_query: str = Field(description="The generated SQL query based on the user's question.")
-
 
 
 class Text2SqlAgent:
@@ -103,12 +101,12 @@ class Text2SqlAgent:
         """Generates the SQL query from the user question."""
         lang = config.get("configurable", {}).get("lang", "en-US")
         dialect = config.get("configurable", {}).get("dialect", "mysql")
-        cte = generate_cte_with_mapping(self.db.tables)
+        cte = self.db.cte
 
         user_query = cast(str, state["messages"][-1].content)
         tables_info = self.db.get_tables_info()
         logger.debug(f"Tables schema before transform: {str(tables_info)}")
-        tables_info = transform_schema_for_llm(tables_info,cte.mapping)
+        tables_info = self.db.dantic.transform_schema_for_llm(tables_info)
         tables_info = str(tables_info)
         logger.debug(f"Tables schema after transform: {str(tables_info)}")
 
@@ -135,22 +133,22 @@ class Text2SqlAgent:
 
         # Handle the SQL statement (e.g., validation, modification)
         try:
-            request = DBRequest(data={"query": sql_query,"cte":cte}, metadata={"lang": lang})
+            request = DBRequest(data={"query": sql_query, "cte": cte}, metadata={"lang": lang})
             result = await self.sql_statement_handler.ahandle(request)
             sql_query = result.data["query"]
         except Exception as e:
             print(f"Error handling SQL statement: {e}")
             return {"messages": [HumanMessage(content=f"Error: {e}")]}
 
-        return {"messages": [AIMessage(content=sql_query, role="ai")],"cte":cte}
+        return {"messages": [AIMessage(content=sql_query, role="ai")]}
 
     async def _execute_sql(self, state: SQLState, config: RunnableConfig) -> dict[str, Any]:
         """Executes the SQL query against the database."""
         lang = config.get("configurable", {}).get("lang", "en-US")
-        cte = state.get("cte")
+        cte = self.db.cte
 
         sql_query = str(state["messages"][-1].content)
-        request: DBRequest = DBRequest(data={"query": sql_query,"cte":cte}, metadata={"lang": lang})
+        request: DBRequest = DBRequest(data={"query": sql_query, "cte": cte}, metadata={"lang": lang})
 
         try:
             response = await self.sql_result_handler.ahandle(request)
@@ -174,12 +172,11 @@ class Text2SqlAgent:
     async def arun(
         self,
         user_query: str,
-        lang: Literal["en-US", "zh-CN"],
-        dialect: Literal["mysql", "postgresql"] = "mysql",
         recursion_limit: int = 15,
     ) -> tuple[str | None, str, dict]:
         """Runs the complete text-to-SQL process."""
-        config = {"recursion_limit": recursion_limit, "configurable": {"lang": lang, "dialect": dialect}}
+        dialect = self.db.dialect
+        config = {"recursion_limit": recursion_limit, "configurable": {"dialect": dialect}}
         initial_state = {"messages": [HumanMessage(content=user_query)]}
 
         final_state = {}

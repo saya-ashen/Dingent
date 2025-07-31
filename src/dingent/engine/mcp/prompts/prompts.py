@@ -29,6 +29,7 @@ COMMON_SQL_GEN_PROMPT = """You are an expert {dialect} data analyst. Your sole t
 2.  **Query Constraints**:
     - The generated query MUST only contain English characters.
     - **Do not use the `DISTINCT` keyword.** The calling application handles deduplication.
+    - Whenever you query columns from a table, you MUST also include its primary key in the SELECT list. This is crucial for subsequent processing.
     - You may order the results by the most relevant columns to provide a more meaningful output.
 3.  **Output Format**: Your entire response must be ONLY the SQL query. Do not include any explanations, comments, or other conversational text.
 

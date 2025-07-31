@@ -12,6 +12,7 @@ dependencies = [
     "toml>=0.10.2",
     "pydantic-settings<3.0.0,>=2.4.0",
     "loguru>=0.7.3",
+    "danticsql",
 ]
 dev = [
     "ipython>=9.4.0",
@@ -107,8 +108,12 @@ typeCheckingMode = "standard"
 link-mode = "symlink"
 default-groups = "all"
 
+[tool.uv.sources]
+danticsql = { path = "../DanticSQL", editable = true }
+
 [dependency-groups]
 dev = [
+    "ipython>=9.4.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",

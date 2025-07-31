@@ -1,8 +1,7 @@
 from typing import cast, override
 
-from loguru import logger
 import pandas as pd
-from danticsql import DanticSQL
+from loguru import logger
 
 from dingent.engine.mcp.core.db_manager import Database, pydantic_to_dict
 
@@ -59,19 +58,14 @@ class ResultPydanticHandler(Handler):
 
     async def ahandle(self, request: DBRequest):
         result: pd.DataFrame = request.data["result"]
-        cte = request.data["cte"]
         logger.debug(f"sql query result: {result}")
-        logger.debug(f"sql mapping: {cte.mapping}")
+        logger.debug(f"self.db.dantic: {self.db.dantic}")
+        logger.debug(f"self.db.dantic.cte: {self.db.dantic.cte}")
+        pydantic_results = self.db.dantic.process_df(result)
+        logger.debug(f"pydantic_results: {pydantic_results}")
 
+        request.data["result"] = pydantic_results
         queried_columns = result.columns.to_list()
-
-        helper = DanticSQL(self.db.tables, cast(list[str], queried_columns),cte.mapping)
-        helper.process_df(result)
-
-        pydantic_results = helper.instances
-        logger.debug(f"All pydanitc instances: {len(pydantic_results)}")
-        if len(pydantic_results) > 0:
-            request.data["result"] = pydantic_results
         request.data["queried_columns"] = queried_columns
         return await self._apass_to_next(request)
 
@@ -84,41 +78,37 @@ class ResultToShowHandler(Handler):
     @override
     async def ahandle(self, request: DBRequest) -> DBRequest:
         result = request.data["result"]
-        lang = request.metadata.get("lang", "en-US")
         data_to_show: dict[str, dict] = {}
         queried_columns = request.metadata.get("queried_columns", [])
-        if isinstance(result, dict):
-            for __, items in result.items():
-                if not items:
-                    continue
-                table_title = items[0].__table__.info.get("title")  # type: ignore
-                if not table_title:
-                    continue
-                table_title = table_title
+        for __, items in result.items():
+            if not items:
+                continue
+            table_title = items[0].__table__.info.get("title")  # type: ignore
+            if not table_title:
+                continue
+            table_title = table_title
 
-                model_fields = items[0].__class__.model_fields
-                model_computed_fields = items[0].__class__.model_computed_fields
-                all_fields = model_fields | model_computed_fields
-                all_alias = []
-                for field in all_fields.values():
-                    if field.alias:
-                        all_alias.append(field.alias)
-                columns = []
-                parsed_item_0 = pydantic_to_dict(items[0], queried_columns, lang=lang)
+            model_fields = items[0].__class__.model_fields
+            model_computed_fields = items[0].__class__.model_computed_fields
+            all_fields = model_fields | model_computed_fields
+            all_alias = []
+            for field in all_fields.values():
+                if field.alias:
+                    all_alias.append(field.alias)
+            columns = []
+            parsed_item_0 = pydantic_to_dict(items[0], queried_columns)
 
-                if not parsed_item_0:
-                    continue
-                for field in all_alias:
-                    if field in parsed_item_0.keys():
-                        columns.append(field)
+            if not parsed_item_0:
+                continue
+            for field in all_alias:
+                if field in parsed_item_0.keys():
+                    columns.append(field)
 
-                data_to_show[table_title] = {"rows": [], "columns": columns}
+            data_to_show[table_title] = {"rows": [], "columns": columns}
 
-                for item in items:
-                    parsed_item = pydantic_to_dict(item, queried_columns, ignore_empty=True, lang=lang)
-                    if parsed_item:
-                        data_to_show[table_title]["rows"].append(parsed_item)
-            request.data["data_to_show"] = data_to_show
-        elif isinstance(result, pd.DataFrame):
-            request.data["data_to_show"] = result
+            for item in items:
+                parsed_item = pydantic_to_dict(item, queried_columns, ignore_empty=True)
+                if parsed_item:
+                    data_to_show[table_title]["rows"].append(parsed_item)
+        request.data["data_to_show"] = data_to_show
         return request

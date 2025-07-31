@@ -584,15 +584,25 @@ wheels = [
 [[package]]
 name = "danticsql"
 version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "../DanticSQL" }
 dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "sqlmodel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/7a/05021ee480332b6c303a26e5371eb2af5de6e68b8a169b30959ea00be688/danticsql-0.1.0.tar.gz", hash = "sha256:fdfc603aadbe44933ccf164f2c11d27c747e259d812ca219cb69ae4927b03cb3", size = 53186, upload-time = "2025-07-08T02:48:36.406Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/62/eaa24afd448664ea1ee8a508286e192790b83a58b354dd6478f95652ff63/danticsql-0.1.0-py3-none-any.whl", hash = "sha256:09b5008189817d8fede7315506d72749102a3040737cfcc59f8b2e8bd73600ee", size = 10215, upload-time = "2025-07-08T02:48:35.053Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "pandas", specifier = ">=2.3.0" },
+    { name = "pydantic", specifier = ">=2.11.7" },
+    { name = "sqlmodel", specifier = ">=0.0.24" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipython", specifier = ">=9.1.0" },
+    { name = "pytest", specifier = ">=8.4.1" },
+    { name = "twine", specifier = ">=6.1.0" },
 ]
 
 [[package]]
@@ -622,11 +632,9 @@ name = "dingent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ipython" },
-    { name = "jinja2" },
+    { name = "danticsql" },
     { name = "loguru" },
     { name = "pydantic-settings" },
-    { name = "pytest-mock" },
     { name = "toml" },
 ]
 
@@ -692,6 +700,7 @@ mcp = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ipython" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -702,13 +711,12 @@ requires-dist = [
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.2.1" },
     { name = "cookiecutter", marker = "extra == 'cli'", specifier = ">=2.6.0" },
     { name = "copilotkit", marker = "extra == 'backend'", specifier = ">=0.1.56" },
-    { name = "danticsql", marker = "extra == 'mcp'", specifier = ">=0.1.0" },
+    { name = "danticsql", editable = "../DanticSQL" },
+    { name = "danticsql", marker = "extra == 'mcp'", editable = "../DanticSQL" },
     { name = "dingent", extras = ["backend", "mcp", "cli"], marker = "extra == 'full'" },
     { name = "fastapi", marker = "extra == 'backend'", specifier = ">=0.115.6" },
     { name = "fastmcp", marker = "extra == 'backend'", specifier = ">=2.2.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.2.0" },
-    { name = "ipython", specifier = ">=9.4.0" },
-    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "langchain", marker = "extra == 'backend'", specifier = ">=0.3.23" },
     { name = "langchain", marker = "extra == 'mcp'", specifier = ">=0.3.23" },
     { name = "langchain-chroma", marker = "extra == 'backend'", specifier = ">=0.2.3" },
@@ -729,7 +737,6 @@ requires-dist = [
     { name = "psycopg2-binary", marker = "extra == 'mcp'", specifier = ">=2.9.10" },
     { name = "pydantic-settings", specifier = ">=2.4.0,<3.0.0" },
     { name = "pymysql", marker = "extra == 'mcp'", specifier = ">=1.1.1" },
-    { name = "pytest-mock", specifier = ">=3.14.1" },
     { name = "sqlglot", extras = ["rs"], marker = "extra == 'mcp'", specifier = ">=26.15.0" },
     { name = "sqlmodel", marker = "extra == 'mcp'", specifier = ">=0.0.24" },
     { name = "toml", specifier = ">=0.10.2" },
@@ -738,6 +745,7 @@ provides-extras = ["backend", "mcp", "cli", "full"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ipython", specifier = ">=9.4.0" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=1.1.0" },
     { name = "pytest-cov", specifier = ">=6.2.1" },
@@ -2652,18 +2660,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/18/99/668cade231f434aaa59bbfbf49469068d2ddd945000621d3d165d2e7dd7b/pytest_cov-6.2.1.tar.gz", hash = "sha256:25cc6cc0a5358204b8108ecedc51a9b57b34cc6b8c967cc2c01a4e00d8a67da2", size = 69432, upload-time = "2025-06-12T10:47:47.684Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/16/4ea354101abb1287856baa4af2732be351c7bee728065aed451b678153fd/pytest_cov-6.2.1-py3-none-any.whl", hash = "sha256:f5bc4c23f42f1cdd23c70b1dab1bbaef4fc505ba950d53e0081d0730dd7e86d5", size = 24644, upload-time = "2025-06-12T10:47:45.932Z" },
-]
-
-[[package]]
-name = "pytest-mock"
-version = "3.14.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pytest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/71/28/67172c96ba684058a4d24ffe144d64783d2a270d0af0d9e792737bddc75c/pytest_mock-3.14.1.tar.gz", hash = "sha256:159e9edac4c451ce77a5cdb9fc5d1100708d2dd4ba3c3df572f14097351af80e", size = 33241, upload-time = "2025-05-26T13:58:45.167Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/05/77b60e520511c53d1c1ca75f1930c7dd8e971d0c4379b7f4b3f9644685ba/pytest_mock-3.14.1-py3-none-any.whl", hash = "sha256:178aefcd11307d874b4cd3100344e7e2d888d9791a6a1d9bfe90fbc1b74fd1d0", size = 9923, upload-time = "2025-05-26T13:58:43.487Z" },
 ]
 
 [[package]]

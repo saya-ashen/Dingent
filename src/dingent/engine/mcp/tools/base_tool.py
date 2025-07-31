@@ -23,5 +23,5 @@ class BaseTool(ABC):
         assert resource_manager is not None
 
     @abstractmethod
-    async def tool_run(self, *args,**kwargs)-> dict:
+    async def tool_run(self, *args, **kwargs) -> dict:
         pass

@@ -95,8 +95,7 @@ class TestAgentGraph:
         assistants = await create_assistants(
             mcp_servers,
             {"bioka": self.mock_client, "idog": self.mock_client},
-            "openai",
-            "gpt-4.1-mini",
+            {"model":"gpt-4.1","provider":"openai"}
         )
 
         # --- Assertion ---
