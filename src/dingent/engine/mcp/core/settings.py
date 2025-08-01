@@ -32,7 +32,7 @@ class DatabaseSettings(BaseModel):
     name: str
     uri: str = ""
     uri_env: str = ""
-    schemas_file: str
+    schemas_file: str|None = None
     type: str | None = None
 
     @model_validator(mode="after")

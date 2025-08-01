@@ -87,16 +87,17 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     return mcp
 
 
-async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies: dict = {}) -> dict[str, FastMCP]:
+async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies: dict = {}) -> dict[str, 'FastMCP']:
     """
-    创建所有 MCP 服务器实例。
+    Creates all MCP server instances.
 
     Args:
-        server_names (list[str]): 可选的服务器名称列表。如果提供，则只创建这些名称对应的服务器。
-        extra_dependencies (dict[str, Any]): 可选的额外依赖项字典。
-            支持的形式：
-            - 全局依赖: {"db": db_instance} 将会传递给所有 server。
-            - 特定 server 依赖: {"server_name_1": {"llm": llm_instance}} 只会传递给 `server_name_1`。
+        server_names (list[str]): An optional list of server names. If provided, only servers
+                                  with these names will be created.
+        extra_dependencies (dict): An optional dictionary for extra dependencies.
+                                   Supported formats:
+                                   - Global dependency: {"db": db_instance} will be passed to all servers.
+                                   - Server-specific dependency: {"server_name_1": {"llm": llm_instance}} will only be passed to `server_name_1`.
     """
     mcp_server_settings = settings.mcp_servers
     all_mcp_servers = {}

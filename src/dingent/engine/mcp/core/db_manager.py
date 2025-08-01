@@ -18,39 +18,6 @@ from sqlmodel import Session, SQLModel, create_engine, select, text
 from .settings import DatabaseSettings
 
 
-def pydantic_to_dict(obj: SQLModel, queried_columns: list | None = None, ignore_empty=False) -> dict[str, Any] | None:
-    """
-    Converts a SQLModel object to a dictionary.
-    Relationship fields are converted to the main_key value(s) of the related object(s).
-    """
-    logger.debug(f"input objs: {obj.model_dump(by_alias=True)}")
-    fields_info = obj.__class__.model_fields
-
-    fields_to_include = {field_name for field_name, field_info in fields_info.items() if field_info.alias}
-    if queried_columns:
-        fields_to_include = set(queried_columns) & fields_to_include
-    fields_to_include = list(fields_to_include)
-
-    # add computed fields if they are not None
-    for key in obj.__class__.model_computed_fields.keys():
-        if not ignore_empty or getattr(obj, key):
-            fields_to_include.append(key)
-
-    # 判断是否有有效的显示列
-    has_vaild_show_column = False
-    for field_name in fields_to_include:
-        if getattr(obj, field_name) is not None:
-            has_vaild_show_column = True
-            break
-    if not has_vaild_show_column:
-        return None
-    dumped_json = obj.model_dump(mode="json", by_alias=True, include=fields_to_include)
-    for key in list(dumped_json.keys()):
-        dumped_json[key] = dumped_json.pop(key)
-    logger.debug(f"dumped_json: {dumped_json};fields_to_include:{fields_to_include}")
-    return dumped_json
-
-
 def is_enum_field_flexible(model: type[SQLModel], field_name: str) -> tuple[bool, list | None]:
     """
     Checks if a field in a SQLModel is an Enum (including within Union/Optional)
@@ -164,9 +131,9 @@ class Database:
     def __init__(self, uri: str, db_name: str, schemas_path: str | None = None,dialect: str|None=None):
         self.uri = uri
         self.db_name = db_name
+        self.summarizer = self._get_summarizer(schemas_path)
         if schemas_path:
             self._tables = self._get_tables(schemas_path)
-            self.summarizer = self._get_summarizer(schemas_path)
         else:
             self._tables = []
         self.db = create_engine(uri)
@@ -206,6 +173,9 @@ class Database:
                 summary += f"Table: {table_name}\n"
                 summary += f"Sample Data: {', '.join(str(instance) for instance in instance_10)}\n"
             return summary
+
+        if not schemas_path:
+            return default_summarizer
 
         try:
             summarizer = find_definitions_from_file(schemas_path, target_name="summarize_data")[0]
@@ -252,6 +222,8 @@ class Database:
         return all_data
 
     def get_tables_info(self):
+        if not self.tables:
+            return
         tables_info = {}
         for table in self.tables:
             tables_info[table.__tablename__] = self._describe(table)
@@ -298,9 +270,11 @@ class DBManager:
         schemas_relative_path = config.schemas_file
 
         try:
-            schemas_path = await Path(schemas_relative_path).resolve()
-            # 使用我们上面定义的 Database 包装类
-            instance = Database(db_name=config.name, uri=config.uri, schemas_path=str(schemas_path))
+            if schemas_relative_path:
+                schemas_path = await Path(schemas_relative_path).resolve()
+                instance = Database(db_name=config.name, uri=config.uri, schemas_path=str(schemas_path))
+            else:
+                instance = Database(db_name=config.name, uri=config.uri)
             self._connections[name] = instance
             logger.info(f"Database connection '{name}' created and cached.")
             return instance

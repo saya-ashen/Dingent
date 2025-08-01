@@ -2,6 +2,8 @@ from collections import defaultdict
 from typing import Any, Literal, cast
 
 from langchain.chat_models.base import BaseChatModel
+from langchain_community.agent_toolkits import SQLDatabaseToolkit
+from langchain_community.utilities import SQLDatabase
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
@@ -94,6 +96,21 @@ class Text2SqlAgent:
 
         user_query = cast(str, state["messages"][-1].content)
         tables_info = self.db.get_tables_info()
+        if not tables_info:
+
+            toolkit = SQLDatabaseToolkit(db=SQLDatabase(self.db.db), llm=self.llm)
+            tools = toolkit.get_tools()
+            sql_db_list_tables = None
+            sql_db_schema = None
+            for tool in tools:
+                if tool.name == "sql_db_schema":
+                    sql_db_schema = tool
+                elif tool.name == "sql_db_list_tables":
+                    sql_db_list_tables = tool
+            assert sql_db_list_tables is not None and sql_db_schema is not None, "SQL Database tools are not available."
+            tables = sql_db_list_tables.run("")
+            tables_info = sql_db_schema.run(tables)
+
         tables_info = str(tables_info)
 
         logger.debug(f"Generating SQL for user query: {user_query}; Tables info: {tables_info}")
