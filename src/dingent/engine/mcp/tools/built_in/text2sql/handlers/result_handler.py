@@ -1,10 +1,8 @@
-from typing import cast, override
-
 import pandas as pd
-from loguru import logger
 
-from dingent.engine.mcp.core.db_manager import Database, pydantic_to_dict
+from dingent.engine.mcp.core.db_manager import Database
 
+from ..types import Group
 from .base import DBRequest, Handler
 
 
@@ -18,7 +16,7 @@ class ResultGetHandler(Handler):
         raw_result = self.db.run(query)
         request.data["result"] = raw_result["data"]
         request.data["str_result"] = ""
-        request.data["data_to_show"] = {}
+
         request.data["total_items"] = raw_result.get("metadata", {}).get("total_items")
 
         return await self._apass_to_next(request)
@@ -52,63 +50,49 @@ class ContextBuilder(Handler):
         return await self._apass_to_next(request)
 
 
-class ResultPydanticHandler(Handler):
-    def __init__(self, db):
-        self.db = db
+class ResultStructureHandler(Handler):
+    def __init__(self):
+        pass
 
     async def ahandle(self, request: DBRequest):
-        result: pd.DataFrame = request.data["result"]
-        logger.debug(f"sql query result: {result}")
-        logger.debug(f"self.db.dantic: {self.db.dantic}")
-        logger.debug(f"self.db.dantic.cte: {self.db.dantic.cte}")
-        pydantic_results = self.db.dantic.process_df(result)
-        logger.debug(f"pydantic_results: {pydantic_results}")
+        source_df: pd.DataFrame = request.data["result"]
+        grouping_schema:list[Group]|None = request.data.get("result_grouping")
 
-        request.data["result"] = pydantic_results
-        queried_columns = result.columns.to_list()
-        request.data["queried_columns"] = queried_columns
+        # 遍历分组规则
+        if not grouping_schema:
+            print("信息: 未找到分组规则，启用默认分组 'main_result'。")
+            # 将整个DataFrame去重
+            deduplicated_df = source_df.drop_duplicates().reset_index(drop=True)
+            # 构造成最终的输出格式
+            request.data["result"] = {
+                "main_result": deduplicated_df.to_dict(orient='records')
+            }
+            return await self._apass_to_next(request)
+
+        final_result_data = {}
+
+        # --- 主要分组逻辑 ---
+        for group in grouping_schema:
+            group_name, columns_in_group = group.primary_entity_name,group.columns
+            # 筛选出在DataFrame中实际存在的列，防止模型幻化出不存在的列名
+            existing_columns = [col for col in columns_in_group if col in source_df.columns]
+
+            if not existing_columns:
+                print(f"警告: 分组 '{group_name}' 中定义的所有列都不在DataFrame中，已跳过。")
+                continue
+
+            # 1. 选择子集: 根据分组规则选择DataFrame的列
+            group_df = source_df[existing_columns]
+
+            # 2. 去重: 使用pandas内置的高效方法
+            deduplicated_df = group_df.drop_duplicates().reset_index(drop=True)
+
+            # 3. 转换为字典列表并存入最终结果
+            final_result_data[group_name] = deduplicated_df.to_dict(orient='records')
+
+
+
+        request.data["result"] = final_result_data
         return await self._apass_to_next(request)
 
 
-class ResultToShowHandler(Handler):
-    def __init__(self, db: Database):
-        super().__init__()
-        self.db = db
-
-    @override
-    async def ahandle(self, request: DBRequest) -> DBRequest:
-        result = request.data["result"]
-        data_to_show: dict[str, dict] = {}
-        queried_columns = request.metadata.get("queried_columns", [])
-        for __, items in result.items():
-            if not items:
-                continue
-            table_title = items[0].__table__.info.get("title")  # type: ignore
-            if not table_title:
-                continue
-            table_title = table_title
-
-            model_fields = items[0].__class__.model_fields
-            model_computed_fields = items[0].__class__.model_computed_fields
-            all_fields = model_fields | model_computed_fields
-            all_alias = []
-            for field in all_fields.values():
-                if field.alias:
-                    all_alias.append(field.alias)
-            columns = []
-            parsed_item_0 = pydantic_to_dict(items[0], queried_columns)
-
-            if not parsed_item_0:
-                continue
-            for field in all_alias:
-                if field in parsed_item_0.keys():
-                    columns.append(field)
-
-            data_to_show[table_title] = {"rows": [], "columns": columns}
-
-            for item in items:
-                parsed_item = pydantic_to_dict(item, queried_columns, ignore_empty=True)
-                if parsed_item:
-                    data_to_show[table_title]["rows"].append(parsed_item)
-        request.data["data_to_show"] = data_to_show
-        return request

@@ -1,5 +1,4 @@
 import enum
-from sqlalchemy.engine.url import make_url
 import importlib
 import importlib.util
 import inspect
@@ -11,9 +10,9 @@ from typing import Any, cast
 
 import pandas as pd
 from anyio import Path
-from danticsql import DanticSQL
 from loguru import logger
 from sqlalchemy import inspect as table_inspect
+from sqlalchemy.engine.url import make_url
 from sqlmodel import Session, SQLModel, create_engine, select, text
 
 from .settings import DatabaseSettings
@@ -171,12 +170,6 @@ class Database:
         else:
             self._tables = []
         self.db = create_engine(uri)
-        self.tables_has_title = []
-        for table in self.tables:
-            if table.__table__.info.get("title") is not None:
-                self.tables_has_title.append(table)
-        self.dantic = DanticSQL(self.tables_has_title)
-        self.cte = self.dantic.cte
         url_object = make_url(uri)
         self.dialect = dialect or url_object.get_dialect().name
 
@@ -204,15 +197,14 @@ class Database:
         return all_tables
 
     def _get_summarizer(self, schemas_path):
-        def default_summarizer(data: dict[str, list[SQLModel]]) -> str:
+        def default_summarizer(data: dict[str, list[dict]]) -> str:
             summary = ""
             for table_name, instances in data.items():
                 if not instances:
                     continue
                 instance_10 = instances[:10]
                 summary += f"Table: {table_name}\n"
-                print(instance_10)
-                summary += f"Sample Data: {', '.join(instance.model_dump_json() for instance in instance_10)}\n"
+                summary += f"Sample Data: {', '.join(str(instance) for instance in instance_10)}\n"
             return summary
 
         try:

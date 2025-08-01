@@ -5,7 +5,6 @@ from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import AIMessage
 from langchain_core.vectorstores import VectorStore
 
-from dingent.engine.mcp.core.db_manager import Database
 from dingent.engine.mcp.tools.built_in.text2sql.handlers.base import DBRequest
 from dingent.engine.mcp.tools.built_in.text2sql.handlers.sql_handler import *
 from dingent.engine.mcp.tools.built_in.text2sql.sql_agent.graph import SQLGeneraterResponse, Text2SqlAgent
@@ -317,7 +316,7 @@ class TestText2SqlTool:
         ]
         self.mock_llm.ainvoke.side_effect = mock_responses
         self.text2sql_tool.agent.query_gen_chain = self.mock_llm
-        result = await self.text2sql_tool.tool_run(question, "en-US", "mysql", None)
+        result = await self.text2sql_tool.tool_run(question,  "mysql", None)
         self.mock_llm.ainvoke.assert_called_once()
         # FIXME: changed resource to resource id
         # assert result == ""

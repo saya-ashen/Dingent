@@ -180,8 +180,6 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         config: RunnableConfig,
         **kwargs,
     ) -> Command:
-        tool_output = state.get("tool_output", None)
-        kwargs["tool_output"] = tool_output
         response_raw = await _tool.ainvoke(kwargs)
         response = json.loads(response_raw)
         context = response.get("context", "")

@@ -8,19 +8,12 @@ from langchain_core.runnables import RunnableConfig
 from langdetect import detect
 from langgraph.graph import END, StateGraph
 from loguru import logger
-from pydantic import BaseModel, Field
 
 from dingent.engine.mcp import Database
 from dingent.engine.mcp.prompts.prompts import COMMON_SQL_GEN_PROMPT, TRANSLATOR_PROMPT
 
-from ..handlers.base import DBRequest, Handler
-from .state import SQLState
-
-
-class SQLGeneraterResponse(BaseModel):
-    """Always use this tool to structure your response to the user."""
-
-    sql_query: str = Field(description="The generated SQL query based on the user's question.")
+from .handlers.base import DBRequest, Handler
+from .types import SQLQueryResultPresenter, SQLState
 
 
 class Text2SqlAgent:
@@ -30,7 +23,6 @@ class Text2SqlAgent:
         self,
         llm: BaseChatModel,
         db: Database,
-        sql_statement_handler: Handler,
         sql_result_handler: Handler,
         vectorstore=None,
     ):
@@ -40,7 +32,6 @@ class Text2SqlAgent:
             self.retriever = vectorstore.as_retriever(search_kwargs={"k": 50})
         else:
             self.retriever = None
-        self.sql_statement_handler = sql_statement_handler
         self.sql_result_handler = sql_result_handler
         self.graph = self._build_graph()
         if self.retriever:
@@ -56,7 +47,7 @@ class Text2SqlAgent:
             ]
         )
 
-        self.query_gen_chain = prompt | self.llm.bind_tools([SQLGeneraterResponse])
+        self.query_gen_chain = prompt | self.llm.with_structured_output(SQLQueryResultPresenter)
 
     def _build_graph(self):
         """Builds the LangGraph agent."""
@@ -99,16 +90,11 @@ class Text2SqlAgent:
 
     async def _generate_sql(self, state: SQLState, config: RunnableConfig) -> dict[str, Any]:
         """Generates the SQL query from the user question."""
-        lang = config.get("configurable", {}).get("lang", "en-US")
         dialect = config.get("configurable", {}).get("dialect", "mysql")
-        cte = self.db.cte
 
         user_query = cast(str, state["messages"][-1].content)
         tables_info = self.db.get_tables_info()
-        logger.debug(f"Tables schema before transform: {str(tables_info)}")
-        tables_info = self.db.dantic.transform_schema_for_llm(tables_info)
         tables_info = str(tables_info)
-        logger.debug(f"Tables schema after transform: {str(tables_info)}")
 
         logger.debug(f"Generating SQL for user query: {user_query}; Tables info: {tables_info}")
         if self.retriever:
@@ -116,7 +102,7 @@ class Text2SqlAgent:
         else:
             similar_rows = ""
 
-        response = await self.query_gen_chain.ainvoke(
+        response= await self.query_gen_chain.ainvoke(
             {
                 "messages": state["messages"],
                 "tables_info": tables_info,
@@ -124,31 +110,20 @@ class Text2SqlAgent:
                 "dialect": dialect,
             }
         )
+        response = cast(SQLQueryResultPresenter,response)
 
-        tool_call_args = cast(AIMessage, response).tool_calls[0]["args"]
-        sql_query = tool_call_args.get("sql_query", "")
+        sql_query = response.sql_query
 
         if not sql_query:
             raise ValueError("LLM failed to generate a SQL query.")
 
-        # Handle the SQL statement (e.g., validation, modification)
-        try:
-            request = DBRequest(data={"query": sql_query, "cte": cte}, metadata={"lang": lang})
-            result = await self.sql_statement_handler.ahandle(request)
-            sql_query = result.data["query"]
-        except Exception as e:
-            print(f"Error handling SQL statement: {e}")
-            return {"messages": [HumanMessage(content=f"Error: {e}")]}
-
-        return {"messages": [AIMessage(content=sql_query, role="ai")]}
+        return {"messages": [AIMessage(content=sql_query, role="ai")],"result_grouping":response.result_grouping}
 
     async def _execute_sql(self, state: SQLState, config: RunnableConfig) -> dict[str, Any]:
         """Executes the SQL query against the database."""
-        lang = config.get("configurable", {}).get("lang", "en-US")
-        cte = self.db.cte
-
         sql_query = str(state["messages"][-1].content)
-        request: DBRequest = DBRequest(data={"query": sql_query, "cte": cte}, metadata={"lang": lang})
+        result_grouping = state.get("result_grouping")
+        request: DBRequest = DBRequest(data={"query": sql_query,"result_grouping":result_grouping})
 
         try:
             response = await self.sql_result_handler.ahandle(request)
@@ -158,7 +133,7 @@ class Text2SqlAgent:
 
             return {
                 "messages": [tool_message],
-                "sql_result": response.data.get("data_to_show", {}),
+                "sql_result": response.data.get("result", {}),
             }
 
         except Exception as e:
@@ -166,7 +141,6 @@ class Text2SqlAgent:
             error_message = HumanMessage(
                 content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}"
             )
-            raise e
             return {"messages": [error_message]}
 
     async def arun(

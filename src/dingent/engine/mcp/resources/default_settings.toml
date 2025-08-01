@@ -13,4 +13,4 @@ id = "text2sql"
 icon = "storage"
 description = "Translates a natural language question into a SQL query and executes it against a database to find an answer."
 enabled = true
-exclude_args = ["lang","tool_output"]
+exclude_args = []
