@@ -3,12 +3,11 @@ import json
 import uuid
 from asyncio import Queue
 from contextlib import asynccontextmanager
-from typing import Annotated, Any, Optional, TypedDict, cast
+from typing import Annotated, Any, TypedDict, cast
 
 from copilotkit import CopilotKitState
 from fastmcp import Client
 from langchain_core.messages import AIMessage, ToolCall, ToolMessage
-from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
 from langchain_mcp_adapters.tools import load_mcp_tools
 from langgraph.prebuilt import InjectedState, create_react_agent
@@ -68,7 +67,6 @@ def create_handoff_tool(*, agent_name: str, description: str | None = None):
     async def handoff_tool(
         state: Annotated[dict, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
-        config: RunnableConfig,
     ) -> Command:
         tool_message = {
             "role": "tool",
@@ -101,7 +99,7 @@ json_type_to_python_type = {
 def create_dynamic_pydantic_class(
     base_class: type[BaseModel],
     schema_dict: dict,
-    name: str,  
+    name: str,
 ) -> type[BaseModel]:
     """
     Dynamically create a new Pydantic class, which inherit base_class provided and add fields in schema_dict.
@@ -109,7 +107,7 @@ def create_dynamic_pydantic_class(
     Args:
         base_class: The base class that needs to be inherited
         schema_dict: A json schema dictionary which includes property definition.
-        name: The name of the new class returned 
+        name: The name of the new class returned
 
     Returns:
         The dynamically created Pydantic class.
@@ -132,15 +130,13 @@ def create_dynamic_pydantic_class(
         is_required = field_name in required_fields
 
         if not is_required:
-            attributes["__annotations__"][field_name] = Optional[python_type]
+            attributes["__annotations__"][field_name] = python_type | None
         else:
             attributes["__annotations__"][field_name] = python_type
 
         default_value = ... if is_required else None
 
-        field_definition = Field(
-            title=field_info.get("title"), description=field_info.get("description"), default=default_value
-        )
+        field_definition = Field(title=field_info.get("title"), description=field_info.get("description"), default=default_value)
 
         attributes[field_name] = field_definition
 
@@ -166,7 +162,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     CombinedToolArgsSchema = create_dynamic_pydantic_class(
         ToolArgsSchema,
         tool_args_schema,
-        name="CombinedToolArgsSchema",  
+        name="CombinedToolArgsSchema",
     )
 
     @tool(
@@ -177,7 +173,6 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     async def call_tool(
         state: Annotated[MainState, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
-        config: RunnableConfig,
         **kwargs,
     ) -> Command:
         response_raw = await _tool.ainvoke(kwargs)
@@ -238,9 +233,7 @@ async def create_assistants(mcp_servers, active_clients: dict[str, Client], mode
         filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]
 
         # Prepare handoff tools for other assistants this one can route to
-        transfer_tools = [
-            mcp_details[routable_agent_name]["handoff_tool"] for routable_agent_name in mcp_config.routable_nodes
-        ]
+        transfer_tools = [mcp_details[routable_agent_name]["handoff_tool"] for routable_agent_name in mcp_config.routable_nodes]
         react = create_react_agent(
             model=llm,
             tools=transfer_tools + filtered_tools,
@@ -267,9 +260,7 @@ class ConfigSchema(TypedDict):
 async def make_graph(config):
     server_config = settings.mcp_servers
     default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_agent
-    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get(
-        "model_config"
-    )
+    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:
         model_config = settings.llm
     async with get_async_mcp_manager(server_config, log_handler=None) as mcp:

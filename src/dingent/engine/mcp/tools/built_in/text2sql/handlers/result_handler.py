@@ -56,7 +56,7 @@ class ResultStructureHandler(Handler):
 
     async def ahandle(self, request: DBRequest):
         source_df: pd.DataFrame = request.data["result"]
-        grouping_schema:list[Group]|None = request.data.get("result_grouping")
+        grouping_schema: list[Group] | None = request.data.get("result_grouping")
 
         # 遍历分组规则
         if not grouping_schema:
@@ -64,16 +64,14 @@ class ResultStructureHandler(Handler):
             # 将整个DataFrame去重
             deduplicated_df = source_df.drop_duplicates().reset_index(drop=True)
             # 构造成最终的输出格式
-            request.data["result"] = {
-                "main_result": deduplicated_df.to_dict(orient='records')
-            }
+            request.data["result"] = {"main_result": deduplicated_df.to_dict(orient="records")}
             return await self._apass_to_next(request)
 
         final_result_data = {}
 
         # --- 主要分组逻辑 ---
         for group in grouping_schema:
-            group_name, columns_in_group = group.primary_entity_name,group.columns
+            group_name, columns_in_group = group.primary_entity_name, group.columns
             # 筛选出在DataFrame中实际存在的列，防止模型幻化出不存在的列名
             existing_columns = [col for col in columns_in_group if col in source_df.columns]
 
@@ -88,11 +86,7 @@ class ResultStructureHandler(Handler):
             deduplicated_df = group_df.drop_duplicates().reset_index(drop=True)
 
             # 3. 转换为字典列表并存入最终结果
-            final_result_data[group_name] = deduplicated_df.to_dict(orient='records')
-
-
+            final_result_data[group_name] = deduplicated_df.to_dict(orient="records")
 
         request.data["result"] = final_result_data
         return await self._apass_to_next(request)
-
-

@@ -46,6 +46,3 @@ export default function CopilotKitPage() {
         </main>
     );
 }
-
-
-

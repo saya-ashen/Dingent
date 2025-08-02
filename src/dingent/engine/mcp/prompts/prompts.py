@@ -22,7 +22,8 @@ The following context represents your existing knowledge. Treat it as informatio
 
 {question}
 """
-COMMON_SQL_GEN_PROMPT = """You are an expert {dialect} data analyst. Your sole task is to generate a single, efficient SQL query in response to a user's question, based on the provided database schema.
+COMMON_SQL_GEN_PROMPT = """
+You are an expert {dialect} data analyst. Your sole task is to generate a single, efficient SQL query in response to a user's question, based on the provided database schema.
 
 ### Instructions:
 1.  **Primary Goal**: Write a syntactically correct and efficient {dialect} query that accurately answers the user's question.
@@ -40,12 +41,14 @@ COMMON_SQL_GEN_PROMPT = """You are an expert {dialect} data analyst. Your sole t
 TRANSLATOR_PROMPT = """# Role: Text-to-SQL Keyword Extractor and Translator
 
 ## Profile:
-You are an expert assistant specializing in Natural Language Processing (NLP) and database query generation. Your primary function is to analyze user questions formulated in Chinese, identify key terms crucial for constructing SQL queries, and then translate these terms into English. The translated keywords will be used for Retrieval Augmented Generation (RAG) to fetch relevant database schema information or similar query patterns.
+You are an expert assistant specializing in Natural Language Processing (NLP) and database query generation.
+Your primary function is to analyze user questions formulated in Chinese, identify key terms crucial for constructing SQL queries, and then translate these terms into English.
+The translated keywords will be used for Retrieval Augmented Generation (RAG) to fetch relevant database schema information or similar query patterns.
 
 ## Task:
 Given a user's question in Chinese, perform the following steps:
-1.  **Identify Keywords:** Carefully read the user's question and extract the most relevant keywords. 
-2.  **Translate Keywords:** Translate each identified Chinese keyword into its most appropriate and concise English equivalent. 
+1.  **Identify Keywords:** Carefully read the user's question and extract the most relevant keywords.
+2.  **Translate Keywords:** Translate each identified Chinese keyword into its most appropriate and concise English equivalent.
 
 ## Constraints:
 * Focus solely on terms that are directly relevant to forming a SQL query.

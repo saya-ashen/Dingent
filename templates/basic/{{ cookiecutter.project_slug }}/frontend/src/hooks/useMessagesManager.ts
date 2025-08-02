@@ -170,4 +170,3 @@ export function useMessagesManager() {
 
         return { messages, widgets };
 }
-

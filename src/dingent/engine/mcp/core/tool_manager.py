@@ -18,7 +18,7 @@ class ToolManager:
         self._tool_classes: dict[str, type[Any]] = {}  # Use 'Any' or your BaseTool type
         self._tool_instances: dict[str, Any] = {}
 
-    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path] = []):
+    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path] | None = None):
         """
         Loads tools specified in the settings from built-in and custom directories.
         """
@@ -30,9 +30,7 @@ class ToolManager:
         try:
             built_in_path = importlib.resources.files("dingent.engine.mcp") / "tools" / "built_in"
             if built_in_path.is_dir():
-                search_locations.append(
-                    {"path": Path(built_in_path), "prefix": "dingent.engine.mcp.tools.built_in", "is_custom": False}
-                )
+                search_locations.append({"path": Path(built_in_path), "prefix": "dingent.engine.mcp.tools.built_in", "is_custom": False})
                 logger.debug(f"-> Preparing to search built-in tools at: {built_in_path}")
         except (ModuleNotFoundError, FileNotFoundError):
             print("-> Warning: Could not find built-in tools directory.")
@@ -79,9 +77,7 @@ class ToolManager:
                     return  # Success, stop searching for this tool
 
         # If the loop completes without returning, the tool was not found
-        print(
-            f"-> ❌ Warning: Could not find a loadable file/directory for enabled tool '{tool_name}' in any location."
-        )
+        print(f"-> ❌ Warning: Could not find a loadable file/directory for enabled tool '{tool_name}' in any location.")
 
     def _import_and_register(self, setting: ToolSettings, module_to_load: str, location_info: dict) -> bool:
         """
@@ -193,11 +189,7 @@ class ToolManager:
             if dependency_found is None:
                 dependency_found = self.di_container.get(param.annotation)
 
-            if (
-                dependency_found
-                or param_name in self.di_container.keys()
-                or param.annotation in self.di_container.keys()
-            ):
+            if dependency_found or param_name in self.di_container.keys() or param.annotation in self.di_container.keys():
                 dependencies[param_name] = dependency_found
             else:
                 error_msg = f"Cannot satisfy dependency '{param_name}:{param.annotation}' for tool '{tool_name}'."

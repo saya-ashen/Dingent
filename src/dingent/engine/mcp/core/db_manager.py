@@ -6,14 +6,14 @@ import os
 import sys
 import types
 import typing
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 from anyio import Path
 from loguru import logger
 from sqlalchemy import inspect as table_inspect
 from sqlalchemy.engine.url import make_url
-from sqlmodel import Session, SQLModel, create_engine, select, text
+from sqlmodel import Session, SQLModel, create_engine, text
 
 from .settings import DatabaseSettings
 
@@ -53,9 +53,7 @@ def is_enum_field_flexible(model: type[SQLModel], field_name: str) -> tuple[bool
     return False, None
 
 
-def find_definitions_from_file(
-    file_path: str, base_class: type | None = None, target_name: str | None = None, force_reload: bool = False
-) -> list[Any]:
+def find_definitions_from_file(file_path: str, base_class: type | None = None, target_name: str | None = None, force_reload: bool = False) -> list[Any]:
     """
     Dynamically import a Python file, and find all classes or objects definied in it.
     Then cached these classes and objects.
@@ -92,7 +90,7 @@ def find_definitions_from_file(
                 raise ImportError(f"Can't create module spec or loader for {file_path}")
 
             module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module  
+            sys.modules[module_name] = module
             spec.loader.exec_module(module)
 
     except Exception as e:
@@ -117,7 +115,7 @@ def find_definitions_from_file(
 
 
 class Database:
-    def __init__(self, uri: str, db_name: str, schemas_path: str | None = None,dialect: str|None=None):
+    def __init__(self, uri: str, db_name: str, schemas_path: str | None = None, dialect: str | None = None):
         self.uri = uri
         self.db_name = db_name
         self.summarizer = self._get_summarizer(schemas_path)
@@ -128,7 +126,6 @@ class Database:
         self.db = create_engine(uri)
         url_object = make_url(uri)
         self.dialect = dialect or url_object.get_dialect().name
-
 
     @property
     def tables(self) -> list[type[SQLModel]]:
@@ -146,8 +143,7 @@ class Database:
         # Valite the tables' definition
         for table in all_tables:
             try:
-                inspector = table_inspect(table)
-                relationships = inspector.relationships
+                table_inspect(table)
             except Exception as e:
                 raise e
         return all_tables
@@ -193,22 +189,6 @@ class Database:
                 description["columns"][key]["type"] = "enum"
                 description["columns"][key]["possible_values"] = possible_values
         return description
-
-    def read_all(self):
-        all_data: dict[str, list[str]] = {}
-        with Session(self.db) as session:
-            for table in self.tables:
-                if table.__table__.info.get("title") is None:  # type: ignore
-                    continue
-                statement = select(table)
-                results = session.exec(statement)
-                _ins: list[str] = []
-                for instance in results:
-                    instance = table.model_validate(instance.model_dump(mode="json", by_alias=False))
-                    _d = pydantic_to_dict(instance)
-                    _ins.append(str(_d))
-                all_data[cast(str, table.__tablename__)] = _ins
-        return all_data
 
     def get_tables_info(self):
         if not self.tables:

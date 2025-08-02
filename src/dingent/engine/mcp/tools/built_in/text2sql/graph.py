@@ -37,9 +37,7 @@ class Text2SqlAgent:
         self.sql_result_handler = sql_result_handler
         self.graph = self._build_graph()
         if self.retriever:
-            prompt_template = (
-                COMMON_SQL_GEN_PROMPT + "\n\n### Contextual Examples (for reference only):\n{similar_rows}"
-            )
+            prompt_template = COMMON_SQL_GEN_PROMPT + "\n\n### Contextual Examples (for reference only):\n{similar_rows}"
         else:
             prompt_template = COMMON_SQL_GEN_PROMPT
         prompt = ChatPromptTemplate.from_messages(
@@ -97,7 +95,6 @@ class Text2SqlAgent:
         user_query = cast(str, state["messages"][-1].content)
         tables_info = self.db.get_tables_info()
         if not tables_info:
-
             toolkit = SQLDatabaseToolkit(db=SQLDatabase(self.db.db), llm=self.llm)
             tools = toolkit.get_tools()
             sql_db_list_tables = None
@@ -119,7 +116,7 @@ class Text2SqlAgent:
         else:
             similar_rows = ""
 
-        response= await self.query_gen_chain.ainvoke(
+        response = await self.query_gen_chain.ainvoke(
             {
                 "messages": state["messages"],
                 "tables_info": tables_info,
@@ -127,20 +124,20 @@ class Text2SqlAgent:
                 "dialect": dialect,
             }
         )
-        response = cast(SQLQueryResultPresenter,response)
+        response = cast(SQLQueryResultPresenter, response)
 
         sql_query = response.sql_query
 
         if not sql_query:
             raise ValueError("LLM failed to generate a SQL query.")
 
-        return {"messages": [AIMessage(content=sql_query, role="ai")],"result_grouping":response.result_grouping}
+        return {"messages": [AIMessage(content=sql_query, role="ai")], "result_grouping": response.result_grouping}
 
     async def _execute_sql(self, state: SQLState, config: RunnableConfig) -> dict[str, Any]:
         """Executes the SQL query against the database."""
         sql_query = str(state["messages"][-1].content)
         result_grouping = state.get("result_grouping")
-        request: DBRequest = DBRequest(data={"query": sql_query,"result_grouping":result_grouping})
+        request: DBRequest = DBRequest(data={"query": sql_query, "result_grouping": result_grouping})
 
         try:
             response = await self.sql_result_handler.ahandle(request)
@@ -155,9 +152,7 @@ class Text2SqlAgent:
 
         except Exception as e:
             logger.warning(f"Error executing SQL query: {e}. Rewriting")
-            error_message = HumanMessage(
-                content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}"
-            )
+            error_message = HumanMessage(content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}")
             return {"messages": [error_message]}
 
     async def arun(
