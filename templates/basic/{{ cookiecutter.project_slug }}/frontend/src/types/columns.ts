@@ -25,4 +25,3 @@ export const columns: ColumnDef<Payment>[] = [
         header: "Amount",
     },
 ]
-

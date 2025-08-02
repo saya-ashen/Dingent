@@ -30,5 +30,3 @@ export interface Widget {
     metadata?: {
     };
 }
-
-

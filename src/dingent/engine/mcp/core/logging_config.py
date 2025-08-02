@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-from .settings import get_settings  
+from .settings import get_settings
 
 settings = get_settings()
 
@@ -23,11 +23,11 @@ def setup_logger():
     )
 
     logger.add(
-        settings.log_sink,  
+        settings.log_sink,
         rotation="10 MB",
         retention="7 days",
         compression="zip",
-        level="DEBUG",  
+        level="DEBUG",
     )
 
     logger.info("Logger has been configured successfully.")

@@ -1,6 +1,4 @@
-from typing import Literal
-
-from fastmcp import Context, FastMCP
+from fastmcp import FastMCP
 from loguru import logger
 
 from dingent.engine.shared.llm_manager import LLMManager
@@ -17,7 +15,8 @@ db_manager = DBManager(settings.databases)
 llm_manager = LLMManager()
 resource_manager = ResourceManager()
 
-async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, dependencies_override: dict = {}) -> FastMCP:
+
+async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, dependencies_override: dict | None = None) -> FastMCP:
     """
     Creates an MCP server instance.
 
@@ -41,7 +40,7 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     }
 
     # 2. Apply any overrides from dependencies_override
-    di_container.update(dependencies_override)
+    di_container.update(dependencies_override or {})
 
     # 3. Create and load tools with the final dependencies
     tool_manager = ToolManager(di_container)
@@ -74,12 +73,12 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     }
 
     @mcp.resource("info://server_info/{lang}")
-    async def get_server_info(ctx: Context, lang: Literal["zh-CN", "en-US"] = "en-US"):
+    async def get_server_info():
         """Get server information"""
         return server_info
 
     @mcp.resource("resource:tool_output/{resource_id}")
-    async def get_tool_output(ctx: Context, resource_id: str):
+    async def get_tool_output(resource_id: str):
         """Get the output of a tool resource"""
         resource = resource_manager.get(resource_id)
         return resource
@@ -87,7 +86,7 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     return mcp
 
 
-async def create_all_mcp_servers(server_names: list[str] = [], extra_dependencies: dict = {}) -> dict[str, 'FastMCP']:
+async def create_all_mcp_servers(server_names: list[str] | None = None, extra_dependencies: dict | None = None) -> dict[str, "FastMCP"]:
     """
     Creates all MCP server instances.
 
@@ -101,6 +100,8 @@ async def create_all_mcp_servers(server_names: list[str] = [], extra_dependencie
     """
     mcp_server_settings = settings.mcp_servers
     all_mcp_servers = {}
+    if extra_dependencies is None:
+        extra_dependencies = {}
 
     # Extract all defined server names to distinguish between global and server-specific dependencies
     all_defined_server_names = {cfg.name for cfg in mcp_server_settings}
@@ -118,9 +119,7 @@ async def create_all_mcp_servers(server_names: list[str] = [], extra_dependencie
         dependencies_for_this_server.update(server_specific_deps)
 
         # Create the MCP server instance and pass in the combined dependencies
-        mcp = await create_mcp_server(
-            settings.custom_tools_dirs, mcp_server_config, dependencies_override=dependencies_for_this_server
-        )
+        mcp = await create_mcp_server(settings.custom_tools_dirs, mcp_server_config, dependencies_override=dependencies_for_this_server)
         all_mcp_servers[server_name] = mcp
 
     return all_mcp_servers

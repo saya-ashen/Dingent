@@ -76,9 +76,7 @@ def init(project_name, template, checkout):
         sql_dir = project_path / "mcp" / "data"
 
         if not sql_dir.is_dir():
-            click.secho(
-                f"⚠️  Warning: SQL data directory not found at '{sql_dir}'. Skipping database creation.", fg="yellow"
-            )
+            click.secho(f"⚠️  Warning: SQL data directory not found at '{sql_dir}'. Skipping database creation.", fg="yellow")
         else:
             sql_files = sorted(sql_dir.glob("*.sql"))
 
@@ -110,21 +108,17 @@ def init(project_name, template, checkout):
                     except sqlite3.Error as e:
                         click.secho(f"        ❌ Error: {e}", fg="red")
                         if db_path.exists():
-                            db_path.unlink()  
+                            db_path.unlink()
                         error_count += 1
 
                 summary_color = "green" if error_count == 0 else "yellow"
-                click.secho(
-                    f"\n✅ Conversion complete. {success_count} succeeded, {error_count} failed.", fg=summary_color
-                )
+                click.secho(f"\n✅ Conversion complete. {success_count} succeeded, {error_count} failed.", fg=summary_color)
 
         click.secho("\n📦 Installing project dependencies with 'uv sync'...", fg="cyan")
 
         if not is_uv_installed():
             click.secho("⚠️ Warning: 'uv' command not found. Skipping dependency installation.", fg="yellow")
-            click.echo(
-                "Please install uv (https://github.com/astral-sh/uv) and run 'uv sync' in the 'mcp' and 'backend' directories manually."
-            )
+            click.echo("Please install uv (https://github.com/astral-sh/uv) and run 'uv sync' in the 'mcp' and 'backend' directories manually.")
         else:
             dirs_to_install = ["mcp", "backend"]
             install_errors = False
@@ -137,10 +131,10 @@ def init(project_name, template, checkout):
                     try:
                         result = subprocess.run(
                             ["uv", "sync"],
-                            cwd=str(target_dir),  
-                            capture_output=True,  
-                            text=True,  
-                            check=False,  
+                            cwd=str(target_dir),
+                            capture_output=True,
+                            text=True,
+                            check=False,
                         )
 
                         if result.returncode == 0:
@@ -154,9 +148,7 @@ def init(project_name, template, checkout):
 
                     except Exception as e:
                         install_errors = True
-                        click.secho(
-                            f"     ❌ An unexpected error occurred while running uv in '{subdir_name}': {e}", fg="red"
-                        )
+                        click.secho(f"     ❌ An unexpected error occurred while running uv in '{subdir_name}': {e}", fg="red")
                 else:
                     click.secho(f"   -> Skipping '{subdir_name}', directory or 'pyproject.toml' not found.", fg="blue")
 
@@ -170,29 +162,19 @@ def init(project_name, template, checkout):
         tool_name, install_command = get_frontend_installer()
 
         if not tool_name:
-            click.secho(
-                "⚠️ Warning: Neither 'bun' nor 'npm' found. Skipping frontend dependency installation.", fg="yellow"
-            )
-            click.echo(
-                "   Please install Bun or Node.js and run the install command in the 'frontend' directory manually."
-            )
+            click.secho("⚠️ Warning: Neither 'bun' nor 'npm' found. Skipping frontend dependency installation.", fg="yellow")
+            click.echo("   Please install Bun or Node.js and run the install command in the 'frontend' directory manually.")
         else:
-            frontend_dir_name = "frontend"  
+            frontend_dir_name = "frontend"
             frontend_dir = project_path / frontend_dir_name
 
             if frontend_dir.is_dir() and (frontend_dir / "package.json").is_file():
-                click.echo(
-                    f"   -> Found 'package.json' in '{frontend_dir_name}'. Running '{' '.join(install_command)}'..."
-                )
+                click.echo(f"   -> Found 'package.json' in '{frontend_dir_name}'. Running '{' '.join(install_command)}'...")
 
                 try:
-                    result = subprocess.run(
-                        install_command, cwd=str(frontend_dir), capture_output=True, text=True, check=False
-                    )
+                    result = subprocess.run(install_command, cwd=str(frontend_dir), capture_output=True, text=True, check=False)
                     if result.returncode == 0:
-                        click.secho(
-                            f"     ✅ Successfully installed frontend dependencies using {tool_name}.", fg="green"
-                        )
+                        click.secho(f"     ✅ Successfully installed frontend dependencies using {tool_name}.", fg="green")
                     else:
                         click.secho(f"     ❌ Error installing frontend dependencies with {tool_name}.", fg="red")
                         click.echo("     --- Installer Error Output ---")
@@ -207,7 +189,7 @@ def init(project_name, template, checkout):
         click.secho("\n✅ Project initialized successfully!", fg="green", bold=True)
         click.echo("\nNext steps:")
         click.echo(f"  1. Navigate to your new project: cd {final_project_name}")
-        click.echo("  2. Dependencies for backend, mcp, and frontend have been installed.")  
+        click.echo("  2. Dependencies for backend, mcp, and frontend have been installed.")
         click.echo("  3. Start building your amazing agent!")
 
     except RepositoryNotFound:

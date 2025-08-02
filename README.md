@@ -34,7 +34,7 @@ pip install dingent
 
 ## 📖 Usage Example (Coming Soon)
 
-We are working hard to provide clear documentation and rich code examples to help you get started. 
+We are working hard to provide clear documentation and rich code examples to help you get started.
 
 ## 🤝 Contributing
 
