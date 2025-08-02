@@ -2,9 +2,9 @@ import asyncio
 from collections.abc import Callable
 
 from fastmcp import Client
+from loguru import logger
 
 from dingent.engine.backend.core.settings import MCPServerInfo
-from loguru import logger
 
 
 class AsyncMCPManager:
@@ -71,10 +71,7 @@ class AsyncMCPManager:
         connection_tasks = [_connect_one(name, config["transport"]) for name, config in self._server_configs.items()]
         await asyncio.gather(*connection_tasks)
 
-        logger.info(
-            f"--- [Manager] Connection process finished. "
-            f"{len(self._active_clients)} / {len(self._server_configs)} clients are active. ---"
-        )
+        logger.info(f"--- [Manager] Connection process finished. {len(self._active_clients)} / {len(self._server_configs)} clients are active. ---")
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -87,7 +84,7 @@ class AsyncMCPManager:
         # This safely closes the clients that were successfully connected.
         cleanup_tasks = [manager.__aexit__(exc_type, exc_val, exc_tb) for manager in self._client_managers.values()]
         # return_exceptions ensures one failure doesn't interrupt others.
-        await asyncio.gather(*cleanup_tasks, return_exceptions=True)  
+        await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
         self._active_clients.clear()
         self._client_managers.clear()

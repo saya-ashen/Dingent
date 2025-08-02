@@ -15,13 +15,13 @@
   padding: 16px 24px;
   font-size: 1.25rem; /* 20px */
   font-weight: 600;
-  color: #1a202c; 
-  background-color: #f7fafc; 
+  color: #1a202c;
+  background-color: #f7fafc;
   border-bottom: 1px solid #e0e0e0;
 }
 
 .table-wrapper {
-  overflow-x: auto; 
+  overflow-x: auto;
 }
 
 table {
@@ -32,16 +32,16 @@ table {
 th, td {
   padding: 12px 24px;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0; 
-  vertical-align: top; 
-  white-space: normal; 
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+  white-space: normal;
   word-break: break-word;
 }
 
 th {
   background-color: #f7fafc;
   font-weight: 600;
-  color: #4a5568; 
+  color: #4a5568;
   text-transform: uppercase;
   font-size: 0.75rem; /* 12px */
   letter-spacing: 0.05em;
@@ -60,9 +60,9 @@ tbody tr:hover {
   margin-left: 8px;
   padding: 2px 8px;
   border: 1px solid #cbd5e0;
-  border-radius: 12px; 
+  border-radius: 12px;
   background-color: #fff;
-  color: #4299e1; 
+  color: #4299e1;
   cursor: pointer;
   font-size: 0.75rem; /* 12px */
   font-weight: 500;

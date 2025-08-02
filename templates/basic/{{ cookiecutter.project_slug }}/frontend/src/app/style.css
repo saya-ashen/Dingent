@@ -99,7 +99,7 @@
   font-weight: 500;
 }
 
-.meta-item select:hover, 
+.meta-item select:hover,
 .meta-item select:focus {
   color: #FF5722;
 }
@@ -235,7 +235,7 @@
   min-width: 0;
 }
 
-.ingredient-name-input, 
+.ingredient-name-input,
 .ingredient-amount-input {
   border: none;
   background: transparent;

@@ -54,7 +54,7 @@
         };
       in {
         default = pkgs.mkShell {
-          packages = with pkgs; [ python uv gettext electron nodejs_22 jaq ];
+          packages = with pkgs; [ python uv electron nodejs_22 jaq pre-commit];
           shellHook = ''
             VENV_DIR=".venv"
             if [ ! -d "$VENV_DIR" ]; then

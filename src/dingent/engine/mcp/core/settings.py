@@ -13,7 +13,7 @@ class ToolSettings(BaseModel):
     enabled: bool = True
     icon: str | None = None
     description: str
-    class_name: str | None = Field(None, alias="class")  
+    class_name: str | None = Field(None, alias="class")
     exclude_args: list[str] = []
 
 
@@ -32,7 +32,7 @@ class DatabaseSettings(BaseModel):
     name: str
     uri: str = ""
     uri_env: str = ""
-    schemas_file: str|None = None
+    schemas_file: str | None = None
     type: str | None = None
 
     @model_validator(mode="after")
@@ -47,9 +47,7 @@ class DatabaseSettings(BaseModel):
                 self.uri = db_uri
 
         if not db_uri:
-            raise ValueError(
-                "A database URI must be provided either via 'uri' field or 'uri_env' environment variable."
-            )
+            raise ValueError("A database URI must be provided either via 'uri' field or 'uri_env' environment variable.")
 
         if db_uri.startswith("postgresql"):
             self.type = "postgresql"
@@ -88,7 +86,7 @@ def merge_configs(base: dict, user: dict) -> dict:
         for user_tool in user["tools"]:
             tool_id = user_tool.get("id")
             if tool_id:
-                base_tools_map[tool_id] = user_tool  
+                base_tools_map[tool_id] = user_tool
         merged["tools"] = list(base_tools_map.values())
 
     for key, value in user.items():

@@ -12,7 +12,7 @@ export function MainContent({ widgets }: { widgets: Widget[] }) {
     return (
         <div
             className="h-screen w-full flex flex-col items-center overflow-y-auto pt-8 pb-8 space-y-6"
-            style={{ zIndex: 1 }} 
+            style={{ zIndex: 1 }}
         >
             {widgets.length === 0 ? (
                 <div className="flex-grow flex justify-center items-center text-gray-500">

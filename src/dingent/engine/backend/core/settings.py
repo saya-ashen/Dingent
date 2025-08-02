@@ -1,8 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
-from loguru import logger
 
 import toml
+from loguru import logger
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
