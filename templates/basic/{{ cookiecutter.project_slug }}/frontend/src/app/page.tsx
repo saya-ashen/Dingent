@@ -21,7 +21,6 @@ export default function CopilotKitPage() {
         ],
         followUp: false,
         handler: async ({tool_output_ids}) => {
-            console.log(tool_output_ids)
         },
     });
 

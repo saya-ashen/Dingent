@@ -10,7 +10,7 @@ PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
 class TablePayload(BaseModel):
     columns: list[str]
     rows: list[dict]
-    title: dict = {}
+    title: str= ""
 
 class ToolOutput(BaseModel):
     """Pydantic模型基类，所有资源的数据模型都应继承自它，用于数据校验。"""

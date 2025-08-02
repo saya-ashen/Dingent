@@ -16,7 +16,7 @@ def format_sql_tool_output(sql_result: dict[str,list[dict[str,Any]]], output_typ
     tool_output = []
     for key, value in sql_result.items():
         columns = list(value[0].keys())
-        payload = TablePayload(rows=value, columns=columns)
+        payload = TablePayload(rows=value, columns=columns,title=key)
         item = ToolOutput(type=output_type, payload=payload)
         tool_output.append(item)
     return tool_output

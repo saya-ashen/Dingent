@@ -62,11 +62,9 @@ export function useThreadManager() {
 
         localStorage.setItem(CURRENT_THREAD_ID_KEY, activeThreadId);
 
-        // --- CHANGE: Add new thread to the list if it doesn't exist ---
         setThreads(prevThreads => {
             const threadExists = prevThreads.some(thread => thread.id === activeThreadId);
             if (!threadExists) {
-                // Use a temporary title. We'll update it later.
                 const newThread: ChatThread = { id: activeThreadId, title: "New Chat" };
                 const newList = [newThread, ...prevThreads];
                 localStorage.setItem(THREAD_LIST_KEY, JSON.stringify(newList));
@@ -81,7 +79,6 @@ export function useThreadManager() {
             const newThreads = prevThreads.map(thread =>
                 thread.id === id ? { ...thread, title } : thread
             );
-            // Persist the change to localStorage
             localStorage.setItem(THREAD_LIST_KEY, JSON.stringify(newThreads));
             return newThreads;
         });
