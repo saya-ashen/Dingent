@@ -1,10 +1,3 @@
-# direnv
-.direnv
-# Nix build results and artifacts
-/result
-/result-*
-
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -21,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-# lib/
+lib/
 lib64/
 parts/
 sdist/
@@ -209,5 +202,3 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# ignore templates directory
-!templates/
