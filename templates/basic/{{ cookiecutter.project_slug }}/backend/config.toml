@@ -1,13 +1,8 @@
-default_agent="idog"
+default_agent="sakila"
 llm.provider = "openai"
 llm.model = "gpt-4.1"
 [[mcp_servers]]
-name = "idog"
-host = "127.0.0.1"
-port = "8889"
-routable_nodes= ["bioka"]
-[[mcp_servers]]
-name = "bioka"
+name = "sakila"
 host = "127.0.0.1"
 port = "8888"
 routable_nodes= []

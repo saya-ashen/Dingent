@@ -10,7 +10,6 @@ requires-python = ">=3.12, <3.14"
 
 dependencies = [
     "dingent[backend]",
-    "langgraph-prebuilt<0.6.0", # TODO: Waiting for copilotkit updates
 ]
 
 [dependency-groups]

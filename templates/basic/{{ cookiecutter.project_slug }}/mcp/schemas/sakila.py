@@ -7,6 +7,7 @@ class FilmActorLink(SQLModel, table=True):
     """
     Link table between Films and Actors, representing which actors starred in which films.
     """
+    __tablename__="film_actor"
     film_id: int | None = Field(
         default=None,
         foreign_key="film.film_id",
@@ -29,6 +30,7 @@ class FilmCategoryLink(SQLModel, table=True):
     """
     Link table between Films and Categories, representing the genre of each film.
     """
+    __tablename__="film_category"
     film_id: int | None = Field(
         default=None,
         foreign_key="film.film_id",
