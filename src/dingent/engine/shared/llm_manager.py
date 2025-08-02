@@ -6,22 +6,19 @@ from langchain.chat_models.base import BaseChatModel
 
 class LLMManager:
     """
-    管理和维护所有大语言模型（LLM）实例的类。
-
-    这个类负责根据配置文件按需创建和缓存LLM实例，
-    确保资源被有效利用，并为应用程序提供一个统一的访问点。
+    A class to manage and maintain instances of large language models (LLMs).
+    This class responsibles for creating and caching LLM instances based on configuration,
+    ensuring efficient resource utilization, and providing a unified access point for the application.
     """
 
     def __init__(self):
-        # 用于缓存已实例化的LLM对象，避免重复创建
         self._llms: dict[Any, BaseChatModel] = {}
 
     def get_llm(self, **kwargs) -> BaseChatModel:
         """
-        获取一个指定名称的LLM实例。
-
-        如果实例已存在于缓存中，则直接返回。
-        否则，根据配置创建新实例，存入缓存，然后返回。
+        Get a LLM instance by its name.
+        If the instance already exists in the cache, return it directly.
+        Otherwise, create a new instance based on the provided configuration,
 
         """
         cache_key = tuple(sorted(kwargs.items()))
@@ -34,12 +31,10 @@ class LLMManager:
 
         model_instance = init_chat_model(**kwargs)
 
-        # 存入缓存
         self._llms[cache_key] = model_instance
         print(f"LLM instance with params '{kwargs}' created and cached.")
 
         return model_instance
 
     def list_available_llms(self) -> list[str]:
-        """返回所有已配置的LLM的参数列表。"""
         return list(self._llms.keys())

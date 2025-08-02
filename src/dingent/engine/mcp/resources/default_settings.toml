@@ -1,12 +1,9 @@
 # default_settings.toml
-# 提供一个默认的 LLM 配置
 [[llms]]
 name = "gpt4.1-mini"
 provider = "openai"
 base_url = "https://api.openai.com/v1"
-api_key = "" # 鼓励用户用环境变量覆盖
 
-# 提供一些开箱即用的内置工具
 [[tools]]
 name = "text2sql"
 id = "text2sql"

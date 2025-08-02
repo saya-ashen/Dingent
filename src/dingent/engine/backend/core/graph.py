@@ -101,18 +101,18 @@ json_type_to_python_type = {
 def create_dynamic_pydantic_class(
     base_class: type[BaseModel],
     schema_dict: dict,
-    name: str,  # 新类的名称
+    name: str,  
 ) -> type[BaseModel]:
     """
-    动态创建一个新的 Pydantic 类，继承自 base_class 并添加 schema_dict 中定义的字段。
+    Dynamically create a new Pydantic class, which inherit base_class provided and add fields in schema_dict.
 
     Args:
-        base_class: 要继承的 Pydantic 基类。
-        schema_dict: 包含属性定义的 JSON Schema 字典。
-        name: 新类的名称。
+        base_class: The base class that needs to be inherited
+        schema_dict: A json schema dictionary which includes property definition.
+        name: The name of the new class returned 
 
     Returns:
-        动态生成的 Pydantic 类。
+        The dynamically created Pydantic class.
     """
     attributes = {}
 
@@ -151,7 +151,7 @@ def create_dynamic_pydantic_class(
 
 def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     """
-    给从mcp服务中获取的tool添加一个wrapper，使其支持langgraph中的高级功能
+    Add a wrapper for tool which is obtained from mcp service, to support advanced funcitons in langgraph
     """
 
     class ToolArgsSchema(BaseModel):
@@ -166,7 +166,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     CombinedToolArgsSchema = create_dynamic_pydantic_class(
         ToolArgsSchema,
         tool_args_schema,
-        name="CombinedToolArgsSchema",  # 你可以使用任何有效的类名
+        name="CombinedToolArgsSchema",  
     )
 
     @tool(

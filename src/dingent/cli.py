@@ -70,7 +70,6 @@ def init(project_name, template, checkout):
 
         click.secho("\n✅ Project structure created successfully!", fg="green")
 
-        # --- 步骤 2: 自动将每个 SQL 文件转换为同名的 SQLite 数据库 ---
         click.secho("\n✨ Converting each .sql file to a separate .db database...", fg="cyan")
 
         project_path = Path(created_project_path)
@@ -86,19 +85,16 @@ def init(project_name, template, checkout):
             if not sql_files:
                 click.secho(f"ℹ️  Info: No .sql files found in '{sql_dir}'. Nothing to do.", fg="blue")
             else:
-                # 【关键改动】: 循环处理每个文件，并在循环内部处理数据库逻辑
                 click.echo(f"   -> Found {len(sql_files)} SQL file(s).")
                 success_count = 0
                 error_count = 0
 
                 for sql_file in sql_files:
-                    # 使用 with_suffix('.db') 生成同名的数据库文件路径
                     db_path = sql_file.with_suffix(".db")
 
                     try:
                         click.echo(f"      - Converting '{sql_file.name}'  ->  '{db_path.name}'")
 
-                        # 在循环内连接到特定的数据库文件
                         conn = sqlite3.connect(db_path)
                         cursor = conn.cursor()
 
@@ -112,19 +108,16 @@ def init(project_name, template, checkout):
                         success_count += 1
 
                     except sqlite3.Error as e:
-                        # 如果单个文件转换失败，报告错误并继续处理下一个
                         click.secho(f"        ❌ Error: {e}", fg="red")
                         if db_path.exists():
-                            db_path.unlink()  # 清理创建失败的空文件
+                            db_path.unlink()  
                         error_count += 1
 
-                # 循环结束后提供一个总结
                 summary_color = "green" if error_count == 0 else "yellow"
                 click.secho(
                     f"\n✅ Conversion complete. {success_count} succeeded, {error_count} failed.", fg=summary_color
                 )
 
-        # --- 步骤 3: 使用 uv sync 安装依赖 ---
         click.secho("\n📦 Installing project dependencies with 'uv sync'...", fg="cyan")
 
         if not is_uv_installed():
@@ -138,24 +131,21 @@ def init(project_name, template, checkout):
 
             for subdir_name in dirs_to_install:
                 target_dir = project_path / subdir_name
-                # 检查目标目录和 pyproject.toml 文件是否存在
                 if target_dir.is_dir() and (target_dir / "pyproject.toml").is_file():
                     click.echo(f"   -> Found 'pyproject.toml' in '{subdir_name}'. Running 'uv sync'...")
 
                     try:
-                        # 在目标目录中执行 uv sync 命令
                         result = subprocess.run(
                             ["uv", "sync"],
-                            cwd=str(target_dir),  # 设置命令执行的工作目录
-                            capture_output=True,  # 捕获标准输出和标准错误
-                            text=True,  # 以文本模式处理输出
-                            check=False,  # 我们自己检查返回码，不让它自动抛出异常
+                            cwd=str(target_dir),  
+                            capture_output=True,  
+                            text=True,  
+                            check=False,  
                         )
 
                         if result.returncode == 0:
                             click.secho(f"     ✅ Successfully installed dependencies in '{subdir_name}'.", fg="green")
                         else:
-                            # 如果命令失败，打印错误信息
                             install_errors = True
                             click.secho(f"     ❌ Error installing dependencies in '{subdir_name}'.", fg="red")
                             click.echo("     --- UV Error Output ---")
@@ -175,7 +165,6 @@ def init(project_name, template, checkout):
             else:
                 click.secho("\n⚠️  Some dependencies failed to install. Please check the errors above.", fg="yellow")
 
-        # --- 步骤 4: 安装前端依赖 (bun install 或 npm install) ---
         click.secho("\n🌐 Installing frontend dependencies...", fg="cyan")
 
         tool_name, install_command = get_frontend_installer()
@@ -188,7 +177,7 @@ def init(project_name, template, checkout):
                 "   Please install Bun or Node.js and run the install command in the 'frontend' directory manually."
             )
         else:
-            frontend_dir_name = "frontend"  # 假设你的前端目录名为 'frontend'
+            frontend_dir_name = "frontend"  
             frontend_dir = project_path / frontend_dir_name
 
             if frontend_dir.is_dir() and (frontend_dir / "package.json").is_file():
@@ -214,14 +203,11 @@ def init(project_name, template, checkout):
                     click.secho(f"     ❌ An unexpected error occurred while running {tool_name}: {e}", fg="red")
             else:
                 click.secho(f"   -> Skipping '{frontend_dir_name}', directory or 'package.json' not found.", fg="blue")
-        # <--- 新增前端部分结束 --->
-
-        # --- 步骤 5: 显示最终成功信息 ---
         final_project_name = project_path.name
         click.secho("\n✅ Project initialized successfully!", fg="green", bold=True)
         click.echo("\nNext steps:")
         click.echo(f"  1. Navigate to your new project: cd {final_project_name}")
-        click.echo("  2. Dependencies for backend, mcp, and frontend have been installed.")  # <--- 修改了这里的提示
+        click.echo("  2. Dependencies for backend, mcp, and frontend have been installed.")  
         click.echo("  3. Start building your amazing agent!")
 
     except RepositoryNotFound:

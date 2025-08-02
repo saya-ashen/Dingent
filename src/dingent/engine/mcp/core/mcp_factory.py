@@ -17,19 +17,18 @@ db_manager = DBManager(settings.databases)
 llm_manager = LLMManager()
 resource_manager = ResourceManager()
 
-
 async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, dependencies_override: dict = {}) -> FastMCP:
     """
-    创建一个 MCP 服务器实例。
+    Creates an MCP server instance.
 
     Args:
-        custom_tools_dirs (list): 自定义工具目录列表。
-        config (MCPSettings): MCP 服务器的配置。
-        dependencies_override (dict): 用于覆盖或添加依赖项的字典。
+        custom_tools_dirs (list): A list of custom tool directories.
+        config (MCPSettings): The configuration for the MCP server.
+        dependencies_override (dict): A dictionary to override or add dependencies.
     """
     mcp = FastMCP(config.name, stateless_http=True, host=config.host, port=config.port)
 
-    # 1. 设置默认依赖项
+    # 1. Set default dependencies
     main_llm = llm_manager.get_llm(**config.llm)
     db = await db_manager.get_connection(config.database) if config.database else None
 
@@ -41,10 +40,10 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
         "logger": logger,
     }
 
-    # 2. 应用任何来自 extra_dependencies 的覆盖
+    # 2. Apply any overrides from dependencies_override
     di_container.update(dependencies_override)
 
-    # 3. 使用最终的依赖项创建和加载工具
+    # 3. Create and load tools with the final dependencies
     tool_manager = ToolManager(di_container)
     tool_manager.load_tools(settings.tools, custom_tools_dirs)
 
@@ -75,19 +74,20 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     }
 
     @mcp.resource("info://server_info/{lang}")
-    async def get_server_info(ctx: Context, lang: Literal["zh-CN", "en-US"] = "zh-CN"):
-        """获取服务器信息"""
+    async def get_server_info(ctx: Context, lang: Literal["zh-CN", "en-US"] = "en-US"):
+        """Get server information"""
         return server_info
 
     @mcp.resource("resource:tool_output/{resource_id}")
     async def get_tool_output(ctx: Context, resource_id: str):
+        """Get the output of a tool resource"""
         resource = resource_manager.get(resource_id)
         return resource
 
     return mcp
 
 
-async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies: dict = {}) -> dict[str, 'FastMCP']:
+async def create_all_mcp_servers(server_names: list[str] = [], extra_dependencies: dict = {}) -> dict[str, 'FastMCP']:
     """
     Creates all MCP server instances.
 
@@ -102,22 +102,22 @@ async def create_all_mcp_server(server_names: list[str] = [], extra_dependencies
     mcp_server_settings = settings.mcp_servers
     all_mcp_servers = {}
 
-    # 提取所有已定义的服务器名称，用于区分全局依赖和特定服务器依赖
+    # Extract all defined server names to distinguish between global and server-specific dependencies
     all_defined_server_names = {cfg.name for cfg in mcp_server_settings}
     global_deps = {k: v for k, v in extra_dependencies.items() if k not in all_defined_server_names}
 
     for mcp_server_config in mcp_server_settings:
         server_name = mcp_server_config.name
-        # 如果指定了 server_names，则只创建列表中的服务器
+        # If server_names is provided, only create the servers in the list
         if server_names and server_name not in server_names:
             continue
 
-        # 组合全局依赖和特定于此服务器的依赖项
+        # Combine global dependencies and dependencies specific to this server
         dependencies_for_this_server = global_deps.copy()
         server_specific_deps = extra_dependencies.get(server_name, {})
         dependencies_for_this_server.update(server_specific_deps)
 
-        # 创建 MCP 服务器实例并传入组合后的依赖
+        # Create the MCP server instance and pass in the combined dependencies
         mcp = await create_mcp_server(
             settings.custom_tools_dirs, mcp_server_config, dependencies_override=dependencies_for_this_server
         )

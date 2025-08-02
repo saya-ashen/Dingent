@@ -1,6 +1,6 @@
 import asyncio
 
-from dingent.engine.mcp import create_all_mcp_server
+from dingent.engine.mcp import create_all_mcp_servers
 
 
 async def main():
@@ -8,7 +8,7 @@ async def main():
     Main function to parse inputs, import corresponding services as modules,
     and run them in separate processes.
     """
-    mcps = await create_all_mcp_server()
+    mcps = await create_all_mcp_servers()
 
     # Create a list to store all server startup tasks.
     tasks = []

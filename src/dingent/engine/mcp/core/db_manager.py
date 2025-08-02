@@ -57,58 +57,50 @@ def find_definitions_from_file(
     file_path: str, base_class: type | None = None, target_name: str | None = None, force_reload: bool = False
 ) -> list[Any]:
     """
-    动态导入一个 Python 文件，并根据指定条件查找其中定义的类或对象。
-    此函数会缓存加载的模块，以避免在重复调用时重新执行模块代码引发错误。
+    Dynamically import a Python file, and find all classes or objects definied in it.
+    Then cached these classes and objects.
 
     Args:
-        file_path (str): 用户定义的 .py 文件的路径。
+        file_path (str): Path to the user-defined .py file.
         base_class (Optional[Type]):
-            要查找的基类。函数将返回所有该基类的子类。
+            The base class to search for. The function will return all subclasses of this base class.
         target_name (Optional[str]):
-            要查找的定义（类、函数等）的精确名称。
+            The function will return all definitions that match this name.
         force_reload (bool):
-            如果为 True，即使模块已被加载，也会强制重新加载并执行模块代码。
-            警告：对于像 SQLAlchemy 模型这样具有副作用的定义，
-            这可能会再次引发 'already defined' 错误。
-            默认为 False。
+            If True, the module will be reloaded even if it has already been loaded.
 
     Returns:
-        List[Any]: 一个包含所有符合条件的已找到定义的列表。
+        List[Any]: List of definitions found in the file that match the criteria.
     """
     if not os.path.exists(file_path):
-        raise FileNotFoundError(f"文件未找到: {file_path}")
+        raise FileNotFoundError(f"File not found: {file_path}")
 
     if base_class is None and target_name is None:
-        raise ValueError("必须提供 'base_class' 或 'target_name' 至少一个参数。")
+        raise ValueError("At least one of 'base_class' or 'target_name' must be provided.")
 
     module_name = os.path.splitext(os.path.basename(file_path))[0]
 
     module = None
     try:
-        # 步骤 1: 检查模块是否已经被加载
         if module_name in sys.modules and not force_reload:
             module = sys.modules[module_name]
-        # 步骤 2: 如果需要，强制重载模块
         elif module_name in sys.modules and force_reload:
             module = importlib.reload(sys.modules[module_name])
-        # 步骤 3: 如果模块从未加载过，则正常加载
         else:
             spec = importlib.util.spec_from_file_location(module_name, file_path)
             if spec is None or spec.loader is None:
-                raise ImportError(f"无法为 {file_path} 创建模块规范或加载器")
+                raise ImportError(f"Can't create module spec or loader for {file_path}")
 
             module = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = module  # 必须在执行前添加到 sys.modules
+            sys.modules[module_name] = module  
             spec.loader.exec_module(module)
 
     except Exception as e:
-        print(f"从文件 '{file_path}' 加载或重载模块时出错: {e}")
+        logger.error(f"Load module {module_name} from {file_path} failed. Error: {e}")
         raise e
 
-    # 步骤 4: 在加载好的模块中查找定义
     found_definitions = []
     for name, obj in inspect.getmembers(module):
-        # 检查对象是否直接定义在该模块中
         if hasattr(obj, "__module__") and obj.__module__ != module_name:
             continue
 
@@ -229,40 +221,32 @@ class Database:
 
 class DBManager:
     """
-    管理和维护所有数据库实例的类。
-
-    它根据配置文件按需创建和缓存数据库连接实例。
+    A class to manage and maintain all database instances.
+    It creates and caches database connection instances on demand based on the configuration file.
     """
 
     def __init__(self, db_configs: list[DatabaseSettings]):
         """
-        初始化数据库管理器。
-
-        :param db_configs: 来自于 config.yaml 的 'databases' 部分。
-                           e.g., [{'name': 'sales_db', 'type': 'sqlite', 'uri': '...'}]
+        Initializes the database manager with a list of database configurations.
         """
         self._configs: dict[str, DatabaseSettings] = {config.name: config for config in db_configs}
         self._connections: dict[str, Database] = {}
-        logger.info(f"DBManager 已使用 {len(self._configs)} 个数据库配置进行初始化。")
+        logger.info(f"DBManager initialized with {len(self._configs)} databases.")
 
     async def get_connection(self, name: str) -> Database | None:
         """
-        获取一个指定名称的数据库实例。
-
-        如果实例已在缓存中，则直接返回。否则创建新实例。
-
-        :param name: 在配置文件中定义的数据库的唯一名称。
-        :return: 一个 Database 实例或在失败时返回 None。
-        :raises ValueError: 如果请求的名称在配置中不存在。
+        Get a database instance by its name.
+        If there is an instance cached, return it directly.
         """
         if name in self._connections:
-            logger.debug(f"返回缓存的数据库连接: {name}")
+            logger.debug(f"Retrieving cached database connection: {name}")
             return self._connections[name]
 
         if name not in self._configs:
-            raise ValueError(f"数据库 '{name}' 在配置中未找到。")
+            logger.error(f"Database '{name}' not found in configuration.")
+            raise ValueError(f"Database '{name}' not found in configuration.")
 
-        logger.info(f"正在为 '{name}' 创建新的数据库连接...")
+        logger.debug(f"Creating a new connection for database '{name}'...")
         config = self._configs[name]
         schemas_relative_path = config.schemas_file
 
@@ -277,10 +261,7 @@ class DBManager:
             return instance
         except Exception as e:
             logger.error(f"Failed to create database connection '{name}': {e}")
-            raise e
-            # 创建失败时，不在缓存中存储任何内容
             return None
 
     def list_available_databases(self) -> list[str]:
-        """返回所有已配置的数据库名称列表。"""
         return list(self._configs.keys())

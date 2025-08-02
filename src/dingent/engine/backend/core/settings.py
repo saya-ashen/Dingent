@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from loguru import logger
 
 import toml
 from pydantic import BaseModel
@@ -22,13 +23,9 @@ class AppSettings(BaseSettings):
 
 @lru_cache
 def get_settings() -> AppSettings:
-    """
-    加载、合并并返回最终的配置对象。
-    此过程只执行一次。
-    """
     user_config_path = Path.cwd() / "config.toml"
     if user_config_path.is_file():
-        print(f"Loading user config from: {user_config_path}")
+        logger.info(f"Loading user config from: {user_config_path}")
         user_data = toml.load(user_config_path)
     else:
         user_data = {}
