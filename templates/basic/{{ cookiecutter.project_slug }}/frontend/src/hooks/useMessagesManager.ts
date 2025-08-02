@@ -42,7 +42,6 @@ export function useMessagesManager() {
                 }
 
                 const fetchMessages = async () => {
-                        // 检查 agentName 是否存在
                         if (!agentSession?.agentName) return;
 
                         const result = await runtimeClient.loadAgentState({
@@ -50,10 +49,8 @@ export function useMessagesManager() {
                                 agentName: agentSession.agentName,
                         });
 
-                        // 错误处理
                         if (result.error) {
                                 console.error("Failed to load agent state:", result.error);
-                                // 更新 ref 防止无限重试失败的请求
                                 lastLoadedThreadId.current = threadId;
                                 lastLoadedAgentName.current = agentSession.agentName;
                                 return;
@@ -63,7 +60,6 @@ export function useMessagesManager() {
 
 
                         if (result.data?.loadAgentState?.threadExists) {
-                                // 更新 ref 标记已加载成功
                                 lastLoadedMessages.current = newMessages || "";
                                 lastLoadedThreadId.current = threadId;
                                 lastLoadedAgentName.current = agentSession.agentName;
@@ -72,7 +68,6 @@ export function useMessagesManager() {
                                 setMessages(parsedMessages);
                         }
                         else {
-                                // 当线程不存在时，显式地清空消息列表
                                 setMessages([]);
                                 lastLoadedThreadId.current = threadId;
                                 lastLoadedAgentName.current = agentSession?.agentName;

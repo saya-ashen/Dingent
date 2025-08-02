@@ -88,14 +88,11 @@ def find_definitions_from_file(
         # 步骤 1: 检查模块是否已经被加载
         if module_name in sys.modules and not force_reload:
             module = sys.modules[module_name]
-            # print(f"模块 '{module_name}' 已缓存，直接使用。")
         # 步骤 2: 如果需要，强制重载模块
         elif module_name in sys.modules and force_reload:
-            # print(f"模块 '{module_name}' 已存在，强制重载。")
             module = importlib.reload(sys.modules[module_name])
         # 步骤 3: 如果模块从未加载过，则正常加载
         else:
-            # print(f"首次加载模块 '{module_name}'。")
             spec = importlib.util.spec_from_file_location(module_name, file_path)
             if spec is None or spec.loader is None:
                 raise ImportError(f"无法为 {file_path} 创建模块规范或加载器")
@@ -171,7 +168,7 @@ class Database:
                     continue
                 instance_10 = instances[:10]
                 summary += f"Table: {table_name}\n"
-                summary += f"Sample Data: {', '.join(str(instance) for instance in instance_10)}\n"
+                summary += f"The first 10 records retrieved: {', '.join(str(instance) for instance in instance_10)}\n"
             return summary
 
         if not schemas_path:
@@ -180,7 +177,7 @@ class Database:
         try:
             summarizer = find_definitions_from_file(schemas_path, target_name="summarize_data")[0]
         except IndexError:
-            logger.warning("没有找到名为 'summarize_data' 的函数。使用默认方法")
+            logger.warning("function 'summarize_data' not found。Use default summarizer instead.")
             return default_summarizer
 
         assert callable(summarizer), f"Summarizer in {self.db_name} module is not callable"

@@ -10,7 +10,6 @@ import { NextRequest, NextResponse } from 'next/server';
 export const GET = async (
     req: NextRequest,
     // highlight-start
-    // 直接在函数签名中解构出 params，这是推荐的做法
     { params }: { params: { id: string } }
     // highlight-end
 ) => {
@@ -36,9 +35,9 @@ export const GET = async (
             });
         }
 
-        // 5. Stream the response from the backend directly to the client.
-        //    This is memory-efficient as your Next.js server doesn't need to
-        //    load the entire response into memory before sending it.
+        // Stream the response from the backend directly to the client.
+        // This is memory-efficient as your Next.js server doesn't need to
+        // load the entire response into memory before sending it.
         return new NextResponse(response.body, {
             status: response.status,
             statusText: response.statusText,
@@ -47,8 +46,8 @@ export const GET = async (
 
     } catch (error) {
         console.error(`Error proxying request to ${targetUrl}:`, error);
-        // 6. If the fetch itself fails (e.g., network error, backend is down),
-        //    return a 500 Internal Server Error.
+        // If the fetch itself fails (e.g., network error, backend is down),
+        // return a 500 Internal Server Error.
         return NextResponse.json(
             { message: 'Error connecting to the backend service.' },
             { status: 500 }

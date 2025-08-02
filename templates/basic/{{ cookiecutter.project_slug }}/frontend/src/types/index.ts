@@ -28,10 +28,6 @@ export interface Widget {
     type: string;
     payload: TablePayload | MarkdownPayload;
     metadata?: {
-        title?: string; // Widget 卡片的标题
-        source?: string; // 数据来源
-        timestamp?: string; // ISO 8601 格式的时间戳
-        showType?: "table" | "card"
     };
 }
 

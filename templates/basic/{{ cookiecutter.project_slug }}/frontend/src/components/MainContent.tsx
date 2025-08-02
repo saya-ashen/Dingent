@@ -12,7 +12,7 @@ export function MainContent({ widgets }: { widgets: Widget[] }) {
     return (
         <div
             className="h-screen w-full flex flex-col items-center overflow-y-auto pt-8 pb-8 space-y-6"
-            style={{ zIndex: 1 }} // 确保内容在模糊背景之上
+            style={{ zIndex: 1 }} 
         >
             {widgets.length === 0 ? (
                 <div className="flex-grow flex justify-center items-center text-gray-500">
@@ -37,10 +37,8 @@ export function MainContent({ widgets }: { widgets: Widget[] }) {
 }
 
 function AppWithThreads({ children }: { children: React.ReactNode }) {
-    // --- CHANGE: useThreadManager now returns more properties ---
     const { threads, updateThreadTitle, ...threadManager } = useThreadManager();
 
-    // --- CHANGE: Provide the full context value ---
     const contextValue = useMemo(() => ({
         ...threadManager,
         threads,
@@ -75,11 +73,9 @@ function getInitialThreadId(): string | undefined {
 export function Providers({ children }: { children: React.ReactNode }) {
     const [activeThreadId, setActiveThreadId] = useState<string | undefined>(getInitialThreadId);
 
-    // --- CHANGE: Update the initial context value shape ---
     const initialThreadContextValue = useMemo(() => ({
         activeThreadId,
         setActiveThreadId,
-        // Provide defaults for the other properties
         threads: [],
         isLoading: true,
         updateThreadTitle: () => { },
