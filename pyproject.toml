@@ -1,5 +1,5 @@
 [project]
-name = "Dingent"
+name = "dingent"
 version = "0.1.0"
 description = "AI agent framework"
 readme = "README.md"
@@ -70,7 +70,7 @@ cli = [
 ]
 
 full = [
-    "Dingent[backend,mcp,cli]",
+    "dingent[backend,mcp,cli]",
 ]
 
 [build-system]
