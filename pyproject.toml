@@ -1,11 +1,11 @@
 [project]
 name = "dingent"
-version = "0.1.1"
 description = "AI agent framework"
 readme = "README.md"
 authors = [
     {name = "saya", email = "c3313433633@gmail.com"},
 ]
+dynamic = ["version"]
 requires-python = ">=3.12, <3.14"
 license-files = [
     "LICENSE"
@@ -15,7 +15,6 @@ dependencies = [
     "toml>=0.10.2",
     "pydantic-settings<3.0.0,>=2.4.0",
     "loguru>=0.7.3",
-    "danticsql",
 ]
 dev = [
     "ipython>=9.4.0",
@@ -53,7 +52,6 @@ mcp = [
     "langchain-community>=0.3.21",
     "pymysql>=1.1.1",
     "sqlglot[rs]>=26.15.0",
-    "danticsql>=0.1.0",
     "langchain>=0.3.23",
     "langgraph>=0.3.31,<1.0.0",
     "langdetect>=1.0.9",
@@ -74,7 +72,7 @@ full = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling","uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [tool.ruff]
@@ -107,7 +105,8 @@ reportMissingTypeStubs = false
 pythonVersion = "3.13"
 pythonPlatform = "Linux"
 typeCheckingMode = "standard"
-[tool.hatch.build]
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
 [tool.uv]
 link-mode = "symlink"
 default-groups = "all"
