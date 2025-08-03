@@ -10,6 +10,7 @@
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/saya-ashen/Dingent)
 ![PyPI - Version](https://img.shields.io/pypi/v/dingent)
 
+[English](./README.md) · **简体中文**
 
 </div>
 
