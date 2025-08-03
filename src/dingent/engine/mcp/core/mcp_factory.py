@@ -72,7 +72,7 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
         "description": config.description,
     }
 
-    @mcp.resource("info://server_info/{lang}")
+    @mcp.resource("info://server_info/en-US")
     async def get_server_info():
         """Get server information"""
         return server_info
