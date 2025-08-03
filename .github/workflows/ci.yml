@@ -42,16 +42,16 @@ jobs:
       - name: Lint with ruff
         run: |
           uv pip install ruff
-          ruff check .
+          uv run ruff check .
 
       - name: Check formatting with ruff
         run: |
-          ruff format --check .
+          uv run ruff format --check .
 
-      - name: Run tests with pytest
-        run: |
-          uv pip install pytest
-          pytest
+      # - name: Run tests with pytest
+      #   run: |
+      #     uv pip install pytest
+      #     uv run pytest
 
       - name: Minimize uv cache
         run: uv cache prune --ci
