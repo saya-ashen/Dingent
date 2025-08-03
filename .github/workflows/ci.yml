@@ -1,0 +1,62 @@
+name: Python CI/CD with uv and ruff
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # == CI Job: Build, Lint, and Test ==
+  build-and-test:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache uv global directory
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.python-version }}-
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        shell: bash
+
+      - name: Install dependencies with uv
+        run: |
+          uv sync --system-site-packages pyproject.toml
+        shell: bash
+
+      - name: Lint with ruff
+        run: |
+          uv pip install ruff
+          ruff check .
+        shell: bash
+
+      - name: Check formatting with ruff
+        run: |
+          ruff format --check .
+        shell: bash
+
+      # - name: Run tests with pytest
+      #   run: |
+      #     uv pip install pytest
+      #     pytest
+      #   shell: bash

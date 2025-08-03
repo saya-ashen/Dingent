@@ -1,12 +1,15 @@
 [project]
 name = "Dingent"
 version = "0.1.0"
-description = "AI agent"
+description = "AI agent framework"
 readme = "README.md"
 authors = [
     {name = "saya", email = "c3313433633@gmail.com"},
 ]
 requires-python = ">=3.12, <3.14"
+license-files = [
+    "LICENSE"
+]
 
 dependencies = [
     "toml>=0.10.2",
