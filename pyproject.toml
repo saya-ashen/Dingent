@@ -112,8 +112,6 @@ typeCheckingMode = "standard"
 link-mode = "symlink"
 default-groups = "all"
 
-[tool.uv.sources]
-danticsql = { path = "../DanticSQL", editable = true }
 
 [dependency-groups]
 dev = [
