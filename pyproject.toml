@@ -12,6 +12,8 @@ license-files = [
 ]
 
 dependencies = [
+    "click>=8.2.1",
+    "cookiecutter>=2.6.0",
     "toml>=0.10.2",
     "pydantic-settings<3.0.0,>=2.4.0",
     "loguru>=0.7.3",
@@ -62,13 +64,8 @@ mcp = [
     "psycopg2-binary>=2.9.10",
 ]
 
-cli = [
-    "click>=8.2.1",
-    "cookiecutter>=2.6.0",
-]
-
 full = [
-    "dingent[backend,mcp,cli]",
+    "dingent[backend,mcp]",
 ]
 
 [build-system]
