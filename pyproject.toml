@@ -72,7 +72,7 @@ full = [
 ]
 
 [build-system]
-requires = ["hatchling","uv-dynamic-versioning"]
+requires = ["hatchling","hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.ruff]
@@ -105,8 +105,13 @@ reportMissingTypeStubs = false
 pythonVersion = "3.13"
 pythonPlatform = "Linux"
 typeCheckingMode = "standard"
+
 [tool.hatch.version]
-source = "uv-dynamic-versioning"
+source = "vcs"
+[tool.hatch.version.raw-options]
+version_scheme = "no-guess-dev"
+
+
 [tool.uv]
 link-mode = "symlink"
 default-groups = "all"
