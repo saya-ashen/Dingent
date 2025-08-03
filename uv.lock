@@ -582,20 +582,6 @@ wheels = [
 ]
 
 [[package]]
-name = "danticsql"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pandas" },
-    { name = "pydantic" },
-    { name = "sqlmodel" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/7a/05021ee480332b6c303a26e5371eb2af5de6e68b8a169b30959ea00be688/danticsql-0.1.0.tar.gz", hash = "sha256:fdfc603aadbe44933ccf164f2c11d27c747e259d812ca219cb69ae4927b03cb3", size = 53186, upload-time = "2025-07-08T02:48:36.406Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/62/eaa24afd448664ea1ee8a508286e192790b83a58b354dd6478f95652ff63/danticsql-0.1.0-py3-none-any.whl", hash = "sha256:09b5008189817d8fede7315506d72749102a3040737cfcc59f8b2e8bd73600ee", size = 10215, upload-time = "2025-07-08T02:48:35.053Z" },
-]
-
-[[package]]
 name = "dataclasses-json"
 version = "0.6.7"
 source = { registry = "https://pypi.org/simple" }
@@ -619,10 +605,8 @@ wheels = [
 
 [[package]]
 name = "dingent"
-version = "0.1.1"
 source = { editable = "." }
 dependencies = [
-    { name = "danticsql" },
     { name = "loguru" },
     { name = "pydantic-settings" },
     { name = "toml" },
@@ -652,7 +636,6 @@ full = [
     { name = "click" },
     { name = "cookiecutter" },
     { name = "copilotkit" },
-    { name = "danticsql" },
     { name = "fastapi" },
     { name = "fastmcp" },
     { name = "langchain" },
@@ -674,7 +657,6 @@ full = [
     { name = "sqlmodel" },
 ]
 mcp = [
-    { name = "danticsql" },
     { name = "fastmcp" },
     { name = "langchain" },
     { name = "langchain-community" },
@@ -701,40 +683,59 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", marker = "extra == 'cli'", specifier = ">=8.2.1" },
+    { name = "click", marker = "extra == 'full'", specifier = ">=8.2.1" },
     { name = "cookiecutter", marker = "extra == 'cli'", specifier = ">=2.6.0" },
+    { name = "cookiecutter", marker = "extra == 'full'", specifier = ">=2.6.0" },
     { name = "copilotkit", marker = "extra == 'backend'", specifier = ">=0.1.56" },
-    { name = "danticsql" },
-    { name = "danticsql", marker = "extra == 'mcp'", specifier = ">=0.1.0" },
-    { name = "dingent", extras = ["backend", "mcp", "cli"], marker = "extra == 'full'" },
+    { name = "copilotkit", marker = "extra == 'full'", specifier = ">=0.1.56" },
     { name = "fastapi", marker = "extra == 'backend'", specifier = ">=0.115.6" },
+    { name = "fastapi", marker = "extra == 'full'", specifier = ">=0.115.6" },
     { name = "fastmcp", marker = "extra == 'backend'", specifier = ">=2.2.0" },
+    { name = "fastmcp", marker = "extra == 'full'", specifier = ">=2.2.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.2.0" },
     { name = "langchain", marker = "extra == 'backend'", specifier = ">=0.3.23" },
+    { name = "langchain", marker = "extra == 'full'", specifier = ">=0.3.23" },
     { name = "langchain", marker = "extra == 'mcp'", specifier = ">=0.3.23" },
     { name = "langchain-chroma", marker = "extra == 'backend'", specifier = ">=0.2.3" },
+    { name = "langchain-chroma", marker = "extra == 'full'", specifier = ">=0.2.3" },
     { name = "langchain-community", marker = "extra == 'backend'", specifier = ">=0.3.21" },
+    { name = "langchain-community", marker = "extra == 'full'", specifier = ">=0.3.21" },
     { name = "langchain-community", marker = "extra == 'mcp'", specifier = ">=0.3.21" },
     { name = "langchain-experimental", marker = "extra == 'backend'", specifier = ">=0.3.4" },
+    { name = "langchain-experimental", marker = "extra == 'full'", specifier = ">=0.3.4" },
     { name = "langchain-mcp-adapters", marker = "extra == 'backend'", specifier = ">=0.0.11" },
+    { name = "langchain-mcp-adapters", marker = "extra == 'full'", specifier = ">=0.0.11" },
     { name = "langchain-openai", marker = "extra == 'backend'", specifier = ">=0.3.14,<1.0.0" },
+    { name = "langchain-openai", marker = "extra == 'full'", specifier = ">=0.3.14,<1.0.0" },
     { name = "langchain-openai", marker = "extra == 'mcp'", specifier = ">=0.3.14,<1.0.0" },
+    { name = "langdetect", marker = "extra == 'full'", specifier = ">=1.0.9" },
     { name = "langdetect", marker = "extra == 'mcp'", specifier = ">=1.0.9" },
     { name = "langgraph", marker = "extra == 'backend'", specifier = ">=0.3.31,<1.0.0" },
+    { name = "langgraph", marker = "extra == 'full'", specifier = ">=0.3.31,<1.0.0" },
     { name = "langgraph", marker = "extra == 'mcp'", specifier = ">=0.3.31,<1.0.0" },
     { name = "langgraph-cli", extras = ["inmem"], marker = "extra == 'backend'", specifier = ">=0.1.73" },
+    { name = "langgraph-cli", extras = ["inmem"], marker = "extra == 'full'", specifier = ">=0.1.73" },
     { name = "langgraph-swarm", marker = "extra == 'backend'", specifier = ">=0.0.12" },
+    { name = "langgraph-swarm", marker = "extra == 'full'", specifier = ">=0.0.12" },
     { name = "loguru", specifier = ">=0.7.3" },
+    { name = "mcp", extras = ["cli"], marker = "extra == 'full'", specifier = ">=1.7.1" },
     { name = "mcp", extras = ["cli"], marker = "extra == 'mcp'", specifier = ">=1.7.1" },
     { name = "numpy", marker = "extra == 'backend'", specifier = ">=2.3.0" },
+    { name = "numpy", marker = "extra == 'full'", specifier = ">=2.3.0" },
+    { name = "pandas", marker = "extra == 'full'", specifier = ">=2.2.3" },
     { name = "pandas", marker = "extra == 'mcp'", specifier = ">=2.2.3" },
+    { name = "psycopg2-binary", marker = "extra == 'full'", specifier = ">=2.9.10" },
     { name = "psycopg2-binary", marker = "extra == 'mcp'", specifier = ">=2.9.10" },
     { name = "pydantic-settings", specifier = ">=2.4.0,<3.0.0" },
+    { name = "pymysql", marker = "extra == 'full'", specifier = ">=1.1.1" },
     { name = "pymysql", marker = "extra == 'mcp'", specifier = ">=1.1.1" },
+    { name = "sqlglot", extras = ["rs"], marker = "extra == 'full'", specifier = ">=26.15.0" },
     { name = "sqlglot", extras = ["rs"], marker = "extra == 'mcp'", specifier = ">=26.15.0" },
+    { name = "sqlmodel", marker = "extra == 'full'", specifier = ">=0.0.24" },
     { name = "sqlmodel", marker = "extra == 'mcp'", specifier = ">=0.0.24" },
     { name = "toml", specifier = ">=0.10.2" },
 ]
-provides-extras = ["backend", "mcp", "cli", "full"]
+provides-extras = ["backend", "cli", "full", "mcp"]
 
 [package.metadata.requires-dev]
 dev = [
