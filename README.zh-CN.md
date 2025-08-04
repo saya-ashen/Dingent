@@ -12,6 +12,13 @@
 
 [English](./README.md) · **简体中文**
 
+[快速开始](https://saya-ashen.github.io/Dingent/docs/intro#fast-track)
+|
+[安装说明](https://saya-ashen.github.io/Dingent/docs/getting-started/installation)
+|
+[配置说明](https://saya-ashen.github.io/Dingent/docs/getting-started/configuration)
+
+
 </div>
 
 **Dingent** 是一个轻量级、用户友友好的智能体（Agent）框架，其核心目标是简化基于大型语言模型（LLM）的数据应用的创建过程。我们提供了一个简洁而强大的工具包，核心亮点是能够自动连接数据库，使您能够快速地将数据库与 LLM 连接，从而构建能够进行智能问答、数据提取和分析的应用程序。对于API、本地文档等其他数据源，Dingent 提供了灵活的框架，开发者可以通过编写自定义代码轻松接入。
