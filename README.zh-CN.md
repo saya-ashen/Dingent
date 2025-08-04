@@ -23,9 +23,11 @@
 
 * **拒绝重复**: 我们将后端服务 (LangGraph)、数据接口 (MCP) 和前端展示 (CopilotKit) 的最佳实践打包成一个命令。你无需再手动搭建，可以立即开始编写核心业务逻辑。
 
+* **内置核心功能**: 我们认为，一个简单易用的智能体，不应该让用户花费大量时间维护插件。因此，我们致力于将社区认为重要的功能直接内置到框架中。如果你认为某个功能很重要，我们鼓励你提出 Issue 或 PR，这直接体现了我们“让用户更简单地使用 Agent”的核心使命。
+
 * **专注而非全面**: 与其他通用型 Agent 框架不同，Dingent 专注于数据检索与问答场景，提供了更轻量、更聚焦的解决方案。
 
-* **平滑的学习曲线**: 你只需要了解 Python 和一些基本的前端知识，无需成为 LangGraph 或 FastAPI 的专家就能构建出强大的应用。
+* **平滑的学习曲线**: 你只需要了解 Python 和一些基本的前端知识，无需成为 LangGraph 或 FastAPI 的专家就能构建出强大的应用。同时，我们也保留了快速拓展功能的灵活性，保证用户在需要时，该框架能完全胜任个性化功能的开发。
 
 ## ✨ 功能特性
 
@@ -59,6 +61,9 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ```bash
 # On macOS and Linux.
 curl -fsSL https://bun.com/install | bash
+```
+
+```bash
 # on windows
 powershell -c "irm bun.com/install.ps1 | iex"
 ```
@@ -78,7 +83,10 @@ CLI 会提示您输入项目名称、作者等信息，然后自动创建项目�
 项目创建成功后，进入项目目录：
 ```bash
 cd my-awesome-agent
+# On macOS and Linux
 export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxx # 替换为你的 OpenAI API Key
+# On windows
+$env:OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxx" # 替换为你的 OpenAI API Key
 uvx dingent run
 ```
 默认情况下，Dingent 会启动一个Langgraph后端服务和MCP服务，并在浏览器中打开前端界面。
@@ -129,7 +137,7 @@ my-awesome-agent/
 
     * data/: 存放你的数据源文件（如 .db, .csv, .md）。
 
-    * custom_tools/: 定义你可以被 Agent 调用的自定义工具。
+    * custom_tools/: 定义你可以被 Agent 调用的自定义工具。这里是实现您个性化或私有业务逻辑的理想之地。但请注意，如果您开发的工具具有普适性，我们强烈建议您通过 Pull Request 将其贡献给主项目，以帮助所有用户！
 
     * main.py: 启动 MCP 服务并注册上述资源和工具。
 
@@ -145,15 +153,23 @@ my-awesome-agent/
 
 ## 🤝 如何贡献
 
-我们热烈欢迎社区的开发者们为 Dingent 贡献代码！如果您有兴趣，请遵循以下步骤：
+我们建立该项目的初衷是为了让用户更简单地使用 Agent，而不是创建又一个复杂的开发框架。因此，我们热烈欢迎并高度依赖社区的贡献来决定 **Dingent** 的未来方向。
 
-1.  **Fork** 本项目。
-2.  创建一个新的功能分支 (`git checkout -b feature/YourAmazingFeature`)。
-3.  提交您的代码更改 (`git commit -m 'Add some AmazingFeature'`)。
-4.  将您的分支推送到 GitHub (`git push origin feature/YourAmazingFeature`)。
-5.  创建一个 **Pull Request**。
+如果你认为某个功能对你很重要，我们强烈建议你通过 GitHub Issues 提出讨论，或直接通过 Pull Request 贡献代码。我们的核心理念是：由开发者社区决定哪些功能应该被内置到软件中，而不是让用户自己维护一个插件!
 
-我们同样欢迎任何形式的 Bug 反馈和功能建议，请通过 [GitHub Issues](https://github.com/saya-ashen/Dingent/issues) 提交。
+如果您认同我们的理念并希望贡献代码，请遵循以下步骤：
+
+1. Fork 本项目。
+
+2. 创建一个新的功能分支 (git checkout -b feature/YourAmazingFeature)。
+
+3. 提交您的代码更改 (git commit -m 'Add some AmazingFeature')。
+
+4. 将您的分支推送到 GitHub (git push origin feature/YourAmazingFeature)。
+
+4. 创建一个 Pull Request，并在描述中清晰地说明该功能的价值。
+
+我们相信，通过社区的共同努力，Dingent 可以成为一个真正“开箱即用”且功能强大的工具。
 
 ## 📄 许可证
 
