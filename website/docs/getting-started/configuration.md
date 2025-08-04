@@ -29,44 +29,45 @@ description = "This assistant can only answer questions about the operations of 
 
 This configuration file sets up an AI assistant that can answer questions about a database. We use the **"Sakila"** database in this guide, which is a **sample dataset included in our template** to show you how everything works.
 
-#### 1\. Database Connection (`[[databases]]`)
+1. Database Connection (`[[databases]]`)
 
-This section tells the system which database to connect to.
+    This section tells the system which database to connect to.
 
-```toml
-[[databases]]
-name = "sakila"
-uri = "sqlite:///./data/sakila.db"
-schemas_file = "schemas/sakila.py"
-```
+    ```toml
+    [[databases]]
+    name = "sakila"
+    uri = "sqlite:///./data/sakila.db"
+    schemas_file = "schemas/sakila.py"
+    ```
 
-  - `name`: A simple nickname for your database connection.
-  - `uri`: The connection uri to your database. We use SQLModel as our ORM, so you can use any [SQLAlchemy-compatible database URI](https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls). In this case, we use a SQLite database located at `./data/sakila.db`.
-  - `schemas_file`: **(Optional, but Highly Recommended)**
-      - This file describes your database structure (tables, columns, etc.) to the AI.
-      - **Think of it as a "map" of your data.** By providing a good map, you significantly increase the AI's accuracy in finding the right answers. Without it, the agent will retrieve data from the database, but it may not understand the context or relationships between different pieces of data.
-      - We use SQLModel to define the schema, and you can find the example schema file in `schemas/sakila.py`. It includes definitions for tables like `actor`, `customer`, `film`, etc.
+      - `name`: A simple nickname for your database connection.
+      - `uri`: The connection uri to your database. We use SQLModel as our ORM, so you can use any [SQLAlchemy-compatible database URI](https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls). In this case, we use a SQLite database located at `./data/sakila.db`.
+      - `schemas_file`: **(Optional, but Highly Recommended)**
+          - This file describes your database structure (tables, columns, etc.) to the AI.
+          - **Think of it as a "map" of your data.** By providing a good map, you significantly increase the AI's accuracy in finding the right answers. Without it, the agent will retrieve data from the database, but it may not understand the context or relationships between different pieces of data.
+          - We use SQLModel to define the schema, and you can find the example schema file in `schemas/sakila.py`. It includes definitions for tables like `actor`, `customer`, `film`, etc.
 
-#### 2\. AI Assistant Server (`[[mcp_servers]]`)
+2. AI Assistant Server (`[[mcp_servers]]`)
 
-This section configures the AI assistant itself. It defines what the AI can do and how it should behave.
+    This section configures the AI assistant itself. It defines what the AI can do and how it should behave.
 
-```toml
-[[mcp_servers]]
-name = "sakila"
-llm.model = "gpt-4.1"
-database = "sakila"
-enabled_tools = ["text2sql"]
-description = "..."
-```
+    ```toml
+    [[mcp_servers]]
+    name = "sakila"
+    llm.model = "gpt-4.1"
+    llm.provider= "openai"
+    database = "sakila"
+    enabled_tools = ["text2sql"]
+    description = "..."
+    ```
 
-  - `name` & `database`: Links this assistant to the "sakila" database defined above.
-  - `llm.model`: Specifies which AI model to use, like `gpt-4.1`.
-  - `enabled_tools`: The abilities you give to the AI. `["text2sql"]` means it can translate plain English questions into database queries.
-  - `description`: **This is the instruction manual for the AI.** It's the most important setting for controlling the assistant's behavior. It tells the AI:
-      - **Its Job**: "You are an assistant for a DVD rental business."
-      - **The Rules**: "Only answer questions using the database."
-      - **What it can help with**: It lists examples like analyzing sales, customers, or film inventory.
+      - `name` & `database`: Links this assistant to the "sakila" database defined above.
+      - `llm.provider` & `llm.model`: **Global language model settings**. This sets the default language model provider (e.g., `"openai"`) and the specific model (e.g., `"gpt-4.1"`) for each mcp server.
+      - `enabled_tools`: The abilities you give to the AI. `["text2sql"]` means it can translate plain English questions into database queries.
+      - `description`: **This is the instruction manual for the AI.** It's the most important setting for controlling the assistant's behavior. It tells the AI:
+          - **Its Job**: "You are an assistant for a DVD rental business."
+          - **The Rules**: "Only answer questions using the database."
+          - **What it can help with**: It lists examples like analyzing sales, customers, or film inventory.
 
 
 **In short:**

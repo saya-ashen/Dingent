@@ -22,7 +22,7 @@ Install [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and [*
 
 ```bash
 # Use the 'basic' template to create a new project
-uvx dingent[cli] init basic
+uvx dingent init basic
 ```
 
 Start the agent.
