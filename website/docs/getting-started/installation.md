@@ -40,7 +40,7 @@ If you chose the `basic` template and named your project `my-awesome-agent`, the
 │   └── langgraph.json
 └── 🛠️ mcp/
     ├── main.py
-│   ├── config.toml
+    ├── config.toml
     ├── data/
     ├── custom_tools/
     └── schemas/
