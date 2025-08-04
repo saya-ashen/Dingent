@@ -38,7 +38,7 @@ Create a fully functional agent project from scratch in just a few minutes.
 
 ### 1\. Prerequisites
 
-Before you begin, ensure you have `uv` and `bun` installed in your development environment.
+Before you begin, ensure you have [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and [**bun**](https://bun.com/docs/installation) installed in your development environment.
 
   * **uv**: A very fast Python package installer and resolver.
 
@@ -47,7 +47,7 @@ Before you begin, ensure you have `uv` and `bun` installed in your development e
     curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
-    ```bash
+    ```powershell
     # On Windows
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
     ```
@@ -59,7 +59,7 @@ Before you begin, ensure you have `uv` and `bun` installed in your development e
     curl -fsSL https://bun.com/install | bash
     ```
 
-    ```bash
+    ```powershell
     # On Windows
     powershell -c "irm bun.com/install.ps1 | iex"
     ```
@@ -70,7 +70,7 @@ Run the following command, and the Dingent CLI will guide you through the projec
 
 ```bash
 # Use the 'basic' template to create a new project
-uvx dingent[cli] init basic
+uvx dingent init basic
 ```
 
 The CLI will prompt you for a project name, author, etc., and then automatically create the project directory and install all frontend and backend dependencies.
@@ -92,7 +92,7 @@ uvx dingent run
 ```
 
 By default, Dingent will start a LangGraph backend service and an MCP service, and it will open the frontend interface in your browser.
-If the frontend doesn't open automatically, you can manually visit [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000).
+If the frontend doesn't open automatically, you can manually visit [http://localhost:3000](http://localhost:3000).
 
 Your project skeleton is now ready\! You can now:
 
