@@ -4,8 +4,13 @@
 
 **A lightweight, user-friendly LLM Agent framework focused on simplifying data retrieval application development.**
 
-**English** · [简体中文](https://www.google.com/search?q=./README.zh-CN.md)
+**English** · [简体中文](./README.zh-CN.md)
 
+[Fast Track](https://saya-ashen.github.io/Dingent/docs/intro#fast-track)
+|
+[Installation](https://saya-ashen.github.io/Dingent/docs/getting-started/installation)
+|
+[Configuration](https://saya-ashen.github.io/Dingent/docs/getting-started/configuration)
 </div>
 
 **Dingent** is a lightweight, user-friendly agent framework whose core goal is to simplify the process of creating data-driven applications powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit, with a standout feature of automatic database connectivity. This allows you to quickly link your database with an LLM to build applications capable of intelligent Q\&A, data extraction, and analysis. For other data sources like APIs and local documents, Dingent offers a flexible framework that developers can easily extend by writing custom code.
