@@ -138,9 +138,6 @@ my-awesome-agent/
       * `custom_tools/`: Define custom tools that your Agent can call. This is the ideal place to implement personalized or private business logic. However, if you develop a tool that is universally useful, we strongly encourage you to contribute it to the main project via a Pull Request to help all users\!
       * `main.py`: Starts the MCP service and registers the resources and tools mentioned above.
 
-## Detailed Usage
-
-To be supplemented.
 
 ## 🗺️ Roadmap
 
