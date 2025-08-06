@@ -117,7 +117,7 @@ my-awesome-agent/
 
 ### 📦 frontend/
 
-  * The frontend is a modern web interface built with [CopilotKit](https://docs.copilotkit.ai) and Bun, responsible for all user interaction.
+  * The frontend is a modern web interface built with [CopilotKit](https://docs.copilotkit.ai), responsible for all user interaction.
   * **Primary Responsibilities**: It provides an interface for users to ask questions and displays the Agent's streaming responses, data tables, Markdown, and other content formats.
   * **Files**: The core page logic is in `src/app/page.tsx`, and UI components are in `src/components/`.
 

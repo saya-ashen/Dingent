@@ -51,7 +51,7 @@
 
 ### 1. 环境准备
 
-在开始之前，请确保您的开发环境中已安装 `uv` 和 `bun`。
+在开始之前，请确保您的开发环境中已安装 `uv` 和 `node`。
 
 * **uv**: 一个非常快的 Python 包安装和管理工具。
 ```bash
@@ -64,16 +64,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-* **Bun**: 适用于 JavaScript 和 TypeScript 应用程序的一体化工具包
-```bash
-# On macOS and Linux.
-curl -fsSL https://bun.com/install | bash
-```
-
-```bash
-# on windows
-powershell -c "irm bun.com/install.ps1 | iex"
-```
+* [**Node.js**](https://nodejs.org/en/download/) 版本>18.0  (运行node -v 查看)
+安装说明: [https://nodejs.org/en/download](https://nodejs.org/en/download)
 
 ### 2. 初始化您的智能体项目
 
@@ -128,7 +120,7 @@ my-awesome-agent/
 
 ### 📦 frontend/
 
-* 前端应用是一个现代化的 Web 界面，使用 [CopilotKit](https://docs.copilotkit.ai) 和 Bun 构建，负责所有用户交互。
+* 前端应用是一个现代化的 Web 界面，基于[CopilotKit](https://docs.copilotkit.ai) 构建，负责所有用户交互。
 
 * 主要职责: 提供用户输入问题的界面，展示 Agent 返回的流式响应、数据表格、Markdown 等多种格式的内容。
 
