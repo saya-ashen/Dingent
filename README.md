@@ -43,9 +43,9 @@ Create a fully functional agent project from scratch in just a few minutes.
 
 ### 1\. Prerequisites
 
-Before you begin, ensure you have [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and [**bun**](https://bun.com/docs/installation) installed in your development environment.
+Before you begin, ensure your development environment  has the following installed:
 
-  * **uv**: A very fast Python package installer and resolver.
+  * [**uv**](https://docs.astral.sh/uv/getting-started/installation/): A very fast Python package installer and resolver.
 
     ```bash
     # On macOS and Linux
@@ -57,17 +57,9 @@ Before you begin, ensure you have [**uv**](https://docs.astral.sh/uv/getting-sta
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
     ```
 
-  * **Bun**: An all-in-one toolkit for JavaScript and TypeScript applications.
+  * [**Node.js**](https://nodejs.org/en/download/) version 18.0 or above (which can be checked by running node -v)
 
-    ```bash
-    # On macOS and Linux
-    curl -fsSL https://bun.com/install | bash
-    ```
-
-    ```powershell
-    # On Windows
-    powershell -c "irm bun.com/install.ps1 | iex"
-    ```
+    Installation: [https://nodejs.org/en/download](https://nodejs.org/en/download)
 
 ### 2\. Initialize Your Agent Project
 
