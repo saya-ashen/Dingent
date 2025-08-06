@@ -18,7 +18,7 @@ sidebar_position: 1
 Create a fully functional agent project from scratch in just a few minutes.
 
 
-Install [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and [**bun**](https://bun.com/docs/installation) in your development environment, and create a new project use the template we provided.
+Install [**uv**](https://docs.astral.sh/uv/getting-started/installation/) and [**Node.js**](https://nodejs.org/en/download/) in your development environment, and create a new project use the template we provided.
 
 ```bash
 # Use the 'basic' template to create a new project
