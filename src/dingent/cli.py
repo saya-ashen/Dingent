@@ -22,22 +22,285 @@ IS_DEV_MODE = os.getenv("DINGENT_DEV")
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
 
-def is_uv_installed():
-    """Checks if 'uv' is available in the system's PATH."""
-    return shutil.which("uv") is not None
+class EnvironmentInfo:
+    """Detects and stores information about the user's environment."""
+
+    def __init__(self):
+        self.uv_path = shutil.which("uv")
+        self.bun_path = shutil.which("bun")
+        self.npm_path = shutil.which("npm")
+        self.os_platform = sys.platform
+
+    @property
+    def is_uv_installed(self):
+        """Check if 'uv' is available."""
+        return self.uv_path is not None
+
+    @property
+    def frontend_installer(self):
+        """Determines the preferred frontend package manager."""
+        if self.bun_path:
+            return "bun", [self.bun_path, "install"]
+        if self.npm_path:
+            return "npm", [self.npm_path, "install"]
+        return None, None
 
 
-def get_frontend_installer():
-    """
-    Determines the available frontend package manager.
-    Prefers 'bun', falls back to 'npm'.
-    Returns a tuple: (tool_name, install_command_list) or (None, None).
-    """
-    if shutil.which("bun"):
-        return "bun", ["bun", "install"]
-    if shutil.which("npm"):
-        return "npm", ["npm", "install"]
-    return None, None
+class ProjectInitializer:
+    """Handles the logic for the 'init' command."""
+
+    def __init__(self, project_name, template, checkout, env_info):
+        self.project_name = project_name
+        self.template = template
+        self.checkout = checkout
+        self.env = env_info
+        self.project_path = None
+
+    def run(self):
+        """Executes the entire project initialization workflow."""
+        try:
+            self._create_from_template()
+            self._convert_sql_to_db()
+            self._install_python_dependencies()
+            self._install_frontend_dependencies()
+            self._print_final_summary()
+        except RepositoryNotFound:
+            click.secho(f"\n❌ Error: Repository not found at {REPO_URL}", fg="red", bold=True)
+            click.echo("Please check the URL and your network connection.")
+            sys.exit(1)
+        except Exception as e:
+            click.secho(f"\n❌ An unexpected error occurred: {e}", fg="red", bold=True)
+            # Add more specific error handling or logging here if needed
+            sys.exit(1)
+
+    def _create_from_template(self):
+        """Uses Cookiecutter to scaffold the project."""
+        click.secho(f"🚀 Initializing project from git repository: {REPO_URL}", fg="green")
+        template_dir = f"templates/{self.template}"
+        created_path = cookiecutter(
+            REPO_URL,
+            directory=template_dir,
+            checkout=self.checkout,
+            extra_context={"project_slug": self.project_name},
+            output_dir=".",
+        )
+        self.project_path = Path(created_path)
+        click.secho("\n✅ Project structure created successfully!", fg="green")
+
+    def _convert_sql_to_db(self):
+        """Finds .sql files and converts them to SQLite .db files."""
+        click.secho("\n✨ Converting .sql files to .db databases...", fg="cyan")
+        sql_dir = self.project_path / "mcp" / "data"
+        if not sql_dir.is_dir():
+            click.secho(f"⚠️ Warning: SQL data directory not found at '{sql_dir}'.", fg="yellow")
+            return
+
+        sql_files = sorted(sql_dir.glob("*.sql"))
+        if not sql_files:
+            click.secho(f"ℹ️ Info: No .sql files found in '{sql_dir}'.", fg="blue")
+            return
+
+        click.echo(f"  -> Found {len(sql_files)} SQL file(s).")
+        success_count, error_count = 0, 0
+        for sql_file in sql_files:
+            db_path = sql_file.with_suffix(".db")
+            click.echo(f"    - Converting '{sql_file.name}' -> '{db_path.name}'")
+            try:
+                with sqlite3.connect(db_path) as conn:
+                    with open(sql_file, encoding="utf-8") as f:
+                        conn.cursor().executescript(f.read())
+                success_count += 1
+            except sqlite3.Error as e:
+                click.secho(f"      ❌ Error: {e}", fg="red")
+                if db_path.exists():
+                    db_path.unlink()
+                error_count += 1
+
+        summary_color = "green" if error_count == 0 else "yellow"
+        click.secho(f"\n✅ Conversion complete. {success_count} succeeded, {error_count} failed.", fg=summary_color)
+
+    def _install_python_dependencies(self):
+        """Installs dependencies for Python subdirectories using 'uv'."""
+        click.secho("\n📦 Installing Python dependencies with 'uv sync'...", fg="cyan")
+        if not self.env.is_uv_installed:
+            click.secho("⚠️ Warning: 'uv' not found. Skipping dependency installation.", fg="yellow")
+            click.echo("   Please install uv (https://github.com/astral-sh/uv) and run 'uv sync' manually.")
+            return
+
+        install_errors = False
+        for subdir_name in ["mcp", "backend"]:
+            target_dir = self.project_path / subdir_name
+            if target_dir.is_dir() and (target_dir / "pyproject.toml").exists():
+                click.echo(f"  -> Running 'uv sync' in '{subdir_name}'...")
+                try:
+                    # Using 'uv venv' and 'uv sync' ensures a virtual environment is created and used
+                    subprocess.run([self.env.uv_path, "venv"], cwd=str(target_dir), check=True, capture_output=True)
+                    subprocess.run([self.env.uv_path, "sync"], cwd=str(target_dir), check=True, capture_output=True, text=True)
+                    click.secho(f"    ✅ Successfully installed dependencies in '{subdir_name}'.", fg="green")
+                except subprocess.CalledProcessError as e:
+                    install_errors = True
+                    click.secho(f"    ❌ Error installing in '{subdir_name}'.", fg="red")
+                    click.echo(e.stderr, err=True)
+            else:
+                click.secho(f"  -> Skipping '{subdir_name}', 'pyproject.toml' not found.", fg="blue")
+
+        if install_errors:
+            click.secho("\n⚠️ Some Python dependencies failed to install.", fg="yellow")
+        else:
+            click.secho("\n✅ All Python dependencies installed!", fg="green")
+
+    def _install_frontend_dependencies(self):
+        """Installs dependencies for the frontend using bun or npm."""
+        click.secho("\n🌐 Installing frontend dependencies...", fg="cyan")
+        tool_name, install_cmd = self.env.frontend_installer
+        if not tool_name:
+            click.secho("⚠️ Warning: 'bun' or 'npm' not found. Skipping.", fg="yellow")
+            return
+
+        frontend_dir = self.project_path / "frontend"
+        if frontend_dir.is_dir() and (frontend_dir / "package.json").exists():
+            click.echo(f"  -> Running '{' '.join(install_cmd)}'...")
+            try:
+                subprocess.run(install_cmd, cwd=str(frontend_dir), check=True, capture_output=True, text=True)
+                click.secho(f"    ✅ Successfully installed with {tool_name}.", fg="green")
+            except subprocess.CalledProcessError as e:
+                click.secho(f"    ❌ Error installing with {tool_name}.", fg="red")
+                click.echo(e.stderr, err=True)
+
+    def _print_final_summary(self):
+        """Prints the final success message and next steps."""
+        final_project_name = self.project_path.name
+        click.secho("\n🎉 Project initialized successfully!", fg="green", bold=True)
+        click.echo("\nNext steps:")
+        click.echo(f"  1. Navigate to your project: cd {final_project_name}")
+        click.echo("  2. Start all services: dingent run")
+
+
+class ServiceRunner:
+    """Handles the logic for the 'run' command."""
+
+    def __init__(self, env_info: EnvironmentInfo):
+        self.env = env_info
+        self.services = {
+            "mcp": {"command": ["python", "main.py"], "cwd": "mcp", "color": "blue"},
+            "backend": {"command": ["langgraph", "dev", "--no-browser"], "cwd": "backend", "color": "magenta"},
+            "frontend": {"command": [f"{env_info.frontend_installer[0]}", "dev"], "cwd": "frontend", "color": "yellow"},
+        }
+        self.processes = []
+
+    def run(self):
+        """Starts, monitors, and shuts down all services."""
+        try:
+            self._validate_and_prepare_services()
+            self._start_services()
+            self._monitor_services()
+        except (KeyboardInterrupt, RuntimeError) as e:
+            if isinstance(e, RuntimeError):
+                click.secho(f"\nReason: {e}", fg="red")
+        finally:
+            self._shutdown_services()
+
+    def _validate_and_prepare_services(self):
+        """Validates executables and prepares commands using 'uv run'."""
+        click.secho("🔎 Resolving service executables...", fg="cyan")
+
+        # 1. Check for 'uv' command, required for Python services
+        if not shutil.which("uv"):
+            click.secho("❌ Error: 'uv' command not found.", fg="red")
+            click.echo("   Please install uv: https://github.com/astral-sh/uv")
+            sys.exit(1)
+        click.echo("  -> Found 'uv' executable.")
+
+        # 2. Update Python service commands to use 'uv run'
+        # This is simpler and more robust than manually finding venv executables.
+        # 'uv run' will automatically detect and use the .venv in the service's 'cwd'.
+        for name in ["mcp", "backend"]:
+            original_command = self.services[name]["command"]
+            self.services[name]["command"] = ["uv", "run", "--"] + original_command
+            click.echo(f"  -> Prepared '{name}' command: {' '.join(self.services[name]['command'])}")
+
+        # 3. Check for 'bun' command for the frontend service
+        frontend_cmd = self.services["frontend"]["command"][0]
+        if not shutil.which(frontend_cmd):
+            click.secho(f"❌ Error: Command '{frontend_cmd}' not found.", fg="red")
+            click.secho("   Please ensure Bun is installed and in your system's PATH.", fg="red")
+            sys.exit(1)
+        click.echo(f"  -> Found '{frontend_cmd}' executable.")
+
+    def _start_services(self):
+        """Starts all services as subprocesses and sets up log streaming."""
+        click.secho("\n🚀 Starting all development services...", fg="cyan", bold=True)
+        log_queue = queue.Queue()
+
+        for name, service in self.services.items():
+            try:
+                proc = subprocess.Popen(service["command"], cwd=service["cwd"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", bufsize=1)
+            except FileNotFoundError:
+                click.secho(f"❌ Error: directory '{service['cwd']}' not found.", fg="red")
+                click.secho("Please ensure that you are in the correct project directory.", fg="red")
+                sys.exit(1)
+            self.processes.append((name, proc))
+
+            thread = threading.Thread(target=self._stream_output, args=(name, proc, log_queue))
+            thread.daemon = True
+            thread.start()
+            click.secho(f"✅ {name.capitalize()} service started (PID: {proc.pid}).", fg="green")
+
+        self.log_queue = log_queue
+
+    def _monitor_services(self):
+        """Monitors running services and prints their logs."""
+        click.echo("\nGiving services a moment to warm up...")
+        time.sleep(3)
+        click.secho("🌐 Opening http://localhost:3000 in your browser.", bold=True)
+        webbrowser.open_new_tab("http://localhost:3000")
+        click.secho("\n--- Real-time Logs (Press Ctrl+C to stop) ---", bold=True)
+
+        while self.processes:
+            # Check for terminated processes
+            for i in range(len(self.processes) - 1, -1, -1):
+                name, proc = self.processes[i]
+                if proc.poll() is not None:
+                    self._flush_log_queue()
+                    click.secho(f"\n❌ Service '{name}' has terminated unexpectedly.", fg="red", bold=True)
+                    raise RuntimeError(f"Service '{name}' exited with code {proc.returncode}.")
+
+            # Print logs from the queue
+            self._print_log_line()
+            time.sleep(0.1)
+
+    def _shutdown_services(self):
+        """Terminates all running child processes."""
+        click.secho("\n\n🛑 Shutting down all services...", fg="yellow", bold=True)
+        for name, proc in self.processes:
+            if proc.poll() is None:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                click.secho(f"🔌 {name.capitalize()} service stopped.", fg="blue")
+        click.secho("\n✨ All services have been shut down. Goodbye!", fg="green")
+
+    def _stream_output(self, name, process, log_queue):
+        """Reads a process's stdout and puts lines into the queue."""
+        for line in iter(process.stdout.readline, ""):
+            log_queue.put((name, line))
+        process.stdout.close()
+
+    def _print_log_line(self):
+        """Gets and prints a single log line from the queue if available."""
+        try:
+            name, line = self.log_queue.get_nowait()
+            prefix = click.style(f"[{name.upper():^8}]", fg=self.services[name]["color"])
+            click.echo(f"{prefix} {line.strip()}")
+        except queue.Empty:
+            pass
+
+    def _flush_log_queue(self):
+        """Prints all remaining logs in the queue."""
+        while not self.log_queue.empty():
+            self._print_log_line()
 
 
 @click.group()
@@ -48,306 +311,18 @@ def cli():
 
 @cli.command()
 @click.argument("project_name")
-@click.option(
-    "--template",
-    "-t",
-    type=click.Choice(AVAILABLE_TEMPLATES, case_sensitive=False),
-    default="basic",
-    help="The project template to use.",
-)
+@click.option("--template", "-t", type=click.Choice(AVAILABLE_TEMPLATES, case_sensitive=False), default="basic")
 @click.option("--checkout", "-c", default=None, help="The branch, tag, or commit to checkout.")
 def init(project_name, template, checkout):
-    """Creates a new agent project by pulling a template from the git repo."""
-    click.secho(f"🚀 Initializing project from git repository: {REPO_URL}", fg="green")
-
-    template_dir_in_repo = f"templates/{template}"
-
-    try:
-        created_project_path = cookiecutter(
-            REPO_URL,
-            directory=template_dir_in_repo,
-            checkout=checkout,
-            no_input=False,
-            extra_context={"project_slug": project_name},
-            output_dir=".",
-        )
-
-        click.secho("\n✅ Project structure created successfully!", fg="green")
-
-        click.secho("\n✨ Converting each .sql file to a separate .db database...", fg="cyan")
-
-        project_path = Path(created_project_path)
-        sql_dir = project_path / "mcp" / "data"
-
-        if not sql_dir.is_dir():
-            click.secho(f"⚠️  Warning: SQL data directory not found at '{sql_dir}'. Skipping database creation.", fg="yellow")
-        else:
-            sql_files = sorted(sql_dir.glob("*.sql"))
-
-            if not sql_files:
-                click.secho(f"ℹ️  Info: No .sql files found in '{sql_dir}'. Nothing to do.", fg="blue")
-            else:
-                click.echo(f"   -> Found {len(sql_files)} SQL file(s).")
-                success_count = 0
-                error_count = 0
-
-                for sql_file in sql_files:
-                    db_path = sql_file.with_suffix(".db")
-
-                    try:
-                        click.echo(f"      - Converting '{sql_file.name}'  ->  '{db_path.name}'")
-
-                        conn = sqlite3.connect(db_path)
-                        cursor = conn.cursor()
-
-                        with open(sql_file, encoding="utf-8") as f:
-                            sql_script = f.read()
-
-                        cursor.executescript(sql_script)
-                        conn.commit()
-                        conn.close()
-
-                        success_count += 1
-
-                    except sqlite3.Error as e:
-                        click.secho(f"        ❌ Error: {e}", fg="red")
-                        if db_path.exists():
-                            db_path.unlink()
-                        error_count += 1
-
-                summary_color = "green" if error_count == 0 else "yellow"
-                click.secho(f"\n✅ Conversion complete. {success_count} succeeded, {error_count} failed.", fg=summary_color)
-
-        click.secho("\n📦 Installing project dependencies with 'uv sync'...", fg="cyan")
-
-        if not is_uv_installed():
-            click.secho("⚠️ Warning: 'uv' command not found. Skipping dependency installation.", fg="yellow")
-            click.echo("Please install uv (https://github.com/astral-sh/uv) and run 'uv sync' in the 'mcp' and 'backend' directories manually.")
-        else:
-            dirs_to_install = ["mcp", "backend"]
-            install_errors = False
-
-            for subdir_name in dirs_to_install:
-                target_dir = project_path / subdir_name
-                if target_dir.is_dir() and (target_dir / "pyproject.toml").is_file():
-                    click.echo(f"   -> Found 'pyproject.toml' in '{subdir_name}'. Running 'uv sync'...")
-
-                    try:
-                        result = subprocess.run(
-                            ["uv", "sync"],
-                            cwd=str(target_dir),
-                            capture_output=True,
-                            text=True,
-                            check=False,
-                        )
-
-                        if result.returncode == 0:
-                            click.secho(f"     ✅ Successfully installed dependencies in '{subdir_name}'.", fg="green")
-                        else:
-                            install_errors = True
-                            click.secho(f"     ❌ Error installing dependencies in '{subdir_name}'.", fg="red")
-                            click.echo("     --- UV Error Output ---")
-                            click.echo(result.stderr)
-                            click.echo("     -----------------------")
-
-                    except Exception as e:
-                        install_errors = True
-                        click.secho(f"     ❌ An unexpected error occurred while running uv in '{subdir_name}': {e}", fg="red")
-                else:
-                    click.secho(f"   -> Skipping '{subdir_name}', directory or 'pyproject.toml' not found.", fg="blue")
-
-            if not install_errors:
-                click.secho("\n✅ All dependencies installed successfully!", fg="green")
-            else:
-                click.secho("\n⚠️  Some dependencies failed to install. Please check the errors above.", fg="yellow")
-
-        click.secho("\n🌐 Installing frontend dependencies...", fg="cyan")
-
-        tool_name, install_command = get_frontend_installer()
-
-        if not tool_name:
-            click.secho("⚠️ Warning: Neither 'bun' nor 'npm' found. Skipping frontend dependency installation.", fg="yellow")
-            click.echo("   Please install Bun or Node.js and run the install command in the 'frontend' directory manually.")
-        else:
-            frontend_dir_name = "frontend"
-            frontend_dir = project_path / frontend_dir_name
-
-            if frontend_dir.is_dir() and (frontend_dir / "package.json").is_file():
-                click.echo(f"   -> Found 'package.json' in '{frontend_dir_name}'. Running '{' '.join(install_command)}'...")
-
-                try:
-                    result = subprocess.run(install_command, cwd=str(frontend_dir), capture_output=True, text=True, check=False)
-                    if result.returncode == 0:
-                        click.secho(f"     ✅ Successfully installed frontend dependencies using {tool_name}.", fg="green")
-                    else:
-                        click.secho(f"     ❌ Error installing frontend dependencies with {tool_name}.", fg="red")
-                        click.echo("     --- Installer Error Output ---")
-                        click.echo(result.stderr)
-                        click.echo("     ----------------------------")
-
-                except Exception as e:
-                    click.secho(f"     ❌ An unexpected error occurred while running {tool_name}: {e}", fg="red")
-            else:
-                click.secho(f"   -> Skipping '{frontend_dir_name}', directory or 'package.json' not found.", fg="blue")
-        final_project_name = project_path.name
-        click.secho("\n✅ Project initialized successfully!", fg="green", bold=True)
-        click.echo("\nNext steps:")
-        click.echo(f"  1. Navigate to your new project: cd {final_project_name}")
-        click.echo("  2. Dependencies for backend, mcp, and frontend have been installed.")
-        click.echo("  3. Start building your amazing agent!")
-
-    except RepositoryNotFound:
-        click.secho(f"\n❌ Error: Repository not found at {REPO_URL}", fg="red", bold=True)
-        click.echo("Please check the URL and your network connection.")
-        sys.exit(1)
-    except Exception as e:
-        click.secho(f"\n❌ An error occurred: {e}", fg="red", bold=True)
-        sys.exit(1)
-
-
-def stream_output(name, process, log_queue):
-    """
-    Reads a process's stdout line by line and puts it into a thread-safe queue.
-    This function is intended to be run in a separate thread for each process.
-    """
-    # The 'iter' function with two arguments will call process.stdout.readline until
-    # it returns an empty string (which happens when the process terminates).
-    for line in iter(process.stdout.readline, ""):
-        log_queue.put((name, line))
-    process.stdout.close()
+    """Creates a new agent project from a template."""
+    env_info = EnvironmentInfo()
+    initializer = ProjectInitializer(project_name, template, checkout, env_info)
+    initializer.run()
 
 
 @cli.command()
 def run():
-    """Runs the MCP, Backend, and Frontend services concurrently for development."""
-
-    # 1. Define services, their commands, working directories, and log colors
-    services = {
-        "mcp": {"command": ["python", "main.py"], "cwd": "mcp", "color": "blue"},
-        "backend": {"command": ["langgraph", "dev", "--no-browser"], "cwd": "backend", "color": "magenta"},
-        "frontend": {"command": ["bun", "dev"], "cwd": "frontend", "color": "yellow"},
-    }
-
-    # --- NEW: Resolve virtual environment paths for Python services ---
-    click.secho("🔎 Locating service executables...", fg="cyan")
-    python_services = ["mcp", "backend"]
-    for name in python_services:
-        service = services[name]
-        service_dir = Path(service["cwd"])
-
-        if not service_dir.is_dir():
-            click.secho(f"❌ Error: Directory '{service_dir}' for '{name}' service not found.", fg="red")
-            click.echo("Please run this command from the root of a Dingent project.")
-            sys.exit(1)
-
-        venv_path = service_dir / ".venv"
-        if not venv_path.is_dir():
-            click.secho(f"❌ Error: Virtual environment for '{name}' not found at '{venv_path}'.", fg="red")
-            click.echo(f"Please run 'uv sync' in the '{service_dir}' directory to create it.")
-            sys.exit(1)
-
-        # Determine the correct subdirectory for executables based on OS
-        bin_dir = "Scripts" if sys.platform == "win32" else "bin"
-
-        # Get the executable name and construct the full path
-        executable_name = service["command"][0]
-        executable_path = venv_path / bin_dir / executable_name
-
-        # Add .exe suffix for Windows if it's not already there
-        if sys.platform == "win32" and not executable_path.suffix:
-            executable_path = executable_path.with_suffix(".exe")
-
-        if not executable_path.is_file():
-            click.secho(f"❌ Error: Executable '{executable_name}' not found for '{name}' at '{executable_path}'.", fg="red")
-            click.echo("The virtual environment might be corrupted. Try recreating it.")
-            sys.exit(1)
-
-        # Update the command with the absolute path to the venv executable
-        service["command"][0] = str(executable_path.absolute())
-        click.echo(f"  -> Found '{name}' executable: {service['command'][0]}")
-    # --- END NEW SECTION ---
-
-    # Verify the frontend command is available
-    frontend_cmd = services["frontend"]["command"][0]
-    if not shutil.which(frontend_cmd):
-        click.secho(f"❌ Error: Command '{frontend_cmd}' for 'frontend' service not found.", fg="red")
-        click.echo("Please ensure Bun is installed and in your system's PATH.")
-        sys.exit(1)
-
-    processes = []
-    threads = []
-    log_queue = queue.Queue()
-
-    click.secho("\n🚀 Starting all development services...", fg="cyan", bold=True)
-    try:
-        # 2. Start all processes and their corresponding log-streaming threads
-        for name, service in services.items():
-            proc = subprocess.Popen(service["command"], cwd=service["cwd"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", bufsize=1)
-            processes.append((name, proc))
-
-            thread = threading.Thread(target=stream_output, args=(name, proc, log_queue))
-            thread.daemon = True
-            thread.start()
-            threads.append(thread)
-
-            click.secho(f"✅ {name.capitalize()} service started (PID: {proc.pid}).", fg="green")
-
-        # 3. Give services a moment to initialize, then open the browser
-        click.echo("\nGiving services a moment to warm up...")
-        time.sleep(3)
-        click.secho("🌐 Opening http://localhost:3000 in your browser.", bold=True)
-        webbrowser.open_new_tab("http://localhost:3000")
-
-        click.secho("\n--- Real-time Logs (Press Ctrl+C to stop) ---", bold=True)
-
-        # 4. Main loop to print logs from the queue and check process status
-        active_processes = list(processes)
-        while active_processes:
-            # Check for terminated processes
-            for i in range(len(active_processes) - 1, -1, -1):
-                name, proc = active_processes[i]
-                if proc.poll() is not None:
-                    # ---- START MODIFICATION ----
-                    # Process has terminated. Before exiting, drain the log queue
-                    # to ensure we capture its final output (the error message).
-                    click.secho(f"\n⏳ Service '{name}' terminated with code {proc.returncode}. Flushing logs...", fg="yellow")
-                    time.sleep(0.5)  # Give the logger thread a moment to finish
-
-                    while not log_queue.empty():
-                        try:
-                            log_name, line = log_queue.get_nowait()
-                            prefix = click.style(f"[{log_name.upper():^8}]", fg=services[log_name]["color"])
-                            click.echo(f"{prefix} {line.strip()}")
-                        except queue.Empty:
-                            break  # Should not happen, but for safety
-
-                    click.secho(f"\n❌ Service '{name}' has terminated unexpectedly.", fg="red", bold=True)
-                    raise RuntimeError(f"Service '{name}' exited.")
-                    # ---- END MODIFICATION ----
-
-            # Print logs from the queue
-            try:
-                name, line = log_queue.get_nowait()
-                prefix = click.style(f"[{name.upper():^8}]", fg=services[name]["color"])
-                click.echo(f"{prefix} {line.strip()}")
-            except queue.Empty:
-                time.sleep(0.1)
-
-    except (KeyboardInterrupt, RuntimeError) as e:
-        if isinstance(e, RuntimeError):
-            click.secho(f"\nReason: {e}", fg="red")
-        click.secho("\n\n🛑 Shutting down all services...", fg="yellow", bold=True)
-    finally:
-        # 5. Terminate all child processes on exit
-        for name, proc in processes:
-            if proc.poll() is None:
-                proc.terminate()
-                # Give it a moment to terminate gracefully
-                try:
-                    proc.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    # If it doesn't terminate, force kill it
-                    proc.kill()
-                    proc.wait()
-                click.secho(f"🔌 {name.capitalize()} service stopped.", fg="blue")
-        click.secho("\n✨ All services have been shut down. Goodbye!", fg="green")
+    """Runs the MCP, Backend, and Frontend services concurrently."""
+    env_info = EnvironmentInfo()
+    runner = ServiceRunner(env_info)
+    runner.run()
