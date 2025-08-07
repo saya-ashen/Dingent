@@ -1,9 +1,9 @@
 from fastmcp import FastMCP
 
 from dingent.engine.plugins import PluginManager
+from dingent.engine.plugins.resource_manager import ResourceManager
 from dingent.engine.shared.llm_manager import LLMManager
 
-from .resource_manager import ResourceManager
 from .settings import AssistantSettings, get_settings
 
 settings = get_settings()
@@ -11,7 +11,7 @@ settings = get_settings()
 
 llm_manager = LLMManager()
 resource_manager = ResourceManager()
-global_injection_deps = {"resource_manager": resource_manager}
+global_injection_deps = {"resource_manager": resource_manager, "llm_manager": llm_manager}
 plugin_manager = PluginManager(global_injection_deps=global_injection_deps)
 
 
@@ -24,14 +24,14 @@ async def create_assistant(config: AssistantSettings, injection_deps: dict) -> F
         dependencies_override (dict): A dictionary to override or add dependencies.
     """
     mcp = FastMCP(config.name, stateless_http=True, host=config.host, port=config.port)
-    deps = global_injection_deps.update(injection_deps)
+    deps = {**global_injection_deps, **injection_deps}
 
     tools = config.tools
     tools_info = {}
     for tool in tools:
         if not tool.enabled:
             continue
-        tool_instance = plugin_manager.load_plugin(tool.type_name, {"name": tool.name, "description": tool.description, **deps})
+        tool_instance = plugin_manager.load_plugin(tool.type, {**deps, "config": tool})
         tool_run = tool_instance.tool_run
         mcp.tool(
             tool_run,

@@ -3,25 +3,26 @@ from abc import ABC, abstractmethod
 from loguru import logger as _logger
 from loguru._logger import Logger
 
-from dingent.engine.mcp.core.resource_manager import ResourceManager
+from .resource_manager import ResourceManager
+from .types import ToolBaseSettings
 
 
 class BaseTool(ABC):
     name: str
     description: str
-    exclude_args: list[str]
+    exclude_args: list[str] = []
 
     def __init__(
         self,
-        name: str,
-        description: str,
+        config: ToolBaseSettings,
         resource_manager: ResourceManager,
         logger: Logger | None = None,
+        **kwargs,
     ) -> None:
         super().__init__()
         self.resource_manager = resource_manager
-        self.name = name
-        self.description = description
+        self.name = config.name
+        self.description = config.description
         if logger:
             self.logger = logger
         else:

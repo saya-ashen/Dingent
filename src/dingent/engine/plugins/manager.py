@@ -55,6 +55,7 @@ class PluginManager:
                     # 现在可以使用标准的绝对路径导入
                     settings_module = importlib.import_module(f"{plugin_pkg_name}.settings")
                     settings_model = getattr(settings_module, "Settings", None)
+                    sys.path.pop(0)
                     if not settings_model or not issubclass(settings_model, BaseModel):
                         settings_model = None
                 except ImportError:
@@ -63,6 +64,7 @@ class PluginManager:
                 module_name, class_name = tool_class_str.split(":")
                 tool_module = importlib.import_module(f"{plugin_pkg_name}.{module_name}")
                 tool_class = getattr(tool_module, class_name, None)
+                sys.path.pop(0)
 
                 if not tool_class:
                     print(f"Warning: Skipping plugin '{tool_name}'. Class '{class_name}' not found.")
@@ -99,7 +101,7 @@ class PluginManager:
             try:
                 # 使用用户提供的字典来实例化 Pydantic 模型
                 # Pydantic 会自动合并默认值、校验类型和规则
-                config_instance = ConfigModel(**user_config)
+                config_instance = ConfigModel.model_validate(user_config.model_dump())
                 injection_deps["config"] = config_instance  # 注入 Pydantic 对象
             except ValidationError as e:
                 print(f"Error validating configuration for plugin '{tool_name}': {e}")

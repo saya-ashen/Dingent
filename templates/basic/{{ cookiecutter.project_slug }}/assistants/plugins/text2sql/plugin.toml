@@ -2,7 +2,6 @@
 version = "1.0.0"
 name = "text2sql"
 tool_class = "tool:Text2SqlTool"
-spec_version = 1.0
 dependencies = [
     "langchain-community>=0.3.21",
     "pymysql>=1.1.1",
@@ -16,3 +15,4 @@ dependencies = [
     "sqlmodel>=0.0.24",
     "psycopg2-binary>=2.9.10",
 ]
+spec_version = 1.0

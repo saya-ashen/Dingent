@@ -53,7 +53,9 @@ def is_enum_field_flexible(model: type[SQLModel], field_name: str) -> tuple[bool
     return False, None
 
 
-def find_definitions_from_file(file_path: str, base_class: type | None = None, target_name: str | None = None, force_reload: bool = False) -> list[Any]:
+def find_definitions_from_file(
+    file_path: str, base_class: type | None = None, target_name: str | None = None, force_reload: bool = False
+) -> list[Any]:
     """
     Dynamically import a Python file, and find all classes or objects definied in it.
     Then cached these classes and objects.

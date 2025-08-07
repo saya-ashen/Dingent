@@ -1,5 +1,5 @@
 from .base import BaseTool
 from .manager import PluginManager
-from .types import BaseSettings
+from .types import ToolBaseSettings
 
-__all__ = ["BaseTool", "BaseSettings", "PluginManager"]
+__all__ = ["BaseTool", "ToolBaseSettings", "PluginManager"]

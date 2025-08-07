@@ -16,16 +16,20 @@ from .handlers.base import DBRequest, Handler
 from .types import SQLQueryResultPresenter, SQLState
 
 COMMON_SQL_GEN_PROMPT = """
-You are an expert {dialect} data analyst. Your sole task is to generate a single, efficient SQL query in response to a user's question, based on the provided database schema.
+You are an expert {dialect} data analyst. Your sole task is to generate a single, efficient SQL query in response \
+to a user's question, based on the provided database schema.
 
 ### Instructions:
-1.  **Primary Goal**: Write a syntactically correct and efficient {dialect} query that accurately answers the user's question.
+1.  **Primary Goal**: Write a syntactically correct and efficient {dialect} \
+query that accurately answers the user's question.
 2.  **Query Constraints**:
     - The generated query MUST only contain English characters.
     - **Do not use the `DISTINCT` keyword.** The calling application handles deduplication.
-    - Whenever you query columns from a table, you MUST also include its primary key in the SELECT list. This is crucial for subsequent processing.
+    - Whenever you query columns from a table, you MUST also include its primary key in the SELECT list. \
+This is crucial for subsequent processing.
     - You may order the results by the most relevant columns to provide a more meaningful output.
-3.  **Output Format**: Your entire response must be ONLY the SQL query. Do not include any explanations, comments, or other conversational text.
+3.  **Output Format**: Your entire response must be ONLY the SQL query. \
+Do not include any explanations, comments, or other conversational text.
 
 ### Database Schema:
 {tables_info}
@@ -34,19 +38,23 @@ TRANSLATOR_PROMPT = """# Role: Text-to-SQL Keyword Extractor and Translator
 
 ## Profile:
 You are an expert assistant specializing in Natural Language Processing (NLP) and database query generation.
-Your primary function is to analyze user questions formulated in Chinese, identify key terms crucial for constructing SQL queries, and then translate these terms into English.
-The translated keywords will be used for Retrieval Augmented Generation (RAG) to fetch relevant database schema information or similar query patterns.
+Your primary function is to analyze user questions formulated in Chinese, \
+identify key terms crucial for constructing SQL queries, and then translate these terms into English.
+The translated keywords will be used for Retrieval Augmented Generation (RAG) \
+to fetch relevant database schema information or similar query patterns.
 
 ## Task:
 Given a user's question in Chinese, perform the following steps:
 1.  **Identify Keywords:** Carefully read the user's question and extract the most relevant keywords.
-2.  **Translate Keywords:** Translate each identified Chinese keyword into its most appropriate and concise English equivalent.
+2.  **Translate Keywords:** Translate each identified Chinese keyword into its most appropriate and concise \
+English equivalent.
 
 ## Constraints:
 * Focus solely on terms that are directly relevant to forming a SQL query.
 * Avoid extracting stop words or general conversational phrases.
 
-Avoid adding any additional details or explanations in the response. Output only the translated keywords in English, separated by commas.
+Avoid adding any additional details or explanations in the response. Output only the translated keywords in English, \
+separated by commas.
 
 ## User's Question:
 {question}
@@ -72,7 +80,9 @@ class Text2SqlAgent:
         self.sql_result_handler = sql_result_handler
         self.graph = self._build_graph()
         if self.retriever:
-            prompt_template = COMMON_SQL_GEN_PROMPT + "\n\n### Contextual Examples (for reference only):\n{similar_rows}"
+            prompt_template = (
+                COMMON_SQL_GEN_PROMPT + "\n\n### Contextual Examples (for reference only):\n{similar_rows}"
+            )
         else:
             prompt_template = COMMON_SQL_GEN_PROMPT
         prompt = ChatPromptTemplate.from_messages(
@@ -187,7 +197,9 @@ class Text2SqlAgent:
 
         except Exception as e:
             logger.warning(f"Error executing SQL query: {e}. Rewriting")
-            error_message = HumanMessage(content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}")
+            error_message = HumanMessage(
+                content=f"Error: Query failed. Please rewrite your query and try again. Error information: {e}"
+            )
             return {"messages": [error_message]}
 
     async def arun(

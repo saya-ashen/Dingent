@@ -19,8 +19,10 @@ class ToolOutput(BaseModel):
     metadata: dict = {}
 
 
-class BaseSettings(BaseModel):
-    type_name: str = Field(description="The type name of the tool, e.g., 'text2sql'")
+class ToolBaseSettings(BaseModel):
+    model_config = {"extra": "allow"}
+
+    type: str = Field(description="The type name of the tool, e.g., 'text2sql'")
     name: str = Field(description="The unique name of the tool instance")
     enabled: bool = True
     description: str = Field()

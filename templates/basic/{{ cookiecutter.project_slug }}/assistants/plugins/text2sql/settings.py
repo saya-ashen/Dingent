@@ -1,8 +1,7 @@
 import os
 
-from pydantic import BaseModel, model_validator
-
 from dingent.engine.plugins import ToolBaseSettings
+from pydantic import BaseModel, model_validator
 
 
 class DatabaseSettings(BaseModel):
@@ -25,7 +24,9 @@ class DatabaseSettings(BaseModel):
                 self.uri = db_uri
 
         if not db_uri:
-            raise ValueError("A database URI must be provided either via 'uri' field or 'uri_env' environment variable.")
+            raise ValueError(
+                "A database URI must be provided either via 'uri' field or 'uri_env' environment variable."
+            )
 
         if db_uri.startswith("postgresql"):
             self.type = "postgresql"

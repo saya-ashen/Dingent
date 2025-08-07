@@ -1,6 +1,6 @@
 import asyncio
 
-from dingent.engine.mcp import create_all_mcp_servers
+from dingent.engine.mcp import create_all_assistants
 
 
 async def main():
@@ -8,14 +8,14 @@ async def main():
     Main function to parse inputs, import corresponding services as modules,
     and run them in separate processes.
     """
-    mcps = await create_all_mcp_servers()
+    assistants = await create_all_assistants()
 
     # Create a list to store all server startup tasks.
     tasks = []
-    for server_name, mcp_server in mcps.items():
-        print(f"-> Scheduling '{server_name}' to run concurrently.")
-        # mcp_server.run_async() is a coroutine itself.
-        tasks.append(mcp_server.run_async(transport="streamable-http"))
+    for assistant_name, assistant in assistants.items():
+        print(f"-> Scheduling '{assistant_name}' to run concurrently.")
+        # assistant.run_async() is a coroutine itself.
+        tasks.append(assistant.run_async(transport="streamable-http"))
 
     if not tasks:
         print("No MCP servers found to run.")

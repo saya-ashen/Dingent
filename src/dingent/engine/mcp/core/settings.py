@@ -6,7 +6,7 @@ import toml
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dingent.engine.plugins import BaseSettings as ToolBaseSettings
+from dingent.engine.plugins import ToolBaseSettings
 
 
 class AssistantSettings(BaseModel):

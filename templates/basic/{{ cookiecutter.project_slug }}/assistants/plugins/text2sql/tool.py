@@ -1,10 +1,10 @@
 from typing import Annotated, Any, Literal
 
-from pydantic import Field
-
 from dingent.engine.plugins import BaseTool
 from dingent.engine.plugins.types import TablePayload, ToolOutput
 from dingent.engine.shared.llm_manager import LLMManager
+from pydantic import Field
+
 from plugins.text2sql.database import Database
 
 from .graph import Text2SqlAgent
@@ -12,7 +12,9 @@ from .handlers.handler_builder import ChainFactory
 from .settings import Settings
 
 
-def format_sql_tool_output(sql_result: dict[str, list[dict[str, Any]]], output_type: Literal["table"] = "table") -> list[ToolOutput]:
+def format_sql_tool_output(
+    sql_result: dict[str, list[dict[str, Any]]], output_type: Literal["table"] = "table"
+) -> list[ToolOutput]:
     """Formats the raw SQL result into a structured tool output."""
     tool_output = []
     for key, value in sql_result.items():
