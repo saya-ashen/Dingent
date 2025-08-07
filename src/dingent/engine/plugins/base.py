@@ -8,16 +8,20 @@ from dingent.engine.mcp.core.resource_manager import ResourceManager
 
 class BaseTool(ABC):
     name: str
+    description: str
+    exclude_args: list[str]
 
     def __init__(
         self,
-        config: dict,
+        name: str,
+        description: str,
         resource_manager: ResourceManager,
         logger: Logger | None = None,
     ) -> None:
         super().__init__()
         self.resource_manager = resource_manager
-        self.config = config
+        self.name = name
+        self.description = description
         if logger:
             self.logger = logger
         else:

@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 from loguru import logger
 
-from ..tools.types import ToolOutput
+from dingent.engine.plugins.types import ToolOutput
 
 
 class ResourceManager:

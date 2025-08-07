@@ -20,5 +20,8 @@ class ToolOutput(BaseModel):
 
 
 class BaseSettings(BaseModel):
+    type_name: str = Field(description="The type name of the tool, e.g., 'text2sql'")
     name: str = Field(description="The unique name of the tool instance")
+    enabled: bool = True
     description: str = Field()
+    exclude_args: list[str] = []

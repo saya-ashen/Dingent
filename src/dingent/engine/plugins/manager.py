@@ -1,209 +1,115 @@
 import importlib
-import importlib.resources
-import inspect
+import importlib.util
 import sys
-from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+import toml
 from loguru import logger
+from pydantic import BaseModel, ValidationError
 
-from .base import BaseTool
-from .settings import ToolSettings
+from dingent.engine.plugins.base import BaseTool
 
 
-class ToolManager:
-    def __init__(self, di_container: dict):
-        self.di_container = di_container
-        self._tool_classes: dict[str, type[Any]] = {}  # Use 'Any' or your BaseTool type
-        self._tool_instances: dict[str, Any] = {}
+class PluginManager:
+    def __init__(self, plugin_dir: str = "plugins", global_injection_deps: dict | None = None):
+        self.plugin_dir = Path(plugin_dir)
+        plugin_root_path = str(self.plugin_dir.resolve())
+        if plugin_root_path not in sys.path:
+            sys.path.insert(0, plugin_root_path)
+        self._plugins = {}
+        print(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
+        self._scan_and_register_plugins()
+        self.global_injection_deps = global_injection_deps
 
-    def load_tools(self, tools_settings: list[ToolSettings], custom_tool_dirs: list[str | Path] | None = None):
-        """
-        Loads tools specified in the settings from built-in and custom directories.
-        """
-        print("🛠️  Initializing tool loading process based on settings...")
+    def _scan_and_register_plugins(self):
+        if not self.plugin_dir.is_dir():
+            print(f"Warning: Plugin directory '{self.plugin_dir}' not found.")
+            return
 
-        # 1. Prepare a list of all locations to search for tools
-        search_locations = []
-        # Add built-in tools directory
-        try:
-            built_in_path = importlib.resources.files("dingent.engine.mcp") / "tools" / "built_in"
-            if built_in_path.is_dir():
-                search_locations.append({"path": Path(built_in_path), "prefix": "dingent.engine.mcp.tools.built_in", "is_custom": False})
-                logger.debug(f"-> Preparing to search built-in tools at: {built_in_path}")
-        except (ModuleNotFoundError, FileNotFoundError):
-            print("-> Warning: Could not find built-in tools directory.")
-        # Add any custom tool directories
-        if custom_tool_dirs:
-            for directory in custom_tool_dirs:
-                custom_path = Path(directory).resolve()
-                if custom_path.is_dir():
-                    search_locations.append({"path": custom_path, "prefix": "", "is_custom": True})
-                    logger.debug(f"-> Preparing to search custom tools at: {custom_path}")
-                else:
-                    logger.debug(f"-> Warning: Custom tool directory not found, skipping: {custom_path}")
-
-        # 2. Iterate through settings and load each enabled tool
-        for setting in tools_settings:
-            if not setting.enabled:
-                logger.debug(f"-> Tool '{setting.name}' is disabled, skipping.")
+        for plugin_path in self.plugin_dir.iterdir():
+            if not plugin_path.is_dir():
+                logger.warning(f"Skipping '{plugin_path}' as it is not a directory.")
                 continue
 
-            logger.debug(f"-> Attempting to load tool '{setting.name}'...")
-            self._find_and_register_tool(setting, search_locations)
-
-        logger.debug(f"✅ Tool loading complete. {len(self._tool_classes)} total tool classes registered.")
-
-    def _find_and_register_tool(self, setting: ToolSettings, search_locations: list[dict]):
-        """
-        Finds and registers a single tool based on its settings by searching all known locations.
-        """
-        tool_name = setting.name
-
-        for loc in search_locations:
-            path_as_file = loc["path"] / f"{tool_name}.py"
-            path_as_dir = loc["path"] / tool_name
-
-            module_to_load = None
-            if path_as_file.is_file():
-                module_to_load = tool_name
-            elif path_as_dir.is_dir() and (path_as_dir / "tool.py").is_file():
-                module_to_load = f"{tool_name}.tool"
-
-            # If we found a potential module, try to import and register it
-            if module_to_load:
-                if self._import_and_register(setting, module_to_load, loc):
-                    return  # Success, stop searching for this tool
-
-        # If the loop completes without returning, the tool was not found
-        print(f"-> ❌ Warning: Could not find a loadable file/directory for enabled tool '{tool_name}' in any location.")
-
-    def _import_and_register(self, setting: ToolSettings, module_to_load: str, location_info: dict) -> bool:
-        """
-        Handles the import, class retrieval, and registration for a found tool module.
-        Returns True on success, False on failure.
-        """
-        full_module_name = f"{location_info['prefix']}.{module_to_load}" if location_info["prefix"] else module_to_load
-
-        path_to_add = str(location_info["path"]) if location_info["is_custom"] else None
-        path_was_added = False
-
-        try:
-            # Temporarily add custom tool paths to sys.path for the import
-            if path_to_add and path_to_add not in sys.path:
-                sys.path.insert(0, path_to_add)
-                path_was_added = True
-
-            module = importlib.import_module(full_module_name)
-            tool_class = None
-
-            # MODIFICATION START: Auto-detect class if not specified
-            if setting.class_name:
-                # If a class name is specified, find it directly.
-                tool_class = getattr(module, setting.class_name, None)
-            else:
-                # If no class name, find the first valid BaseTool subclass in the module.
-                print(f"  -> No class_name specified. Auto-detecting tool in '{full_module_name}'...")
-                for name, obj in inspect.getmembers(module, inspect.isclass):
-                    if issubclass(obj, BaseTool) and obj is not BaseTool:
-                        tool_class = obj
-                        # We can optionally update the setting object with the found class name
-                        setting.class_name = name
-                        print(f"  -> Auto-detected tool class: '{name}'")
-                        break  # Stop after finding the first one
-            # MODIFICATION END
-
-            if not tool_class:
-                if setting.class_name:
-                    print(f"  -> Error: Class '{setting.class_name}' not found in module '{full_module_name}'.")
-                else:
-                    print(f"  -> Error: No valid BaseTool subclass found in module '{full_module_name}'.")
-                return False
-
-            if issubclass(tool_class, BaseTool) and tool_class is not BaseTool:
-                self._tool_classes[setting.name] = tool_class
-                print(f"  -> ✅ Registered '{setting.name}' from {full_module_name}")
-                return True
-            else:
-                print(f"  -> Error: Class '{setting.class_name}' is not a valid tool.")
-                return False
-
-        except Exception as e:
-            print(f"  -> Error importing or registering tool from '{full_module_name}': {e}")
-            return False
-        finally:
-            # Clean up sys.path if it was modified
-            if path_was_added and path_to_add in sys.path:
-                sys.path.remove(path_to_add)
-
-    @staticmethod
-    def _get_all_constructor_params(cls: type) -> OrderedDict[str, inspect.Parameter]:
-        """
-        Inspects a class and its entire inheritance hierarchy (MRO)
-        to collect all unique __init__ parameters.
-        """
-        all_params = OrderedDict()
-        # Iterate over the Method Resolution Order (MRO) from the class to its ancestors
-        for base_class in cls.mro():
-            # Skip the top-level 'object' class
-            if base_class is object:
+            toml_path = plugin_path / "plugin.toml"
+            if not toml_path.is_file():
+                logger.warning(f"Skipping '{plugin_path}' as 'plugin.toml' is missing.")
                 continue
 
-            # Get the signature of the __init__ method for the current class in the hierarchy
             try:
-                signature = inspect.signature(base_class.__init__)
-                for param in signature.parameters.values():
-                    # Filter out 'self', '*args', and '**kwargs'
-                    if param.name in ("self", "cls") or param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-                        continue
+                plugin_info = toml.load(toml_path)
+                plugin_meta = plugin_info.get("plugin", {})
+                tool_name = plugin_meta.get("name")
+                tool_class_str = plugin_meta.get("tool_class")
+                dependencies = plugin_meta.get("dependencies", {})
 
-                    # Add the parameter if it hasn't been seen yet.
-                    # This ensures we get all unique dependencies from the entire chain.
-                    if param.name not in all_params:
-                        all_params[param.name] = param
-            except (ValueError, TypeError):
-                # Some built-in types might not have a retrievable signature
-                continue
-        return all_params
+                if not tool_name or not tool_class_str:
+                    logger.warning(f"Warning: Skipping plugin in '{plugin_path}'. 'name' or 'tool_class' missing.")
+                    continue
 
-    def _get_instance(self, tool_name: str) -> Any:  # BaseTool
-        # This dependency injection logic remains unchanged.
-        if tool_name in self._tool_instances:
-            return self._tool_instances[tool_name]
+                # 2. 动态加载 Pydantic 配置模型
+                plugin_pkg_name = plugin_path.name
+                settings_model = None
+                try:
+                    # 现在可以使用标准的绝对路径导入
+                    settings_module = importlib.import_module(f"{plugin_pkg_name}.settings")
+                    settings_model = getattr(settings_module, "Settings", None)
+                    if not settings_model or not issubclass(settings_model, BaseModel):
+                        settings_model = None
+                except ImportError:
+                    pass  # settings.py 是可选的
 
-        if tool_name not in self._tool_classes:
-            raise ValueError(f"Tool '{tool_name}' is not registered.")
+                module_name, class_name = tool_class_str.split(":")
+                tool_module = importlib.import_module(f"{plugin_pkg_name}.{module_name}")
+                tool_class = getattr(tool_module, class_name, None)
 
-        tool_class = self._tool_classes[tool_name]
-        init_params = self._get_all_constructor_params(tool_class)
+                if not tool_class:
+                    print(f"Warning: Skipping plugin '{tool_name}'. Class '{class_name}' not found.")
+                    continue
 
-        logger.info(f"🛠️  Resolving dependencies for tool '{tool_name}': {list(init_params.keys())}")
+                # register the plugin
+                self._plugins[tool_name] = {
+                    "name": tool_name,
+                    "path": plugin_path,
+                    "config_model": settings_model,
+                    "dependencies": dependencies,
+                    "tool_class": tool_class,
+                    "meta": plugin_meta,
+                }
+                print(f"Successfully registered plugin: '{tool_name}'")
 
-        dependencies = {}
-        for param_name, param in init_params.items():
-            if param_name == "self":
-                continue
+            except Exception as e:
+                print(f"Error loading plugin from '{plugin_path}': {e}")
 
-            dependency_found = self.di_container.get(param_name, None)
-            if dependency_found is None:
-                dependency_found = self.di_container.get(param.annotation)
+    def get_registered_plugins(self) -> dict[str, Any]:
+        return self._plugins
 
-            if dependency_found or param_name in self.di_container.keys() or param.annotation in self.di_container.keys():
-                dependencies[param_name] = dependency_found
-            else:
-                error_msg = f"Cannot satisfy dependency '{param_name}:{param.annotation}' for tool '{tool_name}'."
-                logger.error(error_msg)
-                raise TypeError(error_msg)
+    def load_plugin(self, tool_name: str, injection_deps: dict[str, Any] | None = None) -> BaseTool:
+        if tool_name not in self._plugins:
+            raise ValueError(f"Plugin '{tool_name}' is not registered or failed to load.")
 
-        instance = tool_class(**dependencies)
-        self._tool_instances[tool_name] = instance
-        return instance
+        plugin_data = self._plugins[tool_name]
+        injection_deps = injection_deps.copy() if injection_deps else {}
+        injection_deps.update(self.global_injection_deps or {})
 
-    def load_mcp_tool(self, tool_name: str):
+        ConfigModel = plugin_data.get("config_model")
+        if ConfigModel:
+            user_config = injection_deps.get("config", {})
+            try:
+                # 使用用户提供的字典来实例化 Pydantic 模型
+                # Pydantic 会自动合并默认值、校验类型和规则
+                config_instance = ConfigModel(**user_config)
+                injection_deps["config"] = config_instance  # 注入 Pydantic 对象
+            except ValidationError as e:
+                print(f"Error validating configuration for plugin '{tool_name}': {e}")
+                raise ValueError(f"Invalid configuration for {tool_name}.") from e
+
+        ToolClass = plugin_data["tool_class"]
+
         try:
-            instance = self._get_instance(tool_name)
-            return instance.tool_run
-        except (ValueError, TypeError) as e:
-            logger.error(f"❌ Error loading tool '{tool_name}': {e}")
-            return None
+            instance = ToolClass(**injection_deps)
+            return instance
+        except TypeError as e:
+            print(f"Error instantiating plugin '{tool_name}'. Check its __init__ method signature.")
+            raise e

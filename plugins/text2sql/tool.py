@@ -1,11 +1,11 @@
 from typing import Annotated, Any, Literal
 
-from langchain.chat_models.base import BaseChatModel
 from langchain_core.vectorstores import VectorStore
 from pydantic import Field
 
-from dingent.engine.plugins.base import BaseTool
+from dingent.engine.plugins import BaseTool
 from dingent.engine.plugins.types import TablePayload, ToolOutput
+from dingent.engine.shared.llm_manager import LLMManager
 from plugins.text2sql.database import Database
 
 from .graph import Text2SqlAgent
@@ -32,7 +32,7 @@ class Text2SqlTool(BaseTool):
     def __init__(
         self,
         config: Settings,
-        llm: BaseChatModel,
+        llm_manager: LLMManager,
         vectorstore: VectorStore,
         **kwargs,
     ):
@@ -40,6 +40,7 @@ class Text2SqlTool(BaseTool):
         db = Database(**config.database.model_dump())
         factory = ChainFactory()
         result_handler = factory.build_result_chain(db)
+        llm = llm_manager.get_llm()
         self.agent = Text2SqlAgent(
             llm=llm,
             db=db,

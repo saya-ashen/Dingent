@@ -3,25 +3,16 @@ from functools import lru_cache
 from pathlib import Path
 
 import toml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class ToolSettings(BaseModel):
-    name: str
-    enabled: bool = True
-    icon: str | None = None
-    description: str
-    class_name: str | None = Field(None, alias="class")
-    exclude_args: list[str] = []
+from dingent.engine.plugins import BaseSettings as ToolBaseSettings
 
 
-class MCPSettings(BaseModel):
+class AssistantSettings(BaseModel):
     name: str
     icon: str | None = None
-    llm: dict[str, str]
-    database: str | None = None
-    tools: list[ToolSettings] = []
+    tools: list[ToolBaseSettings] = []
     description: str
     host: str
     port: int
@@ -29,9 +20,7 @@ class MCPSettings(BaseModel):
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    mcp_servers: list[MCPSettings] = []
-    custom_tools_dirs: list[Path] = Field(default=[Path("custom_tools")], alias="MYAPP_CUSTOM_TOOLS_DIRS")
-    custom_schemas_dirs: list[Path] = []
+    assistants: list[AssistantSettings] = []
     log_level: str = "INFO"
     log_sink: str = "logs/backend.log"
 
