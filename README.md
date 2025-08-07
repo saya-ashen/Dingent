@@ -133,9 +133,20 @@ my-awesome-agent/
 
 ## 🗺️ Roadmap
 
-  * [ ] Comprehensive documentation and tutorials.
-  * [ ] Integration with mainstream vector databases.
-  * [ ] More project templates (e.g., a template specifically for knowledge base Q\&A).
+- **✅ 1. Documentation & Tutorials**
+    - `[x]` **Basic Docs:** Installation and configuration guides.
+    - `[ ]` **Core Concepts:** In-depth explanations of key features and design.
+    - `[ ]` **Plugin Dev Guide:** How to build your own plugins.
+    - `[ ]` **End-to-End Tutorials:** Complete, step-by-step project examples.
+
+- **⏳ 2. Plugin System**
+    - `[ ]` **Plugin CLI:** Install and manage plugins via the command line.
+    - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
+    - `[ ]` **Plugin Manager GUI:** A graphical interface to easily manage your plugins.
+
+- **💡 3. Core Plugins**
+    - `[x]` **Database Plugin:** Connect to mainstream databases.
+    - `[ ]` **Knowledge Base Q&A Plugin:** Quickly build a Q&A application on your documents.
 
 ## 🤝 How to Contribute
 
