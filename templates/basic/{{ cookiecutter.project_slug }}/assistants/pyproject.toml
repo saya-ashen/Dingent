@@ -1,5 +1,5 @@
 [project]
-name = "{{ cookiecutter.project_name }}-mcp"
+name = "{{ cookiecutter.project_name }}-assistants"
 version = "0.1.0"
 description = "AI agent"
 readme = "README.md"

@@ -101,7 +101,7 @@ class ProjectInitializer:
     def _convert_sql_to_db(self):
         """Finds .sql files and converts them to SQLite .db files."""
         click.secho("\n✨ Converting .sql files to .db databases...", fg="cyan")
-        sql_dir = self.project_path / "mcp" / "data"
+        sql_dir = self.project_path / "assistants" / "data"
         if not sql_dir.is_dir():
             click.secho(f"⚠️ Warning: SQL data directory not found at '{sql_dir}'.", fg="yellow")
             return
@@ -139,7 +139,7 @@ class ProjectInitializer:
             return
 
         install_errors = False
-        for subdir_name in ["mcp", "backend"]:
+        for subdir_name in ["assistants", "backend"]:
             target_dir = self.project_path / subdir_name
             if target_dir.is_dir() and (target_dir / "pyproject.toml").exists():
                 click.echo(f"  -> Running 'uv sync' in '{subdir_name}'...")
@@ -190,12 +190,12 @@ class ProjectInitializer:
 class ServiceRunner:
     """Handles the logic for the 'run' command."""
 
-    def __init__(self, env_info: EnvironmentInfo):
+    def __init__(self, env_info: EnvironmentInfo, cli_ctx: CliContext):
         self.env = env_info
         self.services = {
-            "mcp": {"command": ["python", "main.py"], "cwd": "mcp", "color": "blue"},
-            "backend": {"command": ["langgraph", "dev", "--no-browser"], "cwd": "backend", "color": "magenta"},
-            "frontend": {"command": [f"{env_info.frontend_installer[0]}", "dev"], "cwd": "frontend", "color": "yellow"},
+            "assistants": {"command": ["python", "main.py"], "cwd": cli_ctx.assistants_path, "color": "blue"},
+            "backend": {"command": ["langgraph", "dev", "--no-browser"], "cwd": cli_ctx.backend_path, "color": "magenta"},
+            "frontend": {"command": [f"{env_info.frontend_installer[0]}", "dev"], "cwd": cli_ctx.frontend_path, "color": "yellow"},
         }
         self.processes = []
 
@@ -225,7 +225,7 @@ class ServiceRunner:
         # 2. Update Python service commands to use 'uv run'
         # This is simpler and more robust than manually finding venv executables.
         # 'uv run' will automatically detect and use the .venv in the service's 'cwd'.
-        for name in ["mcp", "backend"]:
+        for name in ["assistants", "backend"]:
             original_command = self.services[name]["command"]
             self.services[name]["command"] = ["uv", "run", "--"] + original_command
             click.echo(f"  -> Prepared '{name}' command: {' '.join(self.services[name]['command'])}")
@@ -277,7 +277,8 @@ class ServiceRunner:
                     raise RuntimeError(f"Service '{name}' exited with code {proc.returncode}.")
 
             # Print logs from the queue
-            self._print_log_line()
+            while not self.log_queue.empty():
+                self._print_log_line()
             time.sleep(0.1)
 
     def _shutdown_services(self):
@@ -336,7 +337,7 @@ def main(ctx: typer.Context):
     ctx.obj = cli_context
 
 
-@app.command("run")
+@app.command("init")
 def init(
     project_name: Annotated[str, typer.Argument()],
     template: Annotated[str, typer.Option(help="The template used to create the project.")] = "basic",
@@ -348,14 +349,14 @@ def init(
     initializer.run()
 
 
-@app.command()
+@app.command("run")
 def run(
-    # ctx: typer.Context,
+    ctx: typer.Context,
 ):
-    """Runs the MCP, Backend, and Frontend services concurrently."""
-    # TODO: auto detect project root and cd into it
+    """Runs the Assistants, Backend, and Frontend services concurrently."""
+    cli_ctx: CliContext = ctx.obj
     env_info = EnvironmentInfo()
-    runner = ServiceRunner(env_info)
+    runner = ServiceRunner(env_info, cli_ctx)
     runner.run()
 
 

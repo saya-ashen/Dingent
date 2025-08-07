@@ -3,7 +3,7 @@ from fastmcp import FastMCP
 from dingent.engine.plugins.resource_manager import ResourceManager
 from dingent.engine.shared.llm_manager import LLMManager
 
-from .context import initialize_plugins, plugin_manager
+from .context import get_plugin_manager, initialize_plugins
 from .settings import AssistantSettings, get_settings
 
 settings = get_settings()
@@ -31,6 +31,7 @@ async def create_assistant(config: AssistantSettings, injection_deps: dict) -> F
     for tool in tools:
         if not tool.enabled:
             continue
+        plugin_manager = get_plugin_manager()
         tool_instance = plugin_manager.load_plugin(tool.type, {**deps, "config": tool})
         tool_run = tool_instance.tool_run
         mcp.tool(

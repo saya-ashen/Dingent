@@ -2,7 +2,7 @@ from pathlib import Path
 
 import toml
 
-from dingent.engine.mcp.core.context import plugin_manager
+from dingent.engine.mcp.core.context import get_plugin_manager
 from dingent.engine.plugins.manager import PluginManager
 from dingent.utils import find_project_root
 
@@ -29,6 +29,22 @@ class CliContext:
         return self.project_root / assistants_dir
 
     @property
+    def backend_path(self) -> Path | None:
+        if not self.is_in_project:
+            return None
+        # 从配置中读取路径，提供默认值
+        backend_dir = self.config.get("components", {}).get("backend", "backend")
+        return self.project_root / backend_dir
+
+    @property
+    def frontend_path(self) -> Path | None:
+        if not self.is_in_project:
+            return None
+        # 从配置中读取路径，提供默认值
+        frontend_dir = self.config.get("components", {}).get("frontend", "frontend")
+        return self.project_root / frontend_dir
+
+    @property
     def assistants_plugin_path(self) -> Path | None:
         if not self.assistants_path:
             return None
@@ -37,4 +53,4 @@ class CliContext:
 
     @property
     def assistants_plugin_manager(self) -> PluginManager | None:
-        return plugin_manager
+        return get_plugin_manager()

@@ -1,8 +1,12 @@
 from dingent.engine.plugins import PluginManager
 
-plugin_manager = None
+_plugin_manager = None
 
 
 def initialize_plugins(**kwargs):
-    global plugin_manager
-    plugin_manager = PluginManager(**kwargs)
+    global _plugin_manager
+    _plugin_manager = PluginManager(**kwargs)
+
+
+def get_plugin_manager() -> None | PluginManager:
+    return _plugin_manager

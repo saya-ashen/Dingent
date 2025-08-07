@@ -140,6 +140,7 @@ my-awesome-agent/
     - `[ ]` **End-to-End Tutorials:** Complete, step-by-step project examples.
 
 - **⏳ 2. Plugin System**
+    - `[x]` **Plugin management system**: Automatically loads plugin configurations and manages dependencies.
     - `[ ]` **Plugin CLI:** Install and manage plugins via the command line.
     - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
     - `[ ]` **Plugin Manager GUI:** A graphical interface to easily manage your plugins.
