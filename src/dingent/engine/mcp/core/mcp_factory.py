@@ -1,9 +1,9 @@
 from fastmcp import FastMCP
 
-from dingent.engine.plugins import PluginManager
 from dingent.engine.plugins.resource_manager import ResourceManager
 from dingent.engine.shared.llm_manager import LLMManager
 
+from .context import initialize_plugins, plugin_manager
 from .settings import AssistantSettings, get_settings
 
 settings = get_settings()
@@ -12,7 +12,7 @@ settings = get_settings()
 llm_manager = LLMManager()
 resource_manager = ResourceManager()
 global_injection_deps = {"resource_manager": resource_manager, "llm_manager": llm_manager}
-plugin_manager = PluginManager(global_injection_deps=global_injection_deps)
+initialize_plugins(global_injection_deps=global_injection_deps)
 
 
 async def create_assistant(config: AssistantSettings, injection_deps: dict) -> FastMCP:

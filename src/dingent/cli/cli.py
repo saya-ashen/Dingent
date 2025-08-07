@@ -8,10 +8,15 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
+from typing import Annotated
 
 import click
+import typer
 from cookiecutter.exceptions import RepositoryNotFound
 from cookiecutter.main import cookiecutter
+from loguru import logger
+
+from .context import CliContext
 
 PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
 DEV_REPO_URL = "/home/saya/Workspace/Dingent"
@@ -20,6 +25,12 @@ AVAILABLE_TEMPLATES = ["basic"]
 IS_DEV_MODE = os.getenv("DINGENT_DEV")
 
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
+
+app = typer.Typer(name="dingent")
+assistants_app = typer.Typer(help="Manage the 'assistants' component and its plugins.")
+app.add_typer(assistants_app, name="assistants")
+assistants_plugin_app = typer.Typer(help="Manage plugins for the 'assistants' component.")
+assistants_app.add_typer(assistants_plugin_app, name="plugin")
 
 
 class EnvironmentInfo:
@@ -67,11 +78,11 @@ class ProjectInitializer:
         except RepositoryNotFound:
             click.secho(f"\n❌ Error: Repository not found at {REPO_URL}", fg="red", bold=True)
             click.echo("Please check the URL and your network connection.")
-            sys.exit(1)
+            raise typer.Exit()
         except Exception as e:
             click.secho(f"\n❌ An unexpected error occurred: {e}", fg="red", bold=True)
             # Add more specific error handling or logging here if needed
-            sys.exit(1)
+            raise typer.Exit()
 
     def _create_from_template(self):
         """Uses Cookiecutter to scaffold the project."""
@@ -208,7 +219,7 @@ class ServiceRunner:
         if not shutil.which("uv"):
             click.secho("❌ Error: 'uv' command not found.", fg="red")
             click.echo("   Please install uv: https://github.com/astral-sh/uv")
-            sys.exit(1)
+            raise typer.Exit()
         click.echo("  -> Found 'uv' executable.")
 
         # 2. Update Python service commands to use 'uv run'
@@ -224,7 +235,7 @@ class ServiceRunner:
         if not shutil.which(frontend_cmd):
             click.secho(f"❌ Error: Command '{frontend_cmd}' not found.", fg="red")
             click.secho("   Please ensure Bun is installed and in your system's PATH.", fg="red")
-            sys.exit(1)
+            raise typer.Exit()
         click.echo(f"  -> Found '{frontend_cmd}' executable.")
 
     def _start_services(self):
@@ -238,7 +249,7 @@ class ServiceRunner:
             except FileNotFoundError:
                 click.secho(f"❌ Error: directory '{service['cwd']}' not found.", fg="red")
                 click.secho("Please ensure that you are in the correct project directory.", fg="red")
-                sys.exit(1)
+                raise typer.Exit()
             self.processes.append((name, proc))
 
             thread = threading.Thread(target=self._stream_output, args=(name, proc, log_queue))
@@ -309,20 +320,97 @@ def cli():
     pass
 
 
-@cli.command()
-@click.argument("project_name")
-@click.option("--template", "-t", type=click.Choice(AVAILABLE_TEMPLATES, case_sensitive=False), default="basic")
-@click.option("--checkout", "-c", default=None, help="The branch, tag, or commit to checkout.")
-def init(project_name, template, checkout):
+@app.callback()
+def main(ctx: typer.Context):
+    """
+    Dingent Agent Framework CLI
+    """
+    # 1. 创建上下文对象
+    cli_context = CliContext()
+
+    # 2. 检查是否在项目目录中
+    if not cli_context.is_in_project:
+        pass
+
+    # 3. 将我们的上下文对象挂载到 Typer 的上下文中
+    ctx.obj = cli_context
+
+
+@app.command("run")
+def init(
+    project_name: Annotated[str, typer.Argument()],
+    template: Annotated[str, typer.Option(help="The template used to create the project.")] = "basic",
+    checkout: Annotated[str, typer.Option(help="The branch, tag, or commit to checkout.")] = "main",
+):
     """Creates a new agent project from a template."""
     env_info = EnvironmentInfo()
     initializer = ProjectInitializer(project_name, template, checkout, env_info)
     initializer.run()
 
 
-@cli.command()
-def run():
+@app.command()
+def run(
+    # ctx: typer.Context,
+):
     """Runs the MCP, Backend, and Frontend services concurrently."""
+    # TODO: auto detect project root and cd into it
     env_info = EnvironmentInfo()
     runner = ServiceRunner(env_info)
     runner.run()
+
+
+@assistants_app.command("run")
+def assistants_run():
+    raise NotImplementedError("The 'assistants run' command is not yet implemented.")
+
+
+@assistants_plugin_app.command("list")
+def assistants_plugin_list(ctx: typer.Context):
+    cli_ctx: CliContext = ctx.obj
+    if not cli_ctx.is_in_project:
+        logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
+        raise typer.Exit(code=1)
+    if cli_ctx.assistants_plugin_manager:
+        plugins = cli_ctx.assistants_plugin_manager.get_registered_plugins()
+        print("All registered plugins:\n", "\n".join(list(plugins.keys())))
+    else:
+        logger.error("❌ Error: Plugin manager not initialized.")
+
+
+def install_dependencies_for_plugin(cli_ctx, env, plugin_name: str):
+    if not cli_ctx.is_in_project:
+        logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
+        raise typer.Exit(code=1)
+    if not env.is_uv_installed:
+        logger.error("❌ Error: 'uv' is not installed. Please install it first.")
+        raise typer.Exit(code=1)
+    if cli_ctx.assistants_plugin_manager:
+        plugins = cli_ctx.assistants_plugin_manager.get_registered_plugins()
+        plugin = plugins.get(plugin_name)
+        if not plugin:
+            logger.error(f"❌ Error: Plugin '{plugin_name}' not found.")
+            raise typer.Exit(code=1)
+        dependecies = plugin.get("dependencies", [])
+        if cli_ctx.assistants_path is not None:
+            result = subprocess.run([env.uv_path, "add", "--optional", f"plugin-{plugin_name}"] + dependecies, cwd=cli_ctx.assistants_path, check=True, capture_output=True)
+            print("依赖安装成功！")
+            print("--- uv 输出 ---")
+            print(result.stdout.decode())
+    else:
+        logger.error("❌ Error: Plugin manager not initialized.")
+
+
+@assistants_plugin_app.command("sync")
+def assistants_plugin_install(ctx: typer.Context, plugin_name: Annotated[str | None, typer.Argument()] = None):
+    """
+    Install dependencies for a specific plugin.
+    """
+    cli_ctx: CliContext = ctx.obj
+    env = EnvironmentInfo()
+    if plugin_name:
+        install_dependencies_for_plugin(cli_ctx, env, plugin_name)
+    else:
+        if not cli_ctx.assistants_plugin_manager:
+            raise typer.Exit()
+        for plugin in cli_ctx.assistants_plugin_manager.get_registered_plugins().values():
+            install_dependencies_for_plugin(cli_ctx, env, plugin.get("name"))

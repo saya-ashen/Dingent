@@ -5,8 +5,7 @@ from dingent.engine.plugins.types import TablePayload, ToolOutput
 from dingent.engine.shared.llm_manager import LLMManager
 from pydantic import Field
 
-from plugins.text2sql.database import Database
-
+from .database import Database
 from .graph import Text2SqlAgent
 from .handlers.handler_builder import ChainFactory
 from .settings import Settings

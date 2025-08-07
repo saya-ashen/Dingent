@@ -1,5 +1,4 @@
 import importlib
-import importlib.util
 import sys
 from pathlib import Path
 from typing import Any
@@ -9,18 +8,28 @@ from loguru import logger
 from pydantic import BaseModel, ValidationError
 
 from dingent.engine.plugins.base import BaseTool
+from dingent.utils import find_project_root
 
 
 class PluginManager:
-    def __init__(self, plugin_dir: str = "plugins", global_injection_deps: dict | None = None):
-        self.plugin_dir = Path(plugin_dir)
-        plugin_root_path = str(self.plugin_dir.resolve())
-        if plugin_root_path not in sys.path:
-            sys.path.insert(0, plugin_root_path)
-        self._plugins = {}
-        print(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
-        self._scan_and_register_plugins()
-        self.global_injection_deps = global_injection_deps
+    def __init__(self, plugin_dir: str | None = None, global_injection_deps: dict | None = None):
+        if not plugin_dir:
+            project_root = find_project_root()
+            if project_root:
+                self.plugin_dir = project_root / "assistants" / "plugins"
+            else:
+                self.plugin_dir = None
+        else:
+            self.plugin_dir = Path(plugin_dir)
+        if self.plugin_dir:
+            plugin_root_path = str(self.plugin_dir.resolve())
+            if plugin_root_path not in sys.path:
+                sys.path.insert(0, plugin_root_path)
+            self._plugins = {}
+            print(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
+            self._scan_and_register_plugins()
+            self.global_injection_deps = global_injection_deps
+            sys.path.pop(0)
 
     def _scan_and_register_plugins(self):
         if not self.plugin_dir.is_dir():
