@@ -127,7 +127,7 @@ my-awesome-agent/
   * **Primary Responsibilities**: It exposes your data and functions as tools to the Agent in the `backend`.
   * **Files**:
       * `data/`: Store your data source files here (e.g., `.db`, `.csv`, `.md`).
-      * `custom_tools/`: Define custom tools that your Agent can call. This is the ideal place to implement personalized or private business logic. However, if you develop a tool that is universally useful, we strongly encourage you to contribute it to the main project via a Pull Request to help all users\!
+      * `plugins/`: Define custom tools that your Agent can call. This is the ideal place to implement personalized or private business logic. However, if you develop a tool that is universally useful, we strongly encourage you to contribute it to the main project via a Pull Request to help all users\!
       * `main.py`: Starts the MCP service and registers the resources and tools mentioned above.
 
 
