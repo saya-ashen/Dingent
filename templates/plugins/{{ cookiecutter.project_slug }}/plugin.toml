@@ -1,0 +1,8 @@
+[plugin]
+version = "1.0.0"
+name = "greeter"
+tool_class = "tool:Greeter"
+spec_version = 1.0
+dependencies = [
+    "pandas>=2.2.3",
+]

@@ -1,7 +1,0 @@
-from .prompts import (
-    COMMON_SQL_GEN_PROMPT,
-    RAG_PROMPT,
-    TRANSLATOR_PROMPT,
-)
-
-__all__ = ["RAG_PROMPT", "COMMON_SQL_GEN_PROMPT", "TRANSLATOR_PROMPT"]
