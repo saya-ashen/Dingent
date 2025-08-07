@@ -30,7 +30,6 @@ class LLMManager:
             kwargs["model_provider"] = kwargs.pop("provider")
 
         model_instance = init_chat_model(**kwargs)
-
         self._llms[cache_key] = model_instance
         print(f"LLM instance with params '{kwargs}' created and cached.")
 

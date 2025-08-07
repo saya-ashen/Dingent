@@ -21,7 +21,7 @@ When building LLM data applications, developers often spend a significant amount
 
 **Dingent's core value lies in:**
 
-  * **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (MCP), and frontend presentation (CopilotKit) into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.
+  * **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (Assistants), and frontend presentation (CopilotKit) into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.
 
   * **Core Features Built-In**: We believe a simple and easy-to-use agent shouldn't require users to spend a lot of time maintaining plugins. Therefore, we are committed to integrating features the community deems important directly into the framework. If you think a feature is crucial, we encourage you to open an Issue or PR. This directly reflects our core mission of "making Agents simpler for users."
 
@@ -88,13 +88,13 @@ $env:OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxx" # Replace with your OpenAI API Key
 uvx dingent run
 ```
 
-By default, Dingent will start a LangGraph backend service and an MCP service, and it will open the frontend interface in your browser.
+By default, Dingent will start a LangGraph backend service and an Assistants service, and it will open the frontend interface in your browser.
 If the frontend doesn't open automatically, you can manually visit [http://localhost:3000](http://localhost:3000).
 
 Your project skeleton is now ready\! You can now:
 
   * **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
-  * **Develop the backend logic**: Edit the Python files in the `mcp/` and `backend/` directories to implement your core agent logic and APIs.
+  * **Develop the backend logic**: Edit the Python files in the `assistants/` and `backend/` directories to implement your core agent logic and APIs.
   * **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
 
 ## 🏛️ Project Architecture
@@ -105,14 +105,14 @@ Projects generated with the `init` command have a standardized structure, making
 my-awesome-agent/
 ├── 📁 backend/       # Backend service (based on FastAPI and LangGraph)
 ├── 📁 frontend/      # Frontend application (based on CopilotKit)
-├── 📁 mcp/           # Model Context Protocol (MCP) service
+├── 📁 assistants/    # A collection of tools for specific domain tasks
 └── 📄 README.md      # The project's documentation
 ```
 
 ### 📦 backend/
 
   * The backend service is the core coordinator of the application, built with FastAPI and [LangGraph](https://www.langchain.com/langgraph).
-  * **Primary Responsibilities**: It handles requests from the frontend, orchestrates and executes the Agent's core logic, interacts with the LLM and MCP service, and returns results to the frontend.
+  * **Primary Responsibilities**: It handles requests from the frontend, orchestrates and executes the Agent's core logic, interacts with the LLM and Assistants service, and returns results to the frontend.
   * **Files**: `main.py` is the service entry point where you can define API routes and the Agent's execution flow. For details, refer to the [LangGraph documentation](https://langchain-ai.github.io/langgraph).
 
 ### 📦 frontend/
@@ -121,15 +121,11 @@ my-awesome-agent/
   * **Primary Responsibilities**: It provides an interface for users to ask questions and displays the Agent's streaming responses, data tables, Markdown, and other content formats.
   * **Files**: The core page logic is in `src/app/page.tsx`, and UI components are in `src/components/`.
 
-### 📦 mcp/
+### 📦 assistants/
 
-  * The MCP (Model Context Protocol) service is the "gateway" for your data and tools, hailed as the "USB-C port for AI." It provides a unified, secure interface for LLM applications to access the resources you define. For more details, see [FastMCP](https://gofastmcp.com/getting-started/welcome).
-  * **Primary Responsibilities**: It exposes your data and functions as tools to the Agent in the `backend`.
-  * **Files**:
-      * `data/`: Store your data source files here (e.g., `.db`, `.csv`, `.md`).
-      * `custom_tools/`: Define custom tools that your Agent can call. This is the ideal place to implement personalized or private business logic. However, if you develop a tool that is universally useful, we strongly encourage you to contribute it to the main project via a Pull Request to help all users\!
-      * `main.py`: Starts the MCP service and registers the resources and tools mentioned above.
-
+  - data/: Store your data source files here (e.g., .db, .csv, .md).
+  - plugins/: Define custom tools that your Agent can call. This is the ideal place to implement your personalized or private business logic. However, if you develop a tool with general applicability, we strongly encourage you to contribute it to the main project via a Pull Request to help all users!
+  - main.py: Starts the Assistants service and registers the above resources and tools.
 
 ## 🗺️ Roadmap
 
@@ -140,6 +136,7 @@ my-awesome-agent/
     - `[ ]` **End-to-End Tutorials:** Complete, step-by-step project examples.
 
 - **⏳ 2. Plugin System**
+    - `[x]` **Plugin management system**: Automatically loads plugin configurations and manages dependencies.
     - `[ ]` **Plugin CLI:** Install and manage plugins via the command line.
     - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
     - `[ ]` **Plugin Manager GUI:** A graphical interface to easily manage your plugins.

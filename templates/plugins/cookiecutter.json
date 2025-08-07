@@ -1,0 +1,12 @@
+{
+  "project_name": "My First Plugin",
+  "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '_').replace('-', '_') }}",
+  "author_name": "Your Name",
+  "author_email": "your@email.com",
+  "version": "0.1.0",
+  "description": "A basic agent created from the template.",
+  "_copy_without_render": [
+    "*.tsx",
+    ".justfile"
+  ]
+}

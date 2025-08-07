@@ -1,68 +1,50 @@
 from fastmcp import FastMCP
-from loguru import logger
 
+from dingent.engine.plugins.resource_manager import ResourceManager
 from dingent.engine.shared.llm_manager import LLMManager
 
-from .db_manager import DBManager
-from .resource_manager import ResourceManager
-from .settings import MCPSettings, get_settings
-from .tool_manager import ToolManager
+from .context import get_plugin_manager, initialize_plugins
+from .settings import AssistantSettings, get_settings
 
 settings = get_settings()
 
 
-db_manager = DBManager(settings.databases)
 llm_manager = LLMManager()
 resource_manager = ResourceManager()
+global_injection_deps = {"resource_manager": resource_manager, "llm_manager": llm_manager}
+initialize_plugins(global_injection_deps=global_injection_deps)
 
 
-async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, dependencies_override: dict | None = None) -> FastMCP:
+async def create_assistant(config: AssistantSettings, injection_deps: dict) -> FastMCP:
     """
     Creates an MCP server instance.
 
     Args:
-        custom_tools_dirs (list): A list of custom tool directories.
         config (MCPSettings): The configuration for the MCP server.
         dependencies_override (dict): A dictionary to override or add dependencies.
     """
     mcp = FastMCP(config.name, stateless_http=True, host=config.host, port=config.port)
+    deps = {**global_injection_deps, **injection_deps}
 
-    # 1. Set default dependencies
-    main_llm = llm_manager.get_llm(**config.llm)
-    db = await db_manager.get_connection(config.database) if config.database else None
-
-    di_container = {
-        "db": db,
-        "llm": main_llm,
-        "resource_manager": resource_manager,
-        "vectorstore": None,
-        "logger": logger,
-    }
-
-    # 2. Apply any overrides from dependencies_override
-    di_container.update(dependencies_override or {})
-
-    # 3. Create and load tools with the final dependencies
-    tool_manager = ToolManager(di_container)
-    tool_manager.load_tools(settings.tools, custom_tools_dirs)
-
+    tools = config.tools
     tools_info = {}
-    for enabled_tool in config.enabled_tools:
-        for tool_info in settings.tools:
-            if tool_info.name == enabled_tool and tool_info.enabled:
-                tool_run = tool_manager.load_mcp_tool(tool_info.name)
-                mcp.tool(
-                    tool_run,
-                    name=tool_info.name,
-                    description=tool_info.description,
-                    exclude_args=tool_info.exclude_args,
-                )
-                tools_info[tool_info.name] = {
-                    "name": tool_info.name,
-                    "id": tool_info.name,
-                    "description": tool_info.description,
-                    "icon": tool_info.icon,
-                }
+    for tool in tools:
+        if not tool.enabled:
+            continue
+        plugin_manager = get_plugin_manager()
+        tool_instance = plugin_manager.load_plugin(tool.type, {**deps, "config": tool})
+        tool_run = tool_instance.tool_run
+        mcp.tool(
+            tool_run,
+            name=tool.name,
+            description=tool_instance.description,
+            exclude_args=tool_instance.exclude_args,
+        )
+        tools_info[tool.name] = {
+            "name": tool.name,
+            "id": tool.name,
+            "description": tool.description,
+        }
 
     server_info = {
         "server_name": config.name,
@@ -86,7 +68,7 @@ async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, depend
     return mcp
 
 
-async def create_all_mcp_servers(server_names: list[str] | None = None, extra_dependencies: dict | None = None) -> dict[str, "FastMCP"]:
+async def create_all_assistants(assistant_names: list[str] | None = None, extra_dependencies: dict | None = None) -> dict[str, "FastMCP"]:
     """
     Creates all MCP server instances.
 
@@ -98,19 +80,19 @@ async def create_all_mcp_servers(server_names: list[str] | None = None, extra_de
                                    - Global dependency: {"db": db_instance} will be passed to all servers.
                                    - Server-specific dependency: {"server_name_1": {"llm": llm_instance}} will only be passed to `server_name_1`.
     """
-    mcp_server_settings = settings.mcp_servers
-    all_mcp_servers = {}
+    assistants_settings = settings.assistants
+    all_assistants = {}
     if extra_dependencies is None:
         extra_dependencies = {}
 
     # Extract all defined server names to distinguish between global and server-specific dependencies
-    all_defined_server_names = {cfg.name for cfg in mcp_server_settings}
+    all_defined_server_names = {cfg.name for cfg in assistants_settings}
     global_deps = {k: v for k, v in extra_dependencies.items() if k not in all_defined_server_names}
 
-    for mcp_server_config in mcp_server_settings:
-        server_name = mcp_server_config.name
+    for assistant_settings in assistants_settings:
+        server_name = assistant_settings.name
         # If server_names is provided, only create the servers in the list
-        if server_names and server_name not in server_names:
+        if assistant_names and server_name not in assistant_names:
             continue
 
         # Combine global dependencies and dependencies specific to this server
@@ -119,7 +101,7 @@ async def create_all_mcp_servers(server_names: list[str] | None = None, extra_de
         dependencies_for_this_server.update(server_specific_deps)
 
         # Create the MCP server instance and pass in the combined dependencies
-        mcp = await create_mcp_server(settings.custom_tools_dirs, mcp_server_config, dependencies_override=dependencies_for_this_server)
-        all_mcp_servers[server_name] = mcp
+        mcp = await create_assistant(assistant_settings, injection_deps=dependencies_for_this_server)
+        all_assistants[server_name] = mcp
 
-    return all_mcp_servers
+    return all_assistants

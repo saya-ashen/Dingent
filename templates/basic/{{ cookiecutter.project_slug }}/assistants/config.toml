@@ -1,0 +1,17 @@
+[[assistants]]
+name = "sakila"
+host = "127.0.0.1"
+port = "8888"
+description = "This assistant can only answer questions about the operations of a DVD rental business stored in the database. The query should be about analyzing business performance, customer behavior, or film inventory.\n\nUse this tool for questions about:\n- Sales & Revenue: Find sales figures, total revenue for stores or films, and details about specific payments.\n- Customer Analysis: Inquire about customer rental habits, find top customers, or analyze customer demographic data like their location.\n- Film & Inventory: Find films by title, genre (category), or actor. Check inventory levels for a specific film at a particular store.\n- Store & Staff Operations: Explore information about individual stores, their staff, and the rental transactions they process.\n\n"
+tools = [
+{
+type= "text2sql",
+name = "sakila_text2sql",
+description = "text2sql",
+llm.model="gpt-4.1",
+llm.provider="openai",
+database={name = "sakila",
+uri = "sqlite:///./data/sakila.db",
+schemas_file = "schemas/sakila.py"}
+}
+]
