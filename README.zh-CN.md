@@ -28,7 +28,7 @@
 
 **Dingent** 的核心价值在于：
 
-* **拒绝重复**: 我们将后端服务 (LangGraph)、数据接口 (MCP) 和前端展示 (CopilotKit) 的最佳实践打包成一个命令。你无需再手动搭建，可以立即开始编写核心业务逻辑。
+* **拒绝重复**: 我们将后端服务 (LangGraph)、数据接口 (Assistants) 和前端展示 (CopilotKit) 的最佳实践打包成一个命令。你无需再手动搭建，可以立即开始编写核心业务逻辑。
 
 * **内置核心功能**: 我们认为，一个简单易用的智能体，不应该让用户花费大量时间维护插件。因此，我们致力于将社区认为重要的功能直接内置到框架中。如果你认为某个功能很重要，我们鼓励你提出 Issue 或 PR，这直接体现了我们“让用户更简单地使用 Agent”的核心使命。
 
@@ -38,7 +38,7 @@
 
 ## ✨ 功能特性
 
-* **一键项目初始化**: 使用 `uvx dingent[cli] init` 命令，通过模板快速生成包含前后端和核心逻辑的完整项目结构。
+* **一键项目初始化**: 使用 `uvx dingent init` 命令，通过模板快速生成包含前后端和核心逻辑的完整项目结构。
 * **轻量易用**: 设计简洁，学习曲线平缓，让您专注于业务逻辑而非繁琐的配置。
 * **专注数据检索**: 为数据问答、提取和分析等场景特别优化，提供高效的解决方案。
 * **灵活的数据源接口**: 轻松集成 API、数据库、文件（PDF, Markdown, ...）等多种数据源。
@@ -88,13 +88,13 @@ export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxx # 替换为你的 OpenAI API Key
 $env:OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxx" # 替换为你的 OpenAI API Key
 uvx dingent run
 ```
-默认情况下，Dingent 会启动一个Langgraph后端服务和MCP服务，并在浏览器中打开前端界面。
+默认情况下，Dingent 会启动一个Langgraph后端服务和多个Assistants服务，并在浏览器中打开前端界面。
 如果前端没有自动打开，您可以手动访问 [http://localhost:3000](http://localhost:3000) 来查看。
 
 现在，您的项目骨架已经准备就绪！您可以：
 
   * **探索项目结构**: 查看下面 `🏛️ 项目架构` 部分以了解目录结构。
-  * **开发后端逻辑**: 编辑 `mcp/` 和 `backend/` 目录下的 Python 文件，实现您的核心智能体逻辑和 API。
+  * **开发后端逻辑**: 编辑 `assistants/` 和 `backend/` 目录下的 Python 文件，实现您的核心智能体逻辑和 API。
   * **开发前端界面**: 在 `frontend/` 目录下构建您的用户交互界面。
 
 ## 🏛️ 项目架构
@@ -105,7 +105,7 @@ uvx dingent run
 my-awesome-agent/
 ├── 📁 backend/         # 后端服务 (基于 FastAPI 和 LangGraph)
 ├── 📁 frontend/        # 前端应用 (基于 CopilotKit)
-├── 📁 mcp/             # 模型上下文协议 (MCP) 服务
+├── 📁 assistants/      # 面向特定领域任务的工具集合
 └── 📄 README.md        # 项目的说明文档
 ```
 
@@ -114,7 +114,7 @@ my-awesome-agent/
 
 * 后端服务是整个应用的核心协调者，基于 FastAPI 和 [LangGraph](https://www.langchain.com/langgraph) 构建。
 
-* 主要职责: 负责处理来自前端的请求，编排和执行 Agent 的核心逻辑，与 LLM 和 MCP 服务进行交互，并向前端返回结果。
+* 主要职责: 负责处理来自前端的请求，编排和执行 Agent 的核心逻辑，与 LLM 和 Assistants 服务进行交互，并向前端返回结果。
 
 * 文件: main.py 是服务入口，你可以在此定义 API 路由和 Agent 的运行流程。具体可参考[LangGraph 文档](https://langchain-ai.github.io/langgraph)。]
 
@@ -126,9 +126,9 @@ my-awesome-agent/
 
 * 文件: 核心页面逻辑位于 src/app/page.tsx，UI 组件位于 src/components/。
 
-### 📦 mcp/
+### 📦 assistants/
 
-* MCP (Model Context Protocol) 服务是您数据和工具的“网关”，被誉为 “AI 的 USB-C 端口”。它提供一个统一、安全的接口，让 LLM 应用可以访问您定义的资源。具体介绍请参考 [FastMCP](https://gofastmcp.com/getting-started/welcome)。
+* 在Dingent中，一个助手（Assistant）是一些工具的集合，这些工具往往具有相似的功能或数据源，在执行某项特定任务时可以被模型反复调用。
 
 * 主要职责: 将数据和功能暴露给 backend 中的 Agent。
 
@@ -138,7 +138,7 @@ my-awesome-agent/
 
     * plugins/: 定义你可以被 Agent 调用的自定义工具。这里是实现您个性化或私有业务逻辑的理想之地。但请注意，如果您开发的工具具有普适性，我们强烈建议您通过 Pull Request 将其贡献给主项目，以帮助所有用户！
 
-    * main.py: 启动 MCP 服务并注册上述资源和工具。
+    * main.py: 启动 Assistants 服务并注册上述资源和工具。
 
 ## 🗺️  路线图
 - **✅ 1. 完善文档和教程**
