@@ -1,0 +1,18 @@
+[plugin]
+version = "1.0.0"
+name = {{ cookiecutter.project_name }}
+tool_class = "tool:Text2SqlTool"
+dependencies = [
+    "langchain-community>=0.3.21",
+    "pymysql>=1.1.1",
+    "sqlglot[rs]>=26.15.0",
+    "langchain>=0.3.23",
+    "langgraph>=0.3.31,<1.0.0",
+    "langdetect>=1.0.9",
+    "fastmcp>=2.2.0",
+    "mcp[cli]>=1.7.1",
+    "pandas>=2.2.3",
+    "sqlmodel>=0.0.24",
+    "psycopg2-binary>=2.9.10",
+]
+spec_version = 1.0

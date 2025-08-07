@@ -4,11 +4,13 @@ from langchain.chat_models.base import BaseChatModel
 from langchain_core.vectorstores import VectorStore
 from pydantic import Field
 
-from dingent.engine.mcp import BaseTool, Database
-from dingent.engine.mcp.tools.types import TablePayload, ToolOutput
+from dingent.engine.plugins.base import BaseTool
+from dingent.engine.plugins.types import TablePayload, ToolOutput
+from plugins.text2sql.database import Database
 
 from .graph import Text2SqlAgent
 from .handlers.handler_builder import ChainFactory
+from .settings import Settings
 
 
 def format_sql_tool_output(sql_result: dict[str, list[dict[str, Any]]], output_type: Literal["table"] = "table") -> list[ToolOutput]:
@@ -29,12 +31,13 @@ class Text2SqlTool(BaseTool):
 
     def __init__(
         self,
-        db: Database,
+        config: Settings,
         llm: BaseChatModel,
         vectorstore: VectorStore,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        db = Database(**config.database.model_dump())
         factory = ChainFactory()
         result_handler = factory.build_result_chain(db)
         self.agent = Text2SqlAgent(

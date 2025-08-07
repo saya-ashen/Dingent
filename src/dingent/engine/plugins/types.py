@@ -1,6 +1,6 @@
 from typing import TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
 
@@ -17,3 +17,8 @@ class ToolOutput(BaseModel):
     payload: TablePayload
 
     metadata: dict = {}
+
+
+class BaseSettings(BaseModel):
+    name: str = Field(description="The unique name of the tool instance")
+    description: str = Field()

@@ -11,11 +11,13 @@ class BaseTool(ABC):
 
     def __init__(
         self,
+        config: dict,
         resource_manager: ResourceManager,
         logger: Logger | None = None,
     ) -> None:
         super().__init__()
         self.resource_manager = resource_manager
+        self.config = config
         if logger:
             self.logger = logger
         else:

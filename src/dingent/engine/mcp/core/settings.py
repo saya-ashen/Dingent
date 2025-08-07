@@ -1,10 +1,9 @@
 import importlib.resources
-import os
 from functools import lru_cache
 from pathlib import Path
 
 import toml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,50 +21,15 @@ class MCPSettings(BaseModel):
     icon: str | None = None
     llm: dict[str, str]
     database: str | None = None
-    enabled_tools: list[str] = []
+    tools: list[ToolSettings] = []
     description: str
     host: str
     port: int
 
 
-class DatabaseSettings(BaseModel):
-    name: str
-    uri: str = ""
-    uri_env: str = ""
-    schemas_file: str | None = None
-    type: str | None = None
-
-    @model_validator(mode="after")
-    def determine_type_from_uri(self) -> "DatabaseSettings":
-        """
-        Runs after all fields are populated to ensure `uri` is available.
-        """
-        db_uri = self.uri
-        if not db_uri:
-            if self.uri_env and self.uri_env in os.environ:
-                db_uri = os.environ[self.uri_env]
-                self.uri = db_uri
-
-        if not db_uri:
-            raise ValueError("A database URI must be provided either via 'uri' field or 'uri_env' environment variable.")
-
-        if db_uri.startswith("postgresql"):
-            self.type = "postgresql"
-        elif db_uri.startswith("mysql"):
-            self.type = "mysql"
-        elif db_uri.startswith("sqlite"):
-            self.type = "sqlite"
-        else:
-            raise ValueError(f"Could not determine database type from URI: '{db_uri[:30]}...'")
-
-        return self
-
-
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    databases: list[DatabaseSettings] = []
     mcp_servers: list[MCPSettings] = []
-    tools: list[ToolSettings] = []
     custom_tools_dirs: list[Path] = Field(default=[Path("custom_tools")], alias="MYAPP_CUSTOM_TOOLS_DIRS")
     custom_schemas_dirs: list[Path] = []
     log_level: str = "INFO"

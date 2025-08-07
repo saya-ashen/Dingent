@@ -6,10 +6,10 @@ import os
 import sys
 import types
 import typing
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from anyio import Path
 from loguru import logger
 from sqlalchemy import inspect as table_inspect
 from sqlalchemy.engine.url import make_url

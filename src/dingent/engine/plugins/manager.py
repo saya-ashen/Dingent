@@ -8,7 +8,7 @@ from typing import Any
 
 from loguru import logger
 
-from ..tools.base_tool import BaseTool
+from .base import BaseTool
 from .settings import ToolSettings
 
 

@@ -1,12 +1,12 @@
 from fastmcp import FastMCP
 from loguru import logger
 
+from dingent.engine.plugins.manager import ToolManager
 from dingent.engine.shared.llm_manager import LLMManager
 
 from .db_manager import DBManager
 from .resource_manager import ResourceManager
 from .settings import MCPSettings, get_settings
-from .tool_manager import ToolManager
 
 settings = get_settings()
 
@@ -14,6 +14,7 @@ settings = get_settings()
 db_manager = DBManager(settings.databases)
 llm_manager = LLMManager()
 resource_manager = ResourceManager()
+tool_manager = ToolManager()
 
 
 async def create_mcp_server(custom_tools_dirs: list, config: MCPSettings, dependencies_override: dict | None = None) -> FastMCP:
