@@ -35,7 +35,19 @@ const config: Config = {
     // may want to replace "en" with "zh-Hans".
     i18n: {
         defaultLocale: 'en',
-        locales: ['en'],
+        locales: ['en', 'zh-Hans'],
+        localeConfigs: {
+            en: {
+                label: 'English',
+                direction: 'ltr',
+                htmlLang: 'en-US',
+            },
+            'zh-Hans': {
+                label: '简体中文',
+                direction: 'ltr',
+                htmlLang: 'zh-CN',
+            },
+        },
     },
 
     presets: [
@@ -47,7 +59,7 @@ const config: Config = {
                     // Please change this to your repo.
                     // Remove this to remove the "edit this page" links.
                     editUrl:
-                        'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+                        'https://github.com/saya-ashen/Dingent/tree/main/website/',
                 },
                 theme: {
                     customCss: './src/css/custom.css',
@@ -71,6 +83,10 @@ const config: Config = {
                     sidebarId: 'tutorialSidebar',
                     position: 'left',
                     label: 'Tutorial',
+                },
+                {
+                    type: 'localeDropdown',
+                    position: 'left',
                 },
                 {
                     href: 'https://github.com/saya-ashen/Dingent',
@@ -105,12 +121,12 @@ const config: Config = {
                     items: [
                         {
                             label: 'GitHub',
-                            href: 'https://github.com/facebook/docusaurus',
+                            href: 'https://github.com/saya-ashen/Dingent',
                         },
                     ],
                 },
             ],
-            copyright: `Copyright © ${new Date().getFullYear()} Dingent, Inc. Built with Docusaurus.`,
+            copyright: `Copyright © ${new Date().getFullYear()} Dingent. Built with Docusaurus.`,
         },
         prism: {
             theme: prismThemes.github,

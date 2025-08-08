@@ -5,7 +5,24 @@ sidebar_position: 2
 # Configuration
 
 We use [**Pydantic-Settings**](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) to manage configuration in Dingent. This allows you to define your configuration in a structured way, with support for environment variables, default values, and type validation. However, we recommend using a TOML file to manage your configuration, which is the default approach in our templates.
+
 For secret keys like `OPENAI_API_KEY`, you can set them as environment variables or use a `.env` file.
+
+## Environment Variables
+
+Dingent supports several environment variables for configuration:
+
+- `OPENAI_API_KEY`: Your OpenAI API key (required for most LLM operations)
+- `OPENAI_BASE_URL`: Custom OpenAI API base URL (optional)
+- `LOG_LEVEL`: Logging level (default: INFO)
+
+You can set these in your shell or create a `.env` file in your project root:
+
+```bash
+# .env file
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxx
+LOG_LEVEL=DEBUG
+```
 
 ## Plugin Configuration
 
