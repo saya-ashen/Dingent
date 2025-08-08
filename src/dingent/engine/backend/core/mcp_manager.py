@@ -4,7 +4,7 @@ from collections.abc import Callable
 from fastmcp import Client
 from loguru import logger
 
-from dingent.engine.backend.core.settings import MCPServerInfo
+from dingent.engine.backend.core.settings import AssistantInfo
 
 
 class AsyncMCPManager:
@@ -15,7 +15,7 @@ class AsyncMCPManager:
 
     def __init__(
         self,
-        server_configs: list[MCPServerInfo],
+        server_configs: list[AssistantInfo],
         connection_timeout: float = 5.0,
         log_handler: Callable | None = None,
     ):
@@ -23,7 +23,7 @@ class AsyncMCPManager:
         Initializes the manager.
 
         Args:
-            server_configs (list[MCPServerInfo]): A list of server configuration objects.
+            server_configs (list[AssistantInfo]): A list of server configuration objects.
             connection_timeout (float): The connection timeout for each client.
             log_handler (Optional[logging.Handler]): A handler for client logging.
         """
@@ -109,7 +109,7 @@ class AsyncMCPManager:
 
 
 def get_async_mcp_manager(
-    server_configs: list[MCPServerInfo],
+    server_configs: list[AssistantInfo],
     connection_timeout: float = 5.0,
     log_handler: Callable | None = None,
 ) -> AsyncMCPManager:
@@ -117,7 +117,7 @@ def get_async_mcp_manager(
     Factory function to get an AsyncMCPManager instance.
 
     Args:
-        server_configs (list[MCPServerInfo]): A list of server configuration objects.
+        server_configs (list[AssistantInfo]): A list of server configuration objects.
         connection_timeout (float): The connection timeout for each client.
         log_handler (Optional[Callable]): A handler for client logging.
 
