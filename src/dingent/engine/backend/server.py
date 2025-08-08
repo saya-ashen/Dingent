@@ -12,7 +12,7 @@ from dingent.engine.backend.core.settings import get_settings
 settings = get_settings()
 
 assistant_id = "agent"
-mcp_clients = get_async_mcp_manager(settings.mcp_servers)
+mcp_clients = get_async_mcp_manager(settings.assistants)
 
 
 def build_agent_api(**kwargs) -> FastAPI:
@@ -23,7 +23,7 @@ def build_agent_api(**kwargs) -> FastAPI:
         client_name = client_resource_id_map.get(resource_id)
         if not client_name:
             raise HTTPException(status_code=404, detail="Resource not found")
-        async with get_async_mcp_manager(settings.mcp_servers) as mcp:
+        async with get_async_mcp_manager(settings.assistants) as mcp:
             client = mcp.active_clients.get(client_name)
             if not client:
                 raise HTTPException(status_code=503, detail=f"{client_name} MCP server not available")
