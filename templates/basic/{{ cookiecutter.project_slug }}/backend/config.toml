@@ -1,7 +1,7 @@
-default_agent="sakila"
+default_assistant="sakila"
 llm.provider = "openai"
 llm.model = "gpt-4.1"
-[[mcp_servers]]
+[[assistants]]
 name = "sakila"
 host = "127.0.0.1"
 port = "8888"
