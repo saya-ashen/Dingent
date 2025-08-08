@@ -16,11 +16,11 @@ llm_manager = LLMManager()
 resource_manager = ResourceManager()
 global_injection_deps = {"resource_manager": resource_manager, "llm_manager": llm_manager}
 
-
 project_root: Path | None = find_project_root()
 if not project_root:
     raise RuntimeError("Project root not found. Please ensure you are in a Dingent project directory.")
 initialize_plugins(plugin_dir=(project_root / "assistants" / "plugins").resolve(), global_injection_deps=global_injection_deps)
+
 
 
 async def create_assistant(config: AssistantSettings, injection_deps: dict) -> FastMCP:
