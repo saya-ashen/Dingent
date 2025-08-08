@@ -296,9 +296,13 @@ class ServiceRunner:
 
     def _stream_output(self, name, process, log_queue):
         """Reads a process's stdout and puts lines into the queue."""
-        for line in iter(process.stdout.readline, ""):
-            log_queue.put((name, line))
-        process.stdout.close()
+        try:
+            for line in iter(process.stdout.readline, ""):
+                log_queue.put((name, line))
+            process.stdout.close()
+        except UnicodeDecodeError as e:
+            # FIXME: Handle decoding errors gracefully
+            click.secho(f"❌ Error decoding output from {name} service: {e}", fg="red")
 
     def _print_log_line(self):
         """Gets and prints a single log line from the queue if available."""
