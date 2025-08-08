@@ -2,7 +2,6 @@ from pathlib import Path
 
 import toml
 
-from dingent.engine.mcp.core.context import get_plugin_manager
 from dingent.engine.plugins.manager import PluginManager
 from dingent.utils import find_project_root
 
@@ -53,4 +52,6 @@ class CliContext:
 
     @property
     def assistants_plugin_manager(self) -> PluginManager | None:
-        return get_plugin_manager()
+        if not self.assistants_plugin_path:
+            return None
+        return PluginManager(plugin_dir=self.assistants_plugin_path)
