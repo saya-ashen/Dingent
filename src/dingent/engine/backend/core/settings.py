@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class MCPServerInfo(BaseModel):
+class AssistantInfo(BaseModel):
     name: str
     host: str
     port: int
@@ -16,8 +16,8 @@ class MCPServerInfo(BaseModel):
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    mcp_servers: list[MCPServerInfo] = []
-    default_agent: str | None = None
+    assistants: list[AssistantInfo] = []
+    default_assistant: str | None = None
     llm: dict[str, str] = {}
 
 
