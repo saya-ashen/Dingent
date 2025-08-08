@@ -5,7 +5,7 @@ sidebar_position: 1
 # Introduction
 
 ## Highlights
-* **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (MCP), and frontend presentation (CopilotKit) into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.
+* **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (Assistant), and frontend presentation (CopilotKit) into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.
 
 * **Core Features Built-In**: We believe a simple and easy-to-use agent shouldn't require users to spend a lot of time maintaining plugins. Therefore, we are committed to integrating features the community deems important directly into the framework. If you think a feature is crucial, we encourage you to open an Issue or PR. This directly reflects our core mission of "making Agents simpler for users."
 
@@ -39,3 +39,5 @@ uvx dingent run
 ```
 
 Open  [http://localhost:3000](http://localhost:3000) and follow the tutorial.
+
+## Your First Conversation

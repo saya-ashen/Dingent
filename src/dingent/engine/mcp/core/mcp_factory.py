@@ -16,6 +16,7 @@ llm_manager = LLMManager()
 resource_manager = ResourceManager()
 global_injection_deps = {"resource_manager": resource_manager, "llm_manager": llm_manager}
 
+
 project_root: Path | None = find_project_root()
 if not project_root:
     raise RuntimeError("Project root not found. Please ensure you are in a Dingent project directory.")
