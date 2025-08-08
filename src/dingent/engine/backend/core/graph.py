@@ -258,13 +258,13 @@ class ConfigSchema(TypedDict):
 
 @asynccontextmanager
 async def make_graph(config):
-    server_config = settings.mcp_servers
-    default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_agent
+    server_config = settings.assistants
+    default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_assistant
     model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:
         model_config = settings.llm
     async with get_async_mcp_manager(server_config, log_handler=None) as mcp:
-        assistants = await create_assistants(settings.mcp_servers, mcp.active_clients, model_config)
+        assistants = await create_assistants(settings.assistants, mcp.active_clients, model_config)
         assert len(assistants) > 0
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
