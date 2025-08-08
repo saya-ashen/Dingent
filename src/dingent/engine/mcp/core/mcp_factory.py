@@ -22,7 +22,6 @@ if not project_root:
 initialize_plugins(plugin_dir=(project_root / "assistants" / "plugins").resolve(), global_injection_deps=global_injection_deps)
 
 
-
 async def create_assistant(config: AssistantSettings, injection_deps: dict) -> FastMCP:
     """
     Creates an MCP server instance.

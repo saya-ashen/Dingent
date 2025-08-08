@@ -2,7 +2,6 @@ from pathlib import Path
 
 import toml
 
-
 from dingent.engine.plugins.manager import PluginManager
 from dingent.utils import find_project_root
 
