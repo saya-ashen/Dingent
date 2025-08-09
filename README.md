@@ -63,6 +63,17 @@ Before you begin, ensure your development environment  has the following install
 
     Installation: [https://nodejs.org/en/download](https://nodejs.org/en/download)
 
+  * [**bun**](https://bun.com/): A node package manager that is used to install the frontend dependencies.
+
+    ```bash
+    # On macOS and Linux
+    curl -fsSL https://bun.sh/install | bash
+    ```
+
+    ```powershell
+    powershell -c "irm bun.sh/install.ps1 | iex"
+    ```
+
 ### 2\. Initialize Your Agent Project
 
 Run the following command, and the Dingent CLI will guide you through the project creation process.
