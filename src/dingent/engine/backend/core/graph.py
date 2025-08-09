@@ -199,7 +199,7 @@ async def create_assistants(mcp_servers, active_clients: dict[str, Client], mode
     and then concurrently building each assistant.
     """
     # 1. Get the language model once, as it's shared by all assistants.
-    llm = llm_manager.get_llm(**model_config)
+    llm = await llm_manager.get_llm(**model_config)
 
     # 2. Phase 1: Concurrently gather information for all servers.
     # This avoids fetching server_info multiple times.
