@@ -1,5 +1,6 @@
 import os
 import queue
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -189,13 +190,10 @@ class ServiceRunner:
 
     def __init__(self, env_info: EnvironmentInfo, cli_ctx: CliContext):
         self.env = env_info
-        frontend_cmd_name, _ = env_info.frontend_installer
-        frontend_cmd = [frontend_cmd_name]
-
         self.services = {
             "assistants": {"command": ["python", "main.py"], "cwd": cli_ctx.assistants_path, "color": "blue"},
-            "backend": {"command": ["langgraph", "dev", "--no-browser"], "cwd": cli_ctx.backend_path, "color": "magenta"},
-            "frontend": {"command": frontend_cmd + ["dev"], "cwd": cli_ctx.frontend_path, "color": "yellow"},
+            "backend": {"command": ["langgraph", "dev", "--no-browser", "--allow-blocking"], "cwd": cli_ctx.backend_path, "color": "magenta"},
+            "frontend": {"command": ["bun", "dev"], "cwd": cli_ctx.frontend_path, "color": "yellow"},
         }
         self.processes = []
         self.log_queue = queue.Queue()
@@ -290,11 +288,6 @@ class ServiceRunner:
         """Monitors running services and prints their logs."""
         print("\nGiving services a moment to warm up...")
         time.sleep(3)
-        print("🌐 Opening http://localhost:3000 in your browser.")
-        try:
-            webbrowser.open_new_tab("http://localhost:3000")
-        except webbrowser.Error:
-            print("[yellow]⚠️ Could not automatically open browser. Please navigate to http://localhost:3000 manually.[/yellow]")
 
         print("\n--- Real-time Logs (Press Ctrl+C to stop) ---")
 
@@ -344,6 +337,7 @@ class ServiceRunner:
 
     def _print_log_line(self):
         """Gets and prints a single log line from the queue if available."""
+        port_regex = re.compile(r"Local:        http://localhost:(\d+)")
         try:
             name, line = self.log_queue.get_nowait()
             line = line.strip()
@@ -351,6 +345,14 @@ class ServiceRunner:
                 # Using rich.text.Text.from_ansi to handle potential ANSI color codes in logs
                 log_text = Text.from_ansi(line)
                 print(Text.from_markup(f"[{self.services[name]['color']}][{name.upper():^10}][/] ") + log_text)
+
+                match = port_regex.search(line)
+                if match and name == "frontend":
+                    print("🌐 Opening http://localhost:3000 in your browser.")
+                    try:
+                        webbrowser.open_new_tab("http://localhost:3000")
+                    except webbrowser.Error:
+                        print("[yellow]⚠️ Could not automatically open browser. Please navigate to http://localhost:3000 manually.[/yellow]")
         except queue.Empty:
             pass
 
@@ -433,8 +435,8 @@ def install_dependencies_for_plugin(cli_ctx, env, plugin_name: str):
         dependecies = plugin.get("dependencies", [])
         if cli_ctx.assistants_path is not None:
             result = subprocess.run([env.uv_path, "add", "--optional", f"plugin-{plugin_name}"] + dependecies, cwd=cli_ctx.assistants_path, check=True, capture_output=True)
-            print("依赖安装成功！")
-            print("--- uv 输出 ---")
+            print("Dependencies installed successfully.")
+            print("--- uv outputs---")
             print(result.stdout.decode())
     else:
         logger.error("❌ Error: Plugin manager not initialized.")
