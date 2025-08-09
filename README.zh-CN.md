@@ -54,9 +54,9 @@
 
 ### 1. 环境准备
 
-在开始之前，请确保您的开发环境中已安装 `uv` 和 `node`。
+在开始之前，请确保您的开发环境中已安装以下工具：
 
-* **uv**: 一个非常快的 Python 包安装和管理工具。
+* [**uv**](https://docs.astral.sh/uv/getting-started/installation/): 一个非常快的 Python 包安装和管理工具。
 ```bash
 # On macOS and Linux.
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -67,8 +67,18 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-* [**Node.js**](https://nodejs.org/en/download/) 版本>18.0  (运行node -v 查看)
+- [**Node.js**](https://nodejs.org/en/download/) 版本>18.0  (运行node -v 查看)
 安装说明: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+* [**bun**](https://bun.com/): 一个快速的 Node 包管理器，用于安装前端依赖。
+
+```bash
+# On macOS and Linux
+curl -fsSL https://bun.sh/install | bash
+
+# On window
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
 
 ### 2. 初始化您的智能体项目
 
