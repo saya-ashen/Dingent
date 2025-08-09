@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from pydantic import BaseModel, model_validator
 
@@ -41,4 +42,4 @@ class DatabaseSettings(BaseModel):
 
 class Settings(ToolBaseSettings):
     database: DatabaseSettings
-    llm: dict[str, str]
+    llm: dict[str, str | Any]
