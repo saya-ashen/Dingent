@@ -68,9 +68,8 @@ Before you begin, ensure your development environment  has the following install
     ```bash
     # On macOS and Linux
     curl -fsSL https://bun.sh/install | bash
-    ```
 
-    ```powershell
+    # On window
     powershell -c "irm bun.sh/install.ps1 | iex"
     ```
 
