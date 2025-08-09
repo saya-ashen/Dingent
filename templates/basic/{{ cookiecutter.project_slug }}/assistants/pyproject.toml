@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.12, <3.14"
 
 dependencies = [
-    "dingent[mcp]",
+    "dingent[mcp]>=0.2.3",
 ]
 
 [dependency-groups]
