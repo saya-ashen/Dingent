@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from langchain_mcp_adapters.tools import load_mcp_tools
 
@@ -28,7 +28,10 @@ class Assistant:
     @asynccontextmanager
     async def load_tools_langgraph(self):
         tools = []
-        for ins in self.plugin_instances:
-            session = ins.mcp_client.session
-            _tools = await load_mcp_tools(session)
-        yield tools
+        async with AsyncExitStack() as stack:
+            for ins in self.plugin_instances:
+                client = await stack.enter_async_context(ins.mcp_client)
+                session = client.session
+                _tools = await load_mcp_tools(session)
+                tools.extend(_tools)
+            yield tools

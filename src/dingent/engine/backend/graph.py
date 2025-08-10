@@ -1,7 +1,7 @@
 import json
 import uuid
 from asyncio import Queue
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated, Any, TypedDict, cast
 
 from copilotkit import CopilotKitState
@@ -173,13 +173,16 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         **kwargs,
     ) -> Command:
         response_raw = await _tool.ainvoke(kwargs)
-        response = json.loads(response_raw)
+        try:
+            response = json.loads(response_raw)
+        except json.JSONDecodeError:
+            response = {"context": response_raw}
         context = response.get("context", "")
-        tool_output_ids = response.get("tool_output_ids", {})
-        for id in tool_output_ids:
-            client_resource_id_map[id] = client_name
-        action_data = {"tool_output_ids": tool_output_ids}
+        tool_output_id = response.get("tool_output_id")
+        if tool_output_id:
+            client_resource_id_map[tool_output_id] = client_name
         messages = [ToolMessage(context, tool_call_id=tool_call_id)]
+        action_data = {"tool_output_id": tool_output_id}
         messages.extend(call_actions(state, [action_data]))
         return Command(
             update={
@@ -199,14 +202,15 @@ async def create_assistant_graphs(llm, settings: list[AssistantSettings]):
     assistant_graphs: dict[str, CompiledStateGraph] = {}
     for setting in settings:
         assistant = Assistant(setting)
-        async with assistant.load_tools_langgraph() as tools:
+        async with AsyncExitStack() as stack:
+            tools = await stack.enter_async_context(assistant.load_tools_langgraph())
             filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not tool.name.startswith("__")]
             graph = create_react_agent(
                 model=llm,
                 tools=filtered_tools,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
-                name=f"{assistant.name}_assistant",
+                name=f"{assistant.name}",
             )
             assistant_graphs[assistant.name] = graph
             yield assistant_graphs
@@ -230,7 +234,7 @@ async def make_graph(config):
             print("No default active agent specified, using the first available assistant.")
             default_active_agent = list(assistants.keys())[0]
         else:
-            default_active_agent = f"{default_active_agent}_assistant"
+            default_active_agent = f"{default_active_agent}"
 
         swarm = create_swarm(
             agents=list(assistants.values()),

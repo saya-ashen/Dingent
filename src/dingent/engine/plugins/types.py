@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, TypeVar
+from typing import Literal, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -11,21 +11,7 @@ from pydantic_settings import BaseSettings
 PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
 
 
-class TablePayload(BaseModel):
-    columns: list[str]
-    rows: list[dict]
-    title: str = ""
-
-
-class ToolOutput(BaseModel):
-    type: str
-
-    payload: TablePayload
-
-    metadata: dict = {}
-
-
-class BasePluginUserConfig(TypedDict):
+class BasePluginUserConfig(BaseModel):
     """
     用户可配置项的基类。
     插件开发者应继承此类来定义自己的配置模型。

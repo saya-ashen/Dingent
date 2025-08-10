@@ -61,7 +61,7 @@ class ResourceManager:
 
         return new_id
 
-    def get(self, resource_id: str) -> ToolOutput:
+    def get(self, resource_id: str, format="json"):
         """
         Retrieves a resource using its unique ID.
 
@@ -77,7 +77,11 @@ class ResourceManager:
         if resource_id not in self._resources:
             raise KeyError(f"No resource found with ID '{resource_id}'. It might have been evicted or never existed.")
 
-        return self._resources[resource_id]
+        resource = self._resources[resource_id]
+        if format == "json":
+            return resource.model_dump()
+        else:
+            return resource
 
     def clear(self) -> None:
         """
@@ -93,3 +97,19 @@ class ResourceManager:
     def __repr__(self) -> str:
         """Provides a developer-friendly representation of the manager."""
         return f"<ResourceManager(current_size={len(self)}, max_size={self.max_size})>"
+
+
+resource_manager = None
+
+
+def get_resource_manager() -> ResourceManager:
+    """
+    Returns the singleton instance of ResourceManager.
+
+    If the instance does not exist, it creates a new one with default max_size.
+    """
+    global resource_manager
+    if resource_manager is None:
+        resource_manager = ResourceManager(max_size=100)
+        logger.info("Created a new ResourceManager instance.")
+    return resource_manager

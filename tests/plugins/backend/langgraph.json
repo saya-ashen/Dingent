@@ -1,0 +1,13 @@
+{
+  "python_version": "3.13",
+  "dependencies": [
+    "."
+  ],
+  "graphs": {
+    "agent": "./main.py:graph"
+  },
+  "http": {
+    "app": "./main.py:api"
+  },
+  "env": ".env"
+}

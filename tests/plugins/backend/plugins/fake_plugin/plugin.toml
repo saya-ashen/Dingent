@@ -17,4 +17,4 @@ dependencies = [
 ]
 spec_version = 1.0
 execution.mode = "remote"
-execution.url= "https://mcp.notion.com/mcp"
+execution.url= "http://127.0.0.1:8000/mcp"
