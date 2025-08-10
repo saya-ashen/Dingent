@@ -3,20 +3,14 @@ from pathlib import Path
 
 import toml
 from loguru import logger
-from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
-class AssistantInfo(BaseModel):
-    name: str
-    host: str
-    port: int
-    routable_nodes: list[str] = []
+from dingent.engine.backend.types import AssistantSettings
 
 
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
-    assistants: list[AssistantInfo] = []
+    assistants: list[AssistantSettings] = []
     default_assistant: str | None = None
     llm: dict[str, str | int] = {}
 

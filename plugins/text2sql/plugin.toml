@@ -1,18 +1,23 @@
 [plugin]
 version = "1.0.0"
 name = "text2sql"
-tool_class = "tool:Text2SqlTool"
-spec_version = 1.0
+description = "A text to sql tool"
+spec_version = 2.0
+remote = true
+host = "127.0.0.1"
+port = 8888
+# 用户可以传递对应的代码文件，然后由程序自动调用fastmcp来运行
+tool_file= "tool.py"
+# 用户可以直接通过mcp-json来配置
+mcp-json = {
+    file = "./text2sql.json",
+    content="",
+}
 dependencies = [
-    "langchain-community>=0.3.21",
-    "pymysql>=1.1.1",
-    "sqlglot[rs]>=26.15.0",
-    "langchain>=0.3.23",
-    "langgraph>=0.3.31,<1.0.0",
-    "langdetect>=1.0.9",
-    "fastmcp>=2.2.0",
-    "mcp[cli]>=1.7.1",
-    "pandas>=2.2.3",
-    "sqlmodel>=0.0.24",
-    "psycopg2-binary>=2.9.10",
 ]
+
+# User Story: 作为一个插件管理器，我希望能够在插件的配置中读取到：
+# 1. 插件的运行方式，是远程还是需要我来运行
+# 2. 如果是远程，我需要知道插件运行的端口和地址
+# 3. 如果需要我来运行这个插件，我需要插件对应的入口文件，和用户想让我运行的方式
+# 例如是应该通过stdio的形式还是http的形式

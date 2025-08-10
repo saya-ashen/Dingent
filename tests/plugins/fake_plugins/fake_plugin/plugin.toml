@@ -1,7 +1,7 @@
 [plugin]
 version = "1.0.0"
 name = "fake"
-tool_class = "fake_tool:FakeTool"
+description = "fake tool"
 dependencies = [
     "langchain-community>=0.3.21",
     "pymysql>=1.1.1",
@@ -16,3 +16,5 @@ dependencies = [
     "psycopg2-binary>=2.9.10",
 ]
 spec_version = 1.0
+execution.mode = "remote"
+execution.url= "https://mcp.notion.com/mcp"

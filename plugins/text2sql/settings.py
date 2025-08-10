@@ -13,7 +13,7 @@ class DatabaseSettings(BaseModel):
     schemas_file: str | None = None
     type: str | None = None
 
-    # TODO: More simple method
+    # TODO: simpler method
     @model_validator(mode="after")
     def determine_type_from_uri(self) -> "DatabaseSettings":
         """

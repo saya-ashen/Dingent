@@ -1,4 +1,3 @@
-import asyncio
 import json
 import uuid
 from asyncio import Queue
@@ -6,22 +5,20 @@ from contextlib import asynccontextmanager
 from typing import Annotated, Any, TypedDict, cast
 
 from copilotkit import CopilotKitState
-from fastmcp import Client
 from langchain_core.messages import AIMessage, ToolCall, ToolMessage
 from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
-from langchain_mcp_adapters.tools import load_mcp_tools
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import InjectedState, create_react_agent
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langgraph.types import Command, Send
 from langgraph_swarm import create_swarm
 from langgraph_swarm.swarm import SwarmState
-from loguru import logger
-from mcp.types import TextResourceContents
 from pydantic import BaseModel, Field
 
-from dingent.engine.shared.llm_manager import LLMManager
+from dingent.engine.backend.assistant import Assistant
+from dingent.engine.backend.types import AssistantSettings
 
-from .mcp_manager import get_async_mcp_manager
+from .llm_manager import LLMManager
 from .settings import get_settings
 
 settings = get_settings()
@@ -193,61 +190,26 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     return call_tool
 
 
-async def create_assistants(mcp_servers, active_clients: dict[str, Client], model_config: dict[str, str]):
+@asynccontextmanager
+async def create_assistant_graphs(llm, settings: list[AssistantSettings]):
     """
     Creates assistants by first concurrently gathering all server details
     and then concurrently building each assistant.
     """
-    # 1. Get the language model once, as it's shared by all assistants.
-    llm = await llm_manager.get_llm(**model_config)
-
-    # 2. Phase 1: Concurrently gather information for all servers.
-    # This avoids fetching server_info multiple times.
-    async def get_server_details(mcp):
-        client = active_clients.get(mcp.name, None)
-        if client is None:
-            raise ValueError(f"Client for MCP {mcp.name} not found in active clients.")
-        server_info_res = await client.read_resource("info://server_info/en-US")
-        server_info = json.loads(cast(TextResourceContents, server_info_res[0]).text)
-        description = server_info.get("description", "")
-        description = f"Transfer user to the {mcp.name} assistant. {description}"
-        handoff_tool = create_handoff_tool(agent_name=f"{mcp.name}_assistant", description=description)
-        return mcp.name, {"client": client, "mcp_config": mcp, "handoff_tool": handoff_tool}
-
-    # Execute all data gathering tasks in parallel
-    gathered_details = await asyncio.gather(*(get_server_details(mcp) for mcp in mcp_servers), return_exceptions=True)
-    mcp_details = {}
-    for result in gathered_details:
-        if isinstance(result, Exception):
-            logger.exception(f"Failed to connect to server: {result}")
-        elif isinstance(result, tuple):
-            mcp_details[result[0]] = result[1]
-
-    # 3. Phase 2: Concurrently create each assistant using the gathered data.
-    async def build_assistant(name: str, details: dict):
-        client = details["client"]
-        mcp_config = details["mcp_config"]
-
-        # Load and prepare tools for this specific assistant
-        tools = cast(list[StructuredTool], await load_mcp_tools(client.session))
-        filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]
-
-        # Prepare handoff tools for other assistants this one can route to
-        transfer_tools = [mcp_details[routable_agent_name]["handoff_tool"] for routable_agent_name in mcp_config.routable_nodes]
-        react = create_react_agent(
-            model=llm,
-            tools=transfer_tools + filtered_tools,
-            state_schema=SubgraphState,
-            prompt=f"You are a assistant for {name} database research. If you need some infomation that not included in this database, transfer to another assistant for help.",
-            name=f"{name}_assistant",
-        )
-        return {f"{name}_assistant": react}
-
-    # Execute all assistant creation tasks in parallel
-    assistant_tasks = [build_assistant(name, details) for name, details in mcp_details.items()]
-    assistants = await asyncio.gather(*assistant_tasks)
-
-    return {k: v for d in assistants for k, v in d.items()}
+    assistant_graphs: dict[str, CompiledStateGraph] = {}
+    for setting in settings:
+        assistant = Assistant(setting)
+        async with assistant.load_tools_langgraph() as tools:
+            filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not tool.name.startswith("__")]
+            graph = create_react_agent(
+                model=llm,
+                tools=filtered_tools,
+                state_schema=SubgraphState,
+                prompt=assistant.description,
+                name=f"{assistant.name}_assistant",
+            )
+            assistant_graphs[assistant.name] = graph
+            yield assistant_graphs
 
 
 class ConfigSchema(TypedDict):
@@ -258,14 +220,12 @@ class ConfigSchema(TypedDict):
 
 @asynccontextmanager
 async def make_graph(config):
-    server_config = settings.assistants
     default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_assistant
     model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:
         model_config = settings.llm
-    async with get_async_mcp_manager(server_config, log_handler=None) as mcp:
-        assistants = await create_assistants(settings.assistants, mcp.active_clients, model_config)
-        assert len(assistants) > 0
+    llm = await llm_manager.get_llm(**model_config)
+    async with create_assistant_graphs(llm, settings.assistants) as assistants:
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
             default_active_agent = list(assistants.keys())[0]

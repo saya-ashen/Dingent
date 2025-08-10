@@ -38,7 +38,7 @@ class Text2SqlTool(BaseTool):
         db = Database(**config.database.model_dump())
         factory = ChainFactory()
         result_handler = factory.build_result_chain(db)
-        llm = llm_manager.get_llm(**config.llm)
+        llm = await llm_manager.get_llm(**config.llm)
         self.agent = Text2SqlAgent(
             llm=llm,
             db=db,
