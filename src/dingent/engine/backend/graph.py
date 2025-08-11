@@ -19,9 +19,6 @@ from .assistant import get_assistant_manager
 from .llm_manager import get_llm_manager
 from .settings import get_settings
 
-settings = get_settings()
-
-
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
 tool_call_events_queue = Queue()
@@ -227,6 +224,7 @@ class ConfigSchema(TypedDict):
 
 @asynccontextmanager
 async def make_graph(config):
+    settings = get_settings()
     default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_assistant
     model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:
