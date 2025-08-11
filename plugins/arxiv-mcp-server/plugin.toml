@@ -1,0 +1,13 @@
+[plugin]
+name = "arXiv-Searcher"
+version = "1.0.0"
+spec_version = 2.0
+description = "A tool to search arXiv"
+execution.mode = "local"
+execution.script_path="src/arxiv_server/server.py"
+dependencies=[
+    "feedparser>=6.0.11",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.6.0",
+    "pymupdf>=1.25.5",
+]
