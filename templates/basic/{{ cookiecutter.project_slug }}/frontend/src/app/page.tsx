@@ -17,10 +17,10 @@ export default function CopilotKitPage() {
         name: "show_data",
         description: "",
         parameters: [
-            { name: "tool_output_ids", type: "string[]", description: "tool_output_ids", required: true },
+            { name: "tool_output_id", type: "string", description: "tool_output_id", required: true },
         ],
         followUp: false,
-        handler: async ({tool_output_ids}) => {
+        handler: async ({tool_output_id}) => {
         },
     });
 
