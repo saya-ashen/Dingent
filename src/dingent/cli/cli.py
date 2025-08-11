@@ -29,10 +29,10 @@ IS_DEV_MODE = os.getenv("DINGENT_DEV")
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
 app = typer.Typer(name="dingent")
-assistants_app = typer.Typer(help="Manage the 'assistants' component and its plugins.")
-app.add_typer(assistants_app, name="assistants")
-assistants_plugin_app = typer.Typer(help="Manage plugins for the 'assistants' component.")
-assistants_app.add_typer(assistants_plugin_app, name="plugin")
+plugin_app = typer.Typer(help="Manage Plugins")
+app.add_typer(plugin_app, name="plugin")
+assistant_app = typer.Typer(help="Manage Assistatns")
+app.add_typer(assistant_app, name="assistant")
 
 
 class EnvironmentInfo:
@@ -100,7 +100,7 @@ class ProjectInitializer:
     def _convert_sql_to_db(self):
         """Finds .sql files and converts them to SQLite .db files."""
         print("[bold green]\n✨ Converting .sql files to .db databases...[/bold green]")
-        sql_dir = self.project_path / "assistants" / "data"
+        sql_dir = self.project_path / "backend" / "data"
         if not sql_dir.is_dir():
             print("[bold yellow]\n⚠️ Warning: SQL data directory not found at '{sql_dir}'.[/bold yellow]")
             return
@@ -138,7 +138,7 @@ class ProjectInitializer:
             return
 
         install_errors = False
-        for subdir_name in ["assistants", "backend"]:
+        for subdir_name in ["backend"]:
             target_dir = self.project_path / subdir_name
             if target_dir.is_dir() and (target_dir / "pyproject.toml").exists():
                 print(f"  -> Running 'uv sync' in '{subdir_name}'...")
@@ -191,7 +191,6 @@ class ServiceRunner:
     def __init__(self, env_info: EnvironmentInfo, cli_ctx: CliContext):
         self.env = env_info
         self.services = {
-            "assistants": {"command": ["python", "main.py"], "cwd": cli_ctx.assistants_path, "color": "blue"},
             "backend": {"command": ["langgraph", "dev", "--no-browser", "--allow-blocking"], "cwd": cli_ctx.backend_path, "color": "magenta"},
             "frontend": {"command": ["bun", "dev"], "cwd": cli_ctx.frontend_path, "color": "yellow"},
         }
@@ -226,7 +225,7 @@ class ServiceRunner:
 
         # 2. Update Python service commands to use the absolute path to 'uv'.
         #    'uv run' will handle finding 'python' and 'langgraph' inside the venv.
-        for name in ["assistants", "backend"]:
+        for name in ["backend"]:
             original_command = self.services[name]["command"]
             # Use the resolved absolute path for uv
             self.services[name]["command"] = [uv_path, "run", "--"] + original_command
@@ -269,7 +268,7 @@ class ServiceRunner:
                 print(f"   Full Command: {' '.join(command)}")
                 print(f"   Working Dir:  {cwd}")
                 print("\n   [bold yellow]Troubleshooting Steps:[/bold yellow]")
-                if name in ["assistants", "backend"]:
+                if name in ["backend"]:
                     print(f"    1. 'uv' was found, but it failed to run the service's command ('{command[3]}').")
                     print("    2. Make sure the virtual environment is correctly set up.")
                     print(f"    3. Try running 'uv sync' manually in the '{cwd}' directory.")
@@ -353,6 +352,8 @@ class ServiceRunner:
                         webbrowser.open_new_tab("http://localhost:3000")
                     except webbrowser.Error:
                         print("[yellow]⚠️ Could not automatically open browser. Please navigate to http://localhost:3000 manually.[/yellow]")
+                if "Failed to get tools from server: 'FastMCP'" in line:
+                    print(f"[bold red]Fatal: {line} [/bold red]")
         except queue.Empty:
             pass
 
@@ -367,14 +368,11 @@ def main(ctx: typer.Context):
     """
     Dingent Agent Framework CLI
     """
-    # 1. 创建上下文对象
     cli_context = CliContext()
 
-    # 2. 检查是否在项目目录中
     if not cli_context.is_in_project:
         pass
 
-    # 3. 将我们的上下文对象挂载到 Typer 的上下文中
     ctx.obj = cli_context
 
 
@@ -394,65 +392,58 @@ def init(
 def run(
     ctx: typer.Context,
 ):
-    """Runs the Assistants, Backend, and Frontend services concurrently."""
+    """Runs the Backend, and Frontend services concurrently."""
     cli_ctx: CliContext = ctx.obj
     env_info = EnvironmentInfo()
     runner = ServiceRunner(env_info, cli_ctx)
     runner.run()
 
 
-@assistants_app.command("run")
-def assistants_run():
-    raise NotImplementedError("The 'assistants run' command is not yet implemented.")
-
-
-@assistants_plugin_app.command("list")
-def assistants_plugin_list(ctx: typer.Context):
+@plugin_app.command("list")
+def plugin_list(ctx: typer.Context):
     cli_ctx: CliContext = ctx.obj
     if not cli_ctx.is_in_project:
         logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
         raise typer.Exit(code=1)
-    if cli_ctx.assistants_plugin_manager:
-        plugins = cli_ctx.assistants_plugin_manager.get_registered_plugins()
-        print("All registered plugins:\n", "\n".join(list(plugins.keys())))
+    if cli_ctx.plugin_manager:
+        plugins = cli_ctx.plugin_manager.list_plugins()
+        print("\nAll registered plugins:")
+        for plugin in plugins.values():
+            print(f" - {plugin.name} ({plugin.description})")
     else:
         logger.error("❌ Error: Plugin manager not initialized.")
 
 
-def install_dependencies_for_plugin(cli_ctx, env, plugin_name: str):
+@assistant_app.command("list")
+def assistant_list(ctx: typer.Context):
+    cli_ctx: CliContext = ctx.obj
     if not cli_ctx.is_in_project:
         logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
         raise typer.Exit(code=1)
-    if not env.is_uv_installed:
-        logger.error("❌ Error: 'uv' is not installed. Please install it first.")
-        raise typer.Exit(code=1)
-    if cli_ctx.assistants_plugin_manager:
-        plugins = cli_ctx.assistants_plugin_manager.get_registered_plugins()
-        plugin = plugins.get(plugin_name)
-        if not plugin:
-            logger.error(f"❌ Error: Plugin '{plugin_name}' not found.")
-            raise typer.Exit(code=1)
-        dependecies = plugin.get("dependencies", [])
-        if cli_ctx.assistants_path is not None:
-            result = subprocess.run([env.uv_path, "add", "--optional", f"plugin-{plugin_name}"] + dependecies, cwd=cli_ctx.assistants_path, check=True, capture_output=True)
-            print("Dependencies installed successfully.")
-            print("--- uv outputs---")
-            print(result.stdout.decode())
+    if cli_ctx.assistant_manager:
+        assistants = cli_ctx.assistant_manager.list_assistants()
+        print("\nAll registered assistants:")
+        for assistant in assistants.values():
+            # Print the assistant's name and description
+            print(f" - {assistant.name} ({assistant.description})")
+            print("     Tools:")
+            for tool in assistant.tools:
+                print(f"       - Name: {tool.name}, From Plugin: {tool.plugin_name}")
     else:
-        logger.error("❌ Error: Plugin manager not initialized.")
+        logger.error("❌ Error: Assistant manager not initialized.")
 
 
-@assistants_plugin_app.command("sync")
-def assistants_plugin_install(ctx: typer.Context, plugin_name: Annotated[str | None, typer.Argument()] = None):
-    """
-    Install dependencies for a specific plugin.
-    """
+@assistant_app.command("test")
+def assistant_test(name: str, ctx: typer.Context):
     cli_ctx: CliContext = ctx.obj
-    env = EnvironmentInfo()
-    if plugin_name:
-        install_dependencies_for_plugin(cli_ctx, env, plugin_name)
+    if not cli_ctx.is_in_project:
+        logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
+        raise typer.Exit(code=1)
+    if cli_ctx.assistant_manager:
+        try:
+            assistant = cli_ctx.assistant_manager.get_assistant(name)
+            print(f"Successfully retrieved assistant: {assistant.name}")
+        except Exception as e:
+            print(f"[bold red]❌ Error: {e}[/bold red]")
     else:
-        if not cli_ctx.assistants_plugin_manager:
-            raise typer.Exit()
-        for plugin in cli_ctx.assistants_plugin_manager.get_registered_plugins().values():
-            install_dependencies_for_plugin(cli_ctx, env, plugin.get("name"))
+        logger.error("❌ Error: Assistant manager not initialized.")

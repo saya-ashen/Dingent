@@ -1,7 +1,9 @@
+from functools import cached_property
 from pathlib import Path
 
 import toml
 
+from dingent.engine.backend.assistant import AssistantManager
 from dingent.engine.plugins.manager import PluginManager
 from dingent.utils import find_project_root
 
@@ -20,14 +22,6 @@ class CliContext:
         return self.project_root is not None
 
     @property
-    def assistants_path(self) -> Path | None:
-        if not self.is_in_project:
-            return None
-        # 从配置中读取路径，提供默认值
-        assistants_dir = self.config.get("components", {}).get("assistants", "assistants")
-        return self.project_root / assistants_dir
-
-    @property
     def backend_path(self) -> Path | None:
         if not self.is_in_project:
             return None
@@ -44,14 +38,20 @@ class CliContext:
         return self.project_root / frontend_dir
 
     @property
-    def assistants_plugin_path(self) -> Path | None:
-        if not self.assistants_path:
+    def plugin_path(self) -> Path | None:
+        if not self.backend_path:
             return None
         plugin_dir = self.config.get("plugins", {}).get("directory", "plugins")
-        return self.assistants_path / plugin_dir
+        return self.backend_path / plugin_dir
 
-    @property
-    def assistants_plugin_manager(self) -> PluginManager | None:
-        if not self.assistants_plugin_path:
+    @cached_property
+    def plugin_manager(self) -> PluginManager | None:
+        if not self.plugin_path:
             return None
-        return PluginManager(plugin_dir=self.assistants_plugin_path)
+        return PluginManager(plugin_dir=self.plugin_path.as_posix())
+
+    @cached_property
+    def assistant_manager(self) -> AssistantManager | None:
+        if not self.plugin_manager:
+            return None
+        return AssistantManager()

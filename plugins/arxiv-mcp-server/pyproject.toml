@@ -1,0 +1,16 @@
+[project]
+name = "arxiv-mcp-server"
+version = "0.1.0"
+description = "MCP server for accesing arXiv API"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+authors = [
+    {name = "Prashal Ruchiranga"}
+]
+dependencies = [
+    "feedparser>=6.0.11",
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.6.0",
+    "pymupdf>=1.25.5",
+]
