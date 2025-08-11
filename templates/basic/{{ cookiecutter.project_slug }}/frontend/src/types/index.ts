@@ -22,7 +22,6 @@ export interface TablePayload {
 export interface MarkdownPayload {
     content: string;
 }
-
 export interface Widget {
     id: string;
     type: string;
