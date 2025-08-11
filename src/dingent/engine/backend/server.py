@@ -3,9 +3,6 @@ import json
 from fastapi import FastAPI, HTTPException, Response
 
 from ..backend.resource_manager import get_resource_manager
-from .settings import get_settings
-
-settings = get_settings()
 
 assistant_id = "agent"
 

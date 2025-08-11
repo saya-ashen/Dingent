@@ -8,8 +8,6 @@ from dingent.engine.plugins.types import BasePluginSettings
 from .settings import get_settings
 from .types import AssistantSettings
 
-settings = get_settings()
-
 
 class Assistant:
     name: str
@@ -44,6 +42,7 @@ class AssistantManager:
     _assistants_settings: dict[str, AssistantSettings] = {}
 
     def __init__(self):
+        settings = get_settings()
         self._assistants_settings = {settings.name: settings for settings in settings.assistants}
 
     def list_assistants(self) -> dict[str, AssistantSettings]:
