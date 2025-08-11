@@ -1,7 +1,7 @@
 import pandas as pd
 
 from ..database import Database
-from ..types import Group
+from ..types_ import Group
 from .base import DBRequest, Handler
 
 

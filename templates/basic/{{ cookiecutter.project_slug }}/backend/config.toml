@@ -1,8 +1,15 @@
-default_assistant="sakila"
-llm.provider = "openai"
-llm.model = "gpt-4.1"
+llm.model="gpt-4.1"
 [[assistants]]
-name = "sakila"
-host = "127.0.0.1"
-port = "8888"
-routable_nodes= []
+name = "assistant"
+description = "This is an assistant for text2sql"
+enabled = false
+tools = [
+  { plugin_name = "text2sql", name = "s-text2sql",llm.model="gpt-4.1", database.name="sakila",database.uri="sqlite:///./data/sakila.db"}
+]
+
+[[assistants]]
+name = "assistant"
+description = "This is an assistant for arXiv search"
+tools = [
+  { plugin_name = "arXiv-Searcher", name = "arXiv"}
+]
