@@ -13,6 +13,12 @@
 [Configuration](https://saya-ashen.github.io/Dingent/docs/getting-started/configuration)
 </div>
 
+> [!WARNING]
+> **Plugin System Under Major Refactoring**
+> * **Related issue：** [Pinned Issue #123](https://github.com/saya-ashen/Dingent/issues/23)
+> ---
+> We are currently refactoring our plugin system to support automatic discovery and loading, which will simplify the development process. Please refer to the migration guide and the pinned issue for details and progress.
+
 **Dingent** is a lightweight, user-friendly agent framework whose core goal is to simplify the process of creating data-driven applications powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit, with a standout feature of automatic database connectivity. This allows you to quickly link your database with an LLM to build applications capable of intelligent Q\&A, data extraction, and analysis. For other data sources like APIs and local documents, Dingent offers a flexible framework that developers can easily extend by writing custom code.
 
 ![splash](./assets/splash.png)
@@ -52,9 +58,7 @@ Before you begin, ensure your development environment  has the following install
     ```bash
     # On macOS and Linux
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    ```
 
-    ```powershell
     # On Windows
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
     ```
