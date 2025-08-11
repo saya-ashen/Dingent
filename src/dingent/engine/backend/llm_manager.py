@@ -14,7 +14,7 @@ class LLMManager:
     def __init__(self):
         self._llms: dict[Any, BaseChatModel] = {}
 
-    async def get_llm(self, **kwargs) -> BaseChatModel:
+    def get_llm(self, **kwargs) -> BaseChatModel:
         """
         Get a LLM instance by its name.
         If the instance already exists in the cache, return it directly.
