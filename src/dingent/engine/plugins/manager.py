@@ -4,17 +4,18 @@ from typing import Any
 
 import toml
 from fastmcp import Client, FastMCP
+from fastmcp.client import UvStdioTransport
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.server.proxy import ProxyClient
 from loguru import logger
 from loguru import logger as _logger
 from loguru._logger import Logger
 
+from dingent.engine.backend.resource_manager import get_resource_manager
 from dingent.engine.backend.types import ToolOutput
 from dingent.utils import find_project_root
 
-from ..backend.resource_manager import ResourceManager, get_resource_manager
-from .types import BasePluginUserConfig, ExecutionModel, PluginSettings
+from .types import BasePluginSettings, ExecutionModel, PluginSettings, export_settings_to_env_dict
 
 resource_manager = get_resource_manager()
 
@@ -33,16 +34,6 @@ class ResourceMiddleware(Middleware):
             tool_output_id = resource_manager.register(tool_output)
             result.structured_content["tool_output_id"] = tool_output_id
             result.content[0].text = json.dumps(result.structured_content)
-            print("result", result.content[0].text)
-        return result
-
-    async def on_message(self, context: MiddlewareContext, call_next):
-        """Called for all MCP messages."""
-        print(f"Processing {context.method} from {context.source}")
-
-        result = await call_next(context)
-
-        print(f"Completed {context.method}")
         return result
 
 
@@ -55,23 +46,39 @@ class PluginInstance:
 
     def __init__(
         self,
-        instance_settings: BasePluginUserConfig,
+        instance_settings: BasePluginSettings,
         execution: ExecutionModel,
-        resource_manager: ResourceManager | None = None,
+        plugin_path: str,
         logger: Logger | None = None,
+        dependencies: list[str] | None = None,
+        python_version: str | None = None,
     ):
         self.name = instance_settings.name
         if execution.mode == "remote":
             assert execution.url is not None, "This should not happen."
             remote_proxy = FastMCP.as_proxy(ProxyClient(execution.url))
-            mcp = FastMCP(name=self.name)
-            mcp.mount(remote_proxy)
-            mcp.add_middleware(middleware)
-            client = Client(mcp)
-            self.mcp_client = client
-            self.name = instance_settings.name
         else:
-            raise NotImplementedError()
+            assert execution.script_path
+            env = export_settings_to_env_dict(instance_settings)
+            project_path = Path(plugin_path).parent.parent
+            plugin_folder = Path(plugin_path).name
+            module_name = Path(execution.script_path).stem
+            transport = UvStdioTransport(
+                f"plugins.{plugin_folder}.{module_name}",
+                module=True,
+                project_directory=project_path.as_posix(),
+                env_vars=env,
+                with_packages=dependencies,
+                python_version=python_version,
+            )
+            client = Client(transport)
+            remote_proxy = FastMCP.as_proxy(client)
+        mcp = FastMCP(name=self.name)
+        mcp.mount(remote_proxy)
+        mcp.add_middleware(middleware)
+        client = Client(mcp)
+        self.mcp_client = client
+        self.name = instance_settings.name
 
         if logger:
             self.logger = logger
@@ -83,11 +90,14 @@ class PluginDefinition:
     name: str | None
     description: str = ""
     execution: ExecutionModel
-    dependencies: list[str]
+    plugin_path: str
+    dependencies: list[str] | None
+    python_version: str | None
 
     def __init__(
         self,
         settings: PluginSettings,
+        plugin_path: str,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -95,9 +105,11 @@ class PluginDefinition:
         self.description = settings.description
         self.execution = settings.execution
         self.dependencies = settings.dependencies
+        self.python_version = settings.python_version
+        self.plugin_path = plugin_path
 
-    def load(self, instance_settings: BasePluginUserConfig):
-        return PluginInstance(instance_settings, self.execution)
+    def load(self, instance_settings: BasePluginSettings):
+        return PluginInstance(instance_settings, self.execution, dependencies=self.dependencies, plugin_path=self.plugin_path, python_version=self.python_version)
 
 
 class PluginManager:
@@ -135,19 +147,26 @@ class PluginManager:
                 plugin_info = toml.load(toml_path)
                 plugin_meta = plugin_info.get("plugin", {})
                 plugin_settings = PluginSettings(**plugin_meta)
-                self.plugins[plugin_settings.name] = PluginDefinition(plugin_settings)
+                self.plugins[plugin_settings.name] = PluginDefinition(plugin_settings, plugin_path.as_posix())
             except Exception as e:
                 print(f"Error loading plugin from '{plugin_path}': {e}")
 
     def list_plugins(self) -> dict[str, Any]:
         return self.plugins
 
-    def create_instance(self, instance_settings: BasePluginUserConfig):
-        plugin_name = instance_settings.type_name
+    def create_instance(self, instance_settings: BasePluginSettings):
+        plugin_name = instance_settings.plugin_name
         if plugin_name not in self.plugins:
-            import pdb
-
-            pdb.set_trace()
             raise ValueError(f"Plugin '{plugin_name}' is not registered or failed to load.")
         plugin_definition = self.plugins[plugin_name]
         return plugin_definition.load(instance_settings)
+
+
+plugin_manager = None
+
+
+def get_plugin_manager() -> PluginManager:
+    global plugin_manager
+    if plugin_manager is None:
+        plugin_manager = PluginManager()
+    return plugin_manager

@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import Literal
 
 from pydantic import (
     BaseModel,
@@ -6,7 +6,7 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from dingent.engine.plugins.types import BasePluginUserConfig
+from dingent.engine.plugins.types import BasePluginSettings
 
 
 class AssistantSettings(BaseSettings):
@@ -14,19 +14,19 @@ class AssistantSettings(BaseSettings):
 
     name: str = Field(..., description="")
     description: str
-    tools: list[BasePluginUserConfig] = []
+    tools: list[BasePluginSettings] = []
     version: str | float = Field("0.2.0", description="")
     spec_version: str | float = Field("2.0", description="")
 
 
-class TablePayload(TypedDict):
+class TablePayload(BaseModel):
     type: Literal["table"] = "table"
     columns: list[str]
     rows: list[dict]
     title: str = ""
 
 
-class MarkdownPayload(TypedDict):
+class MarkdownPayload(BaseModel):
     type: Literal["markdown"] = "markdown"
     content: str
 

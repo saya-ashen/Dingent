@@ -6,19 +6,19 @@ from pydantic import (
     FilePath,
     model_validator,
 )
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
 
 
-class BasePluginUserConfig(BaseModel):
+class BasePluginSettings(BaseSettings):
     """
-    用户可配置项的基类。
-    插件开发者应继承此类来定义自己的配置模型。
+    Developer should inherit this class to define user-specific plugin configuration.
     """
 
+    model_config = SettingsConfigDict(extra="allow")
     name: str
-    type_name: str
+    plugin_name: str
 
 
 class ExecutionModel(BaseModel):
@@ -27,8 +27,8 @@ class ExecutionModel(BaseModel):
     mode: Literal["local", "remote"] = Field(..., description="运行模式: 'local' 或 'remote'")
 
     url: str | None = None
-    script_path: FilePath | None = Field(None, description="插件管理器需要运行的Python入口文件路径")
-    mcp_json_path: FilePath | None = None
+    script_path: str | None = Field(None, description="插件管理器需要运行的Python入口文件路径")
+    mcp_json_path: str | None = None
 
     @model_validator(mode="after")
     def check_exclusive_execution_mode(self) -> "ExecutionModel":
@@ -50,4 +50,41 @@ class PluginSettings(BaseSettings):
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
     description: str
     execution: ExecutionModel
-    dependencies: list[str] = Field([], description="插件运行所需的Python依赖库列表")
+    dependencies: list[str] | None = None
+    python_version: str | None = None
+
+
+def export_settings_to_env_dict(settings: BaseSettings) -> dict[str, str]:
+    """
+    export settings to a flat dictionary suitable for environment variables.
+    """
+    # 获取配置元信息
+    config = settings.model_config
+    prefix = config.get("env_prefix", "")
+    delimiter = config.get("env_nested_delimiter") or "__"
+
+    # 使用 model_dump 获取原始数据字典
+    data = settings.model_dump()
+
+    env_vars = {}
+
+    def flatten_dict(d: dict, current_prefix: str = ""):
+        for key, value in d.items():
+            # 构建环境变量的键
+            new_key = (current_prefix + key).upper()
+            if isinstance(value, dict):
+                # 如果是嵌套字典，递归处理
+                flatten_dict(value, current_prefix=f"{new_key}{delimiter}")
+            elif isinstance(value, list | tuple):
+                # Pydantic v2 默认将列表/元组转为 JSON 字符串
+                # 这也是环境变量传递复杂结构的常用方式
+                env_vars[new_key] = str(value)
+            elif isinstance(value, bool):
+                # 将布尔值转为小写的 'true'/'false'
+                env_vars[new_key] = str(value).lower()
+            else:
+                # 其他类型直接转为字符串
+                env_vars[new_key] = str(value)
+
+    flatten_dict(data, current_prefix=prefix)
+    return env_vars

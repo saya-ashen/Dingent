@@ -15,15 +15,18 @@ from langgraph_swarm import create_swarm
 from langgraph_swarm.swarm import SwarmState
 from pydantic import BaseModel, Field
 
-from dingent.engine.backend.assistant import Assistant
-from dingent.engine.backend.types import AssistantSettings
-
+from .assistant import Assistant
 from .llm_manager import LLMManager
 from .settings import get_settings
 
 settings = get_settings()
 llm_manager = LLMManager()
 tool_call_events_queue = Queue()
+assistants = []
+
+for assistant_settings in settings.assistants:
+    assistant = Assistant(assistant_settings)
+    assistants.append(assistant)
 
 client_resource_id_map: dict[str, str] = {}
 
@@ -194,14 +197,13 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
 
 
 @asynccontextmanager
-async def create_assistant_graphs(llm, settings: list[AssistantSettings]):
+async def create_assistant_graphs(llm):
     """
     Creates assistants by first concurrently gathering all server details
     and then concurrently building each assistant.
     """
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    for setting in settings:
-        assistant = Assistant(setting)
+    for assistant in assistants:
         async with AsyncExitStack() as stack:
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
             filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not tool.name.startswith("__")]
@@ -228,8 +230,10 @@ async def make_graph(config):
     model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:
         model_config = settings.llm
-    llm = await llm_manager.get_llm(**model_config)
-    async with create_assistant_graphs(llm, settings.assistants) as assistants:
+    llm = llm_manager.get_llm(**model_config)
+    async with create_assistant_graphs(
+        llm,
+    ) as assistants:
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
             default_active_agent = list(assistants.keys())[0]
@@ -240,7 +244,7 @@ async def make_graph(config):
             agents=list(assistants.values()),
             state_schema=MainState,
             default_active_agent=default_active_agent,
-            config_schema=ConfigSchema,
+            context_schema=ConfigSchema,
         )
         graph = swarm.compile()
         graph.name = "Agent"
