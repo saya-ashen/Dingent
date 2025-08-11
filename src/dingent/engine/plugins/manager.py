@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import Any
 
 import toml
 from fastmcp import Client, FastMCP
@@ -17,16 +16,15 @@ from dingent.utils import find_project_root
 
 from .types import BasePluginSettings, ExecutionModel, PluginSettings, export_settings_to_env_dict
 
-resource_manager = get_resource_manager()
-
 
 class ResourceMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
+        resource_manager = get_resource_manager()
         result = await call_next(context)
         assert context.fastmcp_context
         tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
-        assert tool.output_schema
-        assert result.structured_content
+        if not result.structured_content or not tool.output_schema:
+            return result
         if {"context", "tool_outputs"}.issubset(result.structured_content.keys()):
             tool_output_dict = result.structured_content["tool_outputs"]
             tool_output = ToolOutput(**tool_output_dict)
@@ -62,9 +60,9 @@ class PluginInstance:
             env = export_settings_to_env_dict(instance_settings)
             project_path = Path(plugin_path).parent.parent
             plugin_folder = Path(plugin_path).name
-            module_name = Path(execution.script_path).stem
+            module_path = ".".join(Path(execution.script_path).with_suffix("").parts)
             transport = UvStdioTransport(
-                f"plugins.{plugin_folder}.{module_name}",
+                f"plugins.{plugin_folder}.{module_path}",
                 module=True,
                 project_directory=project_path.as_posix(),
                 env_vars=env,
@@ -125,12 +123,12 @@ class PluginManager:
         else:
             self.plugin_dir = Path(plugin_dir)
         if self.plugin_dir:
-            print(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
+            logger.info(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
             self._scan_and_register_plugins()
 
     def _scan_and_register_plugins(self):
         if not self.plugin_dir.is_dir():
-            print(f"Warning: Plugin directory '{self.plugin_dir}' not found.")
+            logger.warning(f"Warning: Plugin directory '{self.plugin_dir}' not found.")
             return
 
         for plugin_path in self.plugin_dir.iterdir():
@@ -151,7 +149,7 @@ class PluginManager:
             except Exception as e:
                 print(f"Error loading plugin from '{plugin_path}': {e}")
 
-    def list_plugins(self) -> dict[str, Any]:
+    def list_plugins(self) -> dict[str, PluginDefinition]:
         return self.plugins
 
     def create_instance(self, instance_settings: BasePluginSettings):

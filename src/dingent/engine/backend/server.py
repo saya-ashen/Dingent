@@ -8,7 +8,6 @@ from .settings import get_settings
 settings = get_settings()
 
 assistant_id = "agent"
-resource_manager = get_resource_manager()
 
 
 def build_agent_api(**kwargs) -> FastAPI:
@@ -16,6 +15,7 @@ def build_agent_api(**kwargs) -> FastAPI:
 
     @app.get("/api/resource/{resource_id}")
     async def get_resource(resource_id: str):
+        resource_manager = get_resource_manager()
         resource = resource_manager.get(resource_id)
         if not resource:
             raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")

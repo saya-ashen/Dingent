@@ -6,6 +6,7 @@ from loguru import logger
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from dingent.engine.backend.types import AssistantSettings
+from dingent.utils import find_project_root
 
 
 class AppSettings(BaseSettings):
@@ -17,7 +18,11 @@ class AppSettings(BaseSettings):
 
 @lru_cache
 def get_settings() -> AppSettings:
-    user_config_path = Path.cwd() / "config.toml"
+    project_root: Path | None = find_project_root()
+    if not project_root:
+        logger.warning("Project root not found. Using default settings.")
+        return AppSettings()
+    user_config_path = project_root / "backend" / "config.toml"
     if user_config_path.is_file():
         logger.info(f"Loading user config from: {user_config_path}")
         user_data = toml.load(user_config_path)

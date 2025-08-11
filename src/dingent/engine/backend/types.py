@@ -17,6 +17,7 @@ class AssistantSettings(BaseSettings):
     tools: list[BasePluginSettings] = []
     version: str | float = Field("0.2.0", description="")
     spec_version: str | float = Field("2.0", description="")
+    enabled: bool = Field(True, description="Enable or disable the assistant")
 
 
 class TablePayload(BaseModel):

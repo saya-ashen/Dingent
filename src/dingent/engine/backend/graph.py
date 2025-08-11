@@ -15,18 +15,17 @@ from langgraph_swarm import create_swarm
 from langgraph_swarm.swarm import SwarmState
 from pydantic import BaseModel, Field
 
-from .assistant import Assistant
-from .llm_manager import LLMManager
+from .assistant import get_assistant_manager
+from .llm_manager import get_llm_manager
 from .settings import get_settings
 
 settings = get_settings()
-llm_manager = LLMManager()
-tool_call_events_queue = Queue()
-assistants = []
 
-for assistant_settings in settings.assistants:
-    assistant = Assistant(assistant_settings)
-    assistants.append(assistant)
+
+llm_manager = get_llm_manager()
+assistant_manager = get_assistant_manager()
+tool_call_events_queue = Queue()
+
 
 client_resource_id_map: dict[str, str] = {}
 
@@ -180,7 +179,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
             response = json.loads(response_raw)
         except json.JSONDecodeError:
             response = {"context": response_raw}
-        context = response.get("context", "")
+        context = response.get("context", response_raw)
         tool_output_id = response.get("tool_output_id")
         if tool_output_id:
             client_resource_id_map[tool_output_id] = client_name
@@ -202,17 +201,19 @@ async def create_assistant_graphs(llm):
     Creates assistants by first concurrently gathering all server details
     and then concurrently building each assistant.
     """
+
+    # TODO: Add Gabriel Assistant
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    for assistant in assistants:
+    for name, assistant in assistant_manager.assistants.items():
         async with AsyncExitStack() as stack:
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not tool.name.startswith("__")]
+            filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]
             graph = create_react_agent(
                 model=llm,
                 tools=filtered_tools,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
-                name=f"{assistant.name}",
+                name=f"{name}",
             )
             assistant_graphs[assistant.name] = graph
             yield assistant_graphs
