@@ -174,15 +174,18 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         response_raw = await _tool.ainvoke(kwargs)
         try:
             response = json.loads(response_raw)
+            if {"context", "tool_outputs"}.issubset(response.keys()):
+                context = response.get("context", response_raw)
+                tool_output_id = response.get("tool_output_id")
+                if tool_output_id:
+                    client_resource_id_map[tool_output_id] = client_name
+                messages = [ToolMessage(context, tool_call_id=tool_call_id)]
+                action_data = {"tool_output_id": tool_output_id}
+                messages.extend(call_actions(state, [action_data]))
+            else:
+                messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
         except json.JSONDecodeError:
             response = {"context": response_raw}
-        context = response.get("context", response_raw)
-        tool_output_id = response.get("tool_output_id")
-        if tool_output_id:
-            client_resource_id_map[tool_output_id] = client_name
-        messages = [ToolMessage(context, tool_call_id=tool_call_id)]
-        action_data = {"tool_output_id": tool_output_id}
-        messages.extend(call_actions(state, [action_data]))
         return Command(
             update={
                 "messages": messages,
@@ -230,9 +233,7 @@ async def make_graph(config):
     if not model_config:
         model_config = settings.llm
     llm = llm_manager.get_llm(**model_config)
-    async with create_assistant_graphs(
-        llm,
-    ) as assistants:
+    async with create_assistant_graphs(llm) as assistants:
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
             default_active_agent = list(assistants.keys())[0]

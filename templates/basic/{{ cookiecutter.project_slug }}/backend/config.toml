@@ -1,6 +1,6 @@
 llm.model="gpt-4.1"
 [[assistants]]
-name = "assistant"
+name = "text2sql_assistant"
 description = "This is an assistant for text2sql"
 enabled = false
 tools = [
@@ -8,7 +8,7 @@ tools = [
 ]
 
 [[assistants]]
-name = "assistant"
+name = "arXiv_assistant"
 description = "This is an assistant for arXiv search"
 tools = [
   { plugin_name = "arXiv-Searcher", name = "arXiv"}
