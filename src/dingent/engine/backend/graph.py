@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from .assistant import get_assistant_manager
 from .llm_manager import get_llm_manager
-from .settings import get_settings
+from .settings import settings
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
@@ -39,7 +39,7 @@ def call_actions(state, list_of_args: list[dict]):
     actions = state.get("copilotkit", {}).get("actions", [])
     show_data_action = None
     for action in actions:
-        if action["name"] == "show_data":
+        if action["type"] == "function" and action["function"]["name"] == "show_data":
             show_data_action = action
     if show_data_action is None:
         return []
@@ -174,7 +174,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         response_raw = await _tool.ainvoke(kwargs)
         try:
             response = json.loads(response_raw)
-            if {"context", "tool_outputs"}.issubset(response.keys()):
+            if isinstance(response, dict) and {"context", "tool_output_id"}.issubset(response.keys()):
                 context = response.get("context", response_raw)
                 tool_output_id = response.get("tool_output_id")
                 if tool_output_id:
@@ -186,6 +186,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
                 messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
         except json.JSONDecodeError:
             response = {"context": response_raw}
+            messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
         return Command(
             update={
                 "messages": messages,
@@ -227,7 +228,6 @@ class ConfigSchema(TypedDict):
 
 @asynccontextmanager
 async def make_graph(config):
-    settings = get_settings()
     default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_assistant
     model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:

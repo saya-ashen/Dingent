@@ -433,6 +433,11 @@ def assistant_list(ctx: typer.Context):
         logger.error("❌ Error: Assistant manager not initialized.")
 
 
+@assistant_app.command("enable")
+def assistant_enable(name, ctx: typer.Context):
+    pass
+
+
 @assistant_app.command("test")
 def assistant_test(name: str, ctx: typer.Context):
     cli_ctx: CliContext = ctx.obj

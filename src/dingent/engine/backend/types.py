@@ -2,22 +2,7 @@ from typing import Literal
 
 from pydantic import (
     BaseModel,
-    Field,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from dingent.engine.plugins.types import BasePluginSettings
-
-
-class AssistantSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="DING_")
-
-    name: str = Field(..., description="")
-    description: str
-    tools: list[BasePluginSettings] = []
-    version: str | float = Field("0.2.0", description="")
-    spec_version: str | float = Field("2.0", description="")
-    enabled: bool = Field(True, description="Enable or disable the assistant")
 
 
 class TablePayload(BaseModel):

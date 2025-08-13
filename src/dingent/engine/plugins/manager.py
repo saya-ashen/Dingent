@@ -24,7 +24,12 @@ class ResourceMiddleware(Middleware):
         assert context.fastmcp_context
         tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
         if not result.structured_content or not tool.output_schema:
-            return result
+            try:
+                structured_content = json.loads(result.content[0].text)
+                result.structured_content = structured_content
+            except Exception as e:
+                logger.warning(f"Failed to parse structured content: {e}")
+                return result
         if {"context", "tool_outputs"}.issubset(result.structured_content.keys()):
             tool_output_dict = result.structured_content["tool_outputs"]
             tool_output = ToolOutput(**tool_output_dict)
@@ -58,11 +63,10 @@ class PluginInstance:
         else:
             assert execution.script_path
             env = export_settings_to_env_dict(instance_settings)
-            project_path = Path(plugin_path).parent.parent
-            plugin_folder = Path(plugin_path).name
+            project_path = Path(plugin_path)
             module_path = ".".join(Path(execution.script_path).with_suffix("").parts)
             transport = UvStdioTransport(
-                f"plugins.{plugin_folder}.{module_path}",
+                module_path,
                 module=True,
                 project_directory=project_path.as_posix(),
                 env_vars=env,

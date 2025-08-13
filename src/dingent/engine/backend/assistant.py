@@ -5,8 +5,7 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from dingent.engine.plugins.manager import PluginInstance, get_plugin_manager
 from dingent.engine.plugins.types import BasePluginSettings
 
-from .settings import get_settings
-from .types import AssistantSettings
+from .settings import AssistantSettings, settings
 
 
 class Assistant:
@@ -42,7 +41,6 @@ class AssistantManager:
     _assistants_settings: dict[str, AssistantSettings] = {}
 
     def __init__(self):
-        settings = get_settings()
         self._assistants_settings = {settings.name: settings for settings in settings.assistants}
 
     def list_assistants(self) -> dict[str, AssistantSettings]:
