@@ -11,7 +11,7 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-from dingent.engine.plugins.types import BasePluginSettings
+from dingent.engine.plugins.types import PluginUserConfig
 from dingent.utils import find_project_root
 
 
@@ -44,7 +44,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
             return {}
 
         logger.info(f"Loading settings from: {self.toml_path}")
-        return tomlkit.parse(self.toml_path.read_text("utf-8"))
+        return tomlkit.loads(self.toml_path.read_text()).unwrap()
 
 
 # --- 2. Refactored Pydantic Models ---
@@ -53,7 +53,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
 class AssistantSettings(BaseSettings):
     name: str = Field(..., description="The name of the assistant.")
     description: str
-    tools: list[BasePluginSettings] = []
+    plugins: list[PluginUserConfig] = []
     version: str | float = Field("0.2.0", description="Assistant version.")
     spec_version: str | float = Field("2.0", description="Specification version.")
     enabled: bool = Field(True, description="Enable or disable the assistant.")

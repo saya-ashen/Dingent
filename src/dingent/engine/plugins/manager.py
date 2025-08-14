@@ -5,16 +5,15 @@ import toml
 from fastmcp import Client, FastMCP
 from fastmcp.client import UvStdioTransport
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from fastmcp.server.proxy import ProxyClient
+from fastmcp.tools import Tool
 from loguru import logger
-from loguru import logger as _logger
-from loguru._logger import Logger
+from pydantic import BaseModel, Field, PrivateAttr
 
 from dingent.engine.backend.resource_manager import get_resource_manager
 from dingent.engine.backend.types import ToolOutput
 from dingent.utils import find_project_root
 
-from .types import BasePluginSettings, ExecutionModel, PluginSettings, export_settings_to_env_dict
+from .types import ExecutionModel, PluginUserConfig, export_settings_to_env_dict
 
 
 class ResourceMiddleware(Middleware):
@@ -49,73 +48,124 @@ class PluginInstance:
 
     def __init__(
         self,
-        instance_settings: BasePluginSettings,
-        execution: ExecutionModel,
-        plugin_path: str,
-        logger: Logger | None = None,
-        dependencies: list[str] | None = None,
-        python_version: str | None = None,
+        name: str,
+        mcp_client: Client,
     ):
-        self.name = instance_settings.name
-        if execution.mode == "remote":
-            assert execution.url is not None, "This should not happen."
-            remote_proxy = FastMCP.as_proxy(ProxyClient(execution.url))
+        self.name = name
+        self.mcp_client = mcp_client
+
+    @classmethod
+    async def create(
+        cls,
+        manifest: "PluginManifest",
+        user_config: PluginUserConfig,
+    ) -> "PluginInstance":
+        """
+        异步工厂方法：创建并完全初始化一个插件实例。
+        """
+        if not user_config.enabled:
+            raise ValueError(f"Plugin '{manifest.name}' is not enabled. This should not happend")
+        # 1. 执行原有的同步初始化逻辑来创建 mcp_client
+        if manifest.execution.mode == "remote":
+            assert manifest.execution.url is not None
+            # proxy_client = ProxyClient(manifest.execution.url)
+            remote_proxy = FastMCP.as_proxy(manifest.execution.url)
         else:
-            assert execution.script_path
-            env = export_settings_to_env_dict(instance_settings)
-            project_path = Path(plugin_path)
-            module_path = ".".join(Path(execution.script_path).with_suffix("").parts)
+            assert manifest.execution.script_path
+            env = export_settings_to_env_dict(user_config)
+            module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
             transport = UvStdioTransport(
                 module_path,
                 module=True,
-                project_directory=project_path.as_posix(),
+                project_directory=manifest.path.as_posix(),
                 env_vars=env,
-                with_packages=dependencies,
-                python_version=python_version,
+                with_packages=manifest.dependencies,
+                python_version=manifest.python_version,
             )
-            client = Client(transport)
-            remote_proxy = FastMCP.as_proxy(client)
-        mcp = FastMCP(name=self.name)
+            # client = Client(transport)
+            remote_proxy = FastMCP.as_proxy(transport)
+
+        mcp = FastMCP(name=user_config.name)
         mcp.mount(remote_proxy)
         mcp.add_middleware(middleware)
-        client = Client(mcp)
-        self.mcp_client = client
-        self.name = instance_settings.name
 
-        if logger:
-            self.logger = logger
-        else:
-            self.logger = _logger
+        base_tools_list = await mcp._list_tools()
+
+        # handler tools enabled status
+        if not user_config.tools_default_enabled:
+            for tool in base_tools_list:
+                mirrored_tool = tool.copy()
+                mirrored_tool.disable()
+                mcp.add_tool(mirrored_tool)
+
+        base_tools_dict = {tool.name: tool for tool in base_tools_list}
+        for tool in user_config.tools or []:
+            base_tool = base_tools_dict.get(tool.name)
+            if not base_tool:
+                continue
+            logger.info(f"Translating tool {tool.name} to user config")
+            trans_tool = Tool.from_tool(base_tool, name=tool.name, description=tool.description, enabled=tool.enabled)
+            mcp.add_tool(trans_tool)
+            # If the tool's name changed, we should add a new diabled tool to override original tool
+            if tool.name != base_tool.name:
+                mirrored_tool = base_tool.copy()
+                mirrored_tool.disable()
+                mcp.add_tool(mirrored_tool)
+            # base_tool.disable()
+        mcp_client = Client(mcp)
+
+        instance = cls(name=user_config.name, mcp_client=mcp_client)
+
+        return instance
 
 
-class PluginDefinition:
-    name: str | None
-    description: str = ""
+class PluginManifest(BaseModel):
+    """ """
+
+    name: str = Field(..., description="插件的唯一标识符")
+    version: str | float = Field("0.2.0", description="插件版本 (遵循语义化版本)")
+    spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
+    description: str
     execution: ExecutionModel
-    plugin_path: str
-    dependencies: list[str] | None
-    python_version: str | None
+    dependencies: list[str] | None = None
+    python_version: str | None = None
+    _plugin_path: Path | None = PrivateAttr(default=None)
 
-    def __init__(
+    @property
+    def path(self) -> Path:
+        if self._plugin_path is None:
+            raise AttributeError("Plugin path has not been set.")
+        return self._plugin_path
+
+    @classmethod
+    def from_toml(cls, toml_path: Path) -> "PluginManifest":
+        """Loads a plugin manifest from a toml file."""
+        if not toml_path.is_file():
+            raise FileNotFoundError(f"'plugin.toml' not found at '{toml_path}'")
+
+        plugin_info = toml.load(toml_path)
+        plugin_meta = plugin_info.get("plugin", {})
+        manifest = cls(**plugin_meta)
+        manifest._plugin_path = toml_path.parent
+        return manifest
+
+    async def create_instance(
         self,
-        settings: PluginSettings,
-        plugin_path: str,
-        **kwargs,
-    ) -> None:
-        super().__init__()
-        self.name = settings.name
-        self.description = settings.description
-        self.execution = settings.execution
-        self.dependencies = settings.dependencies
-        self.python_version = settings.python_version
-        self.plugin_path = plugin_path
-
-    def load(self, instance_settings: BasePluginSettings):
-        return PluginInstance(instance_settings, self.execution, dependencies=self.dependencies, plugin_path=self.plugin_path, python_version=self.python_version)
+        user_config: PluginUserConfig,
+    ) -> "PluginInstance":
+        """
+        工厂方法：使用用户配置来创建一个运行时实例。
+        """
+        if self.path is None:
+            raise ValueError("Plugin path is not set. Please set the path before creating an instance.")
+        return await PluginInstance.create(
+            manifest=self,
+            user_config=user_config,
+        )
 
 
 class PluginManager:
-    plugins: dict[str, PluginDefinition] = {}
+    plugins: dict[str, PluginManifest] = {}
 
     def __init__(self, plugin_dir: str | None = None):
         if not plugin_dir:
@@ -144,24 +194,21 @@ class PluginManager:
             if not toml_path.is_file():
                 logger.warning(f"Skipping '{plugin_path}' as 'plugin.toml' is missing.")
                 continue
-
             try:
-                plugin_info = toml.load(toml_path)
-                plugin_meta = plugin_info.get("plugin", {})
-                plugin_settings = PluginSettings(**plugin_meta)
-                self.plugins[plugin_settings.name] = PluginDefinition(plugin_settings, plugin_path.as_posix())
+                plugin_manifest = PluginManifest.from_toml(toml_path)
+                self.plugins[plugin_manifest.name] = plugin_manifest
             except Exception as e:
-                print(f"Error loading plugin from '{plugin_path}': {e}")
+                logger.error(f"Error loading plugin from '{plugin_path}': {e}")
 
-    def list_plugins(self) -> dict[str, PluginDefinition]:
+    def list_plugins(self) -> dict[str, PluginManifest]:
         return self.plugins
 
-    def create_instance(self, instance_settings: BasePluginSettings):
+    async def create_instance(self, instance_settings: PluginUserConfig):
         plugin_name = instance_settings.plugin_name
         if plugin_name not in self.plugins:
             raise ValueError(f"Plugin '{plugin_name}' is not registered or failed to load.")
         plugin_definition = self.plugins[plugin_name]
-        return plugin_definition.load(instance_settings)
+        return await plugin_definition.create_instance(instance_settings)
 
 
 plugin_manager = None

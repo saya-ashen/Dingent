@@ -205,7 +205,8 @@ async def create_assistant_graphs(llm):
 
     # TODO: Add Gabriel Assistant
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    for name, assistant in assistant_manager.assistants.items():
+    assistants = await assistant_manager.get_assistants()
+    for name, assistant in assistants.items():
         async with AsyncExitStack() as stack:
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
             filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]

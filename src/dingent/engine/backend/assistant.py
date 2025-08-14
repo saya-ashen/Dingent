@@ -3,7 +3,6 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from langchain_mcp_adapters.tools import load_mcp_tools
 
 from dingent.engine.plugins.manager import PluginInstance, get_plugin_manager
-from dingent.engine.plugins.types import BasePluginSettings
 
 from .settings import AssistantSettings, settings
 
@@ -13,16 +12,20 @@ class Assistant:
     description: str
     plugin_instances: list[PluginInstance] = []
 
-    def __init__(self, settings: AssistantSettings):
-        self.name = settings.name
-        self.description = settings.description
-        self.instantize_all_tools(settings.tools)
+    def __init__(self, name, description, plugin_instances):
+        self.name = name
+        self.description = description
+        self.plugin_instances = plugin_instances
 
-    def instantize_all_tools(self, tools: list[BasePluginSettings]):
+    @classmethod
+    async def create(cls, settings: AssistantSettings) -> "Assistant":
         plugin_manager = get_plugin_manager()
-        for tool in tools:
-            tool_instance = plugin_manager.create_instance(tool)
-            self.plugin_instances.append(tool_instance)
+        plugin_instances = []
+        enabled_plugins = [plugin for plugin in settings.plugins if plugin.enabled]
+        for plugin in enabled_plugins:
+            plugin_instance = await plugin_manager.create_instance(plugin)
+            plugin_instances.append(plugin_instance)
+        return cls(settings.name, settings.description, plugin_instances)
 
     @asynccontextmanager
     async def load_tools_langgraph(self):
@@ -46,21 +49,20 @@ class AssistantManager:
     def list_assistants(self) -> dict[str, AssistantSettings]:
         return self._assistants_settings
 
-    def get_assistant(self, name):
+    async def get_assistant(self, name):
         if name in self._assistants:
             return self._assistants[name]
         else:
             if name not in self._assistants_settings or not self._assistants_settings[name].enabled:
                 raise ValueError(f"Assistant '{name}' not found or is disabled.")
-            self._assistants[name] = Assistant(self._assistants_settings[name])
+            self._assistants[name] = await Assistant.create(self._assistants_settings[name])
             return self._assistants[name]
 
-    @property
-    def assistants(self):
+    async def get_assistants(self):
         enabled_assistants = [name for name, settings in self._assistants_settings.items() if settings.enabled]
         for name in enabled_assistants:
             if name not in self._assistants:
-                self.get_assistant(name)
+                await self.get_assistant(name)
         return self._assistants
 
 

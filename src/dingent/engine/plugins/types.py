@@ -11,7 +11,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
 
 
-class BasePluginSettings(BaseSettings):
+class ToolOverrideConfig(BaseModel):
+    name: str
+    enabled: bool = True
+    description: str | None = None
+
+
+class PluginUserConfig(BaseSettings):
     """
     Developer should inherit this class to define user-specific plugin configuration.
     """
@@ -19,6 +25,9 @@ class BasePluginSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="allow")
     name: str
     plugin_name: str
+    tools_default_enabled: bool = True
+    enabled: bool = True
+    tools: list[ToolOverrideConfig] | None = None
 
 
 class ExecutionModel(BaseModel):
@@ -40,18 +49,6 @@ class ToolConfigModel(BaseModel):
     """用户个性化配置的定义"""
 
     schema_path: FilePath = Field(..., description="指向一个包含用户配置Pydantic类的Python文件")
-
-
-class PluginSettings(BaseSettings):
-    """ """
-
-    name: str = Field(..., description="插件的唯一标识符")
-    version: str | float = Field("0.2.0", description="插件版本 (遵循语义化版本)")
-    spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
-    description: str
-    execution: ExecutionModel
-    dependencies: list[str] | None = None
-    python_version: str | None = None
 
 
 def export_settings_to_env_dict(settings: BaseSettings) -> dict[str, str]:
