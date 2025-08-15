@@ -33,6 +33,8 @@ plugin_app = typer.Typer(help="Manage Plugins")
 app.add_typer(plugin_app, name="plugin")
 assistant_app = typer.Typer(help="Manage Assistatns")
 app.add_typer(assistant_app, name="assistant")
+config_app = typer.Typer(help="Configuration Management")
+app.add_typer(config_app, name="config")
 
 
 class EnvironmentInfo:
@@ -452,3 +454,52 @@ def assistant_test(name: str, ctx: typer.Context):
             print(f"[bold red]❌ Error: {e}[/bold red]")
     else:
         logger.error("❌ Error: Assistant manager not initialized.")
+
+
+@config_app.command("gui")
+def config_gui(
+    ctx: typer.Context,
+    port: int = typer.Option(8501, "--port", "-p", help="Port to run the Streamlit app on")
+):
+    """Launch the Streamlit-based configuration GUI."""
+    cli_ctx: CliContext = ctx.obj
+    if not cli_ctx.is_in_project:
+        logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
+        raise typer.Exit(code=1)
+    
+    try:
+        # Import streamlit here to avoid import errors if not installed
+        import streamlit
+        
+        # Get the path to the streamlit config file
+        config_file = Path(__file__).parent / "streamlit_config.py"
+        
+        if not config_file.exists():
+            logger.error("❌ Error: Streamlit configuration file not found.")
+            raise typer.Exit(code=1)
+        
+        logger.info(f"🚀 Starting configuration GUI on port {port}")
+        logger.info(f"📁 Working directory: {Path.cwd()}")
+        
+        # Launch streamlit
+        cmd = [
+            sys.executable, "-m", "streamlit", "run", 
+            str(config_file), 
+            "--server.port", str(port),
+            "--server.headless", "true"
+        ]
+        
+        logger.info(f"🌐 Open your browser to: http://localhost:{port}")
+        
+        # Run streamlit
+        result = subprocess.run(cmd, check=False)
+        if result.returncode != 0:
+            logger.error("❌ Failed to start Streamlit configuration GUI")
+            raise typer.Exit(code=result.returncode)
+            
+    except ImportError:
+        logger.error("❌ Error: Streamlit is not installed. Please install it with: pip install streamlit")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        logger.error(f"❌ Error starting configuration GUI: {e}")
+        raise typer.Exit(code=1)
