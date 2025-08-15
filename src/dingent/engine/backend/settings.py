@@ -104,6 +104,3 @@ class AppSettings(BaseSettings):
 
         source.toml_path.write_text(tomlkit.dumps(doc), "utf-8")
         logger.success(f"Configuration saved successfully to {source.toml_path}")
-
-
-settings = AppSettings()

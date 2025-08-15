@@ -4,13 +4,16 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 
 from dingent.engine.plugins.manager import PluginInstance, get_plugin_manager
 
-from .settings import AssistantSettings, settings
+from .config_manager import get_config_manager
+from .settings import AssistantSettings
+
+config_manager = get_config_manager()
 
 
 class Assistant:
     name: str
     description: str
-    plugin_instances: list[PluginInstance] = []
+    plugin_instances: dict[str, PluginInstance] = {}
 
     def __init__(self, name, description, plugin_instances):
         self.name = name
@@ -20,11 +23,11 @@ class Assistant:
     @classmethod
     async def create(cls, settings: AssistantSettings) -> "Assistant":
         plugin_manager = get_plugin_manager()
-        plugin_instances = []
+        plugin_instances = {}
         enabled_plugins = [plugin for plugin in settings.plugins if plugin.enabled]
         for plugin in enabled_plugins:
             plugin_instance = await plugin_manager.create_instance(plugin)
-            plugin_instances.append(plugin_instance)
+            plugin_instances[plugin.name] = plugin_instance
         return cls(settings.name, settings.description, plugin_instances)
 
     @asynccontextmanager
@@ -44,10 +47,10 @@ class AssistantManager:
     _assistants_settings: dict[str, AssistantSettings] = {}
 
     def __init__(self):
-        self._assistants_settings = {settings.name: settings for settings in settings.assistants}
+        self.rebuild()
 
-    def list_assistants(self) -> dict[str, AssistantSettings]:
-        return self._assistants_settings
+    # def list_assistants(self) -> dict[str, Assistant]:
+    #     return self._assistants
 
     async def get_assistant(self, name):
         if name in self._assistants:
@@ -64,6 +67,9 @@ class AssistantManager:
             if name not in self._assistants:
                 await self.get_assistant(name)
         return self._assistants
+
+    def rebuild(self):
+        self._assistants_settings = config_manager.get_all_assistants_config()
 
 
 _assistant_manager = None

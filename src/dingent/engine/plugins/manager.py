@@ -45,14 +45,17 @@ middleware = ResourceMiddleware()
 class PluginInstance:
     mcp_client: Client
     name: str
+    _mcp: FastMCP
 
     def __init__(
         self,
         name: str,
         mcp_client: Client,
+        mcp: FastMCP,
     ):
         self.name = name
         self.mcp_client = mcp_client
+        self._mcp = mcp
 
     @classmethod
     async def create(
@@ -89,16 +92,15 @@ class PluginInstance:
         mcp.mount(remote_proxy)
         mcp.add_middleware(middleware)
 
-        base_tools_list = await mcp._list_tools()
+        base_tools_dict = await mcp.get_tools()
 
         # handler tools enabled status
         if not user_config.tools_default_enabled:
-            for tool in base_tools_list:
+            for tool in base_tools_dict.values():
                 mirrored_tool = tool.copy()
                 mirrored_tool.disable()
                 mcp.add_tool(mirrored_tool)
 
-        base_tools_dict = {tool.name: tool for tool in base_tools_list}
         for tool in user_config.tools or []:
             base_tool = base_tools_dict.get(tool.name)
             if not base_tool:
@@ -114,9 +116,12 @@ class PluginInstance:
             # base_tool.disable()
         mcp_client = Client(mcp)
 
-        instance = cls(name=user_config.name, mcp_client=mcp_client)
+        instance = cls(name=user_config.name, mcp_client=mcp_client, mcp=mcp)
 
         return instance
+
+    async def list_tools(self):
+        return await self._mcp.get_tools()
 
 
 class PluginManifest(BaseModel):
@@ -202,6 +207,16 @@ class PluginManager:
 
     def list_plugins(self) -> dict[str, PluginManifest]:
         return self.plugins
+
+    def rebuild(self):
+        """
+        Rebuild the plugin manager by rescanning the plugin directory.
+        This is useful if plugins have been added or removed.
+        """
+        logger.info("Rebuilding PluginManager...")
+        self.plugins.clear()
+        self._scan_and_register_plugins()
+        logger.info(f"PluginManager rebuilt, found {len(self.plugins)} plugins.")
 
     async def create_instance(self, instance_settings: PluginUserConfig):
         plugin_name = instance_settings.plugin_name

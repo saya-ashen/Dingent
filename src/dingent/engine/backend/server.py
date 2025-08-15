@@ -3,12 +3,14 @@ import json
 from fastapi import FastAPI, HTTPException, Response
 
 from ..backend.resource_manager import get_resource_manager
+from .admin.config.server import router as admin_config_router
 
 assistant_id = "agent"
 
 
 def build_agent_api(**kwargs) -> FastAPI:
     app = FastAPI(**kwargs)
+    app.include_router(admin_config_router)
 
     @app.get("/api/resource/{resource_id}")
     async def get_resource(resource_id: str):

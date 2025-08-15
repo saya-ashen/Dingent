@@ -16,12 +16,13 @@ from langgraph_swarm.swarm import SwarmState
 from pydantic import BaseModel, Field
 
 from .assistant import get_assistant_manager
+from .config_manager import get_config_manager
 from .llm_manager import get_llm_manager
-from .settings import settings
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
 tool_call_events_queue = Queue()
+config_manager = get_config_manager()
 
 
 client_resource_id_map: dict[str, str] = {}
@@ -229,10 +230,10 @@ class ConfigSchema(TypedDict):
 
 @asynccontextmanager
 async def make_graph(config):
-    default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_assistant
+    default_active_agent = config.get("configurable", {}).get("default_agent") or config_manager.config.default_assistant
     model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
     if not model_config:
-        model_config = settings.llm
+        model_config = config_manager.config.llm
     llm = llm_manager.get_llm(**model_config)
     async with create_assistant_graphs(llm) as assistants:
         if not default_active_agent:
