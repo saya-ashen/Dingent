@@ -70,6 +70,7 @@ class AssistantManager:
 
     def rebuild(self):
         self._assistants_settings = config_manager.get_all_assistants_config()
+        self._assistants.clear()
 
 
 _assistant_manager = None

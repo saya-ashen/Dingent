@@ -49,7 +49,7 @@ async def _build_plugin_admin_detail(plugin_config: PluginManifest, assistant_in
         plugin_instance = assistant_instance.plugin_instances.get(plugin_config.name)
 
     if plugin_instance:
-        plugin_status = "active"
+        plugin_status = plugin_instance.status
         tool_instances = await plugin_instance.list_tools()
         tools_details = [ToolAdminDetail(name=name, description=tool.description, enabled=tool.enabled) for name, tool in tool_instances.items()]
     else:
@@ -95,9 +95,15 @@ async def get_app_config_with_status():
     return AppAdminDetail(**app_admin_detail_dict)
 
 
-@router.patch("/admin/config/app")
+@router.post("/admin/config/app")
 async def update_app_config(config: dict):
+    # FIXME: 更新配置的时候不要把配置文件中的tools覆盖，而是应该合并，runtime优先
+    # TODO: (x) 助手配置界面
+    # 插件管理界面
+    # 模型配置界面
     config_manager.update_config(config)
+    config_manager.save_config()
+    assistant_manager.rebuild()
 
 
 @router.post("admin/assistants")

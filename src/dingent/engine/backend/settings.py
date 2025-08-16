@@ -3,12 +3,11 @@ from typing import Any
 
 import tomlkit
 from loguru import logger
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
-    SettingsConfigDict,
 )
 
 from dingent.engine.plugins.types import PluginUserConfig
@@ -50,7 +49,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
 # --- 2. Refactored Pydantic Models ---
 
 
-class AssistantSettings(BaseSettings):
+class AssistantSettings(BaseModel):
     name: str = Field(..., description="The name of the assistant.")
     description: str
     plugins: list[PluginUserConfig] = []
@@ -59,35 +58,10 @@ class AssistantSettings(BaseSettings):
     enabled: bool = Field(True, description="Enable or disable the assistant.")
 
 
-class AppSettings(BaseSettings):
-    # All configuration is now centralized here.
-    # The prefix applies to environment variables for AppSettings fields.
-    model_config = SettingsConfigDict(env_prefix="APP_", extra="ignore")
-
+class AppSettings(BaseModel):
     assistants: list[AssistantSettings] = []
     default_assistant: str | None = None
     llm: dict[str, str | int] = {}
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        """
-        Define the priority of configuration sources.
-        Order is: Toml file -> .env file -> Environment variables.
-        """
-        return (
-            dotenv_settings,
-            env_settings,
-            TomlConfigSettingsSource(settings_cls),  # Our custom TOML loader
-            init_settings,  # Values passed on initialization
-            file_secret_settings,
-        )
 
     def save(self):
         """
@@ -99,8 +73,9 @@ class AppSettings(BaseSettings):
             logger.error("Cannot save settings: Project root or config path not found.")
             return
 
-        # config_data = self.model_dump(mode="json", exclude_none=True)
+        config_data = self.model_dump(mode="json", exclude_none=True)
         doc = tomlkit.parse(source.toml_path.read_text())
+        doc.update(config_data)
 
-        source.toml_path.write_text(tomlkit.dumps(doc), "utf-8")
+        source.toml_path.write_text(tomlkit.dumps(doc, sort_keys=True), "utf-8")
         logger.success(f"Configuration saved successfully to {source.toml_path}")

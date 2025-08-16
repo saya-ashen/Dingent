@@ -1,4 +1,4 @@
-from typing import Literal, TypeVar
+from typing import Any, Literal, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -6,7 +6,7 @@ from pydantic import (
     FilePath,
     model_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
 PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
 
@@ -17,7 +17,7 @@ class ToolOverrideConfig(BaseModel):
     description: str | None = None
 
 
-class PluginUserConfig(BaseSettings):
+class PluginUserConfig(BaseModel):
     """
     Developer should inherit this class to define user-specific plugin configuration.
     """
@@ -28,6 +28,7 @@ class PluginUserConfig(BaseSettings):
     tools_default_enabled: bool = True
     enabled: bool = True
     tools: list[ToolOverrideConfig] | None = None
+    envs: dict[str, Any] | None = None
 
 
 class ExecutionModel(BaseModel):
@@ -51,7 +52,7 @@ class ToolConfigModel(BaseModel):
     schema_path: FilePath = Field(..., description="指向一个包含用户配置Pydantic类的Python文件")
 
 
-def export_settings_to_env_dict(settings: BaseSettings) -> dict[str, str]:
+def export_settings_to_env_dict(settings: BaseModel) -> dict[str, str]:
     """
     export settings to a flat dictionary suitable for environment variables.
     """
