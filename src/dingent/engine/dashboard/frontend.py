@@ -17,62 +17,9 @@ MARGINS = {
     "bottom": "0",
 }
 
-STICKY_CONTAINER_HTML = """
-<style>
-div[data-testid="stVerticalBlock"] div:has(div.fixed-header-{i}) {{
-    position: sticky;
-    {position}: {margin};
-    background-color: white;
-    z-index: 999;
-}}
-</style>
-<div class='fixed-header-{i}'/>
-""".strip()
-
-# Not to apply the same style to multiple containers
-count = 0
-
 
 # --- Page Setup ---
 st.set_page_config(page_title="助手配置编辑器", page_icon="🤖", layout="wide")
-
-st.markdown(
-    """
-<style>
-    /* 目标：选择 Streamlit Tabs 组件的按钮容器 */
-    div[data-testid="stTabs"] > div:first-child {
-        /*
-         * position: sticky - 这是实现吸顶效果的关键。
-         * 当页面向下滚动，这个元素到达指定位置时，它会“粘”在那里。
-         */
-        position: sticky;
-
-        /*
-         * top: 55px - 这是元素“粘”住的位置，距离视口顶部的距离。
-         * Streamlit 默认的顶部 Header 大约是 55px 高。
-         * 这个值确保了 Tabs 按钮会紧贴在 Header 下方。
-         * 如果您的 Header 高度有变化，可以微调这个数值。
-         */
-        top: 55px;
-
-        /*
-         * z-index: 999 - 确保 Tabs 按钮在页面其他内容之上，
-         * 不会被滚动的内容遮挡。
-         */
-        z-index: 999;
-
-        /*
-         * background-color - 当 Tabs 吸顶后，需要一个背景色，
-         * 否则下方滚动的内容会透过来。
-         * var(--streamlit-background-color) 会自动匹配 Streamlit 的
-         * 亮色或暗色主题，非常灵活。
-         */
-        background-color: var(--streamlit-background-color);
-    }
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 st.title("Admin Dashbord")
 
@@ -188,13 +135,11 @@ editable_config: dict[str, Any] = copy.deepcopy(st.session_state.config)
 
 st.markdown('<div class="sticky-tabs-marker"></div>', unsafe_allow_html=True)
 
-# vvvvvvvvvv 新增的代码 vvvvvvvvvv
 # 创建 Tabs
 tab_assistants, tab_other_settings = st.tabs(["🤖 助手配置", "⚙️ 其他设置 (占位)"])
 
 # 将所有助手相关的UI放入第一个 Tab
 with tab_assistants:
-    # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     assistants = editable_config.get("assistants", [])
     if not isinstance(assistants, list):
         st.error("配置格式错误：'assistants' 应为列表。")
@@ -217,13 +162,30 @@ with tab_assistants:
 
             col1, col2 = st.columns([3, 1])
             with col1:
-                assistant["name"] = st.text_input("助手名称 (Name)", value=_to_str(assistant.get("name", "")), key=f"as_{i}_name")
+                assistant["name"] = st.text_input(
+                    "助手名称 (Name)",
+                    value=_to_str(assistant.get("name", "")),
+                    key=f"as_{i}_name",
+                )
             with col2:
-                assistant["enabled"] = st.toggle("启用此助手", value=_safe_bool(assistant.get("enabled"), default=False), key=f"as_{i}_enabled")
+                assistant["enabled"] = st.toggle(
+                    "启用此助手",
+                    value=_safe_bool(assistant.get("enabled"), default=False),
+                    key=f"as_{i}_enabled",
+                )
 
-            assistant["description"] = st.text_area("助手描述 (Description)", value=_to_str(assistant.get("description", "")), key=f"as_{i}_desc")
+            assistant["description"] = st.text_area(
+                "助手描述 (Description)",
+                value=_to_str(assistant.get("description", "")),
+                key=f"as_{i}_desc",
+            )
 
-            st.text_input("服务状态 (Status)", value=_to_str(status), key=f"as_{i}_status_display", disabled=True)
+            st.text_input(
+                "服务状态 (Status)",
+                value=_to_str(status),
+                key=f"as_{i}_status_display",
+                disabled=True,
+            )
 
             st.markdown("---")
 
@@ -250,7 +212,60 @@ with tab_assistants:
                         st.markdown(f"**插件: `{_to_str(p_name)}`**")
                         st.caption(f"Status: {_to_str(p_status)}")
                     with colp2:
-                        plugin["enabled"] = st.toggle("启用插件", value=_safe_bool(plugin.get("enabled"), default=False), key=f"as_{i}_pl_{j}_enabled")
+                        plugin["enabled"] = st.toggle(
+                            "启用插件",
+                            value=_safe_bool(plugin.get("enabled"), default=False),
+                            key=f"as_{i}_pl_{j}_enabled",
+                        )
+
+                    # vvvvvvvvvv MODIFIED CODE BLOCK vvvvvvvvvv
+                    # --- Plugin User Config (from new data structure) ---
+                    config_items = plugin.get("config")
+                    if isinstance(config_items, list) and config_items:
+                        st.markdown("**🔑 用户配置:**")
+
+                        for config_item in config_items:
+                            if not isinstance(config_item, dict):
+                                continue
+
+                            # Extract details from the config item
+                            item_name = config_item.get("name")
+                            if not item_name:
+                                continue
+
+                            item_type = config_item.get("type", "string")
+                            is_required = config_item.get("required", False)
+                            is_secret = config_item.get("secret", False)
+                            description = config_item.get("description", f"设置 {item_name}")
+                            default_value = config_item.get("default")
+                            current_value = config_item.get("value")
+
+                            # Build the UI label
+                            label = f"`{item_name}`"
+                            if is_required:
+                                label += " (必填)"
+
+                            # Render the appropriate widget based on type
+                            if item_type == "integer":
+                                try:
+                                    # Use current value if set, otherwise default, otherwise 0
+                                    display_value = current_value if current_value is not None else default_value
+                                    display_value = int(display_value) if display_value is not None else 0
+                                except (ValueError, TypeError):
+                                    display_value = int(default_value) if default_value is not None else 0
+
+                                new_val = st.number_input(label, value=display_value, step=1, help=description, key=f"as_{i}_pl_{j}_cfg_{item_name}")
+                                # IMPORTANT: Update the 'value' key in the config_item dictionary
+                                config_item["value"] = new_val
+
+                            else:  # Default to string type
+                                # Use current value if set, otherwise default
+                                display_value = current_value if current_value is not None else default_value
+                                new_val = st.text_input(
+                                    label, value=_to_str(display_value), type="password" if is_secret else "default", help=description, key=f"as_{i}_pl_{j}_cfg_{item_name}"
+                                )
+                                # IMPORTANT: Update the 'value' key in the config_item dictionary
+                                config_item["value"] = new_val
 
                     # --- Tools Level Settings ---
                     tools = plugin.get("tools") or []
@@ -267,59 +282,18 @@ with tab_assistants:
                                 if tool_desc:
                                     st.caption(_to_str(tool_desc))
                             with tool_col2:
-                                tool["enabled"] = st.toggle("启用工具", value=_safe_bool(tool.get("enabled"), default=False), key=f"as_{i}_pl_{j}_tool_{k}_enabled")
+                                tool["enabled"] = st.toggle(
+                                    "启用工具",
+                                    value=_safe_bool(tool.get("enabled"), default=False),
+                                    key=f"as_{i}_pl_{j}_tool_{k}_enabled",
+                                )
+                    # ^^^^^^^^^^^ END OF MODIFIED CODE BLOCK ^^^^^^^^^^^^
 
-                    # --- Plugin Config (e.g., API Keys) ---
-                    cfg = plugin.get("config") or {}
-                    if isinstance(cfg, dict) and cfg:
-                        st.markdown("**🔑 插件密钥:**")
-                        for key_name, val in list(cfg.items()):
-                            plugin.setdefault("config", {})
-                            plugin["config"][key_name] = st.text_input(
-                                f"`{key_name}`", value=_to_str(val), key=f"as_{i}_pl_{j}_cfg_{key_name}", type="password", help=f"输入 {p_name} 插件所需的 {key_name}。"
-                            )
 
-# vvvvvvvvvv 新增的代码 vvvvvvvvvv
 # 其他 Tab 的内容
 with tab_other_settings:
     st.info("这里可以放置其他的全局配置项，例如通用设置、模型提供商密钥等。")
     st.warning("此功能区域正在开发中...")
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-st.markdown(
-    """
-<style>
-    /*
-     * 目标：选择 Streamlit Tabs 组件的按钮容器。
-     * 我们首先用一个空的 div (class="sticky-tabs-marker") 作为标记，
-     * 放置在我们想要固定的 Tabs 组件的正上方。
-     */
-    .sticky-tabs-marker {{
-        display: none; /* 标记本身不可见 */
-    }}
-
-    /*
-     * 这里是关键：我们使用 :has() 选择器。
-     * 1. `div[data-testid="stVerticalBlock"]`: Streamlit 中几乎所有块都是这个。
-     * 2. `:has(div.sticky-tabs-marker + div[data-testid="stTabs"])`:
-     * 这会寻找一个 `stVerticalBlock`，它内部必须同时拥有
-     * 我们的标记 `.sticky-tabs-marker` 和紧跟其后的 `stTabs` 组件。
-     * 3. `> div[data-testid="stTabs"] > div:first-child`:
-     * 最后，我们选择这个特定 Tabs 组件的按钮栏部分来应用样式。
-     *
-     * 这个方法非常精确，不会影响页面上任何其他的 Tabs 组件。
-     */
-    div[data-testid="stVerticalBlock"]:has(div.sticky-tabs-marker + div[data-testid="stTabs"]) > div[data-testid="stTabs"] > div:first-child {{
-        position: sticky;
-        top: 55px; /* 距离顶部的距离，以避开 Streamlit 的 Header */
-        z-index: 999;
-        background-color: var(--streamlit-background-color); /* 适配亮/暗主题 */
-    }}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
 # --- 保存动作 ---
 if save_clicked:
     with st.spinner("正在保存..."):
@@ -331,8 +305,8 @@ if save_clicked:
                     p["enabled"] = _safe_bool(p.get("enabled"), default=False)
                     for t in p.get("tools", []) or []:
                         t["enabled"] = _safe_bool(t.get("enabled"), default=False)
-                    if "config" in p and not isinstance(p["config"], dict):
-                        p["config"] = {}
+                    if "config" in p and not isinstance(p["config"], list):
+                        p["config"] = []  # Ensure config is a list
         except Exception as norm_err:
             st.error(f"提交前数据规整失败: {norm_err}")
         else:

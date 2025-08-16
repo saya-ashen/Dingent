@@ -6,9 +6,29 @@ from pydantic import (
     FilePath,
     model_validator,
 )
-from pydantic_settings import SettingsConfigDict
 
 PydanticModel = TypeVar("PydanticModel", bound=BaseModel)
+
+
+class ConfigItemDetail(BaseModel):
+    """Represents a single configuration item with its schema and value."""
+
+    name: str = Field(..., description="配置项的名称 (环境变量名)")
+    type: str = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+    required: bool = Field(..., description="是否为必需项")
+    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
+    description: str | None = Field(None, description="该配置项的描述")
+    default: Any | None = Field(None, description="默认值 (如果存在)")
+    value: Any | None = Field(None, description="用户设置的当前值")
+
+
+class PluginConfigSchema(BaseModel):
+    name: str
+    type: Literal["string", "float", "integer", "bool"]
+    required: bool = True
+    secret: bool = False
+    default: str | int | float | None = None
+    description: str | None = None
 
 
 class ToolOverrideConfig(BaseModel):
@@ -22,13 +42,12 @@ class PluginUserConfig(BaseModel):
     Developer should inherit this class to define user-specific plugin configuration.
     """
 
-    model_config = SettingsConfigDict(extra="allow")
     name: str
     plugin_name: str
     tools_default_enabled: bool = True
     enabled: bool = True
     tools: list[ToolOverrideConfig] | None = None
-    envs: dict[str, Any] | None = None
+    config: dict | None = None
 
 
 class ExecutionModel(BaseModel):

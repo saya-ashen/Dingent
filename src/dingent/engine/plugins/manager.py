@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import toml
 from fastmcp import Client, FastMCP
@@ -8,13 +8,13 @@ from fastmcp.client import UvStdioTransport
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import Tool
 from loguru import logger
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
 from dingent.engine.backend.resource_manager import get_resource_manager
 from dingent.engine.backend.types import ToolOutput
 from dingent.utils import find_project_root
 
-from .types import ExecutionModel, PluginUserConfig, export_settings_to_env_dict
+from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig
 
 
 class ResourceMiddleware(Middleware):
@@ -40,12 +40,79 @@ class ResourceMiddleware(Middleware):
         return result
 
 
+def _create_dynamic_config_model(
+    plugin_name: str,
+    config_schema: list[PluginConfigSchema],
+) -> type[BaseModel]:
+    """
+    根据插件清单中的 config_schema 动态创建一个 Pydantic 模型。
+    """
+    field_definitions: dict[str, Any] = {}
+
+    # Python 类型映射
+    type_map = {
+        "string": str,
+        "number": float,
+        "integer": int,  # 建议在 PluginConfigSchema 中也添加 "integer"
+        "boolean": bool,  # 建议在 PluginConfigSchema 中也添加 "boolean"
+    }
+
+    for item in config_schema:
+        field_name = item.name
+
+        # 决定字段类型
+        field_type = type_map.get(item.type, str)  # 默认为 string
+
+        # 处理 secret 字段，使用 Pydantic 的 SecretStr 类型
+        if getattr(item, "secret", False):  # 假设你的 PluginConfigSchema 有 secret 字段
+            field_type = SecretStr
+
+        # 构建 Field Info
+        if item.required:
+            # 必需字段
+            field_info = Field(..., description=item.description)
+        else:
+            # 可选字段，带默认值
+            field_info = Field(default=item.default, description=item.description)
+
+        field_definitions[field_name] = (field_type, field_info)
+
+    # 使用 pydantic.create_model 创建模型类
+    DynamicConfigModel = create_model(
+        f"{plugin_name.capitalize()}ConfigModel",
+        **field_definitions,
+    )
+    return DynamicConfigModel
+
+
+def _prepare_environment(validated_config: BaseModel) -> dict[str, str]:
+    """
+    将验证后的 Pydantic 配置模型实例转换为环境变量字典。
+    """
+    env_vars = {}
+    for field_name, value in validated_config.model_dump().items():
+        if value is None:
+            continue
+
+        # 如果是 SecretStr，则获取其真实值
+        if isinstance(getattr(validated_config, field_name), SecretStr):
+            secret_value = getattr(validated_config, field_name).get_secret_value()
+            env_vars[field_name] = secret_value
+        else:
+            # 环境变量必须是字符串
+            env_vars[field_name] = str(value)
+
+    return env_vars
+
+
 middleware = ResourceMiddleware()
 
 
 class PluginInstance:
     mcp_client: Client
     name: str
+    config: dict[str, Any] | None = None
+    manifest: "PluginManifest"
     _mcp: FastMCP
     _status: Literal["active", "inactive", "error"] = "inactive"
 
@@ -55,14 +122,18 @@ class PluginInstance:
         mcp_client: Client,
         mcp: FastMCP,
         status: Literal["active", "inactive", "error"],
+        manifest: "PluginManifest",
+        config: dict[str, Any] | None = None,
     ):
         self.name = name
         self.mcp_client = mcp_client
         self._mcp = mcp
         self._status = status
+        self.config = config
+        self.manifest = manifest
 
     @classmethod
-    async def create(
+    async def from_config(
         cls,
         manifest: "PluginManifest",
         user_config: PluginUserConfig,
@@ -72,6 +143,27 @@ class PluginInstance:
         """
         if not user_config.enabled:
             raise ValueError(f"Plugin '{manifest.name}' is not enabled. This should not happend")
+        env = {}
+        validated_config_dict = {}
+
+        # 1. 验证和处理用户配置
+        if manifest.config_schema:
+            # 1.1 动态创建 Pydantic 模型
+            DynamicConfigModel = _create_dynamic_config_model(manifest.name, manifest.config_schema)
+
+            try:
+                # 1.2 使用动态模型验证用户提供的配置
+                # 我们假设 user_config.config 是一个字典，如 {"DAPPIER_API_KEY": "..."}
+                validated_model = DynamicConfigModel.model_validate(user_config.config or {})
+
+                # 1.3 将验证后的配置转换为字典和环境变量
+                validated_config_dict = validated_model.model_dump(mode="json")  # 保存验证后的配置
+                env = _prepare_environment(validated_model)
+
+            except ValidationError as e:
+                # 如果配置验证失败，抛出更详细的错误
+                raise ValueError(f"Configuration validation failed for plugin '{manifest.name}':\n{e}")
+
         # 1. 执行原有的同步初始化逻辑来创建 mcp_client
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None
@@ -79,7 +171,6 @@ class PluginInstance:
             remote_proxy = FastMCP.as_proxy(manifest.execution.url)
         else:
             assert manifest.execution.script_path
-            env = export_settings_to_env_dict(user_config)
             module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
             transport = UvStdioTransport(
                 module_path,
@@ -126,7 +217,7 @@ class PluginInstance:
             # base_tool.disable()
         mcp_client = Client(mcp)
 
-        instance = cls(name=user_config.name, mcp_client=mcp_client, mcp=mcp, status=_status)
+        instance = cls(name=user_config.name, mcp_client=mcp_client, mcp=mcp, status=_status, config=validated_config_dict, manifest=manifest)
 
         return instance
 
@@ -136,6 +227,41 @@ class PluginInstance:
 
     async def list_tools(self):
         return await self._mcp.get_tools()
+
+    def get_config_details(self) -> list[ConfigItemDetail]:
+        """
+        Merges the plugin's config schema with the user's current values.
+
+        Returns a list of details perfect for UI rendering.
+        """
+        if not self.manifest or not self.manifest.config_schema:
+            return []
+
+        details = []
+        for schema_item in self.manifest.config_schema:
+            current_value = (self.config or {}).get(schema_item.name)
+
+            # For secrets, we should not expose the actual value.
+            # We can return a placeholder or just indicate that it's set.
+            # Here, we return a placeholder if the value is set.
+            is_secret = getattr(schema_item, "secret", False)
+            if is_secret and current_value is not None:
+                display_value = "********"  # Placeholder for secrets
+            else:
+                display_value = current_value
+
+            item_detail = ConfigItemDetail(
+                name=schema_item.name,
+                type=schema_item.type,
+                description=schema_item.description,
+                required=schema_item.required,
+                secret=is_secret,
+                default=schema_item.default,
+                value=display_value,  # Use the placeholder-aware value
+            )
+            details.append(item_detail)
+
+        return details
 
 
 class PluginManifest(BaseModel):
@@ -148,6 +274,7 @@ class PluginManifest(BaseModel):
     execution: ExecutionModel
     dependencies: list[str] | None = None
     python_version: str | None = None
+    config_schema: list[PluginConfigSchema] | None = None
     _plugin_path: Path | None = PrivateAttr(default=None)
 
     @property
@@ -177,7 +304,7 @@ class PluginManifest(BaseModel):
         """
         if self.path is None:
             raise ValueError("Plugin path is not set. Please set the path before creating an instance.")
-        return await PluginInstance.create(
+        return await PluginInstance.from_config(
             manifest=self,
             user_config=user_config,
         )

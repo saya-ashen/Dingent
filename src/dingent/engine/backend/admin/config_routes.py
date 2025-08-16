@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field
 from dingent.engine.backend.assistant import Assistant, get_assistant_manager
 from dingent.engine.backend.config_manager import get_config_manager
 from dingent.engine.backend.settings import AssistantSettings
-from dingent.engine.plugins.manager import PluginManifest, get_plugin_manager
-from dingent.engine.plugins.types import PluginUserConfig
+from dingent.engine.plugins.manager import PluginInstance, get_plugin_manager
+from dingent.engine.plugins.types import ConfigItemDetail, PluginUserConfig
 
 router = APIRouter()
 config_manager = get_config_manager()
@@ -25,6 +25,7 @@ class PluginAdminDetail(PluginUserConfig):
     # 增加 tools 字段来存放工具的详细信息
     tools: list[ToolAdminDetail] = Field(default_factory=list, description="该插件的工具列表")
     status: str = Field(..., description="运行状态 (e.g., 'active', 'inactive', 'error')")
+    config: list[ConfigItemDetail] = []
 
 
 class AssistantAdminDetail(AssistantSettings):
@@ -38,42 +39,41 @@ class AppAdminDetail(BaseModel):
 
 
 # --- 1. 辅助函数：处理单个插件 ---
-async def _build_plugin_admin_detail(plugin_config: PluginManifest, assistant_instance: Assistant | None):
+async def _build_plugin_admin_detail(plugin_config: PluginUserConfig, plugin_instance: PluginInstance):
     """根据插件配置和其所属的助手实例，构建带有状态的插件详情。"""
 
-    plugin_instance = None
     tools_details = []
+    plugin_status = plugin_instance.status
+    tool_instances = await plugin_instance.list_tools()
+    tools_details = [ToolAdminDetail(name=name, description=tool.description, enabled=tool.enabled) for name, tool in tool_instances.items()]
 
-    # 只有当助手实例存在时，才有可能找到插件实例
-    if assistant_instance:
-        plugin_instance = assistant_instance.plugin_instances.get(plugin_config.name)
-
-    if plugin_instance:
-        plugin_status = plugin_instance.status
-        tool_instances = await plugin_instance.list_tools()
-        tools_details = [ToolAdminDetail(name=name, description=tool.description, enabled=tool.enabled) for name, tool in tool_instances.items()]
-    else:
-        plugin_status = "inactive"
+    config_details = plugin_instance.get_config_details()
 
     plugin_admin_detail_dict = plugin_config.model_dump()
-    plugin_admin_detail_dict.update(status=plugin_status, tools=tools_details)
+    plugin_admin_detail_dict.update(status=plugin_status, tools=tools_details, config=config_details)
     return PluginAdminDetail(**plugin_admin_detail_dict)
 
 
 # --- 2. 辅助函数：处理单个助手 ---
-async def _build_assistant_admin_detail(assistant_config: AssistantSettings, running_assistants: dict):
+async def _build_assistant_admin_detail(assistant_config: AssistantSettings, running_assistants: dict[str, Assistant]):
     """根据助手配置和所有正在运行的助手实例，构建带有状态的助手详情。"""
 
-    assistant_instance = running_assistants.get(assistant_config.name)
+    assistant_instance = running_assistants.get(assistant_config.id)
     assistant_status = "active" if assistant_instance else "inactive"
 
-    # 并发处理该助手下的所有插件
-    plugin_tasks = [_build_plugin_admin_detail(p_config, assistant_instance) for p_config in assistant_config.plugins]
-    plugin_admin_details = await asyncio.gather(*plugin_tasks)
+    plugin_details = []
+    if assistant_instance:
+        for plugin_config in assistant_config.plugins:
+            plugin_instance = assistant_instance.plugin_instances.get(plugin_config.name)
+            if plugin_instance:
+                plugin_detail = await _build_plugin_admin_detail(plugin_config, plugin_instance)
+            else:
+                plugin_detail = PluginAdminDetail(**plugin_config.model_json_schema())
+            plugin_details.append(plugin_detail)
 
     assistant_admin_detail_dict = assistant_config.model_dump()
 
-    assistant_admin_detail_dict.update(status=assistant_status, plugins=plugin_admin_details)
+    assistant_admin_detail_dict.update(status=assistant_status, plugins=plugin_details)
     return AssistantAdminDetail(**assistant_admin_detail_dict)
 
 
@@ -97,10 +97,14 @@ async def get_app_config_with_status():
 
 @router.post("/admin/config/app")
 async def update_app_config(config: dict):
-    # FIXME: 更新配置的时候不要把配置文件中的tools覆盖，而是应该合并，runtime优先
-    # TODO: (x) 助手配置界面
-    # 插件管理界面
-    # 模型配置界面
+    for assistant in config.get("assistants", []):
+        for plugin in assistant.get("plugins", []):
+            config_list = plugin.get("config")
+
+            if isinstance(config_list, list):
+                simple_config_dict = {item.get("name"): item.get("value") for item in config_list if item.get("name") is not None}
+                plugin["config"] = simple_config_dict
+
     config_manager.update_config(config)
     config_manager.save_config()
     assistant_manager.rebuild()

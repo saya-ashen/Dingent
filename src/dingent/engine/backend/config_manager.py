@@ -18,44 +18,129 @@ from .settings import AppSettings
 # - 且包含属性 assistants（列表），列表元素具备 name 字段
 
 
-def deep_merge(base: dict, patch: dict, list_key: str | None = "name") -> dict:
+def _find_key_value_for_item(item: dict, keys: list[str]) -> tuple[str, Any]:
     """
-    Recursively merges `patch` dict into `base` dict.
+    Finds the first key from the priority list that exists in the item.
+    Returns the key's name and its value.
+    Raises ValueError if no key is found.
+    """
+    for key in keys:
+        if key in item:
+            return key, item[key]
+    raise ValueError(f"Could not find any of the required merge keys {keys} in list item: {item}")
 
-    - Merges dictionaries recursively.
-    - For lists, if `list_key` is provided (e.g., 'name'), it merges list items
-      based on the value of that key. Items in `patch` list will update items
-      in `base` list with the same key value, or be appended if the key is new.
+
+def deep_merge(base: dict[str, Any], patch: dict[str, Any], list_merge_keys: list[str]) -> dict[str, Any]:
+    """
+    Recursively merges a 'patch' dictionary into a 'base' dictionary.
+
+    - Dictionaries are merged recursively.
+    - For lists of dictionaries, items are merged if they share a common identifier.
+      The function searches for an identifier in each dictionary using the keys
+      provided in `list_merge_keys` in the given order.
+    - If a dictionary in a list does not contain any of the specified merge keys,
+      a ValueError is raised.
     - Other value types from `patch` overwrite `base`.
     """
     result = base.copy()
-    for k, v in patch.items():
-        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
-            result[k] = deep_merge(result[k], v, list_key)
-        elif k in result and isinstance(result[k], list) and isinstance(v, list) and list_key:
-            merged_list = result[k][:]
-            base_map = {item[list_key]: item for item in merged_list if isinstance(item, dict) and list_key in item}
 
-            for item in v:
-                if not isinstance(item, dict) or list_key not in item:
-                    merged_list.append(item)  # Append non-dict items or items without key
+    for k, v in patch.items():
+        # Recursive merge for dictionaries
+        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
+            result[k] = deep_merge(result[k], v, list_merge_keys)
+
+        # List merging logic based on a priority of keys
+        elif k in result and isinstance(result[k], list) and isinstance(v, list):
+            merged_list = result[k][:]
+            base_map = {}
+
+            # Build a map of the base list items using their identifier
+            for item in merged_list:
+                if isinstance(item, dict):
+                    try:
+                        _, key_value = _find_key_value_for_item(item, list_merge_keys)
+                        base_map[key_value] = item
+                    except ValueError as e:
+                        raise ValueError(f"Error in base list under key '{k}': {e}") from e
+
+            # Iterate through the patch list to merge or append
+            for patch_item in v:
+                if not isinstance(patch_item, dict):
+                    if patch_item not in merged_list:
+                        merged_list.append(patch_item)
                     continue
 
-                key = item[list_key]
-                if key in base_map:
-                    base_item = base_map[key]
-                    merged_item = deep_merge(base_item, item, list_key)
-                    # Replace in original list
-                    for i, original in enumerate(merged_list):
-                        if isinstance(original, dict) and original.get(list_key) == key:
-                            merged_list[i] = merged_item
-                            break
+                try:
+                    _, key_value = _find_key_value_for_item(patch_item, list_merge_keys)
+                except ValueError as e:
+                    raise ValueError(f"Error in patch list under key '{k}': {e}") from e
+
+                if key_value in base_map:
+                    base_item = base_map[key_value]
+                    merged_item = deep_merge(base_item, patch_item, list_merge_keys)
+
+                    # Find and replace the original item in the list
+                    for i, original_item in enumerate(merged_list):
+                        if isinstance(original_item, dict):
+                            try:
+                                _, original_key_value = _find_key_value_for_item(original_item, list_merge_keys)
+                                if original_key_value == key_value:
+                                    merged_list[i] = merged_item
+                                    base_map[key_value] = merged_item  # Update map
+                                    break
+                            except ValueError:
+                                continue  # This item can't be matched
                 else:
-                    merged_list.append(item)  # Append new item
+                    merged_list.append(patch_item)
+
             result[k] = merged_list
+        # Overwrite for all other types
         else:
             result[k] = v
     return result
+
+
+def _clean_patch(patch: dict) -> dict:
+    """
+    Recursively cleans a patch dictionary by removing keys whose values
+    are None or the placeholder '********'.
+
+    This ensures that only legitimate changes are passed to the merge function.
+    """
+    if not isinstance(patch, dict):
+        return patch
+
+    cleaned_dict = {}
+    for key, value in patch.items():
+        # --- PRIMARY CONDITION ---
+        # If the value is a placeholder or None, skip this key entirely.
+        if value is None or not str(value).strip("*"):
+            continue
+
+        # --- RECURSIVE CLEANING ---
+        # If the value is a dictionary, clean it recursively.
+        if isinstance(value, dict):
+            cleaned_value = _clean_patch(value)
+            # Only add the nested dictionary if it's not empty after cleaning.
+            if cleaned_value:
+                cleaned_dict[key] = cleaned_value
+        # If the value is a list, clean each item inside it (if it's a dict).
+        elif isinstance(value, list):
+            cleaned_list = []
+            for item in value:
+                if isinstance(item, dict):
+                    cleaned_item = _clean_patch(item)
+                    if cleaned_item:
+                        cleaned_list.append(cleaned_item)
+                # Keep non-dict items as-is, unless they are also placeholders
+                elif item is not None and item != "********":
+                    cleaned_list.append(item)
+            cleaned_dict[key] = cleaned_list
+        # Otherwise, it's a valid value to keep.
+        else:
+            cleaned_dict[key] = value
+
+    return cleaned_dict
 
 
 # --- 1. 自定义异常 ---
@@ -130,7 +215,7 @@ class ConfigManager:
         # 你可以添加更多环境变量的解析逻辑...
 
         # 3. 合并配置 (环境变量优先级更高)
-        merged_data = deep_merge(file_data, env_data)
+        merged_data = deep_merge(file_data, env_data, ["id", "name"])
 
         # 4. 使用纯净的 AppSettings 模型进行校验
         try:
@@ -173,21 +258,38 @@ class ConfigManager:
 
     def update_config(self, new_config_data: dict[str, Any]) -> None:
         """
-        现在这个方法逻辑变得非常清晰：合并字典，然后用纯模型校验。
+        Updates the configuration by merging a partial patch.
+
+        It first cleans the patch to remove placeholders ('********') and None values,
+        ensuring that only intentional changes are applied.
         """
         if not isinstance(new_config_data, dict):
             raise TypeError("new_config_data must be a dictionary")
 
         with self._lock:
             try:
-                current_data = self._settings.model_dump()
-                merged_data = deep_merge(current_data, new_config_data, list_key="name")
+                # Step 1: Clean the incoming patch to remove ignored values.
+                cleaned_data = _clean_patch(new_config_data)
 
-                # 现在这里不会有任何魔法，model_validate 只做一件事：校验字典
+                # If the patch is empty after cleaning, there's nothing to do.
+                if not cleaned_data:
+                    # You might want to log this event for debugging.
+                    print("Configuration update skipped: patch was empty after cleaning.")
+                    return
+
+                # Step 2: Get the current configuration as a dictionary.
+                current_data = self._settings.model_dump()
+
+                # Step 3: Merge the *cleaned* data into the current data.
+                merged_data = deep_merge(current_data, cleaned_data, ["id", "name"])
+
+                # Step 4: Validate the fully merged data against the Pydantic model.
                 new_settings = AppSettings.model_validate(merged_data)
 
+                # Step 5: If validation succeeds, update the settings and save.
                 self._settings = new_settings
                 self.save_config()
+
             except ValidationError as e:
                 raise ConfigUpdateError(f"Configuration validation failed: {e}") from e
 
@@ -235,20 +337,20 @@ class ConfigManager:
             except ValidationError as e:
                 return {"success": False, "error": str(e)}
 
-    def get_assistant_config(self, assistant_name: str):
-        """根据名称获取单个 assistant 配置对象（Pydantic 实例），找不到返回 None"""
+    def get_assistant_config(self, assistant_id: str):
+        """根据id获取单个 assistant 配置对象（Pydantic 实例），找不到返回 None"""
         with self._lock:
-            assistants = getattr(self._settings, "assistants", []) or []
+            assistants = self._settings.assistants
             for assistant in assistants:
-                if getattr(assistant, "name", None) == assistant_name:
+                if assistant.id == assistant_id:
                     return assistant
             return None
 
     def get_all_assistants_config(self) -> dict[str, Any]:
-        """返回一个 name -> assistant 对象 的映射字典"""
+        """返回一个 id -> assistant 对象 的映射字典"""
         with self._lock:
-            assistants = getattr(self._settings, "assistants", []) or []
-            return {getattr(a, "name", None): a for a in assistants if getattr(a, "name", None)}
+            assistants = self._settings.assistants
+            return {assistant.id: assistant for assistant in assistants}
 
     # ===================== 内部工具方法 =====================
 

@@ -1,9 +1,10 @@
+import uuid
 from pathlib import Path
 from typing import Any
 
 import tomlkit
 from loguru import logger
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -50,6 +51,7 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
 
 
 class AssistantSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the assistant, automatically generated if not provided.")
     name: str = Field(..., description="The name of the assistant.")
     description: str
     plugins: list[PluginUserConfig] = []
@@ -59,6 +61,7 @@ class AssistantSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
+    model_config = ConfigDict(env_prefix="DINGENT_", populate_by_name=True, extra="ignore")
     assistants: list[AssistantSettings] = []
     default_assistant: str | None = None
     llm: dict[str, str | int] = {}

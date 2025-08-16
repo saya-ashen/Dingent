@@ -52,20 +52,20 @@ class AssistantManager:
     # def list_assistants(self) -> dict[str, Assistant]:
     #     return self._assistants
 
-    async def get_assistant(self, name):
-        if name in self._assistants:
-            return self._assistants[name]
+    async def get_assistant(self, id: str):
+        if id in self._assistants:
+            return self._assistants[id]
         else:
-            if name not in self._assistants_settings or not self._assistants_settings[name].enabled:
-                raise ValueError(f"Assistant '{name}' not found or is disabled.")
-            self._assistants[name] = await Assistant.create(self._assistants_settings[name])
-            return self._assistants[name]
+            if id not in self._assistants_settings or not self._assistants_settings[id].enabled:
+                raise ValueError(f"Assistant '{id}' not found or is disabled.")
+            self._assistants[id] = await Assistant.create(self._assistants_settings[id])
+            return self._assistants[id]
 
     async def get_assistants(self):
-        enabled_assistants = [name for name, settings in self._assistants_settings.items() if settings.enabled]
-        for name in enabled_assistants:
-            if name not in self._assistants:
-                await self.get_assistant(name)
+        enabled_assistants = [id for id, settings in self._assistants_settings.items() if settings.enabled]
+        for id in enabled_assistants:
+            if id not in self._assistants:
+                await self.get_assistant(id)
         return self._assistants
 
     def rebuild(self):
