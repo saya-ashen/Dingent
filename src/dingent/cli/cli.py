@@ -2,12 +2,14 @@ import os
 import queue
 import re
 import shutil
+import signal
 import sqlite3
 import subprocess
 import sys
 import threading
 import time
 import webbrowser
+from importlib import resources
 from pathlib import Path
 from typing import Annotated
 
@@ -75,12 +77,11 @@ class ProjectInitializer:
             self._install_frontend_dependencies()
             self._print_final_summary()
         except RepositoryNotFound:
-            print("[bold red]\n❌ Error: Repository not found at {REPO_URL}[/bold red]")
+            print(f"[bold red]\n❌ Error: Repository not found at {REPO_URL}[/bold red]")
             print("[bold red]\nPlease check the URL and your network connection.[/bold red]")
             raise typer.Exit()
         except Exception as e:
             print(f"[bold red]\nAn unexpected error occurred: {e}[/bold red]")
-            # Add more specific error handling or logging here if needed
             raise typer.Exit()
 
     def _create_from_template(self):
@@ -95,19 +96,19 @@ class ProjectInitializer:
             output_dir=".",
         )
         self.project_path = Path(created_path)
-        print(f"[bold green]🚀 Initializing project from git repository: {REPO_URL}[/bold green]")
+        print(f"[bold green]✅ Project created at {self.project_path}[/bold green]")
 
     def _convert_sql_to_db(self):
         """Finds .sql files and converts them to SQLite .db files."""
         print("[bold green]\n✨ Converting .sql files to .db databases...[/bold green]")
         sql_dir = self.project_path / "backend" / "data"
         if not sql_dir.is_dir():
-            print("[bold yellow]\n⚠️ Warning: SQL data directory not found at '{sql_dir}'.[/bold yellow]")
+            print(f"[bold yellow]\n⚠️ Warning: SQL data directory not found at '{sql_dir}'.[/bold yellow]")
             return
 
         sql_files = sorted(sql_dir.glob("*.sql"))
         if not sql_files:
-            print("[bold blue]\nℹ️ Info: No .sql files found in '{sql_dir}'..[/bold blue]")
+            print(f"[bold blue]\nℹ️ Info: No .sql files found in '{sql_dir}'.[/bold blue]")
             return
 
         print(f"[bold green]  -> Found {len(sql_files)} SQL file(s).[/bold green]")
@@ -143,13 +144,14 @@ class ProjectInitializer:
             if target_dir.is_dir() and (target_dir / "pyproject.toml").exists():
                 print(f"  -> Running 'uv sync' in '{subdir_name}'...")
                 try:
-                    # Using 'uv venv' and 'uv sync' ensures a virtual environment is created and used
                     subprocess.run([self.env.uv_path, "venv"], cwd=str(target_dir), check=True, capture_output=True)
                     subprocess.run([self.env.uv_path, "sync"], cwd=str(target_dir), check=True, capture_output=True, text=True)
                     print(f"[green]    ✅ Successfully installed dependencies in '{subdir_name}'.[/green]")
-                except subprocess.CalledProcessError:
+                except subprocess.CalledProcessError as e:
                     install_errors = True
                     print(f"[bold red]    ❌ Error installing in '{subdir_name}'.[/bold red]")
+                    if e.stderr:
+                        print(f"[bold red]{e.stderr}[/bold red]")
             else:
                 print(f"  -> Skipping '{subdir_name}', 'pyproject.toml' not found.")
 
@@ -174,7 +176,8 @@ class ProjectInitializer:
                 print(f"[bold green]    ✅ Successfully installed with {tool_name}.[/bold green]")
             except subprocess.CalledProcessError as e:
                 print(f"[bold red]    ❌ Error installing with {tool_name}.[/bold red]")
-                print(f"[bold red]{e.stderr}[/bold red]")
+                if e.stderr:
+                    print(f"[bold red]{e.stderr}[/bold red]")
 
     def _print_final_summary(self):
         """Prints the final success message and next steps."""
@@ -190,12 +193,30 @@ class ServiceRunner:
 
     def __init__(self, env_info: EnvironmentInfo, cli_ctx: CliContext):
         self.env = env_info
-        self.services = {
-            "backend": {"command": ["langgraph", "dev", "--no-browser", "--allow-blocking"], "cwd": cli_ctx.backend_path, "color": "magenta"},
-            "frontend": {"command": ["bun", "dev"], "cwd": cli_ctx.frontend_path, "color": "yellow"},
-        }
+        with resources.path("dingent.dashboard", "app.py") as frontend_file_path:
+            script_full_path = str(frontend_file_path.as_posix())
+            self.services = {
+                "backend": {
+                    "command": ["langgraph", "dev", "--no-browser", "--allow-blocking", "--port", str(cli_ctx.backend_port)],
+                    "cwd": cli_ctx.backend_path,
+                    "color": "magenta",
+                },
+                "frontend": {
+                    "command": ["bun", "dev", "--port", str(cli_ctx.frontend_port)],
+                    "env": {"DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
+                    "cwd": cli_ctx.frontend_path,
+                    "color": "yellow",
+                },
+                "dashboard": {
+                    "command": ["streamlit", "run", script_full_path, "--server.port", str(cli_ctx.dashboard_port)],
+                    "env": {"DING_BACKEND_ADMIN_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
+                    "cwd": cli_ctx.backend_path,
+                    "color": "blue",
+                },
+            }
         self.processes = []
         self.log_queue = queue.Queue()
+        self._browser_opened = False
 
     def run(self):
         """Starts, monitors, and shuts down all services."""
@@ -205,8 +226,6 @@ class ServiceRunner:
             self._monitor_services()
         except (KeyboardInterrupt, RuntimeError) as e:
             if isinstance(e, RuntimeError):
-                # The error message is already printed where it's raised.
-                # This just adds a generic "Aborting" message.
                 print("[bold red]\nAborting operation due to a critical error.[/bold red]")
         finally:
             self._shutdown_services()
@@ -223,37 +242,34 @@ class ServiceRunner:
             raise RuntimeError("'uv' is not installed.")
         print(f"   -> Found 'uv' executable at: {uv_path}")
 
-        # 2. Update Python service commands to use the absolute path to 'uv'.
-        #    'uv run' will handle finding 'python' and 'langgraph' inside the venv.
-        for name in ["backend"]:
+        # 2. Update Python-based service commands to use 'uv run'
+        for name in ["backend", "dashboard"]:
             original_command = self.services[name]["command"]
-            # Use the resolved absolute path for uv
             self.services[name]["command"] = [uv_path, "run", "--"] + original_command
             print(f"   -> Prepared '{name}' command: {' '.join(self.services[name]['command'])}")
 
-        # 3. Find and store the absolute path for the frontend command ('bun' ).
+        # 3. Resolve the frontend executable (bun) to an absolute path
         frontend_exe_name = self.services["frontend"]["command"][0]
         frontend_exe_path = shutil.which(frontend_exe_name)
         if not frontend_exe_path:
             print(f"[bold red]❌ Error: Command '{frontend_exe_name}' not found.[/bold red]")
-            print("   Please ensure Bun  is installed and in your system's PATH.")
+            print("   Please ensure Bun is installed and in your system's PATH.")
             raise RuntimeError(f"Frontend executable '{frontend_exe_name}' not found.")
         print(f"   -> Found '{frontend_exe_name}' executable at: {frontend_exe_path}")
 
-        # Update the command with its absolute path
         self.services["frontend"]["command"][0] = frontend_exe_path
         print(f"   -> Prepared 'frontend' command: {' '.join(self.services['frontend']['command'])}")
 
     def _start_services(self):
         """Starts all services as subprocesses and sets up log streaming."""
         print("\n🚀 Starting all development services...")
+        current_env = os.environ.copy()
 
         for name, service in self.services.items():
             command = service["command"]
             cwd = Path(service["cwd"])
-            executable = command[0]
+            env = service.get("env", {})
 
-            # First, check if the working directory exists.
             if not cwd.is_dir():
                 print(f"[bold red]❌ Error: Working directory for '{name}' service not found.[/bold red]")
                 print(f"   Directory: {cwd}")
@@ -261,25 +277,43 @@ class ServiceRunner:
                 raise RuntimeError(f"Directory not found for {name} service.")
 
             try:
-                proc = subprocess.Popen(command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, errors="replace")
+                updated_env = {**current_env, **env}
+
+                popen_kwargs = {
+                    "cwd": cwd,
+                    "stdout": subprocess.PIPE,
+                    "stderr": subprocess.STDOUT,
+                    "env": updated_env,
+                    "text": True,
+                    "bufsize": 1,
+                    "errors": "replace",
+                }
+
+                # Create a new process group/session for each service so we can terminate the whole tree
+                if os.name == "posix":
+                    popen_kwargs["start_new_session"] = True  # setsid()
+                else:
+                    # Windows: new process group to allow CTRL_BREAK_EVENT
+                    popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+
+                proc = subprocess.Popen(command, **popen_kwargs)  # noqa: S603
+
             except FileNotFoundError:
-                # This error means the executable itself was not found.
-                print(f"[bold red]❌ Fatal Error: Executable '{executable}' for the '{name}' service not found.[/bold red]")
+                print(f"[bold red]❌ Fatal Error: Executable '{command[0]}' for the '{name}' service not found.[/bold red]")
                 print(f"   Full Command: {' '.join(command)}")
                 print(f"   Working Dir:  {cwd}")
                 print("\n   [bold yellow]Troubleshooting Steps:[/bold yellow]")
-                if name in ["backend"]:
+                if name in ["backend", "dashboard"]:
                     print(f"    1. 'uv' was found, but it failed to run the service's command ('{command[3]}').")
                     print("    2. Make sure the virtual environment is correctly set up.")
                     print(f"    3. Try running 'uv sync' manually in the '{cwd}' directory.")
                 else:
-                    print(f"    1. Ensure '{executable}' is installed globally and available in your system's PATH.")
+                    print(f"    1. Ensure '{command[0]}' is installed globally and available in your system's PATH.")
                     print(f"    2. Try running the command manually: cd {cwd} && {' '.join(command)}")
                 raise RuntimeError(f"Executable not found for {name} service.")
 
             self.processes.append((name, proc))
-            thread = threading.Thread(target=self._stream_output, args=(name, proc, self.log_queue))
-            thread.daemon = True
+            thread = threading.Thread(target=self._stream_output, args=(name, proc, self.log_queue), daemon=True)
             thread.start()
             print(f"[bold green]✅ {name.capitalize()} service started (PID: {proc.pid}).[/bold green]")
 
@@ -304,7 +338,7 @@ class ServiceRunner:
             time.sleep(0.1)
 
     def _shutdown_services(self):
-        """Terminates all running child processes."""
+        """Terminates all running child processes (entire process groups)."""
         print("\n[bold yellow]🛑 Shutting down all services...[/bold yellow]")
         if not self.processes:
             print("   No services were running.")
@@ -313,13 +347,58 @@ class ServiceRunner:
         for name, proc in reversed(self.processes):
             if proc.poll() is None:
                 print(f"   -> Stopping {name} (PID: {proc.pid})...", end="")
-                proc.terminate()
+
                 try:
-                    proc.wait(timeout=3)
-                    print("[green] Done.[/green]")
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    print("[yellow] Force-killed.[/yellow]")
+                    if os.name == "posix":
+                        # Graceful -> Terminate -> Kill (process group)
+                        try:
+                            os.killpg(proc.pid, signal.SIGINT)
+                            proc.wait(timeout=5)
+                            print("[green] Done (SIGINT).[/green]")
+                            continue
+                        except subprocess.TimeoutExpired:
+                            pass
+
+                        try:
+                            os.killpg(proc.pid, signal.SIGTERM)
+                            proc.wait(timeout=3)
+                            print("[green] Done (SIGTERM).[/green]")
+                            continue
+                        except subprocess.TimeoutExpired:
+                            pass
+
+                        os.killpg(proc.pid, signal.SIGKILL)
+                        proc.wait(timeout=2)
+                        print("[yellow] Force-killed (SIGKILL).[/yellow]")
+
+                    else:
+                        # Windows: try CTRL_BREAK_EVENT for the process group
+                        sent_break = False
+                        try:
+                            proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
+                            sent_break = True
+                            proc.wait(timeout=5)
+                            print("[green] Done (CTRL_BREAK).[/green]")
+                            continue
+                        except Exception:
+                            # Fall back if CTRL_BREAK not supported
+                            pass
+
+                        try:
+                            proc.terminate()
+                            proc.wait(timeout=3)
+                            print("[green] Done (terminate).[/green]" if not sent_break else "")
+                            continue
+                        except subprocess.TimeoutExpired:
+                            pass
+
+                        proc.kill()
+                        proc.wait(timeout=2)
+                        print("[yellow] Force-killed.[/yellow]")
+
+                except Exception as e:
+                    print(f"[bold red] Error stopping {name}: {e}[/bold red]")
+
         self.processes = []
         print("\n✨ All services have been shut down. Goodbye!")
 
@@ -329,29 +408,32 @@ class ServiceRunner:
             for line in iter(process.stdout.readline, ""):
                 log_queue.put((name, line))
         except Exception:
-            # This can happen if the process is terminated abruptly
             pass
         finally:
-            process.stdout.close()
+            try:
+                process.stdout.close()
+            except Exception:
+                pass
 
     def _print_log_line(self):
         """Gets and prints a single log line from the queue if available."""
-        port_regex = re.compile(r"Local:        http://localhost:(\d+)")
+        port_regex = re.compile(r"http://localhost:(\d+)")
         try:
             name, line = self.log_queue.get_nowait()
             line = line.strip()
             if line:
-                # Using rich.text.Text.from_ansi to handle potential ANSI color codes in logs
                 log_text = Text.from_ansi(line)
                 print(Text.from_markup(f"[{self.services[name]['color']}][{name.upper():^10}][/] ") + log_text)
 
                 match = port_regex.search(line)
-                if match and name == "frontend":
-                    print("🌐 Opening http://localhost:3000 in your browser.")
+                if match and name == "frontend" and not self._browser_opened:
+                    port = match.group(1)
+                    print(f"🌐 Opening http://localhost:{port} in your browser.")
                     try:
-                        webbrowser.open_new_tab("http://localhost:3000")
+                        webbrowser.open_new_tab(f"http://localhost:{port}")
+                        self._browser_opened = True
                     except webbrowser.Error:
-                        print("[yellow]⚠️ Could not automatically open browser. Please navigate to http://localhost:3000 manually.[/yellow]")
+                        print(f"[yellow]⚠️ Could not automatically open browser. Please navigate to http://localhost:{port} manually.[/yellow]")
                 if "Failed to get tools from server: 'FastMCP'" in line:
                     print(f"[bold red]Fatal: {line} [/bold red]")
         except queue.Empty:
@@ -424,7 +506,6 @@ def assistant_list(ctx: typer.Context):
         assistants = cli_ctx.assistant_manager.list_assistants()
         print("\nAll registered assistants:")
         for assistant in assistants.values():
-            # Print the assistant's name and description
             print(f" - {assistant.name} ({assistant.description})")
             print("     Tools:")
             for tool in assistant.tools:
@@ -452,3 +533,37 @@ def assistant_test(name: str, ctx: typer.Context):
             print(f"[bold red]❌ Error: {e}[/bold red]")
     else:
         logger.error("❌ Error: Assistant manager not initialized.")
+
+
+def run_services_programmatically():
+    """
+    Initializes and runs all services programmatically, mirroring the
+    'dingent run' CLI command.
+
+    This function can be imported and called from other Python scripts.
+    """
+    logger.info("Attempting to start Dingent services programmatically...")
+    try:
+        cli_ctx = CliContext()
+        if not cli_ctx.is_in_project:
+            logger.error("❌ Cannot start services: Not inside a Dingent project (dingent.toml not found).")
+            raise FileNotFoundError("Not in a valid Dingent project directory.")
+
+        env_info = EnvironmentInfo()
+
+        runner = ServiceRunner(env_info, cli_ctx)
+        runner.run()
+
+    except Exception as e:
+        logger.error(f"A critical error occurred while trying to run services: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    print("Starting the Dingent environment from an external script...")
+    try:
+        run_services_programmatically()
+    except KeyboardInterrupt:
+        print("\nScript interrupted by user. Exiting.")
+    except Exception as e:
+        print(f"\nFailed to start services: {e}")

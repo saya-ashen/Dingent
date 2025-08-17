@@ -11,8 +11,8 @@ from pydantic_settings import (
     PydanticBaseSettingsSource,
 )
 
-from dingent.engine.plugins.types import PluginUserConfig
-from dingent.utils import find_project_root
+from .types import PluginUserConfig
+from .utils import find_project_root
 
 
 # --- 1. Custom Source for TOML file loading ---
@@ -47,9 +47,6 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         return tomlkit.loads(self.toml_path.read_text()).unwrap()
 
 
-# --- 2. Refactored Pydantic Models ---
-
-
 class AssistantSettings(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the assistant, automatically generated if not provided.")
     name: str = Field(..., description="The name of the assistant.")
@@ -60,11 +57,18 @@ class AssistantSettings(BaseModel):
     enabled: bool = Field(True, description="Enable or disable the assistant.")
 
 
+class LlmSettings(BaseModel):
+    model: str = Field(..., description="The name of the LLM model to use.")
+    provider: str | None = Field(None, description="The provider of the LLM model (e.g., 'openai', 'anthropic').")
+    base_url: str | None = Field(None, description="Base URL for the LLM provider, if applicable.")
+    api_key: str | None = Field(None, description="API key for the LLM provider, if applicable.")
+
+
 class AppSettings(BaseModel):
     model_config = ConfigDict(env_prefix="DINGENT_", populate_by_name=True, extra="ignore")
     assistants: list[AssistantSettings] = []
     default_assistant: str | None = None
-    llm: dict[str, str | int] = {}
+    llm: LlmSettings
 
     def save(self):
         """

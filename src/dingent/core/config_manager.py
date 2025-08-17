@@ -9,13 +9,10 @@ import tomlkit
 from loguru import logger
 from pydantic import ValidationError
 
-from dingent.utils import find_project_root
-
+from .plugin_manager import get_plugin_manager
 from .settings import AppSettings
-
-# 说明：
-# - 假设 AppSettings 是一个 Pydantic v2 的模型，具备 .model_dump() 和 .save() 方法
-# - 且包含属性 assistants（列表），列表元素具备 name 字段
+from .types import PluginUserConfig
+from .utils import find_project_root
 
 
 def _find_key_value_for_item(item: dict, keys: list[str]) -> tuple[str, Any]:
@@ -205,19 +202,11 @@ class ConfigManager:
         else:
             logger.warning(f"Config file not found at {self._config_path}. Using defaults and env vars.")
 
-        # 2. 从环境变量加载 (覆盖配置)
-        # 这是一个简化的环境变量加载器，你可以根据需要扩展
-        # 例如, pydantic-settings 支持 APP_LLM__MODEL 这样的嵌套格式
-        # 这里我们只处理顶层字段作为示例
         env_data = {}
         if "APP_DEFAULT_ASSISTANT" in os.environ:
             env_data["default_assistant"] = os.environ["APP_DEFAULT_ASSISTANT"]
-        # 你可以添加更多环境变量的解析逻辑...
-
-        # 3. 合并配置 (环境变量优先级更高)
         merged_data = deep_merge(file_data, env_data, ["id", "name"])
 
-        # 4. 使用纯净的 AppSettings 模型进行校验
         try:
             return AppSettings.model_validate(merged_data)
         except ValidationError as e:
@@ -256,26 +245,29 @@ class ConfigManager:
         with self._lock:
             return self._settings.model_copy(deep=True)
 
-    def update_config(self, new_config_data: dict[str, Any]) -> None:
+    def update_config(self, new_config_data: dict[str, Any], override_empty=False) -> None:
         """
         Updates the configuration by merging a partial patch.
 
         It first cleans the patch to remove placeholders ('********') and None values,
         ensuring that only intentional changes are applied.
         """
+
         if not isinstance(new_config_data, dict):
             raise TypeError("new_config_data must be a dictionary")
 
         with self._lock:
             try:
                 # Step 1: Clean the incoming patch to remove ignored values.
-                cleaned_data = _clean_patch(new_config_data)
+                cleaned_data = new_config_data
+                if not override_empty:
+                    cleaned_data = _clean_patch(new_config_data)
 
-                # If the patch is empty after cleaning, there's nothing to do.
-                if not cleaned_data:
-                    # You might want to log this event for debugging.
-                    print("Configuration update skipped: patch was empty after cleaning.")
-                    return
+                    # If the patch is empty after cleaning, there's nothing to do.
+                    if not cleaned_data:
+                        # You might want to log this event for debugging.
+                        print("Configuration update skipped: patch was empty after cleaning.")
+                        return
 
                 # Step 2: Get the current configuration as a dictionary.
                 current_data = self._settings.model_dump()
@@ -293,84 +285,102 @@ class ConfigManager:
             except ValidationError as e:
                 raise ConfigUpdateError(f"Configuration validation failed: {e}") from e
 
-    def update_assistant_config(self, new_config_data: dict[str, Any]) -> dict[str, Any]:
-        """
-        更新 assistants 列表中的某一个助手配置（通过 name 匹配）。
-        处理逻辑：
-        1) 读取当前配置 dump 为字典。
-        2) 找到对应 name 的 assistant 条目（字典），深度合并更新。
-        3) 用更新后的总字典重建 AppSettings，触发 Pydantic 校验。
-        4) 保存。
-
-        注意：这里在字典层面更新 assistants，然后整体重建 AppSettings，避免直接改对象带来的不一致问题。
-        """
-        name = new_config_data.get("name")
-        if not name:
-            return {"success": False, "error": "缺少 'name' 字段"}
-
-        with self._lock:
-            try:
-                data = self._settings.model_dump()
-                assistants = data.get("assistants") or []
-                if not isinstance(assistants, list):
-                    return {"success": False, "error": "配置字段 'assistants' 类型异常，期望为列表"}
-
-                target_idx = -1
-                for i, item in enumerate(assistants):
-                    # model_dump 后 assistants 项为 dict
-                    if isinstance(item, dict) and item.get("name") == name:
-                        target_idx = i
-                        break
-
-                if target_idx == -1:
-                    return {"success": False, "error": f"未找到名为 '{name}' 的 assistant"}
-
-                # 深度合并该 assistant
-                assistants[target_idx] = self._deep_merge(assistants[target_idx], new_config_data)
-                data["assistants"] = assistants
-
-                # 重建并保存
-                new_settings = AppSettings(**data)  # type: ignore[name-defined]
-                self._settings = new_settings
-                self._settings.save()
-                return {"success": True}
-            except ValidationError as e:
-                return {"success": False, "error": str(e)}
-
-    def get_assistant_config(self, assistant_id: str):
-        """根据id获取单个 assistant 配置对象（Pydantic 实例），找不到返回 None"""
-        with self._lock:
-            assistants = self._settings.assistants
-            for assistant in assistants:
-                if assistant.id == assistant_id:
-                    return assistant
-            return None
-
     def get_all_assistants_config(self) -> dict[str, Any]:
         """返回一个 id -> assistant 对象 的映射字典"""
         with self._lock:
             assistants = self._settings.assistants
             return {assistant.id: assistant for assistant in assistants}
 
-    # ===================== 内部工具方法 =====================
-
-    def _deep_merge(self, base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    def add_plugin_config_to_assistant(self, assistant_id: str, plugin_name: str) -> None:
         """
-        简单的深度合并：
-        - 当 base[k] 与 patch[k] 都是 dict 时，递归合并
-        - 其它情况（包括 list、标量），以 patch 覆盖 base
-        注意：list 的合并策略这里是“覆盖”，如需更复杂的行为请自行扩展
-        """
-        if not isinstance(base, dict) or not isinstance(patch, dict):
-            return patch
+        Creates and adds a default configuration for a new plugin to a specific assistant.
 
-        result = dict(base)  # 复制一份，避免就地修改传入对象
-        for k, v in patch.items():
-            if k in result and isinstance(result[k], dict) and isinstance(v, dict):
-                result[k] = self._deep_merge(result[k], v)
-            else:
-                result[k] = v
-        return result
+        Args:
+            assistant_id: The unique ID of the assistant to modify.
+            plugin_name: The name of the plugin to add (must match a registered plugin).
+
+        Raises:
+            ValueError: If the plugin is not found or is already configured for the assistant.
+            AssistantNotFoundError: If the assistant with the given ID is not found.
+        """
+        plugin_manager = get_plugin_manager()
+
+        # 1. Get the plugin's definition (manifest) to ensure it exists.
+        plugin_manifest = plugin_manager.get_plugin_mainifest(plugin_name)
+        if not plugin_manifest:
+            raise ValueError(f"Plugin '{plugin_name}' is not registered or could not be found.")
+
+        with self._lock:
+            # 2. Find the target assistant in the current settings.
+            target_assistant = None
+            for assistant in self._settings.assistants:
+                if assistant.id == assistant_id:
+                    target_assistant = assistant
+                    break
+
+            if not target_assistant:
+                raise AssistantNotFoundError(f"Assistant with ID '{assistant_id}' not found.")
+
+            # 3. Check if the plugin is already configured for this assistant.
+            for existing_plugin in target_assistant.plugins:
+                if existing_plugin.name == plugin_name:
+                    raise ValueError(f"Plugin '{plugin_name}' is already configured for assistant '{target_assistant.name}'.")
+
+            # 4. Create a default PluginUserConfig for the new plugin.
+            #    This serves as the initial configuration block.
+            new_plugin_config = PluginUserConfig(
+                name=plugin_name,  # The instance name defaults to the plugin name
+                plugin_name=plugin_name,  # Links to the manifest
+                enabled=True,
+                tools_default_enabled=True,  # A sensible default
+                config={},  # Starts with no user-defined values
+                tools=[],  # Starts with no tool overrides
+            )
+
+            # 5. Add the new plugin configuration to the assistant.
+            target_assistant.plugins.append(new_plugin_config)
+
+            # 6. Save the changes back to the config file.
+            self.save_config()
+            logger.success(f"Successfully added plugin '{plugin_name}' to assistant '{target_assistant.name}'.")
+
+    def remove_plugin_from_assistant(self, assistant_id: str, plugin_name: str) -> None:
+        """
+        Removes a plugin configuration from a specific assistant.
+
+        Args:
+            assistant_id: The unique ID of the assistant to modify.
+            plugin_name: The name of the plugin instance to remove.
+
+        Raises:
+            ValueError: If the plugin is not found in the assistant's configuration.
+            AssistantNotFoundError: If the assistant with the given ID is not found.
+        """
+        with self._lock:
+            # 1. Find the target assistant.
+            target_assistant = None
+            for assistant in self._settings.assistants:
+                if assistant.id == assistant_id:
+                    target_assistant = assistant
+                    break
+
+            if not target_assistant:
+                raise AssistantNotFoundError(f"Assistant with ID '{assistant_id}' not found.")
+
+            # 2. Find the plugin to remove in the assistant's plugin list.
+            plugin_to_remove = None
+            for p_config in target_assistant.plugins:
+                if p_config.name == plugin_name:
+                    plugin_to_remove = p_config
+                    break
+
+            if not plugin_to_remove:
+                raise ValueError(f"Plugin '{plugin_name}' is not configured for assistant '{target_assistant.name}' and cannot be removed.")
+
+            # 3. Remove the plugin and save.
+            target_assistant.plugins.remove(plugin_to_remove)
+            self.save_config()
+            logger.success(f"Successfully removed plugin '{plugin_name}' from assistant '{target_assistant.name}'.")
 
 
 config_manager = None

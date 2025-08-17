@@ -2,8 +2,9 @@ import json
 
 from fastapi import FastAPI, HTTPException, Response
 
-from ..backend.resource_manager import get_resource_manager
-from .admin.config.server import router as admin_config_router
+from dingent.core.resource_manager import get_resource_manager
+
+from .config_routes import router as admin_config_router
 
 assistant_id = "agent"
 

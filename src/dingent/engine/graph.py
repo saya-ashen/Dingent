@@ -15,9 +15,7 @@ from langgraph_swarm import create_swarm
 from langgraph_swarm.swarm import SwarmState
 from pydantic import BaseModel, Field
 
-from .assistant import get_assistant_manager
-from .config_manager import get_config_manager
-from .llm_manager import get_llm_manager
+from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
@@ -199,27 +197,24 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
 
 @asynccontextmanager
 async def create_assistant_graphs(llm):
-    """
-    Creates assistants by first concurrently gathering all server details
-    and then concurrently building each assistant.
-    """
-
-    # TODO: Add Gabriel Assistant
     assistant_graphs: dict[str, CompiledStateGraph] = {}
     assistants = await assistant_manager.get_assistants()
-    for name, assistant in assistants.items():
-        async with AsyncExitStack() as stack:
+
+    async with AsyncExitStack() as stack:
+        for assistant in assistants.values():
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]
+            filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not getattr(tool, "name", "").startswith("__")]
             graph = create_react_agent(
                 model=llm,
                 tools=filtered_tools,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
-                name=f"{name}",
+                name=f"{assistant.name}",
             )
             assistant_graphs[assistant.name] = graph
-            yield assistant_graphs
+
+        # 只 yield 一次，退出时统一清理
+        yield assistant_graphs
 
 
 class ConfigSchema(TypedDict):
@@ -229,12 +224,13 @@ class ConfigSchema(TypedDict):
 
 
 @asynccontextmanager
-async def make_graph(config):
-    default_active_agent = config.get("configurable", {}).get("default_agent") or config_manager.config.default_assistant
-    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
-    if not model_config:
-        model_config = config_manager.config.llm
+async def make_graph():
+    config = config_manager.get_config()
+    default_active_agent = config.default_assistant
+    model_config = config.llm.model_dump()
     llm = llm_manager.get_llm(**model_config)
+
+    # 打开所有助手工具的会话
     async with create_assistant_graphs(llm) as assistants:
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
@@ -250,4 +246,10 @@ async def make_graph(config):
         )
         graph = swarm.compile()
         graph.name = "Agent"
+
+        # 让 langgraph dev 使用这个 graph；退出 dev 时会回到这里继续执行清理
         yield graph
+
+    # 到这里时，create_assistant_graphs 的 AsyncExitStack 已经完成关闭 MCP 客户端/会话
+    # 再做兜底清理，确保残留子进程/端口释放
+    await assistant_manager.aclose()

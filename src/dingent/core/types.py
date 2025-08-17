@@ -71,37 +71,19 @@ class ToolConfigModel(BaseModel):
     schema_path: FilePath = Field(..., description="指向一个包含用户配置Pydantic类的Python文件")
 
 
-def export_settings_to_env_dict(settings: BaseModel) -> dict[str, str]:
-    """
-    export settings to a flat dictionary suitable for environment variables.
-    """
-    # 获取配置元信息
-    config = settings.model_config
-    prefix = config.get("env_prefix", "")
-    delimiter = config.get("env_nested_delimiter") or "__"
+class TablePayload(BaseModel):
+    type: Literal["table"] = "table"
+    columns: list[str]
+    rows: list[dict]
+    title: str = ""
 
-    # 使用 model_dump 获取原始数据字典
-    data = settings.model_dump()
 
-    env_vars = {}
+class MarkdownPayload(BaseModel):
+    type: Literal["markdown"] = "markdown"
+    content: str
 
-    def flatten_dict(d: dict, current_prefix: str = ""):
-        for key, value in d.items():
-            # 构建环境变量的键
-            new_key = (current_prefix + key).upper()
-            if isinstance(value, dict):
-                # 如果是嵌套字典，递归处理
-                flatten_dict(value, current_prefix=f"{new_key}{delimiter}")
-            elif isinstance(value, list | tuple):
-                # Pydantic v2 默认将列表/元组转为 JSON 字符串
-                # 这也是环境变量传递复杂结构的常用方式
-                env_vars[new_key] = str(value)
-            elif isinstance(value, bool):
-                # 将布尔值转为小写的 'true'/'false'
-                env_vars[new_key] = str(value).lower()
-            else:
-                # 其他类型直接转为字符串
-                env_vars[new_key] = str(value)
 
-    flatten_dict(data, current_prefix=prefix)
-    return env_vars
+class ToolOutput(BaseModel):
+    payloads: list[TablePayload | MarkdownPayload]
+
+    metadata: dict = {}

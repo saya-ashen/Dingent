@@ -4,39 +4,54 @@ from typing import Any, Literal
 
 import toml
 from fastmcp import Client, FastMCP
-from fastmcp.client import UvStdioTransport
+from fastmcp.client import StreamableHttpTransport, UvStdioTransport
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import Tool
 from loguru import logger
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
-from dingent.engine.backend.resource_manager import get_resource_manager
-from dingent.engine.backend.types import ToolOutput
-from dingent.utils import find_project_root
-
-from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig
+from .resource_manager import get_resource_manager
+from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig, ToolOutput
+from .utils import find_project_root
 
 
 class ResourceMiddleware(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         resource_manager = get_resource_manager()
         result = await call_next(context)
+
         assert context.fastmcp_context
-        tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
-        if not result.structured_content or not tool.output_schema:
+        # tool = await context.fastmcp_context.fastmcp.get_tool(context.message.name)
+
+        def pack(text: str) -> dict:
+            payload = {"type": "markdown", "content": text}
+            tool_output = ToolOutput(payloads=[payload])
+            tool_output_id = resource_manager.register(tool_output)
+            return {"context": text, "tool_output_id": tool_output_id}
+
+        text = result.content[0].text if result.content and result.content[0].text else ""
+        sc = result.structured_content
+        if not sc and text:
             try:
-                structured_content = json.loads(result.content[0].text)
-                result.structured_content = structured_content
+                sc = json.loads(text)
             except Exception as e:
                 logger.warning(f"Failed to parse structured content: {e}")
-                return result
-        if {"context", "tool_outputs"}.issubset(result.structured_content.keys()):
-            tool_output_dict = result.structured_content["tool_outputs"]
-            tool_output = ToolOutput(**tool_output_dict)
-            result.structured_content.pop("tool_outputs")
+                sc = None
+
+        # 有输出 schema：若包含 context + tool_outputs，注册并替换为 tool_output_id
+        if isinstance(sc, dict) and {"context", "tool_outputs"}.issubset(sc.keys()):
+            tool_output = ToolOutput(**sc["tool_outputs"])
             tool_output_id = resource_manager.register(tool_output)
-            result.structured_content["tool_output_id"] = tool_output_id
-            result.content[0].text = json.dumps(result.structured_content)
+            sc = {**sc}
+            sc.pop("tool_outputs", None)
+            sc["tool_output_id"] = tool_output_id
+            result.structured_content = sc
+            result.content[0].text = json.dumps(sc)
+            return result
+
+        # 其他情况统一回退为默认打包（即使 text 为空，也与原逻辑在有 schema 分支一致）
+        result.structured_content = pack(text)
+        result.content[0].text = json.dumps(result.structured_content)
         return result
 
 
@@ -161,14 +176,17 @@ class PluginInstance:
                 env = _prepare_environment(validated_model)
 
             except ValidationError as e:
-                # 如果配置验证失败，抛出更详细的错误
-                raise ValueError(f"Configuration validation failed for plugin '{manifest.name}':\n{e}")
+                logger.error(f"Validation error for plugin '{manifest.name}': {e}")
 
         # 1. 执行原有的同步初始化逻辑来创建 mcp_client
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None
             # proxy_client = ProxyClient(manifest.execution.url)
-            remote_proxy = FastMCP.as_proxy(manifest.execution.url)
+            transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
+            async with Client(transport) as client:
+                await client.ping()
+
+            remote_proxy = FastMCP.as_proxy(transport)
         else:
             assert manifest.execution.script_path
             module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
@@ -355,6 +373,18 @@ class PluginManager:
             raise ValueError(f"Plugin '{plugin_name}' is not registered or failed to load.")
         plugin_definition = self.plugins[plugin_name]
         return await plugin_definition.create_instance(instance_settings)
+
+    def get_plugin_mainifest(self, plugin_name: str) -> PluginManifest | None:
+        """
+        获取指定插件的 Manifest。
+        """
+        return self.plugins.get(plugin_name)
+
+    def remove_plugin(self, plugin_name):
+        if plugin_name in self.plugins:
+            logger.error(f"Plugin '{self.plugins[plugin_name].path}' removed from PluginManager.")
+        else:
+            logger.warning(f"Plugin '{plugin_name}' not found in PluginManager.")
 
 
 plugin_manager = None
