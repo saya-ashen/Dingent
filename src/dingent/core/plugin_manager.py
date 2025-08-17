@@ -128,6 +128,7 @@ class PluginInstance:
     name: str
     config: dict[str, Any] | None = None
     manifest: "PluginManifest"
+    _transport: StreamableHttpTransport | UvStdioTransport | None = None
     _mcp: FastMCP
     _status: Literal["active", "inactive", "error"] = "inactive"
 
@@ -139,6 +140,7 @@ class PluginInstance:
         status: Literal["active", "inactive", "error"],
         manifest: "PluginManifest",
         config: dict[str, Any] | None = None,
+        transport=None,
     ):
         self.name = name
         self.mcp_client = mcp_client
@@ -146,6 +148,7 @@ class PluginInstance:
         self._status = status
         self.config = config
         self.manifest = manifest
+        self._transport = transport
 
     @classmethod
     async def from_config(
@@ -235,9 +238,14 @@ class PluginInstance:
             # base_tool.disable()
         mcp_client = Client(mcp)
 
-        instance = cls(name=user_config.name, mcp_client=mcp_client, mcp=mcp, status=_status, config=validated_config_dict, manifest=manifest)
+        instance = cls(name=user_config.name, mcp_client=mcp_client, mcp=mcp, status=_status, config=validated_config_dict, manifest=manifest, transport=transport)
 
         return instance
+
+    async def aclose(self):
+        if self._transport:
+            await self._transport.close()
+        await self.mcp_client.close()
 
     @property
     def status(self):

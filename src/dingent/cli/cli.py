@@ -337,67 +337,73 @@ class ServiceRunner:
             self._flush_log_queue()
             time.sleep(0.1)
 
+    # 用下面这个版本替换 ServiceRunner._shutdown_services 函数
     def _shutdown_services(self):
-        """Terminates all running child processes (entire process groups)."""
+        """Terminates all running child processes (entire process groups/sessions)."""
         print("\n[bold yellow]🛑 Shutting down all services...[/bold yellow]")
         if not self.processes:
             print("   No services were running.")
             return
 
+        is_windows = os.name == "nt"
+        graceful_timeout = 10  # 适当延长优雅退出时间，给 dev server/bundler 清理
+
         for name, proc in reversed(self.processes):
-            if proc.poll() is None:
-                print(f"   -> Stopping {name} (PID: {proc.pid})...", end="")
+            if proc.poll() is not None:
+                continue
 
-                try:
-                    if os.name == "posix":
-                        # Graceful -> Terminate -> Kill (process group)
+            print(f"   -> Stopping {name} (PID: {proc.pid})...", end="")
+            try:
+                if is_windows:
+                    # 优先尝试向进程组发送 CTRL_BREAK_EVENT（需要 CREATE_NEW_PROCESS_GROUP）
+                    try:
+                        proc.send_signal(signal.CTRL_BREAK_EVENT)
+                    except Exception:
+                        # 某些情况下进程不是控制台进程或无法接收事件
+                        pass
+
+                    try:
+                        proc.wait(timeout=graceful_timeout)
+                        print("[green] Done.[/green]")
+                        continue
+                    except subprocess.TimeoutExpired:
+                        # 使用 taskkill 递归杀死整个进程树
                         try:
-                            os.killpg(proc.pid, signal.SIGINT)
+                            subprocess.run(
+                                ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                                check=False,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL,
+                            )
                             proc.wait(timeout=5)
-                            print("[green] Done (SIGINT).[/green]")
-                            continue
-                        except subprocess.TimeoutExpired:
-                            pass
-
-                        try:
-                            os.killpg(proc.pid, signal.SIGTERM)
-                            proc.wait(timeout=3)
-                            print("[green] Done (SIGTERM).[/green]")
-                            continue
-                        except subprocess.TimeoutExpired:
-                            pass
-
-                        os.killpg(proc.pid, signal.SIGKILL)
-                        proc.wait(timeout=2)
-                        print("[yellow] Force-killed (SIGKILL).[/yellow]")
-
-                    else:
-                        # Windows: try CTRL_BREAK_EVENT for the process group
-                        sent_break = False
-                        try:
-                            proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
-                            sent_break = True
-                            proc.wait(timeout=5)
-                            print("[green] Done (CTRL_BREAK).[/green]")
-                            continue
+                            print("[yellow] Force-killed (tree).[/yellow]")
                         except Exception:
-                            # Fall back if CTRL_BREAK not supported
-                            pass
+                            # 兜底
+                            proc.kill()
+                            print("[yellow] Force-killed.[/yellow]")
+                else:
+                    # POSIX: 以新会话启动后，可用进程组信号终止所有后代
+                    try:
+                        pgid = os.getpgid(proc.pid)
+                        os.killpg(pgid, signal.SIGTERM)
+                    except Exception:
+                        # 回落到单进程 terminate
+                        proc.terminate()
 
+                    try:
+                        proc.wait(timeout=graceful_timeout)
+                        print("[green] Done.[/green]")
+                    except subprocess.TimeoutExpired:
                         try:
-                            proc.terminate()
-                            proc.wait(timeout=3)
-                            print("[green] Done (terminate).[/green]" if not sent_break else "")
-                            continue
-                        except subprocess.TimeoutExpired:
-                            pass
-
-                        proc.kill()
-                        proc.wait(timeout=2)
-                        print("[yellow] Force-killed.[/yellow]")
-
-                except Exception as e:
-                    print(f"[bold red] Error stopping {name}: {e}[/bold red]")
+                            pgid = os.getpgid(proc.pid)
+                            os.killpg(pgid, signal.SIGKILL)
+                            proc.wait(timeout=5)
+                            print("[yellow] Force-killed (group).[/yellow]")
+                        except Exception:
+                            proc.kill()
+                            print("[yellow] Force-killed.[/yellow]")
+            except Exception as e:
+                print(f"[red] Error during shutdown: {e}[/red]")
 
         self.processes = []
         print("\n✨ All services have been shut down. Goodbye!")

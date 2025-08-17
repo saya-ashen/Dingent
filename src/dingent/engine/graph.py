@@ -213,7 +213,6 @@ async def create_assistant_graphs(llm):
             )
             assistant_graphs[assistant.name] = graph
 
-        # 只 yield 一次，退出时统一清理
         yield assistant_graphs
 
 
@@ -247,9 +246,4 @@ async def make_graph():
         graph = swarm.compile()
         graph.name = "Agent"
 
-        # 让 langgraph dev 使用这个 graph；退出 dev 时会回到这里继续执行清理
         yield graph
-
-    # 到这里时，create_assistant_graphs 的 AsyncExitStack 已经完成关闭 MCP 客户端/会话
-    # 再做兜底清理，确保残留子进程/端口释放
-    await assistant_manager.aclose()

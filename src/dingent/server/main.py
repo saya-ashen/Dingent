@@ -1,7 +1,9 @@
 import json
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Response
 
+from dingent.core.assistant_manager import get_assistant_manager
 from dingent.core.resource_manager import get_resource_manager
 
 from .config_routes import router as admin_config_router
@@ -9,7 +11,28 @@ from .config_routes import router as admin_config_router
 assistant_id = "agent"
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    FastAPI 应用的生命周期管理器。
+    在应用启动时执行 yield 之前的代码。
+    在应用关闭时执行 yield 之后的代码。
+    """
+    print(f"--- Application Startup ---\n{app.summary}")
+
+    assistant_manager = get_assistant_manager()
+
+    print("Plugins would be initialized here if needed.")
+
+    yield
+
+    print("--- Application Shutdown ---")
+    await assistant_manager.aclose()
+    print("All plugin subprocesses have been shut down.")
+
+
 def build_agent_api(**kwargs) -> FastAPI:
+    kwargs["lifespan"] = lifespan
     app = FastAPI(**kwargs)
     app.include_router(admin_config_router)
 

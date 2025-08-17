@@ -78,7 +78,7 @@ class Assistant:
 
     async def aclose(self):
         for instance in self.plugin_instances.values():
-            await _shutdown_plugin_instance(instance)
+            await instance.aclose()
 
 
 class AssistantManager:
@@ -87,9 +87,6 @@ class AssistantManager:
 
     def __init__(self):
         self._assistants_settings = config_manager.get_all_assistants_config()
-
-    # def list_assistants(self) -> dict[str, Assistant]:
-    #     return self._assistants
 
     async def get_assistant(self, id: str):
         if id in self._assistants:
@@ -115,19 +112,12 @@ class AssistantManager:
         self._assistants.clear()
 
     async def aclose(self):
-        # 逐个 Assistant 做清理
         for assistant in self._assistants.values():
             try:
                 await assistant.aclose()
             except Exception as e:
                 logger.warning("Error closing assistant %s: %s", getattr(assistant, "name", "?"), e)
         self._assistants.clear()
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        await self.aclose()
 
 
 _assistant_manager = None
