@@ -105,10 +105,8 @@ class AssistantManager:
         return self._assistants
 
     async def rebuild(self):
+        await self.aclose()
         self._assistants_settings = config_manager.get_all_assistants_config()
-        for assistant in self._assistants.values():
-            for instance in assistant.plugin_instances.values():
-                await instance.mcp_client.close()
         self._assistants.clear()
 
     async def aclose(self):

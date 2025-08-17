@@ -46,7 +46,6 @@ async def _build_plugin_admin_detail(plugin_config: PluginUserConfig, plugin_ins
     tools_details = []
     plugin_status = plugin_instance.status
     tool_instances = await plugin_instance.list_tools()
-    tool_instances = {}
     tools_details = [ToolAdminDetail(name=name, description=tool.description or "No description", enabled=tool.enabled) for name, tool in tool_instances.items()]
 
     config_details = plugin_instance.get_config_details()
