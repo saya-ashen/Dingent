@@ -70,7 +70,7 @@ async def _build_assistant_admin_detail(assistant_config: AssistantSettings, run
                 plugin_detail = await _build_plugin_admin_detail(plugin_config, plugin_instance)
             else:
                 config_details = []
-                plugin_mainifest = plugin_manager.get_plugin_mainifest(plugin_config.name)
+                plugin_mainifest = plugin_manager.get_plugin_manifest(plugin_config.name)
                 assert plugin_mainifest
                 config = plugin_config.config or {}
                 for schema_item in plugin_mainifest.config_schema or []:
