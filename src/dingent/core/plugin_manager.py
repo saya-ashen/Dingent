@@ -382,7 +382,7 @@ class PluginManager:
         plugin_definition = self.plugins[plugin_name]
         return await plugin_definition.create_instance(instance_settings)
 
-    def get_plugin_mainifest(self, plugin_name: str) -> PluginManifest | None:
+    def get_plugin_manifest(self, plugin_name: str) -> PluginManifest | None:
         """
         获取指定插件的 Manifest。
         """
