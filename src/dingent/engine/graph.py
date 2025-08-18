@@ -15,13 +15,12 @@ from langgraph_swarm import create_swarm
 from langgraph_swarm.swarm import SwarmState
 from pydantic import BaseModel, Field
 
-from .assistant import get_assistant_manager
-from .llm_manager import get_llm_manager
-from .settings import get_settings
+from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
 tool_call_events_queue = Queue()
+config_manager = get_config_manager()
 
 
 client_resource_id_map: dict[str, str] = {}
@@ -39,7 +38,7 @@ def call_actions(state, list_of_args: list[dict]):
     actions = state.get("copilotkit", {}).get("actions", [])
     show_data_action = None
     for action in actions:
-        if action["name"] == "show_data":
+        if action["type"] == "function" and action["function"]["name"] == "show_data":
             show_data_action = action
     if show_data_action is None:
         return []
@@ -174,7 +173,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         response_raw = await _tool.ainvoke(kwargs)
         try:
             response = json.loads(response_raw)
-            if {"context", "tool_outputs"}.issubset(response.keys()):
+            if isinstance(response, dict) and {"context", "tool_output_id"}.issubset(response.keys()):
                 context = response.get("context", response_raw)
                 tool_output_id = response.get("tool_output_id")
                 if tool_output_id:
@@ -186,6 +185,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
                 messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
         except json.JSONDecodeError:
             response = {"context": response_raw}
+            messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
         return Command(
             update={
                 "messages": messages,
@@ -197,26 +197,23 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
 
 @asynccontextmanager
 async def create_assistant_graphs(llm):
-    """
-    Creates assistants by first concurrently gathering all server details
-    and then concurrently building each assistant.
-    """
-
-    # TODO: Add Gabriel Assistant
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    for name, assistant in assistant_manager.assistants.items():
-        async with AsyncExitStack() as stack:
+    assistants = await assistant_manager.get_assistants()
+
+    async with AsyncExitStack() as stack:
+        for assistant in assistants.values():
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered_tools = [mcp_tool_wrapper(tool, name) for tool in tools if not tool.name.startswith("__")]
+            filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not getattr(tool, "name", "").startswith("__")]
             graph = create_react_agent(
                 model=llm,
                 tools=filtered_tools,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
-                name=f"{name}",
+                name=f"{assistant.name}",
             )
             assistant_graphs[assistant.name] = graph
-            yield assistant_graphs
+
+        yield assistant_graphs
 
 
 class ConfigSchema(TypedDict):
@@ -226,13 +223,13 @@ class ConfigSchema(TypedDict):
 
 
 @asynccontextmanager
-async def make_graph(config):
-    settings = get_settings()
-    default_active_agent = config.get("configurable", {}).get("default_agent") or settings.default_assistant
-    model_config = config.get("configurable", {}).get("llm_config") or config.get("configurable", {}).get("model_config")
-    if not model_config:
-        model_config = settings.llm
+async def make_graph():
+    config = config_manager.get_config()
+    default_active_agent = config.default_assistant
+    model_config = config.llm.model_dump()
     llm = llm_manager.get_llm(**model_config)
+
+    # 打开所有助手工具的会话
     async with create_assistant_graphs(llm) as assistants:
         if not default_active_agent:
             print("No default active agent specified, using the first available assistant.")
@@ -248,4 +245,5 @@ async def make_graph(config):
         )
         graph = swarm.compile()
         graph.name = "Agent"
+
         yield graph

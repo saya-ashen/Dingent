@@ -31,6 +31,9 @@ dependencies = [
     "langgraph-cli[inmem]>=0.1.73",
     "langgraph-swarm>=0.0.12",
     "numpy>=2.3.0",
+    "tomlkit>=0.13.3",
+    "streamlit>=1.48.1",
+    "streamlit-extras>=0.7.6",
 ]
 dev = [
     "ipython>=9.4.0",
