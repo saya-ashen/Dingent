@@ -1,0 +1,235 @@
+import asyncio
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from dingent.core import Assistant, AssistantSettings, get_assistant_manager, get_config_manager, get_plugin_manager
+from dingent.core.plugin_manager import PluginManifest
+from dingent.core.types import ConfigItemDetail, PluginUserConfig
+
+router = APIRouter()
+config_manager = get_config_manager()
+assistant_manager = get_assistant_manager()
+plugin_manager = get_plugin_manager()
+
+
+class ToolAdminDetail(BaseModel):
+    name: str
+    description: str
+    enabled: bool
+
+
+class PluginAdminDetail(PluginUserConfig):
+    # 增加 tools 字段来存放工具的详细信息
+    tools: list[ToolAdminDetail] = Field(default_factory=list, description="该插件的工具列表")
+    status: str = Field(..., description="运行状态 (e.g., 'active', 'inactive', 'error')")
+    config: list[ConfigItemDetail] = []
+
+
+class AssistantAdminDetail(AssistantSettings):
+    status: str = Field(..., description="运行状态 (e.g., 'active', 'inactive', 'error')")
+    # plugins 字段的类型应为优化后的 PluginAdminDetail
+    plugins: list[PluginAdminDetail] = Field(..., description="该助手的插件配置")
+
+
+class AppAdminDetail(BaseModel):
+    default_assistant: str | None = None
+    llm: dict[str, Any]
+    assistants: list[AssistantAdminDetail]
+
+
+# --- 1. 辅助函数：处理单个插件 ---
+async def _build_plugin_admin_detail(plugin_config: PluginUserConfig, plugin_instance):
+    """根据插件配置和其所属的助手实例，构建带有状态的插件详情。"""
+
+    tools_details = []
+    plugin_status = plugin_instance.status
+    tool_instances = await plugin_instance.list_tools()
+    tools_details = [ToolAdminDetail(name=name, description=tool.description or "No description", enabled=tool.enabled) for name, tool in tool_instances.items()]
+
+    config_details = plugin_instance.get_config_details()
+
+    plugin_admin_detail_dict = plugin_config.model_dump()
+    plugin_admin_detail_dict.update(status=plugin_status, tools=tools_details, config=config_details)
+    return PluginAdminDetail(**plugin_admin_detail_dict)
+
+
+# --- 2. 辅助函数：处理单个助手 ---
+async def _build_assistant_admin_detail(assistant_config: AssistantSettings, running_assistants: dict[str, Assistant]):
+    """根据助手配置和所有正在运行的助手实例，构建带有状态的助手详情。"""
+
+    assistant_instance = running_assistants.get(assistant_config.id)
+    assistant_status = "active" if assistant_instance else "inactive"
+
+    plugin_details = []
+    if assistant_instance:
+        for plugin_config in assistant_config.plugins:
+            plugin_instance = assistant_instance.plugin_instances.get(plugin_config.name)
+            if plugin_instance:
+                plugin_detail = await _build_plugin_admin_detail(plugin_config, plugin_instance)
+            else:
+                config_details = []
+                plugin_mainifest = plugin_manager.get_plugin_manifest(plugin_config.name)
+                assert plugin_mainifest
+                config = plugin_config.config or {}
+                for schema_item in plugin_mainifest.config_schema or []:
+                    current_value = config.get(schema_item.name)
+
+                    # For secrets, we should not expose the actual value.
+                    # We can return a placeholder or just indicate that it's set.
+                    # Here, we return a placeholder if the value is set.
+                    is_secret = getattr(schema_item, "secret", False)
+                    if is_secret and current_value is not None:
+                        display_value = "********"  # Placeholder for secrets
+                    else:
+                        display_value = current_value
+
+                    item_detail = ConfigItemDetail(
+                        name=schema_item.name,
+                        type=schema_item.type,
+                        description=schema_item.description,
+                        required=schema_item.required,
+                        secret=is_secret,
+                        default=schema_item.default,
+                        value=display_value,  # Use the placeholder-aware value
+                    )
+                    config_details.append(item_detail)
+                plugin_detail = PluginAdminDetail(**plugin_config.model_dump(exclude=["tools", "config"]), config=config_details, status="inactive")
+            plugin_details.append(plugin_detail)
+
+    assistant_admin_detail_dict = assistant_config.model_dump()
+
+    assistant_admin_detail_dict.update(status=assistant_status, plugins=plugin_details)
+    return AssistantAdminDetail(**assistant_admin_detail_dict)
+
+
+@router.get("/config/settings", response_model=AppAdminDetail)
+async def get_app_settings():
+    """
+    获取应用的核心配置（不包括助手列表）。
+    """
+    app_config = config_manager.get_config()
+    # We return the model but will exclude the 'assistants' part
+    # The response_model will handle filtering if 'assistants' is optional
+    app_settings_dict = app_config.model_dump(exclude={"assistants"})
+    app_settings_dict["assistants"] = []  # Return empty list to satisfy model
+    return AppAdminDetail(**app_settings_dict)
+
+
+@router.post("/config/settings")
+async def update_app_settings(settings: dict):
+    """
+    更新应用的核心配置（例如 LLM 设置）。
+    """
+    # Create a partial config dictionary to update
+    config_to_update = {"llm": settings.get("llm"), "default_assistant": settings.get("default_assistant")}
+
+    config_manager.update_config(config_to_update, True)
+    config_manager.save_config()
+    await assistant_manager.rebuild()  # Rebuild might be needed if LLM settings change
+    return {"status": "ok", "message": "App settings updated successfully."}
+
+
+@router.get("/assistants", response_model=list[AssistantAdminDetail])
+async def get_all_assistants_with_status():
+    """
+    获取所有助手的完整配置列表，并注入实时运行状态。
+    """
+    app_config = config_manager.get_config()
+    running_assistants = await assistant_manager.get_assistants()
+
+    # Concurrently build the details for all assistants
+    assistant_tasks = [_build_assistant_admin_detail(a_config, running_assistants) for a_config in app_config.assistants]
+    assistant_admin_details = await asyncio.gather(*assistant_tasks)
+
+    return assistant_admin_details
+
+
+@router.post("/assistants")
+async def update_assistants_config(assistants_config: list[dict]):
+    """
+    接收完整的助手列表并更新配置。
+    """
+    # Pre-process the plugin config from the frontend format (list of dicts)
+    # back to the backend format (dict of key-value pairs).
+    for assistant in assistants_config:
+        for plugin in assistant.get("plugins", []):
+            config_list = plugin.get("config")
+
+            if isinstance(config_list, list):
+                simple_config_dict = {item.get("name"): item.get("value") for item in config_list if item.get("name") is not None}
+                plugin["config"] = simple_config_dict
+
+    # Update only the 'assistants' part of the main config
+    config_manager.update_config({"assistants": assistants_config})
+    config_manager.save_config()
+    await assistant_manager.rebuild()
+    return {"status": "ok", "message": "Assistants configuration updated successfully."}
+
+
+@router.get("/plugins/list", response_model=list[PluginManifest])
+async def list_available_plugins():
+    """
+    Scans the plugin directory and returns a list of all valid plugin manifests.
+    """
+    plugin_manager = get_plugin_manager()
+    # PluginManager stores plugins in a dict, so we return the values
+    return list(plugin_manager.list_plugins().values())
+
+
+class RemovePluginRequest(BaseModel):
+    plugin_name: str
+
+
+@router.post("/plugins/remove")
+async def remove_plugin_endpoint(request: RemovePluginRequest):
+    """
+    Removes a plugin's directory and unregisters it from the manager.
+    NOTE: For security, this assumes a simple directory removal.
+          In a production system, you might want more robust checks
+          or a "soft delete" mechanism.
+    """
+    plugin_manager = get_plugin_manager()
+    plugin_name = request.plugin_name
+
+    try:
+        plugin_manager.remove_plugin(plugin_name)
+        return {"status": "success", "message": f"Removal request for '{plugin_name}' processed."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/assistants/{assistant_id}/add_plugin")
+async def add_plugin_to_assistant(assistant_id: str, plugin_name: str):
+    """
+    Adds a plugin to an existing assistant.
+    """
+    assistant = assistant_manager.get_assistant(assistant_id)
+    if not assistant:
+        raise HTTPException(status_code=404, detail=f"Assistant {assistant_id} not found")
+
+    try:
+        config_manager.add_plugin_config_to_assistant(assistant_id, plugin_name)
+        config_manager.save_config()
+        await assistant_manager.rebuild()
+        return {"status": "success", "message": f"Plugin '{plugin_name}' added to assistant '{assistant_id}'."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/assistants/{assistant_id}/remove_plugin")
+async def remove_plugin_from_assistant(assistant_id: str, plugin_name: str):
+    """
+    Removes a plugin configuration from an existing assistant.
+    """
+    try:
+        config_manager.remove_plugin_from_assistant(assistant_id, plugin_name)
+        config_manager.save_config()
+        await assistant_manager.rebuild()
+        return {"status": "success", "message": f"Plugin '{plugin_name}' removed from assistant '{assistant_id}'."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        # Catch-all for other potential errors
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")

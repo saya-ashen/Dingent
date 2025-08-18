@@ -7,7 +7,7 @@ import { CopilotRuntime, LangGraphAgent } from "@copilotkit/runtime";
 const runtime = new CopilotRuntime({
     agents: {
         'sample_agent': new LangGraphAgent({
-            deploymentUrl:process.env.BACKEND_API_URL || 'http://127.0.0.1:2024',
+            deploymentUrl: process.env.DING_BACKEND_URL || 'http://127.0.0.1:2024',
             graphId: 'agent',
         }),
     },
