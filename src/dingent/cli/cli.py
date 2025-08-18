@@ -476,6 +476,7 @@ def run(
     ctx: typer.Context,
 ):
     """Runs the Backend, and Frontend services concurrently."""
+    ctx.obj = CliContext()
     cli_ctx: CliContext = ctx.obj
     env_info = EnvironmentInfo()
     runner = ServiceRunner(env_info, cli_ctx)
@@ -484,6 +485,7 @@ def run(
 
 @plugin_app.command("list")
 def plugin_list(ctx: typer.Context):
+    ctx.obj = CliContext()
     cli_ctx: CliContext = ctx.obj
     if not cli_ctx.is_in_project:
         logger.error("❌ Error: Not inside a dingent project. (Cannot find 'dingent.toml')")
