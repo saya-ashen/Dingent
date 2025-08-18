@@ -74,10 +74,10 @@ class ResourceManager:
         Raises:
             KeyError: If no resource with the given ID is found.
         """
-        if resource_id not in self._resources:
-            raise KeyError(f"No resource found with ID '{resource_id}'. It might have been evicted or never existed.")
 
-        resource = self._resources[resource_id]
+        resource = self._resources.get(resource_id)
+        if not resource:
+            return resource
         if format == "json":
             return resource.model_dump()
         else:
