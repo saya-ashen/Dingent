@@ -4,7 +4,7 @@ import streamlit as st
 
 
 def inject_base_css():
-    """注入基础样式，统一控件尺寸和间距，提升可用性。"""
+    """Inject base styles to unify control sizes and spacing, improving usability."""
     st.markdown(
         """
 <style>
@@ -15,7 +15,7 @@ def inject_base_css():
   --btn-radius: 8px;
   --btn-line-height: 1.1rem;
 
-  /* 状态徽章颜色（浅色主题） */
+  /* Status badge colors (light theme) */
   --status-ok-bg: #e6f4ea;
   --status-ok-fg: #137333;
   --status-warn-bg: #fff4e5;
@@ -30,7 +30,7 @@ def inject_base_css():
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* 状态徽章颜色（深色主题） */
+    /* Status badge colors (dark theme) */
     --status-ok-bg: rgba(52, 168, 83, 0.15);
     --status-ok-fg: #7bd88f;
     --status-warn-bg: rgba(251, 140, 0, 0.18);
@@ -72,7 +72,7 @@ div[data-testid="stButton"] > button:active {
   font-size: 0.95rem;
 }
 
-/* 放大 help 问号图标并增大点击区域 */
+/* Enlarge help icon and increase clickable area */
 [data-testid="stTooltipIcon"] {
   margin-left: 6px;
   padding: 2px;
@@ -84,7 +84,7 @@ div[data-testid="stButton"] > button:active {
   height: 1rem;
 }
 
-/* 状态徽章样式 */
+/* Status badge styles */
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -138,7 +138,7 @@ div[data-testid="stButton"] > button:active {
 
 
 def bordered_container():
-    """兼容不同版本 Streamlit 的带边框容器。"""
+    """Bordered container compatible with different Streamlit versions."""
     try:
         sig = inspect.signature(st.container)
         if "border" in sig.parameters:
@@ -149,16 +149,16 @@ def bordered_container():
 
 
 def _has_dialog() -> bool:
-    """检测当前 Streamlit 版本是否支持 st.dialog。"""
+    """Detect whether the current Streamlit version supports st.dialog."""
     return hasattr(st, "dialog")
 
 
-def render_confirm_dialog(state_key: str, title: str, message: str, confirm_text: str = "确认", cancel_text: str = "取消"):
+def render_confirm_dialog(state_key: str, title: str, message: str, confirm_text: str = "Confirm", cancel_text: str = "Cancel"):
     """
-    渲染一个确认对话框。
-    - 使用 st.dialog（如可用）以模态方式显示；
-    - 否则回退为页面内的警告块与确认/取消按钮。
-    点击按钮会设置 st.session_state[state_key]["result"] 为 "confirmed"/"cancelled"，并关闭对话框。
+    Render a confirmation dialog.
+    - Use st.dialog (if available) to display modally;
+    - Otherwise fall back to an inline warning block with Confirm/Cancel buttons.
+    Clicking the buttons sets st.session_state[state_key]["result"] to "confirmed"/"cancelled" and closes the dialog.
     """
     if _has_dialog():
 

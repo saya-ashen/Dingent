@@ -21,14 +21,19 @@ async def lifespan(app: FastAPI):
     print(f"--- Application Startup ---\n{app.summary}")
 
     assistant_manager = get_assistant_manager()
+    await assistant_manager.get_assistants()
 
     print("Plugins would be initialized here if needed.")
 
-    yield
-
-    print("--- Application Shutdown ---")
-    await assistant_manager.aclose()
-    print("All plugin subprocesses have been shut down.")
+    try:
+        yield
+    finally:
+        print("--- Application Shutdown ---")
+        try:
+            await assistant_manager.aclose()
+        except Exception as e:
+            print(f"Error during assistant_manager.aclose(): {e}")
+        print("All plugin subprocesses have been shut down.")
 
 
 def build_agent_api(**kwargs) -> FastAPI:

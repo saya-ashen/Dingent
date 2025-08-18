@@ -40,7 +40,7 @@ class ResourceMiddleware(Middleware):
 
         # 有输出 schema：若包含 context + tool_outputs，注册并替换为 tool_output_id
         if isinstance(sc, dict) and {"context", "tool_outputs"}.issubset(sc.keys()):
-            tool_output = ToolOutput(**sc["tool_outputs"])
+            tool_output = ToolOutput(payloads=sc["tool_outputs"])
             tool_output_id = resource_manager.register(tool_output)
             sc = {**sc}
             sc.pop("tool_outputs", None)
@@ -198,7 +198,7 @@ class PluginInstance:
                 module=True,
                 project_directory=manifest.path.as_posix(),
                 env_vars=env,
-                with_packages=manifest.dependencies,
+                # with_packages=manifest.dependencies,
                 python_version=manifest.python_version,
             )
             # client = Client(transport)
@@ -311,14 +311,37 @@ class PluginManifest(BaseModel):
 
     @classmethod
     def from_toml(cls, toml_path: Path) -> "PluginManifest":
-        """Loads a plugin manifest from a toml file."""
+        """
+        Loads a plugin manifest from a toml file, using pyproject.toml as a base
+        if it exists, and giving priority to plugin.toml for any overlapping fields.
+        """
         if not toml_path.is_file():
             raise FileNotFoundError(f"'plugin.toml' not found at '{toml_path}'")
 
+        plugin_dir = toml_path.parent
+        pyproject_toml_path = plugin_dir / "pyproject.toml"
+
+        # 1. Initialize with data from pyproject.toml if it exists
+        base_meta = {}
+        if pyproject_toml_path.is_file():
+            pyproject_data = toml.load(pyproject_toml_path)
+            # We use the standard [project] table from PEP 621
+            project_section = pyproject_data.get("project", {})
+            # We only take the keys that are relevant to PluginManifest
+            valid_keys = cls.model_fields.keys()
+            base_meta = {k: v for k, v in project_section.items() if k in valid_keys}
+
+        # 2. Load the specific plugin.toml data
         plugin_info = toml.load(toml_path)
         plugin_meta = plugin_info.get("plugin", {})
-        manifest = cls(**plugin_meta)
-        manifest._plugin_path = toml_path.parent
+
+        # 3. Merge the two dictionaries.
+        #    Keys in plugin_meta will overwrite keys in base_meta.
+        final_meta = base_meta | plugin_meta
+        
+        # 4. Create the manifest instance
+        manifest = cls(**final_meta)
+        manifest._plugin_path = plugin_dir
         return manifest
 
     async def create_instance(
