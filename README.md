@@ -15,8 +15,18 @@
 </div>
 
 **Dingent** is a lightweight, user-friendly agent framework whose core goal is to simplify the process of creating data-driven applications powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit, with a standout feature of automatic database connectivity. This allows you to quickly link your database with an LLM to build applications capable of intelligent Q\&A, data extraction, and analysis. For other data sources like APIs and local documents, Dingent offers a flexible framework that developers can easily extend by writing custom code.
+### Chat Interface
+| Chat View 1 | Chat View 2 |
+| :---: | :---: |
+| [![Chat Screenshot 1](./assets/Chat1.png)](./assets/Chat1.png) | [![Chat Screenshot 2](./assets/Chat2.png)](./assets/Chat2.png) |
 
-![splash](./assets/splash.png)
+### Dashboard Overview
+| Dashboard - View 1 | Dashboard - View 2 |
+| :---: | :---: |
+| [![Dashboard Screenshot 1](./assets/Dashboard1.png)](./assets/Dashboard1.png) | [![Dashboard Screenshot 2](./assets/Dashboard2.png)](./assets/Dashboard2.png) |
+| **Dashboard - View 3** | **Dashboard - View 4** |
+| [![Dashboard Screenshot 3](./assets/Dashboard3.png)](./assets/Dashboard3.png) | [![Dashboard Screenshot 4](./assets/Dashboard4.png)](./assets/Dashboard4.png) |
+
 ## 🎯 Why Choose Dingent?
 
 When building LLM data applications, developers often spend a significant amount of time on "glue code": connecting to databases, wrapping APIs, setting up frontend-backend communication... These tasks are tedious and repetitive.
@@ -33,6 +43,7 @@ When building LLM data applications, developers often spend a significant amount
 ## ✨ Features
 
 * **One-Click Project Initialization**: Use the `uvx dingent init` command to quickly generate a complete project structure with a frontend, backend, and core logic using templates.
+* **Admin Dashboard**: A web-based configuration management interface built with Streamlit for easy setup and management of assistants, plugins, and settings.
 * **Lightweight and Easy to Use**: A clean design and a gentle learning curve let you focus on business logic rather than tedious configuration.
 * **Specialized for Data Retrieval**: Optimized for scenarios like data Q\&A, extraction, and analysis to provide efficient solutions.
 * **Flexible Data Source Integration**: Easily integrate with various data sources, including APIs, databases, and files (PDF, Markdown, etc.).
@@ -97,13 +108,14 @@ $env:OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxx" # Replace with your OpenAI API Key
 uvx dingent run
 ```
 
-By default, Dingent will start the backend service, automatically loading any available plugins, and open the frontend interface in your browser.
-If the frontend doesn't open automatically, you can manually visit [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000).
+By default, Dingent will start three services: the backend service (automatically loading any available plugins), the frontend interface, and an admin dashboard for configuration management. The frontend will open automatically in your browser at [http://localhost:3000](http://localhost:3000), and the admin dashboard will be available at [http://localhost:8501](http://localhost:8501).
 
 Your project skeleton is now ready\! You can now:
 
-  \* **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
-  \* **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory.   \* **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
+  * **Configure your assistant**: Use the admin dashboard at `http://localhost:8501` to manage plugins, assistants, and LLM settings.
+  * **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
+  * **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory. 
+  * **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
 
 ## 🏛️ Project Architecture
 
@@ -115,6 +127,8 @@ my-awesome-agent/
 ├── 📁 frontend/      # Frontend application (based on CopilotKit)
 └── 📄 README.md      # The project's documentation
 ```
+
+Dingent automatically provides an admin dashboard for configuration management, accessible at `http://localhost:8501` when you run your project.
 
 ### 📦 backend/
 
@@ -141,7 +155,7 @@ my-awesome-agent/
     - `[x]` **Plugin management system**: Automatically loads plugin configurations and manages dependencies.
     - `[ ]` **Plugin CLI:** Install and manage plugins via the command line.
     - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
-    - `[ ]` **Plugin Manager GUI:** A graphical interface to easily manage your plugins.
+    - `[x]` **Plugin Manager GUI:** A graphical interface to easily manage your plugins.
 
   - **💡 3. Core Plugins**
     - `[x]` **Database Plugin:** Connect to mainstream databases.
