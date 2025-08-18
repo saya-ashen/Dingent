@@ -452,16 +452,11 @@ class ServiceRunner:
 
 
 @app.callback()
-def main(ctx: typer.Context):
+def main():
     """
     Dingent Agent Framework CLI
     """
-    cli_context = CliContext()
-
-    if not cli_context.is_in_project:
-        pass
-
-    ctx.obj = cli_context
+    pass
 
 
 @app.command("init")
