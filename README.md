@@ -15,8 +15,18 @@
 </div>
 
 **Dingent** is a lightweight, user-friendly agent framework whose core goal is to simplify the process of creating data-driven applications powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit, with a standout feature of automatic database connectivity. This allows you to quickly link your database with an LLM to build applications capable of intelligent Q\&A, data extraction, and analysis. For other data sources like APIs and local documents, Dingent offers a flexible framework that developers can easily extend by writing custom code.
+### Chat Interface
+| Chat View 1 | Chat View 2 |
+| :---: | :---: |
+| [![Chat Screenshot 1](./assets/Chat1.png)](./assets/Chat1.png) | [![Chat Screenshot 2](./assets/Chat2.png)](./assets/Chat2.png) |
 
-![splash](./assets/splash.png)
+### Dashboard Overview
+| Dashboard - View 1 | Dashboard - View 2 |
+| :---: | :---: |
+| [![Dashboard Screenshot 1](./assets/Dashboard1.png)](./assets/Dashboard1.png) | [![Dashboard Screenshot 2](./assets/Dashboard2.png)](./assets/Dashboard2.png) |
+| **Dashboard - View 3** | **Dashboard - View 4** |
+| [![Dashboard Screenshot 3](./assets/Dashboard3.png)](./assets/Dashboard3.png) | [![Dashboard Screenshot 4](./assets/Dashboard4.png)](./assets/Dashboard4.png) |
+
 ## 🎯 Why Choose Dingent?
 
 When building LLM data applications, developers often spend a significant amount of time on "glue code": connecting to databases, wrapping APIs, setting up frontend-backend communication... These tasks are tedious and repetitive.
@@ -103,8 +113,9 @@ By default, Dingent will start three services: the backend service (automaticall
 Your project skeleton is now ready\! You can now:
 
   * **Configure your assistant**: Use the admin dashboard at `http://localhost:8501` to manage plugins, assistants, and LLM settings.
-  \* **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
-  \* **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory.   \* **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
+  * **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
+  * **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory. 
+  * **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
 
 ## 🏛️ Project Architecture
 
