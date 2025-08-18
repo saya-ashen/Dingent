@@ -29,7 +29,7 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
     if value in (None, "", "None"):
         return default
     # Fix fatal runtime: isinstance doesn't accept union types; use a tuple.
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return bool(value)
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "t", "yes", "y", "on")
