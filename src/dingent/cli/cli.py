@@ -208,7 +208,7 @@ class ServiceRunner:
                     "color": "yellow",
                 },
                 "dashboard": {
-                    "command": ["streamlit", "run", script_full_path, "--server.port", str(cli_ctx.dashboard_port),"--server.headless","true"],
+                    "command": ["streamlit", "run", script_full_path, "--server.port", str(cli_ctx.dashboard_port), "--server.headless", "true"],
                     "env": {"DING_BACKEND_ADMIN_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
                     "cwd": cli_ctx.backend_path,
                     "color": "blue",
@@ -346,7 +346,7 @@ class ServiceRunner:
             return
 
         is_windows = os.name == "nt"
-        graceful_timeout = 120 # 适当延长优雅退出时间，给 dev server/bundler 清理
+        graceful_timeout = 120  # 适当延长优雅退出时间，给 dev server/bundler 清理
 
         for name, proc in reversed(self.processes):
             if proc.poll() is not None:

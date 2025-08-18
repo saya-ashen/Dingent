@@ -338,7 +338,7 @@ class PluginManifest(BaseModel):
         # 3. Merge the two dictionaries.
         #    Keys in plugin_meta will overwrite keys in base_meta.
         final_meta = base_meta | plugin_meta
-        
+
         # 4. Create the manifest instance
         manifest = cls(**final_meta)
         manifest._plugin_path = plugin_dir
