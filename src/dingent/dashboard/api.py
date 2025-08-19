@@ -4,6 +4,8 @@ from typing import Any
 import requests
 import streamlit as st
 
+from dingent.core.log_manager import get_log_manager
+
 # --- Configuration ---
 BACKEND_URL = os.getenv("DING_BACKEND_ADMIN_URL", "http://127.0.0.1:2024")
 HTTP_TIMEOUT = 120  # seconds
@@ -159,4 +161,49 @@ def remove_plugin(plugin_name: str) -> bool:
         return False
     except Exception as e:
         st.error(f"An unknown error occurred while deleting the plugin: {e}")
+        return False
+
+
+# --- Logging API ---
+
+@st.cache_data(ttl=2, show_spinner=False)
+def get_logs(level: str | None = None, 
+             module: str | None = None, 
+             limit: int | None = None,
+             search: str | None = None) -> list[dict[str, Any]]:
+    """Get logs from the log manager for dashboard display."""
+    try:
+        log_manager = get_log_manager()
+        logs = log_manager.get_logs(level=level, module=module, limit=limit, search=search)
+        return [log.to_dict() for log in logs]
+    except Exception as e:
+        st.error(f"Failed to fetch logs: {e}")
+        return []
+
+
+def get_log_statistics() -> dict[str, Any]:
+    """Get logging statistics for dashboard display."""
+    try:
+        log_manager = get_log_manager()
+        return log_manager.get_log_stats()
+    except Exception as e:
+        st.error(f"Failed to fetch log statistics: {e}")
+        return {
+            "total_logs": 0,
+            "by_level": {},
+            "by_module": {},
+            "oldest_timestamp": None,
+            "newest_timestamp": None
+        }
+
+
+def clear_all_logs() -> bool:
+    """Clear all logs from the log manager."""
+    try:
+        log_manager = get_log_manager()
+        log_manager.clear_logs()
+        get_logs.clear()  # Clear Streamlit cache
+        return True
+    except Exception as e:
+        st.error(f"Failed to clear logs: {e}")
         return False
