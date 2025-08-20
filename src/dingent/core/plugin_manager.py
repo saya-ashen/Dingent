@@ -11,6 +11,8 @@ from fastmcp.tools import Tool
 from loguru import logger
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
+from dingent.core.log_manager import log_with_context
+
 from .resource_manager import get_resource_manager
 from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig, ToolOutput
 from .utils import find_project_root
@@ -191,8 +193,9 @@ class PluginInstance:
                 transport = SSETransport(url=manifest.execution.url, headers=env)
             else:
                 transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
-            async with Client(transport) as client:
-                await client.ping()
+
+            # async with Client(transport) as client:
+            #     await client.ping()
 
             remote_proxy = FastMCP.as_proxy(transport)
         else:
@@ -211,8 +214,14 @@ class PluginInstance:
         try:
             await remote_proxy.get_tools()
             _status = "active"
-        except Exception:
+        except Exception as e:
             _status = "error"
+            log_with_context(
+                "error",
+                "Failed to connect to MCP server: {error_msg}",
+                context={"plugin": manifest.name, "error_msg": f"{e}"},
+            )
+
         mcp = FastMCP(name=user_config.name)
         mcp.mount(remote_proxy)
         mcp.add_middleware(middleware)
