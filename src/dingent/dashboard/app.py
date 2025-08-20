@@ -36,7 +36,7 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
         return value
     if value in (None, "", "None"):
         return default
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return bool(value)
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "t", "yes", "y", "on")
@@ -133,8 +133,8 @@ def _to_hashable_df(records: list[dict]) -> pd.DataFrame:
         if x is None or (isinstance(x, float) and pd.isna(x)):
             return x
         if isinstance(x, set):
-            x = sorted(list(x))
-        if isinstance(x, (dict, list, tuple)):
+            x = sorted(x)
+        if isinstance(x, dict | list | tuple):
             try:
                 return json.dumps(x, ensure_ascii=False, sort_keys=True)
             except Exception:
