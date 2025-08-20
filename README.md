@@ -114,7 +114,7 @@ Your project skeleton is now ready\! You can now:
 
   * **Configure your assistant**: Use the admin dashboard at `http://localhost:8501` to manage plugins, assistants, and LLM settings.
   * **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
-  * **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory. 
+  * **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory.
   * **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
 
 ## 🏛️ Project Architecture

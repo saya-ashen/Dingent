@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from dingent.core import Assistant, AssistantSettings, get_assistant_manager, get_config_manager, get_plugin_manager
+from dingent.core.log_manager import get_log_manager
 from dingent.core.plugin_manager import PluginManifest
 from dingent.core.types import ConfigItemDetail, PluginUserConfig
 
@@ -233,3 +234,22 @@ async def remove_plugin_from_assistant(assistant_id: str, plugin_name: str):
     except Exception as e:
         # Catch-all for other potential errors
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+
+@router.post("/app/logs")
+async def logs(level: str | None = None, module: str | None = None, limit: int | None = None, search: str | None = None):
+    try:
+        log_manager = get_log_manager()
+        logs = log_manager.get_logs(level=level, module=module, limit=limit, search=search)
+        return [log.to_dict() for log in logs]
+    except Exception:
+        return []
+
+
+@router.get("/app/log_statistics")
+async def log_statistics():
+    try:
+        log_manager = get_log_manager()
+        return log_manager.get_log_stats()
+    except Exception:
+        raise HTTPException(404)

@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,6 +14,8 @@ from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, 
 from .resource_manager import get_resource_manager
 from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig, ToolOutput
 from .utils import find_project_root
+
+LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 
 
 class ResourceMiddleware(Middleware):

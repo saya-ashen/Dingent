@@ -160,3 +160,39 @@ def remove_plugin(plugin_name: str) -> bool:
     except Exception as e:
         st.error(f"An unknown error occurred while deleting the plugin: {e}")
         return False
+
+
+# --- Logging API ---
+
+
+@st.cache_data(ttl=2, show_spinner=False)
+def get_logs(level: str | None = None, module: str | None = None, limit: int | None = None, search: str | None = None) -> list[dict[str, Any]]:
+    """Get logs from the log manager for dashboard display."""
+    try:
+        resp = SESSION.post(f"{BACKEND_URL}/app/logs", json={"level": level, "module": module, "limit": limit, "search": search}, timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch app settings: {e}")
+        return []
+    except Exception as e:
+        st.error(f"An error occurred while processing app settings: {e}")
+        return []
+
+
+def get_log_statistics() -> dict[str, Any]:
+    """Get logging statistics for dashboard display."""
+    try:
+        resp = SESSION.get(f"{BACKEND_URL}/app/log_statistics", timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch app settings: {e}")
+    except Exception as e:
+        st.error(f"An error occurred while processing app settings: {e}")
+    return {"total_logs": 0, "by_level": {}, "by_module": {}, "oldest_timestamp": None, "newest_timestamp": None}
+
+
+def clear_all_logs() -> bool:
+    """Clear all logs from the log manager."""
+    raise NotImplementedError()

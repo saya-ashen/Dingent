@@ -7,15 +7,16 @@ from typing import Annotated, Any, TypedDict, cast
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolCall, ToolMessage
 from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import InjectedState, create_react_agent
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langgraph.types import Command, Send
-from langgraph_swarm import create_swarm
-from langgraph_swarm.swarm import SwarmState
+from langgraph_swarm import SwarmState, create_swarm
 from pydantic import BaseModel, Field
 
 from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
+from dingent.core.log_manager import log_with_context
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
@@ -170,7 +171,23 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         tool_call_id: Annotated[str, InjectedToolCallId],
         **kwargs,
     ) -> Command:
-        response_raw = await _tool.ainvoke(kwargs)
+        try:
+            response_raw = await _tool.ainvoke(kwargs)
+            log_with_context(
+                "info",
+                "Tool Call Result: {response_raw}",
+                context={"response_raw": response_raw, "tool_name": _tool.name, "tool_call_id": tool_call_id},
+            )
+        except Exception as e:
+            error_msg = f"{type(e).__name__}:{e}"
+            log_with_context("error", message="Error: {error_msg}", context={"error_msg": f"{error_msg}", "tool_name": _tool.name, "tool_call_id": tool_call_id})
+            messages = [ToolMessage(content=error_msg, tool_call_id=tool_call_id)]
+            return Command(
+                update={
+                    "messages": messages,
+                }
+            )
+
         try:
             response = json.loads(response_raw)
             if isinstance(response, dict) and {"context", "tool_output_id"}.issubset(response.keys()):
@@ -222,6 +239,32 @@ class ConfigSchema(TypedDict):
     default_route: str
 
 
+def get_safe_swarm(compiled_swarm):
+    async def run_swarm_safely(state: MainState, config=None):
+        try:
+            # 直接调用已编译的 swarm 子图
+            return await compiled_swarm.ainvoke(state, config=config)
+        except Exception as e:
+            # 取最近的持久化状态（如果没有检查点，则退回输入状态）
+            try:
+                snap = await compiled_swarm.aget_state(config)
+                base_state = (getattr(snap, "values", None) or snap) if snap else state
+            except Exception:
+                base_state = state
+
+            # 统一错误消息（建议带上 error 标记，前端可据此渲染）
+            error_msg_content = f"抱歉，本轮执行出错：{type(e).__name__}: {e}"
+            log_with_context("error", error_msg_content, context={"error": type(e).__name__})
+            err_msg = AIMessage(
+                content=error_msg_content,
+                additional_kwargs={"error": True, "error_type": type(e).__name__},
+            )
+            msgs = list(base_state.get("messages", [])) + [err_msg]
+            return {**base_state, "messages": msgs}
+
+    return run_swarm_safely
+
+
 @asynccontextmanager
 async def make_graph():
     config = config_manager.get_config()
@@ -243,7 +286,13 @@ async def make_graph():
             default_active_agent=default_active_agent,
             context_schema=ConfigSchema,
         )
-        graph = swarm.compile()
-        graph.name = "Agent"
+        compiled_swarm = swarm.compile()
+        graph = StateGraph(MainState)
+        safe_swarm = get_safe_swarm(compiled_swarm)
+        graph.add_node("swarm", safe_swarm)
+        graph.add_edge(START, "swarm")
+        graph.add_edge("swarm", END)
+        compiled_graph = graph.compile()
+        compiled_graph.name = "Agent"
 
-        yield graph
+        yield compiled_graph
