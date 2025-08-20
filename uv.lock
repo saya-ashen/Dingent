@@ -746,6 +746,18 @@ wheels = [
 ]
 
 [[package]]
+name = "deprecation"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/d3/8ae2869247df154b64c1884d7346d412fed0c49df84db635aab2d1c40e62/deprecation-2.1.0.tar.gz", hash = "sha256:72b3bde64e5d778694b0cf68178aed03d15e15477116add3fb773e581f9518ff", size = 173788, upload-time = "2020-04-20T14:23:38.738Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/02/c3/253a89ee03fc9b9682f1541728eb66db7db22148cd94f89ab22528cd1e1b/deprecation-2.1.0-py2.py3-none-any.whl", hash = "sha256:a10811591210e1fb0e768a8c25517cabeabcba6f0bf96564f8ff45189f90b14a", size = 11178, upload-time = "2020-04-20T14:23:36.581Z" },
+]
+
+[[package]]
 name = "dingent"
 source = { editable = "." }
 dependencies = [
@@ -766,7 +778,9 @@ dependencies = [
     { name = "numpy" },
     { name = "pydantic-settings" },
     { name = "streamlit" },
+    { name = "streamlit-antd-components" },
     { name = "streamlit-extras" },
+    { name = "streamlit-modal" },
     { name = "toml" },
     { name = "tomlkit" },
     { name = "typer" },
@@ -802,7 +816,9 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.3.0" },
     { name = "pydantic-settings", specifier = ">=2.4.0,<3.0.0" },
     { name = "streamlit", specifier = ">=1.48.1" },
+    { name = "streamlit-antd-components", specifier = ">=0.3.2" },
     { name = "streamlit-extras", specifier = ">=0.7.6" },
+    { name = "streamlit-modal", specifier = ">=0.1.2" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tomlkit", specifier = ">=0.13.3" },
     { name = "typer", specifier = ">=0.16.0" },
@@ -3801,6 +3817,17 @@ wheels = [
 ]
 
 [[package]]
+name = "streamlit-antd-components"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "streamlit" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b5/dc/1ed6266b606e3b494b9af3e2c310ea6cbe2e967aa18873d03c5b267b4c81/streamlit_antd_components-0.3.2-py3-none-any.whl", hash = "sha256:5ae28496127202ed266ea167649436a15f3d548a4805ee5d992c6fc0fe103fd6", size = 2805502, upload-time = "2024-01-19T07:11:42.614Z" },
+]
+
+[[package]]
 name = "streamlit-avatar"
 version = "0.1.3"
 source = { registry = "https://pypi.org/simple" }
@@ -3920,6 +3947,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/88/25/d153babd6d8dff72ee2e56976862ec7fdd7856ec7da2cb6ffd4b3b12f336/streamlit_keyup-0.3.0.tar.gz", hash = "sha256:8595a14892423243669e5d50e982853ffb7eb201b65952a48676133ab9bbc937", size = 7387, upload-time = "2025-01-02T14:48:40.245Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/14/ed/facce225c0d360b9bfa053c827029312e1b255e84d79320bda3539417b50/streamlit_keyup-0.3.0-py3-none-any.whl", hash = "sha256:ec7221617b1c832526db52859196c417578d6b4285942fbd10a0b2ff313899b3", size = 7493, upload-time = "2025-01-02T14:48:35.414Z" },
+]
+
+[[package]]
+name = "streamlit-modal"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "deprecation" },
+    { name = "streamlit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4c/34/feb9666c148ddf72c92b059509e13ed89b95d6f336317e324d009591f6e6/streamlit_modal-0.1.2.tar.gz", hash = "sha256:3c169aed6e659fd834e3526ffac285efd77867c2e5847131c2fa9d441468a522", size = 4351, upload-time = "2024-01-31T15:12:36.093Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/44/3a6cdc70580ba2f48f1197589adaea29b199786f809aa0919fbabf489e1c/streamlit_modal-0.1.2-py3-none-any.whl", hash = "sha256:60dac7590fd7a168d046cc03335460ac323b060676818bf8000949a878c74386", size = 4614, upload-time = "2024-01-31T15:12:34.842Z" },
 ]
 
 [[package]]

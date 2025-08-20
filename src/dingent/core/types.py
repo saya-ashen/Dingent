@@ -87,3 +87,24 @@ class ToolOutput(BaseModel):
     payloads: list[TablePayload | MarkdownPayload]
 
     metadata: dict = {}
+
+
+class AssistantBase(BaseModel):
+    name: str = Field(..., description="The name of the assistant.")
+    description: str
+    version: str | float = Field("0.2.0", description="Assistant version.")
+    spec_version: str | float = Field("2.0", description="Specification version.")
+    enabled: bool = Field(True, description="Enable or disable the assistant.")
+
+
+class AssistantCreate(AssistantBase):
+    pass
+
+
+class AssistantUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    plugins: list[PluginUserConfig] | None = None
+    version: str | float | None = None
+    spec_version: str | float | None = None
+    enabled: bool | None = None
