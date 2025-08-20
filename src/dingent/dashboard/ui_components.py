@@ -153,7 +153,13 @@ def _has_dialog() -> bool:
     return hasattr(st, "dialog")
 
 
-def render_confirm_dialog(state_key: str, title: str, message: str, confirm_text: str = "Confirm", cancel_text: str = "Cancel"):
+def render_confirm_dialog(
+    state_key: str,
+    title: str,
+    message: str,
+    confirm_text: str = "Confirm",
+    cancel_text: str = "Cancel",
+):
     """
     Render a confirmation dialog.
     - Use st.dialog (if available) to display modally;

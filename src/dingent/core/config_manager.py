@@ -183,7 +183,7 @@ class ConfigManager:
         else:
             self._config_path = None
         self._settings: AppSettings = self._load_config()
-        
+
         # Enhanced structured logging
         log_with_context(
             "info",
@@ -191,9 +191,9 @@ class ConfigManager:
             context={
                 "config_path": str(self._config_path) if self._config_path else None,
                 "project_root": str(_project_root) if _project_root else None,
-                "total_assistants": len(self._settings.assistants) if self._settings.assistants else 0
+                "total_assistants": len(self._settings.assistants) if self._settings.assistants else 0,
             },
-            correlation_id="config_init"
+            correlation_id="config_init",
         )
 
     def _load_config(self) -> AppSettings:
@@ -250,7 +250,7 @@ class ConfigManager:
             doc.update(config_data)
 
             self._config_path.write_text(tomlkit.dumps(doc), "utf-8")
-            
+
             # Enhanced structured logging for config save
             log_with_context(
                 "info",
@@ -259,9 +259,9 @@ class ConfigManager:
                     "config_path": str(self._config_path),
                     "total_assistants": len(config_data.get("assistants", [])),
                     "llm_provider": config_data.get("llm", {}).get("provider"),
-                    "config_size_bytes": len(tomlkit.dumps(doc))
+                    "config_size_bytes": len(tomlkit.dumps(doc)),
                 },
-                correlation_id="config_save"
+                correlation_id="config_save",
             )
 
     def get_config(self) -> AppSettings:
@@ -366,7 +366,7 @@ class ConfigManager:
 
             # 6. Save the changes back to the config file.
             self.save_config()
-            
+
             # Enhanced structured logging for plugin addition
             log_with_context(
                 "info",
@@ -376,9 +376,9 @@ class ConfigManager:
                     "assistant_id": assistant_id,
                     "assistant_name": target_assistant.name,
                     "total_plugins": len(target_assistant.plugins),
-                    "plugin_enabled": True
+                    "plugin_enabled": True,
                 },
-                correlation_id=f"plugin_add_{plugin_name}_{assistant_id}"
+                correlation_id=f"plugin_add_{plugin_name}_{assistant_id}",
             )
 
     def remove_plugin_from_assistant(self, assistant_id: str, plugin_name: str) -> None:

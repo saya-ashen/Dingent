@@ -58,7 +58,7 @@ class ResourceManager:
 
         # Store the new resource
         self._resources[new_id] = resource
-        
+
         # Enhanced structured logging for resource registration
         log_with_context(
             "info",
@@ -66,11 +66,11 @@ class ResourceManager:
             context={
                 "resource_id": new_id,
                 "resource_type": type(resource).__name__,
-                "payload_count": len(resource.payloads) if hasattr(resource, 'payloads') else 0,
+                "payload_count": len(resource.payloads) if hasattr(resource, "payloads") else 0,
                 "total_resources": len(self._resources),
-                "capacity_used_percent": round((len(self._resources) / self.max_size) * 100, 2)
+                "capacity_used_percent": round((len(self._resources) / self.max_size) * 100, 2),
             },
-            correlation_id=f"resource_{new_id[:8]}"
+            correlation_id=f"resource_{new_id[:8]}",
         )
 
         return new_id

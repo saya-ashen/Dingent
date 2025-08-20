@@ -1,5 +1,3 @@
-import asyncio
-import inspect
 import logging
 from contextlib import AsyncExitStack, asynccontextmanager
 
@@ -13,37 +11,6 @@ config_manager = get_config_manager()
 
 
 logger = logging.getLogger(__name__)
-
-
-async def _shutdown_plugin_instance(instance, timeout: float = 3.0):
-    # 1) 关闭 MCP 客户端（尽量优雅）
-    client = getattr(instance, "mcp_client", None)
-    if client is not None:
-        try:
-            if hasattr(client, "__aexit__"):
-                # 如果之前曾 __aenter__，这里用 __aexit__ 更一致
-                await client.__aexit__(None, None, None)
-            elif hasattr(client, "close"):
-                res = client.close()
-                if inspect.isawaitable(res):
-                    await res
-        except Exception as e:
-            logger.warning("Error closing MCP client for %r: %s", instance, e)
-
-    # 2) 终止可能存在的底层子进程
-    proc = getattr(instance, "process", None) or (getattr(client, "process", None) if client else None)
-    if proc is not None:
-        try:
-            if getattr(proc, "poll", None) and proc.poll() is None:
-                proc.terminate()
-                try:
-                    # 在后台线程等待同步 wait，避免阻塞事件循环
-                    await asyncio.wait_for(asyncio.to_thread(proc.wait), timeout=timeout)
-                except TimeoutError:
-                    proc.kill()
-        except Exception as e:
-            logger.warning("Error terminating process for %r: %s", instance, e)
-
 
 class Assistant:
     name: str

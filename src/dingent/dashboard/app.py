@@ -406,18 +406,18 @@ with tab_other_settings:
 
 with tab_logs:
     st.subheader("System Logs")
-    
+
     # Log statistics section
     col_stats, col_actions = st.columns([2, 1])
-    
+
     with col_stats:
         st.markdown("**Log Statistics**")
         log_stats = get_log_statistics()
-        
+
         if log_stats["total_logs"] > 0:
             # Display basic stats
             st.metric("Total Logs", log_stats["total_logs"])
-            
+
             # Display by level
             if log_stats["by_level"]:
                 st.markdown("**By Level:**")
@@ -427,56 +427,47 @@ with tab_logs:
                         st.metric(level, count)
         else:
             st.info("No logs available")
-    
+
     with col_actions:
         st.markdown("**Actions**")
         if st.button("🔄 Refresh Logs", use_container_width=True):
             get_logs.clear()
             st.rerun()
-        
+
         if st.button("🗑️ Clear All Logs", type="secondary", use_container_width=True):
             if clear_all_logs():
                 st.toast("All logs cleared", icon="✅")
                 st.rerun()
-    
+
     st.markdown("---")
-    
+
     # Log filtering section
     st.markdown("**Filter Logs**")
     filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
-    
+
     with filter_col1:
-        level_filter = st.selectbox(
-            "Level",
-            options=["All", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-            index=0
-        )
-    
+        level_filter = st.selectbox("Level", options=["All", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], index=0)
+
     with filter_col2:
         module_filter = st.text_input("Module", placeholder="e.g., config_manager")
-    
+
     with filter_col3:
         search_filter = st.text_input("Search", placeholder="Search in message...")
-    
+
     with filter_col4:
         limit_filter = st.number_input("Limit", min_value=10, max_value=500, value=100, step=10)
-    
+
     # Apply filters
     level_param = None if level_filter == "All" else level_filter
     module_param = module_filter if module_filter.strip() else None
     search_param = search_filter if search_filter.strip() else None
-    
+
     # Get and display logs
-    logs = get_logs(
-        level=level_param,
-        module=module_param,
-        limit=int(limit_filter),
-        search=search_param
-    )
-    
+    logs = get_logs(level=level_param, module=module_param, limit=int(limit_filter), search=search_param)
+
     if logs:
         st.markdown(f"**Showing {len(logs)} logs**")
-        
+
         # Display logs in an expandable format
         for log in logs:
             timestamp = log.get("timestamp", "Unknown")
@@ -484,17 +475,11 @@ with tab_logs:
             message = log.get("message", "")
             module = log.get("module", "unknown")
             function = log.get("function", "unknown")
-            
+
             # Color code by level
-            level_colors = {
-                "DEBUG": "#808080",
-                "INFO": "#0066CC", 
-                "WARNING": "#FF8C00",
-                "ERROR": "#FF4444",
-                "CRITICAL": "#CC0000"
-            }
+            level_colors = {"DEBUG": "#808080", "INFO": "#0066CC", "WARNING": "#FF8C00", "ERROR": "#FF4444", "CRITICAL": "#CC0000"}
             color = level_colors.get(level, "#000000")
-            
+
             with st.expander(f"[{timestamp[:19]}] **{level}** in `{module}.{function}` - {message[:100]}", expanded=False):
                 st.markdown(f"**Level:** <span style='color: {color}; font-weight: bold;'>{level}</span>", unsafe_allow_html=True)
                 st.markdown(f"**Timestamp:** {timestamp}")
@@ -502,13 +487,13 @@ with tab_logs:
                 st.markdown(f"**Function:** `{function}`")
                 st.markdown(f"**Message:**")
                 st.code(message, language="text")
-                
+
                 # Show context if available
                 context = log.get("context")
                 if context and context != {}:
                     st.markdown("**Context:**")
                     st.json(context)
-                
+
                 # Show correlation ID if available
                 correlation_id = log.get("correlation_id")
                 if correlation_id:
