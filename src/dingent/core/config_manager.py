@@ -11,8 +11,8 @@ from pydantic import ValidationError
 
 from .log_manager import log_with_context
 from .plugin_manager import get_plugin_manager
-from .settings import AppSettings
-from .types import PluginUserConfig
+from .settings import AppSettings, AssistantSettings
+from .types import AssistantCreate, AssistantUpdate, PluginUserConfig
 from .utils import find_project_root
 
 
@@ -172,7 +172,7 @@ class ConfigManager:
     _lock = RLock()
 
     # 用于保存当前配置实例（AppSettings）。在 __init__ 中延迟初始化。
-    _settings: AppSettings = None  # type: ignore[assignment]
+    _settings: AppSettings | None = None
     _config_path: Path | None = None
 
     def __init__(self):
@@ -315,6 +315,16 @@ class ConfigManager:
             assistants = self._settings.assistants
             return {assistant.id: assistant for assistant in assistants}
 
+    def get_assistant_by_id(self, assistant_id: str) -> AssistantSettings | None:
+        with self._lock:
+            assistant = next((a for a in self._settings.assistants if a.id == assistant_id), None)
+            return assistant
+
+    def get_assistant_by_name(self, assistant_name: str) -> AssistantSettings | None:
+        with self._lock:
+            assistant = next((a for a in self._settings.assistants if a.name == assistant_name), None)
+            return assistant
+
     def add_plugin_config_to_assistant(self, assistant_id: str, plugin_name: str) -> None:
         """
         Creates and adds a default configuration for a new plugin to a specific assistant.
@@ -330,7 +340,7 @@ class ConfigManager:
         plugin_manager = get_plugin_manager()
 
         # 1. Get the plugin's definition (manifest) to ensure it exists.
-        plugin_manifest = plugin_manager.get_plugin_mainifest(plugin_name)
+        plugin_manifest = plugin_manager.get_plugin_manifest(plugin_name)
         if not plugin_manifest:
             raise ValueError(f"Plugin '{plugin_name}' is not registered or could not be found.")
 
@@ -418,6 +428,33 @@ class ConfigManager:
             target_assistant.plugins.remove(plugin_to_remove)
             self.save_config()
             logger.success(f"Successfully removed plugin '{plugin_name}' from assistant '{target_assistant.name}'.")
+
+    def add_assistant(self, assistant: AssistantCreate) -> None:
+        """
+        Adds a new assistant configuration to the current settings.
+
+        Args:
+            assistant: An instance of AssistantSettings to add.
+
+        Raises:
+            ValueError: If an assistant with the same ID already exists.
+        """
+        with self._lock:
+            if self.get_assistant_by_name(assistant.name):
+                raise ValueError(f"An assistant with the name '{assistant.name}' already exists.")
+            assistant_settings = AssistantSettings.model_validate(assistant.model_dump())
+            self._settings.assistants.append(assistant_settings)
+            self.save_config()
+
+    def update_assistant(self, assistant_id: str, updated_data: AssistantUpdate) -> None:
+        assistant = self.get_assistant_by_id(assistant_id)
+        if assistant is None:
+            raise AssistantNotFoundError(f"Assistant with ID '{assistant_id}' not found.")
+        raise NotImplementedError("Assistant update not implemented yet.")
+
+    def remove_assistant(self, assistant_id: str) -> None:
+        with self._lock:
+            self._settings.assistants = [a for a in self._settings.assistants if a.id != assistant_id]
 
 
 config_manager = None

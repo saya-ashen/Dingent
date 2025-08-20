@@ -4,10 +4,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from dingent.core import Assistant, AssistantSettings, get_assistant_manager, get_config_manager, get_plugin_manager
+from dingent.core import Assistant, get_assistant_manager, get_config_manager, get_plugin_manager
 from dingent.core.log_manager import get_log_manager
 from dingent.core.plugin_manager import PluginManifest
-from dingent.core.types import ConfigItemDetail, PluginUserConfig
+from dingent.core.types import AssistantBase, AssistantCreate, ConfigItemDetail, PluginUserConfig
 
 router = APIRouter()
 config_manager = get_config_manager()
@@ -28,7 +28,8 @@ class PluginAdminDetail(PluginUserConfig):
     config: list[ConfigItemDetail] = []
 
 
-class AssistantAdminDetail(AssistantSettings):
+class AssistantAdminDetail(AssistantBase):
+    id: str = Field(..., description="助手的唯一标识符")
     status: str = Field(..., description="运行状态 (e.g., 'active', 'inactive', 'error')")
     # plugins 字段的类型应为优化后的 PluginAdminDetail
     plugins: list[PluginAdminDetail] = Field(..., description="该助手的插件配置")
@@ -57,7 +58,7 @@ async def _build_plugin_admin_detail(plugin_config: PluginUserConfig, plugin_ins
 
 
 # --- 2. 辅助函数：处理单个助手 ---
-async def _build_assistant_admin_detail(assistant_config: AssistantSettings, running_assistants: dict[str, Assistant]):
+async def _build_assistant_admin_detail(assistant_config: AssistantAdminDetail, running_assistants: dict[str, Assistant]):
     """根据助手配置和所有正在运行的助手实例，构建带有状态的助手详情。"""
 
     assistant_instance = running_assistants.get(assistant_config.id)
@@ -206,7 +207,7 @@ async def add_plugin_to_assistant(assistant_id: str, plugin_name: str):
     """
     Adds a plugin to an existing assistant.
     """
-    assistant = assistant_manager.get_assistant(assistant_id)
+    assistant = config_manager.get_assistant_by_id(assistant_id)
     if not assistant:
         raise HTTPException(status_code=404, detail=f"Assistant {assistant_id} not found")
 
@@ -234,6 +235,20 @@ async def remove_plugin_from_assistant(assistant_id: str, plugin_name: str):
     except Exception as e:
         # Catch-all for other potential errors
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
+
+
+@router.post("/assistants/add_assistant")
+async def add_assistant(assistant_config: AssistantCreate):
+    config_manager.add_assistant(assistant_config)
+    config_manager.save_config()
+    await assistant_manager.rebuild()
+
+
+@router.post("/assistants/remove_assistant")
+async def remove_assistant(assistant_id: str):
+    config_manager.remove_assistant(assistant_id)
+    config_manager.save_config()
+    await assistant_manager.rebuild()
 
 
 @router.post("/app/logs")

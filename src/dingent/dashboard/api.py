@@ -4,6 +4,8 @@ from typing import Any
 import requests
 import streamlit as st
 
+from dingent.core.types import AssistantCreate
+
 # --- Configuration ---
 BACKEND_URL = os.getenv("DING_BACKEND_ADMIN_URL", "http://127.0.0.1:2024")
 HTTP_TIMEOUT = 120  # seconds
@@ -53,6 +55,27 @@ def get_available_plugins() -> list[dict[str, Any]] | None:
     except Exception as e:
         st.error(f"An unknown error occurred while processing plugins list: {e}")
         return None
+
+
+def add_assistant(assistant_data: AssistantCreate) -> bool:
+    try:
+        resp = SESSION.post(
+            f"{BACKEND_URL}/assistants/add_assistant",
+            json=assistant_data.model_dump(mode="json"),
+            timeout=HTTP_TIMEOUT,
+        )
+        resp.raise_for_status()
+        get_app_settings.clear()
+        return True
+    except requests.exceptions.RequestException as e:
+        # Try extracting a more readable error message from the response body
+        detail = getattr(e, "response", None)
+        try:
+            msg = detail.json().get("detail", str(e)) if detail else str(e)
+        except Exception:
+            msg = detail.text if detail and hasattr(detail, "text") else str(e)
+        st.error(f"Failed to add assistant: {msg}")
+        return False
 
 
 def save_app_settings(settings_data: dict[str, Any]) -> bool:
@@ -162,6 +185,21 @@ def remove_plugin(plugin_name: str) -> bool:
         return False
 
 
+def remove_assistant(assistant_id: str) -> bool:
+    try:
+        resp = SESSION.post(
+            f"{BACKEND_URL}/assistants/remove_assistant",
+            json={"assistant_id": assistant_id},
+            timeout=HTTP_TIMEOUT,
+        )
+        resp.raise_for_status()
+        get_assistants_config.clear()
+        return True
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to remove assistant: {e}")
+        return False
+
+
 # --- Logging API ---
 
 
@@ -169,14 +207,18 @@ def remove_plugin(plugin_name: str) -> bool:
 def get_logs(level: str | None = None, module: str | None = None, limit: int | None = None, search: str | None = None) -> list[dict[str, Any]]:
     """Get logs from the log manager for dashboard display."""
     try:
-        resp = SESSION.post(f"{BACKEND_URL}/app/logs", json={"level": level, "module": module, "limit": limit, "search": search}, timeout=HTTP_TIMEOUT)
+        resp = SESSION.post(
+            f"{BACKEND_URL}/app/logs",
+            json={"level": level, "module": module, "limit": limit, "search": search},
+            timeout=HTTP_TIMEOUT,
+        )
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
-        st.error(f"Failed to fetch app settings: {e}")
+        st.error(f"Failed to fetch logs: {e}")
         return []
     except Exception as e:
-        st.error(f"An error occurred while processing app settings: {e}")
+        st.error(f"An error occurred while processing logs: {e}")
         return []
 
 
@@ -187,12 +229,27 @@ def get_log_statistics() -> dict[str, Any]:
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
-        st.error(f"Failed to fetch app settings: {e}")
+        st.error(f"Failed to fetch log statistics: {e}")
     except Exception as e:
-        st.error(f"An error occurred while processing app settings: {e}")
+        st.error(f"An error occurred while processing log statistics: {e}")
     return {"total_logs": 0, "by_level": {}, "by_module": {}, "oldest_timestamp": None, "newest_timestamp": None}
 
 
 def clear_all_logs() -> bool:
     """Clear all logs from the log manager."""
-    raise NotImplementedError()
+    try:
+        resp = SESSION.post(f"{BACKEND_URL}/app/logs/clear", timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
+        get_logs.clear()
+        return True
+    except requests.exceptions.RequestException as e:
+        detail = getattr(e, "response", None)
+        try:
+            msg = detail.json().get("detail", str(e)) if detail else str(e)
+        except Exception:
+            msg = detail.text if detail and hasattr(detail, "text") else str(e)
+        st.error(f"Failed to clear logs: {msg}")
+        return False
+    except Exception as e:
+        st.error(f"An unknown error occurred while clearing logs: {e}")
+        return False
