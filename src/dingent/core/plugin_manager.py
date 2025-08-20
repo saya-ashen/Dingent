@@ -5,11 +5,13 @@ from typing import Any, Literal
 
 import toml
 from fastmcp import Client, FastMCP
-from fastmcp.client import StreamableHttpTransport, UvStdioTransport
+from fastmcp.client import SSETransport, StreamableHttpTransport, UvStdioTransport
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import Tool
 from loguru import logger
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
+
+from dingent.core.log_manager import log_with_context
 
 from .resource_manager import get_resource_manager
 from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig, ToolOutput
@@ -187,10 +189,13 @@ class PluginInstance:
         # 1. 执行原有的同步初始化逻辑来创建 mcp_client
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None
-            # proxy_client = ProxyClient(manifest.execution.url)
-            transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
-            async with Client(transport) as client:
-                await client.ping()
+            if manifest.execution.url.endswith("sse"):
+                transport = SSETransport(url=manifest.execution.url, headers=env)
+            else:
+                transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
+
+            # async with Client(transport) as client:
+            #     await client.ping()
 
             remote_proxy = FastMCP.as_proxy(transport)
         else:
@@ -201,18 +206,22 @@ class PluginInstance:
                 module=True,
                 project_directory=manifest.path.as_posix(),
                 env_vars=env,
-                # with_packages=manifest.dependencies,
                 python_version=manifest.python_version,
             )
-            # client = Client(transport)
             remote_proxy = FastMCP.as_proxy(transport)
 
         _status = "inactive"
         try:
             await remote_proxy.get_tools()
             _status = "active"
-        except Exception:
+        except Exception as e:
             _status = "error"
+            log_with_context(
+                "error",
+                "Failed to connect to MCP server: {error_msg}",
+                context={"plugin": manifest.name, "error_msg": f"{e}"},
+            )
+
         mcp = FastMCP(name=user_config.name)
         mcp.mount(remote_proxy)
         mcp.add_middleware(middleware)
