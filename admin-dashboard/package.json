@@ -1,0 +1,30 @@
+{
+  "name": "dingent-admin-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^5.3.7",
+    "antd": "^5.21.1",
+    "axios": "^1.7.8",
+    "dayjs": "^1.11.13",
+    "next": "^14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "swr": "^2.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.10",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "eslint": "^8.57.0",
+    "eslint-config-next": "^14.2.0",
+    "typescript": "^5.9.2"
+  }
+}

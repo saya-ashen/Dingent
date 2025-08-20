@@ -538,6 +538,55 @@ def assistant_test(name: str, ctx: typer.Context):
         logger.error("❌ Error: Assistant manager not initialized.")
 
 
+@app.command()
+def dashboard(
+    port: Annotated[int, typer.Option("--port", "-p", help="Port to run the dashboard on")] = 8503,
+    host: Annotated[str, typer.Option("--host", help="Host to bind to")] = "localhost",
+    headless: Annotated[bool, typer.Option("--headless", help="Run in headless mode")] = False,
+):
+    """🎛️ Launch the Dingent Admin Dashboard
+    
+    Start the modern React-style admin dashboard for managing assistants,
+    plugins, settings, and monitoring system logs.
+    """
+    try:
+        import streamlit
+    except ImportError:
+        print("[bold red]❌ Streamlit not found. Please install it first:[/bold red]")
+        print("   pip install streamlit")
+        raise typer.Exit(1)
+    
+    # Get the path to the dashboard app
+    dashboard_app = str(Path(__file__).parent.parent / "dashboard" / "modern_app.py")
+    
+    if not Path(dashboard_app).exists():
+        print(f"[bold red]❌ Dashboard app not found at {dashboard_app}[/bold red]")
+        raise typer.Exit(1)
+    
+    # Build the streamlit command
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", dashboard_app,
+        "--server.port", str(port),
+        "--server.address", host,
+    ]
+    
+    if headless:
+        cmd.extend(["--server.headless", "true"])
+    
+    print(f"[bold green]🚀 Starting Dingent Admin Dashboard...[/bold green]")
+    print(f"[blue]📊 Dashboard will be available at: http://{host}:{port}[/blue]")
+    print(f"[yellow]🔄 Use Ctrl+C to stop the server[/yellow]")
+    print("-" * 50)
+    
+    try:
+        subprocess.run(cmd)
+    except KeyboardInterrupt:
+        print("\n[green]👋 Dashboard stopped[/green]")
+    except Exception as e:
+        print(f"[bold red]❌ Error starting dashboard: {e}[/bold red]")
+        raise typer.Exit(1)
+
+
 def run_services_programmatically():
     """
     Initializes and runs all services programmatically, mirroring the

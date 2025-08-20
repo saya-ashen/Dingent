@@ -139,6 +139,14 @@ my-awesome-agent/
 
 * 文件: 核心页面逻辑位于 src/app/page.tsx，UI 组件位于 src/components/。
 
+### 🎛️ Admin Dashboard
+
+* 全新的管理员仪表板，采用现代React风格设计，提供直观的系统管理界面。
+
+* 主要功能: 助手配置管理、插件管理、系统设置、日志监控等，支持响应式设计。
+
+* 文件: 位于 src/dingent/dashboard/，包含 modern_app.py（主应用）和 web/（纯HTML版本）。
+
 ### 📦 assistants/
 
 * 在Dingent中，一个助手（Assistant）是一些工具的集合，这些工具往往具有相似的功能或数据源，在执行某项特定任务时可以被模型反复调用。

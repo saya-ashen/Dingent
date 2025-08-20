@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dingent Admin Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🤖</text></svg>">
+    
+    <!-- Import Ant Design CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/antd@5.21.1/dist/reset.css" rel="stylesheet">
+    
+    <!-- Import React and ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Import Ant Design -->
+    <script src="https://unpkg.com/antd@5.21.1/dist/antd.min.js"></script>
+    
+    <!-- Import Babel for JSX transformation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Import axios for API calls -->
+    <script src="https://unpkg.com/axios@1.7.8/dist/axios.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .ant-layout {
+            min-height: 100vh;
+        }
+        .logo {
+            height: 32px;
+            margin: 16px;
+            display: flex;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status-ok { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+        .status-warn { background: #fffbe6; color: #faad14; border: 1px solid #ffe58f; }
+        .status-error { background: #fff2f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+        .status-disabled { background: #f5f5f5; color: #8c8c8c; border: 1px solid #d9d9d9; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { Layout, Menu, Typography, Button, Card, Table, Form, Input, Switch, Space, Modal, message, Tabs, Row, Col, Statistic, Tag } = antd;
+        const { Header, Sider, Content } = Layout;
+        const { Title, Text } = Typography;
+        const { TabPane } = Tabs;
+        
+        // API Configuration
+        const API_BASE = window.location.hostname === 'localhost' ? 'http://127.0.0.1:2024' : '';
+        
+        // API Services
+        const api = axios.create({
+            baseURL: API_BASE,
+            timeout: 120000,
+        });
+
+        // Main App Component
+        function App() {
+            const [collapsed, setCollapsed] = React.useState(false);
+            const [currentTab, setCurrentTab] = React.useState('dashboard');
+            
+            const menuItems = [
+                { key: 'dashboard', icon: '📊', label: 'Dashboard' },
+                { key: 'assistants', icon: '🤖', label: 'Assistants' },
+                { key: 'plugins', icon: '🔌', label: 'Plugins' },
+                { key: 'settings', icon: '⚙️', label: 'Settings' },
+                { key: 'logs', icon: '📋', label: 'Logs' },
+            ];
+
+            return (
+                <Layout style={{ minHeight: '100vh' }}>
+                    <Sider
+                        collapsible
+                        collapsed={collapsed}
+                        onCollapse={setCollapsed}
+                        theme="dark"
+                    >
+                        <div className="logo">
+                            🤖 {!collapsed && 'Dingent Admin'}
+                        </div>
+                        <Menu
+                            theme="dark"
+                            selectedKeys={[currentTab]}
+                            mode="inline"
+                            onClick={({ key }) => setCurrentTab(key)}
+                            items={menuItems.map(item => ({
+                                key: item.key,
+                                icon: <span>{item.icon}</span>,
+                                label: item.label,
+                            }))}
+                        />
+                    </Sider>
+                    <Layout>
+                        <Header style={{ background: '#fff', padding: '0 16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Title level={3} style={{ margin: 0 }}>
+                                    Admin Dashboard
+                                </Title>
+                                <Space>
+                                    <Button icon="🔄" onClick={() => window.location.reload()}>
+                                        Refresh
+                                    </Button>
+                                </Space>
+                            </div>
+                        </Header>
+                        <Content style={{ margin: '16px', background: '#fff', padding: '24px', borderRadius: '6px' }}>
+                            <TabContent currentTab={currentTab} />
+                        </Content>
+                    </Layout>
+                </Layout>
+            );
+        }
+
+        // Tab Content Component
+        function TabContent({ currentTab }) {
+            switch (currentTab) {
+                case 'dashboard':
+                    return <Dashboard />;
+                case 'assistants':
+                    return <Assistants />;
+                case 'plugins':
+                    return <Plugins />;
+                case 'settings':
+                    return <Settings />;
+                case 'logs':
+                    return <Logs />;
+                default:
+                    return <Dashboard />;
+            }
+        }
+
+        // Dashboard Component
+        function Dashboard() {
+            const [stats, setStats] = React.useState({});
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                loadStats();
+            }, []);
+
+            const loadStats = async () => {
+                try {
+                    const [assistants, plugins, logs] = await Promise.all([
+                        api.get('/assistants').catch(() => ({ data: [] })),
+                        api.get('/plugins').catch(() => ({ data: [] })),
+                        api.get('/logs/statistics').catch(() => ({ data: {} })),
+                    ]);
+
+                    setStats({
+                        assistants: assistants.data.length || 0,
+                        activeAssistants: assistants.data.filter(a => a.enabled).length || 0,
+                        plugins: plugins.data.length || 0,
+                        errorLogs: logs.data.by_level?.ERROR || 0,
+                        warningLogs: logs.data.by_level?.WARNING || 0,
+                    });
+                } catch (error) {
+                    message.error('Failed to load dashboard statistics');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div>
+                    <Title level={2}>📊 Dashboard Overview</Title>
+                    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic
+                                    title="Active Assistants"
+                                    value={stats.activeAssistants}
+                                    suffix={`/ ${stats.assistants}`}
+                                    valueStyle={{ color: '#3f8600' }}
+                                    loading={loading}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic
+                                    title="Available Plugins"
+                                    value={stats.plugins}
+                                    valueStyle={{ color: '#1890ff' }}
+                                    loading={loading}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic
+                                    title="Error Logs"
+                                    value={stats.errorLogs}
+                                    valueStyle={{ color: stats.errorLogs > 0 ? '#cf1322' : '#3f8600' }}
+                                    loading={loading}
+                                />
+                            </Card>
+                        </Col>
+                        <Col xs={24} sm={12} md={6}>
+                            <Card>
+                                <Statistic
+                                    title="Warning Logs"
+                                    value={stats.warningLogs}
+                                    valueStyle={{ color: stats.warningLogs > 0 ? '#faad14' : '#3f8600' }}
+                                    loading={loading}
+                                />
+                            </Card>
+                        </Col>
+                    </Row>
+                    
+                    <Card title="Quick Actions">
+                        <Space wrap>
+                            <Button type="primary" size="large">Manage Assistants</Button>
+                            <Button size="large">Manage Plugins</Button>
+                            <Button size="large">View Settings</Button>
+                            <Button size="large">View Logs</Button>
+                        </Space>
+                    </Card>
+                </div>
+            );
+        }
+
+        // Assistants Component
+        function Assistants() {
+            const [assistants, setAssistants] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                loadAssistants();
+            }, []);
+
+            const loadAssistants = async () => {
+                try {
+                    const response = await api.get('/assistants');
+                    setAssistants(response.data || []);
+                } catch (error) {
+                    message.error('Failed to load assistants');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleSave = async () => {
+                try {
+                    await api.post('/assistants', assistants);
+                    message.success('Assistants saved successfully!');
+                } catch (error) {
+                    message.error('Failed to save assistants');
+                }
+            };
+
+            const updateAssistant = (index, field, value) => {
+                const updated = [...assistants];
+                updated[index][field] = value;
+                setAssistants(updated);
+            };
+
+            const getStatusColor = (status, enabled) => {
+                if (!enabled) return 'default';
+                if (status && status.toString().toLowerCase().includes('error')) return 'error';
+                if (status && status.toString().toLowerCase().includes('warn')) return 'warning';
+                return 'success';
+            };
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <Title level={2}>🤖 Assistant Configuration</Title>
+                        <Space>
+                            <Button onClick={loadAssistants}>Refresh</Button>
+                            <Button type="primary" onClick={handleSave}>Save All</Button>
+                        </Space>
+                    </div>
+
+                    {loading ? (
+                        <Card><Text>Loading assistants...</Text></Card>
+                    ) : (
+                        assistants.map((assistant, index) => (
+                            <Card 
+                                key={index} 
+                                title={`Assistant ${index + 1}`}
+                                style={{ marginBottom: 16 }}
+                                extra={
+                                    <Tag color={getStatusColor(assistant.status, assistant.enabled)}>
+                                        {assistant.enabled ? 'Enabled' : 'Disabled'}
+                                    </Tag>
+                                }
+                            >
+                                <Row gutter={16}>
+                                    <Col xs={24} md={8}>
+                                        <Form.Item label="Name">
+                                            <Input
+                                                value={assistant.name || ''}
+                                                onChange={(e) => updateAssistant(index, 'name', e.target.value)}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={8}>
+                                        <Form.Item label="Enabled">
+                                            <Switch
+                                                checked={assistant.enabled || false}
+                                                onChange={(checked) => updateAssistant(index, 'enabled', checked)}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col xs={24} md={8}>
+                                        <Form.Item label="Status">
+                                            <Tag color={getStatusColor(assistant.status, assistant.enabled)}>
+                                                {assistant.status || 'Unknown'}
+                                            </Tag>
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                                <Form.Item label="Description">
+                                    <Input.TextArea
+                                        value={assistant.description || ''}
+                                        onChange={(e) => updateAssistant(index, 'description', e.target.value)}
+                                        rows={3}
+                                    />
+                                </Form.Item>
+                                
+                                {assistant.plugins && assistant.plugins.length > 0 && (
+                                    <div>
+                                        <Title level={5}>Plugins:</Title>
+                                        {assistant.plugins.map((plugin, pIndex) => (
+                                            <Card key={pIndex} size="small" style={{ marginBottom: 8 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <Text strong>{plugin.name}</Text>
+                                                    <Switch
+                                                        checked={plugin.enabled || false}
+                                                        onChange={(checked) => {
+                                                            const updated = [...assistants];
+                                                            updated[index].plugins[pIndex].enabled = checked;
+                                                            setAssistants(updated);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                )}
+                            </Card>
+                        ))
+                    )}
+                </div>
+            );
+        }
+
+        // Plugins Component
+        function Plugins() {
+            const [plugins, setPlugins] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                loadPlugins();
+            }, []);
+
+            const loadPlugins = async () => {
+                try {
+                    const response = await api.get('/plugins');
+                    setPlugins(response.data || []);
+                } catch (error) {
+                    message.error('Failed to load plugins');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const columns = [
+                {
+                    title: 'Plugin Name',
+                    dataIndex: 'name',
+                    key: 'name',
+                    render: (name) => <Text strong>{name}</Text>,
+                },
+                {
+                    title: 'Description',
+                    dataIndex: 'description',
+                    key: 'description',
+                    render: (desc) => desc || <Text type="secondary">No description</Text>,
+                },
+                {
+                    title: 'Tools',
+                    dataIndex: 'tools',
+                    key: 'tools',
+                    render: (tools) => tools ? `${tools.length} tools` : '0 tools',
+                },
+            ];
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <Title level={2}>🔌 Plugin Management</Title>
+                        <Button onClick={loadPlugins}>Refresh</Button>
+                    </div>
+
+                    <Card>
+                        <Table
+                            columns={columns}
+                            dataSource={plugins}
+                            rowKey="name"
+                            loading={loading}
+                            pagination={{ pageSize: 10 }}
+                        />
+                    </Card>
+                </div>
+            );
+        }
+
+        // Settings Component
+        function Settings() {
+            const [settings, setSettings] = React.useState({});
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                loadSettings();
+            }, []);
+
+            const loadSettings = async () => {
+                try {
+                    const response = await api.get('/app_settings');
+                    setSettings(response.data || {});
+                } catch (error) {
+                    message.error('Failed to load settings');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleSave = async () => {
+                try {
+                    await api.post('/app_settings', settings);
+                    message.success('Settings saved successfully!');
+                } catch (error) {
+                    message.error('Failed to save settings');
+                }
+            };
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <Title level={2}>⚙️ App Settings</Title>
+                        <Space>
+                            <Button onClick={loadSettings}>Refresh</Button>
+                            <Button type="primary" onClick={handleSave}>Save Settings</Button>
+                        </Space>
+                    </div>
+
+                    <Card loading={loading}>
+                        {Object.keys(settings).length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                                <Text type="secondary">No settings available</Text>
+                            </div>
+                        ) : (
+                            <Form layout="vertical">
+                                {Object.entries(settings).map(([key, value]) => (
+                                    <Form.Item 
+                                        key={key} 
+                                        label={key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}
+                                    >
+                                        {typeof value === 'boolean' ? (
+                                            <Switch
+                                                checked={value}
+                                                onChange={(checked) => setSettings({...settings, [key]: checked})}
+                                            />
+                                        ) : (
+                                            <Input
+                                                value={value?.toString() || ''}
+                                                onChange={(e) => setSettings({...settings, [key]: e.target.value})}
+                                            />
+                                        )}
+                                    </Form.Item>
+                                ))}
+                            </Form>
+                        )}
+                    </Card>
+                </div>
+            );
+        }
+
+        // Logs Component
+        function Logs() {
+            const [logs, setLogs] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                loadLogs();
+            }, []);
+
+            const loadLogs = async () => {
+                try {
+                    const response = await api.get('/logs?limit=100');
+                    setLogs(response.data || []);
+                } catch (error) {
+                    message.error('Failed to load logs');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const columns = [
+                {
+                    title: 'Level',
+                    dataIndex: 'level',
+                    key: 'level',
+                    width: 80,
+                    render: (level) => {
+                        const color = level === 'ERROR' ? 'red' : level === 'WARNING' ? 'orange' : level === 'INFO' ? 'blue' : 'green';
+                        return <Tag color={color}>{level}</Tag>;
+                    },
+                },
+                {
+                    title: 'Timestamp',
+                    dataIndex: 'timestamp',
+                    key: 'timestamp',
+                    width: 160,
+                    render: (timestamp) => new Date(timestamp).toLocaleString(),
+                },
+                {
+                    title: 'Module',
+                    dataIndex: 'module',
+                    key: 'module',
+                    width: 120,
+                },
+                {
+                    title: 'Message',
+                    dataIndex: 'message',
+                    key: 'message',
+                    ellipsis: true,
+                },
+            ];
+
+            return (
+                <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                        <Title level={2}>📋 System Logs</Title>
+                        <Button onClick={loadLogs}>Refresh</Button>
+                    </div>
+
+                    <Card>
+                        <Table
+                            columns={columns}
+                            dataSource={logs}
+                            rowKey={(record, index) => index}
+                            loading={loading}
+                            pagination={{ pageSize: 20 }}
+                            scroll={{ x: 800 }}
+                            size="small"
+                        />
+                    </Card>
+                </div>
+            );
+        }
+
+        // Render the app
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
