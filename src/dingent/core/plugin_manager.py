@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, 
 from dingent.core.log_manager import log_with_context
 
 from .resource_manager import get_resource_manager
-from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig, ToolOutput
+from .types import ConfigItemDetail, ExecutionModel, PluginBase, PluginConfigSchema, PluginUserConfig, ToolOutput
 from .utils import find_project_root
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
@@ -302,13 +302,8 @@ class PluginInstance:
         return details
 
 
-class PluginManifest(BaseModel):
-    """ """
-
-    name: str = Field(..., description="插件的唯一标识符")
-    version: str | float = Field("0.2.0", description="插件版本 (遵循语义化版本)")
+class PluginManifest(PluginBase):
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
-    description: str
     execution: ExecutionModel
     dependencies: list[str] | None = None
     python_version: str | None = None
