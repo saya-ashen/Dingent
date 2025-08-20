@@ -22,6 +22,7 @@ import { PageHeader } from "@/components/layout/Page";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function AssistantsPage() {
     const qc = useQueryClient();
@@ -100,27 +101,43 @@ export default function AssistantsPage() {
                 <EmptyState title="No assistants" description="There are currently no assistants to configure." />
             )}
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {editable.map((assistant, i) => (
-                    <AssistantCard
-                        key={assistant.id || i}
-                        assistant={assistant}
-                        onChange={(a) => {
-                            const next = [...editable];
-                            next[i] = a;
-                            setEditable(next);
-                        }}
-                        availablePlugins={pluginsQ.data || []}
-                        onAddPlugin={(pluginName) => addPluginMutation.mutate({ assistantId: assistant.id, pluginName })}
-                        onRemovePlugin={(pluginName) => removePluginMutation.mutate({ assistantId: assistant.id, pluginName })}
-                    />
-                ))}
-            </div>
+            <Accordion type="single" collapsible className="w-full space-y-4">
+                {editable.map((assistant, i) => {
+                    const enabled = safeBool(assistant.enabled, false);
+                    const { level, label } = effectiveStatusForItem(assistant.status, enabled);
+
+                    return (
+                        <AccordionItem value={assistant.id || `item-${i}`} key={assistant.id || i} className="rounded-lg border">
+                            <AccordionTrigger className="px-4 py-3 text-lg font-semibold hover:no-underline">
+                                <div className="flex w-full items-center justify-between gap-4">
+                                    <span className="truncate pr-4">{assistant.name || "Unnamed"}</span>
+                                    <div className="flex-shrink-0">
+                                        <StatusBadge level={level} label={label} title={assistant.status} />
+                                    </div>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="p-4 pt-0">
+                                <AssistantEditor
+                                    assistant={assistant}
+                                    onChange={a => {
+                                        const next = [...editable];
+                                        next[i] = a;
+                                        setEditable(next);
+                                    }}
+                                    availablePlugins={pluginsQ.data || []}
+                                    onAddPlugin={pluginName => addPluginMutation.mutate({ assistantId: assistant.id, pluginName })}
+                                    onRemovePlugin={pluginName => removePluginMutation.mutate({ assistantId: assistant.id, pluginName })}
+                                />
+                            </AccordionContent>
+                        </AccordionItem>
+                    );
+                })}
+            </Accordion>
         </div>
     );
 }
 
-function AssistantCard({
+function AssistantEditor({
     assistant,
     onChange,
     availablePlugins,
@@ -134,44 +151,36 @@ function AssistantCard({
     onRemovePlugin: (pluginName: string) => void;
 }) {
     const enabled = safeBool(assistant.enabled, false);
-    const { level, label } = effectiveStatusForItem(assistant.status, enabled);
-
     const currentNames = new Set((assistant.plugins || []).map(p => p.name));
-    const addable = useMemo(() => availablePlugins.filter(p => !currentNames.has(p.name)).map(p => p.name), [availablePlugins, currentNames]);
-
+    const addable = useMemo(() => availablePlugins.filter(p => !currentNames.has(p.name)).map(p => p.name), [
+        availablePlugins,
+        currentNames
+    ]);
     const [selectedAdd, setSelectedAdd] = useState<string>("");
 
     return (
-        <div className="rounded-lg border p-4">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <div className="text-lg font-semibold">{assistant.name || "Unnamed"}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{assistant.description || "No description"}</div>
-                </div>
-                <StatusBadge level={level} label={label} title={assistant.status} />
-            </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="space-y-4 pt-4">
+            <h3 className="text-base font-semibold">Basic Settings</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                     <Label>Name</Label>
-                    <Input value={assistant.name || ""} onChange={(e) => onChange({ ...assistant, name: e.target.value })} />
+                    <Input value={assistant.name || ""} onChange={e => onChange({ ...assistant, name: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                     <Label>Enable assistant</Label>
                     <div className="flex h-10 items-center">
-                        <Switch checked={enabled} onCheckedChange={(v) => onChange({ ...assistant, enabled: v })} />
+                        <Switch checked={enabled} onCheckedChange={v => onChange({ ...assistant, enabled: v })} />
                     </div>
                 </div>
             </div>
-
-            <div className="mt-3 space-y-2">
+            <div className="space-y-2">
                 <Label>Description</Label>
-                <Textarea value={assistant.description || ""} onChange={(e) => onChange({ ...assistant, description: e.target.value })} />
+                <Textarea value={assistant.description || ""} onChange={e => onChange({ ...assistant, description: e.target.value })} />
             </div>
 
-            <Separator className="my-4" />
+            <Separator />
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-start gap-4">
                 <h3 className="text-base font-semibold">Plugins</h3>
                 <div className="flex gap-2">
                     <SearchableSelect
@@ -179,7 +188,7 @@ function AssistantCard({
                         value={selectedAdd}
                         onChange={setSelectedAdd}
                         placeholder="Select plugin to add"
-                        className="min-w-[220px]"
+                        className="min-w-[160px] sm:min-w-[220px]"
                     />
                     <Button disabled={!selectedAdd} onClick={() => selectedAdd && onAddPlugin(selectedAdd)}>
                         Add
@@ -187,16 +196,14 @@ function AssistantCard({
                 </div>
             </div>
 
-            {!assistant.plugins?.length && (
-                <div className="mt-2 text-sm text-muted-foreground">No plugins configured.</div>
-            )}
+            {!assistant.plugins?.length && <div className="mt-2 text-sm text-muted-foreground">No plugins configured.</div>}
 
-            <div className="mt-3 space-y-3">
+            <div className="space-y-3">
                 {(assistant.plugins || []).map((p, j) => (
                     <PluginEditor
                         key={`${p.name}-${j}`}
                         plugin={p}
-                        onChange={(np) => {
+                        onChange={np => {
                             const next = structuredClone(assistant) as Assistant;
                             next.plugins = next.plugins || [];
                             next.plugins[j] = np;
@@ -232,7 +239,7 @@ function PluginEditor({
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Enable</span>
-                        <Switch checked={enabled} onCheckedChange={(v) => onChange({ ...plugin, enabled: v })} />
+                        <Switch checked={enabled} onCheckedChange={v => onChange({ ...plugin, enabled: v })} />
                     </div>
 
                     <ConfirmDialog
@@ -240,7 +247,11 @@ function PluginEditor({
                         message={`Are you sure you want to remove plugin '${plugin.name}'?`}
                         confirmText="Confirm Remove"
                         onConfirm={onRemove}
-                        trigger={<Button variant="destructive" size="icon">🗑️</Button>}
+                        trigger={
+                            <Button variant="destructive" size="icon">
+                                🗑️
+                            </Button>
+                        }
                     />
                 </div>
             </div>
@@ -263,7 +274,7 @@ function PluginEditor({
                                         id={id}
                                         type="number"
                                         value={iv}
-                                        onChange={(e) => {
+                                        onChange={e => {
                                             const next = structuredClone(plugin);
                                             next.config![idx].value = Number(e.target.value);
                                             onChange(next);
@@ -281,7 +292,7 @@ function PluginEditor({
                                     id={id}
                                     type={item.secret ? "password" : "text"}
                                     value={toStr(value)}
-                                    onChange={(e) => {
+                                    onChange={e => {
                                         const next = structuredClone(plugin);
                                         next.config![idx].value = e.target.value;
                                         onChange(next);
@@ -308,7 +319,7 @@ function PluginEditor({
                                     <span className="text-sm text-muted-foreground">Enable</span>
                                     <Switch
                                         checked={safeBool(tool.enabled, false)}
-                                        onCheckedChange={(v) => {
+                                        onCheckedChange={v => {
                                             const next = structuredClone(plugin);
                                             next.tools![k].enabled = v;
                                             onChange(next);
