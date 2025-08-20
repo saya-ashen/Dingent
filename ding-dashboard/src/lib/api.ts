@@ -39,9 +39,10 @@ function extractErrorMessage(err: unknown): string {
 }
 
 // --- Settings ---
+
 export async function getAppSettings(): Promise<AppSettings | null> {
     try {
-        const { data } = await http.get<AppSettings>("/config/settings");
+        const { data } = await http.get<AppSettings>("/settings");
         return data;
     } catch (err) {
         throw new Error(`Failed to fetch app settings: ${extractErrorMessage(err)}`);
@@ -50,13 +51,16 @@ export async function getAppSettings(): Promise<AppSettings | null> {
 
 export async function saveAppSettings(payload: AppSettings): Promise<void> {
     try {
-        await http.post("/config/settings", payload);
+        // Use PATCH for partial updates
+        await http.patch("/settings", payload);
     } catch (err) {
         throw new Error(`Failed to save app settings: ${extractErrorMessage(err)}`);
     }
 }
 
+
 // --- Assistants ---
+
 export async function getAssistantsConfig(): Promise<Assistant[] | null> {
     try {
         const { data } = await http.get<Assistant[]>("/assistants");
@@ -68,15 +72,36 @@ export async function getAssistantsConfig(): Promise<Assistant[] | null> {
 
 export async function saveAssistantsConfig(payload: Assistant[]): Promise<void> {
     try {
-        await http.post("/assistants", payload);
+        // Use PUT to replace the entire collection
+        await http.put("/assistants", payload);
     } catch (err) {
         throw new Error(`Failed to save assistants configuration: ${extractErrorMessage(err)}`);
     }
 }
 
+export async function addAssistant(name: string, description: string): Promise<Assistant> {
+    try {
+        // POST to the collection endpoint
+        const { data } = await http.post<Assistant>("/assistants", { name, description });
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to add assistant '${name}': ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function deleteAssistant(assistantId: string): Promise<void> {
+    try {
+        // Use DELETE on the specific resource URL
+        await http.delete(`/assistants/${assistantId}`);
+    } catch (err) {
+        throw new Error(`Failed to delete assistant '${assistantId}': ${extractErrorMessage(err)}`);
+    }
+}
+
 export async function addPluginToAssistant(assistantId: string, pluginName: string): Promise<void> {
     try {
-        await http.post(`/assistants/${assistantId}/add_plugin`, null, { params: { plugin_name: pluginName } });
+        // POST to the plugins sub-collection with the name in the body
+        await http.post(`/assistants/${assistantId}/plugins`, { plugin_name: pluginName });
     } catch (err) {
         throw new Error(`Failed to add plugin '${pluginName}': ${extractErrorMessage(err)}`);
     }
@@ -84,16 +109,20 @@ export async function addPluginToAssistant(assistantId: string, pluginName: stri
 
 export async function removePluginFromAssistant(assistantId: string, pluginName: string): Promise<void> {
     try {
-        await http.post(`/assistants/${assistantId}/remove_plugin`, null, { params: { plugin_name: pluginName } });
+        // Use DELETE on the specific plugin sub-resource URL
+        await http.delete(`/assistants/${assistantId}/plugins/${pluginName}`);
     } catch (err) {
         throw new Error(`Failed to remove plugin '${pluginName}': ${extractErrorMessage(err)}`);
     }
 }
 
+
 // --- Plugins ---
+
 export async function getAvailablePlugins(): Promise<PluginManifest[] | null> {
     try {
-        const { data } = await http.get<PluginManifest[]>("/plugins/list");
+        // Corrected collection URL
+        const { data } = await http.get<PluginManifest[]>("/plugins");
         return data;
     } catch (err) {
         throw new Error(`Failed to fetch available plugins: ${extractErrorMessage(err)}`);
@@ -102,22 +131,25 @@ export async function getAvailablePlugins(): Promise<PluginManifest[] | null> {
 
 export async function deletePlugin(pluginName: string): Promise<void> {
     try {
-        await http.post("/plugins/remove", { plugin_name: pluginName });
+        // Use DELETE on the specific plugin resource URL
+        await http.delete(`/plugins/${pluginName}`);
     } catch (err) {
         throw new Error(`Failed to delete plugin '${pluginName}': ${extractErrorMessage(err)}`);
     }
 }
 
+
 // --- Logs ---
-export async function getLogs(params: { level?: string | null; module?: string | null; limit?: number | null; search?: string | null; }): Promise<LogItem[]> {
+
+export async function getLogs(params: {
+    level?: string | null;
+    module?: string | null;
+    limit?: number | null;
+    search?: string | null;
+}): Promise<LogItem[]> {
     try {
-        const body = {
-            level: params.level ?? null,
-            module: params.module ?? null,
-            limit: params.limit ?? null,
-            search: params.search ?? null
-        };
-        const { data } = await http.post<LogItem[]>("/app/logs", body);
+        // Use GET and pass filters as query parameters
+        const { data } = await http.get<LogItem[]>("/logs", { params });
         return data;
     } catch (err) {
         throw new Error(`Failed to fetch logs: ${extractErrorMessage(err)}`);
@@ -126,19 +158,19 @@ export async function getLogs(params: { level?: string | null; module?: string |
 
 export async function getLogStatistics(): Promise<LogStats> {
     try {
-        const { data } = await http.get<LogStats>("/app/log_statistics");
+        // Corrected nested URL
+        const { data } = await http.get<LogStats>("/logs/stats");
         return data;
     } catch {
+        // Default value on failure
         return { total_logs: 0, by_level: {}, by_module: {}, oldest_timestamp: null, newest_timestamp: null };
     }
 }
 
-// 可选：如果后端提供 /app/logs/clear 端点，则设置环境变量 VITE_LOG_CLEAR=1
+// Assuming the backend provides a DELETE /logs endpoint to clear all logs
 export async function clearAllLogs(): Promise<boolean> {
-    const enabled = import.meta.env.VITE_LOG_CLEAR === "1";
-    if (!enabled) return false;
     try {
-        await http.post("/app/logs/clear");
+        await http.delete("/logs/clear"); // Using a more specific clear endpoint
         return true;
     } catch {
         return false;

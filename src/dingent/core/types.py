@@ -108,3 +108,9 @@ class AssistantUpdate(BaseModel):
     version: str | float | None = None
     spec_version: str | float | None = None
     enabled: bool | None = None
+
+
+class PluginBase(BaseModel):
+    name: str = Field(..., description="插件名称")
+    description: str = Field(..., description="插件描述")
+    version: str | float = Field("0.1.0", description="插件版本")

@@ -41,6 +41,11 @@ class AppAdminDetail(BaseModel):
     assistants: list[AssistantAdminDetail]
 
 
+class AddPluginRequest(BaseModel):
+    plugin_name: str
+    config: PluginUserConfig | None = None
+
+
 # --- 1. 辅助函数：处理单个插件 ---
 async def _build_plugin_admin_detail(plugin_config: PluginUserConfig, plugin_instance):
     """根据插件配置和其所属的助手实例，构建带有状态的插件详情。"""
@@ -106,7 +111,7 @@ async def _build_assistant_admin_detail(assistant_config: AssistantAdminDetail, 
     return AssistantAdminDetail(**assistant_admin_detail_dict)
 
 
-@router.get("/config/settings", response_model=AppAdminDetail)
+@router.get("/settings", response_model=AppAdminDetail)
 async def get_app_settings():
     """
     获取应用的核心配置（不包括助手列表）。
@@ -119,7 +124,7 @@ async def get_app_settings():
     return AppAdminDetail(**app_settings_dict)
 
 
-@router.post("/config/settings")
+@router.patch("/settings")
 async def update_app_settings(settings: dict):
     """
     更新应用的核心配置（例如 LLM 设置）。
@@ -148,7 +153,7 @@ async def get_all_assistants_with_status():
     return assistant_admin_details
 
 
-@router.post("/assistants")
+@router.put("/assistants")
 async def update_assistants_config(assistants_config: list[dict]):
     """
     接收完整的助手列表并更新配置。
@@ -170,7 +175,21 @@ async def update_assistants_config(assistants_config: list[dict]):
     return {"status": "ok", "message": "Assistants configuration updated successfully."}
 
 
-@router.get("/plugins/list", response_model=list[PluginManifest])
+@router.post("/assistants")
+async def add_assistant(assistant_config: AssistantCreate):
+    config_manager.add_assistant(assistant_config)
+    config_manager.save_config()
+    await assistant_manager.rebuild()
+
+
+@router.delete("/assistants/{assistant_id}")
+async def remove_assistant(assistant_id: str):
+    config_manager.remove_assistant(assistant_id)
+    config_manager.save_config()
+    await assistant_manager.rebuild()
+
+
+@router.get("/plugins", response_model=list[PluginManifest])
 async def list_available_plugins():
     """
     Scans the plugin directory and returns a list of all valid plugin manifests.
@@ -180,12 +199,8 @@ async def list_available_plugins():
     return list(plugin_manager.list_plugins().values())
 
 
-class RemovePluginRequest(BaseModel):
-    plugin_name: str
-
-
-@router.post("/plugins/remove")
-async def remove_plugin_endpoint(request: RemovePluginRequest):
+@router.delete("/plugins/{plugin_name}")
+async def remove_plugin_endpoint(plugin_name: str):
     """
     Removes a plugin's directory and unregisters it from the manager.
     NOTE: For security, this assumes a simple directory removal.
@@ -193,7 +208,6 @@ async def remove_plugin_endpoint(request: RemovePluginRequest):
           or a "soft delete" mechanism.
     """
     plugin_manager = get_plugin_manager()
-    plugin_name = request.plugin_name
 
     try:
         plugin_manager.remove_plugin(plugin_name)
@@ -202,8 +216,8 @@ async def remove_plugin_endpoint(request: RemovePluginRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/assistants/{assistant_id}/add_plugin")
-async def add_plugin_to_assistant(assistant_id: str, plugin_name: str):
+@router.post("/assistants/{assistant_id}/plugins")
+async def add_plugin_to_assistant(assistant_id: str, request_body: AddPluginRequest):
     """
     Adds a plugin to an existing assistant.
     """
@@ -211,6 +225,7 @@ async def add_plugin_to_assistant(assistant_id: str, plugin_name: str):
     if not assistant:
         raise HTTPException(status_code=404, detail=f"Assistant {assistant_id} not found")
 
+    plugin_name = request_body.plugin_name
     try:
         config_manager.add_plugin_config_to_assistant(assistant_id, plugin_name)
         config_manager.save_config()
@@ -220,7 +235,7 @@ async def add_plugin_to_assistant(assistant_id: str, plugin_name: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/assistants/{assistant_id}/remove_plugin")
+@router.delete("/assistants/{assistant_id}/plugins/{plugin_name}")
 async def remove_plugin_from_assistant(assistant_id: str, plugin_name: str):
     """
     Removes a plugin configuration from an existing assistant.
@@ -237,21 +252,7 @@ async def remove_plugin_from_assistant(assistant_id: str, plugin_name: str):
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
 
-@router.post("/assistants/add_assistant")
-async def add_assistant(assistant_config: AssistantCreate):
-    config_manager.add_assistant(assistant_config)
-    config_manager.save_config()
-    await assistant_manager.rebuild()
-
-
-@router.post("/assistants/remove_assistant")
-async def remove_assistant(assistant_id: str):
-    config_manager.remove_assistant(assistant_id)
-    config_manager.save_config()
-    await assistant_manager.rebuild()
-
-
-@router.post("/app/logs")
+@router.get("/logs")
 async def logs(level: str | None = None, module: str | None = None, limit: int | None = None, search: str | None = None):
     try:
         log_manager = get_log_manager()
@@ -261,7 +262,7 @@ async def logs(level: str | None = None, module: str | None = None, limit: int |
         return []
 
 
-@router.get("/app/log_statistics")
+@router.get("/logs/stats")
 async def log_statistics():
     try:
         log_manager = get_log_manager()
