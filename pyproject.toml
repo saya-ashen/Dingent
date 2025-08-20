@@ -30,6 +30,8 @@ dependencies = [
   "tomlkit>=0.13.3",
   "streamlit>=1.48.1",
   "streamlit-extras>=0.7.6",
+  "streamlit-antd-components>=0.3.2",
+  "streamlit-modal>=0.1.2",
 ]
 dev = [
   "ipython>=9.4.0",

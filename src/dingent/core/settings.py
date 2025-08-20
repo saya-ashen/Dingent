@@ -11,7 +11,7 @@ from pydantic_settings import (
     PydanticBaseSettingsSource,
 )
 
-from .types import PluginUserConfig
+from .types import AssistantBase, PluginUserConfig
 from .utils import find_project_root
 
 
@@ -47,14 +47,9 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         return tomlkit.loads(self.toml_path.read_text()).unwrap()
 
 
-class AssistantSettings(BaseModel):
+class AssistantSettings(AssistantBase):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the assistant, automatically generated if not provided.")
-    name: str = Field(..., description="The name of the assistant.")
-    description: str
     plugins: list[PluginUserConfig] = []
-    version: str | float = Field("0.2.0", description="Assistant version.")
-    spec_version: str | float = Field("2.0", description="Specification version.")
-    enabled: bool = Field(True, description="Enable or disable the assistant.")
 
 
 class LlmSettings(BaseModel):
