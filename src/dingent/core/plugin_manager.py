@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Literal
+
 import toml
 from fastmcp import Client, FastMCP
 from fastmcp.client import StreamableHttpTransport, UvStdioTransport
@@ -9,7 +10,6 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import Tool
 from loguru import logger
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
-
 
 from .resource_manager import get_resource_manager
 from .types import ConfigItemDetail, ExecutionModel, PluginConfigSchema, PluginUserConfig, ToolOutput

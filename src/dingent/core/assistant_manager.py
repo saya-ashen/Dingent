@@ -12,6 +12,7 @@ config_manager = get_config_manager()
 
 logger = logging.getLogger(__name__)
 
+
 class Assistant:
     name: str
     description: str

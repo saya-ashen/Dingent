@@ -7,4 +7,3 @@ port = 8501
 
 [frontend]
 port = 3000
-

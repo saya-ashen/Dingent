@@ -485,7 +485,7 @@ with tab_logs:
                 st.markdown(f"**Timestamp:** {timestamp}")
                 st.markdown(f"**Module:** `{module}`")
                 st.markdown(f"**Function:** `{function}`")
-                st.markdown(f"**Message:**")
+                st.markdown("**Message:**")
                 st.code(message, language="text")
 
                 # Show context if available
