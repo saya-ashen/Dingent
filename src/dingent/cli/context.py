@@ -7,6 +7,7 @@ import toml
 class CliContext:
     def __init__(self):
         from dingent.core.utils import find_project_root
+
         self.project_root: Path | None = find_project_root()
         self.config: dict = {}
 
@@ -54,6 +55,7 @@ class CliContext:
         if not self.plugin_path:
             return None
         from dingent.core.plugin_manager import get_plugin_manager
+
         return get_plugin_manager()
 
     @cached_property
@@ -61,6 +63,7 @@ class CliContext:
         if not self.plugin_manager:
             return None
         from dingent.core import get_assistant_manager
+
         return get_assistant_manager()
 
     @property
