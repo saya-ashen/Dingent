@@ -1,10 +1,14 @@
 import copy
-import html
+import json
 from typing import Any
 
+import pandas as pd
 import streamlit as st
+from streamlit_extras.dataframe_explorer import dataframe_explorer
 
+from dingent.core.types import AssistantCreate
 from dingent.dashboard.api import (
+    add_assistant,
     add_plugin_to_assistant_api,
     clear_all_logs,
     get_app_settings,
@@ -12,12 +16,13 @@ from dingent.dashboard.api import (
     get_available_plugins,
     get_log_statistics,
     get_logs,
+    remove_assistant,  # <-- added import
     remove_plugin,
     remove_plugin_from_assistant_api,
     save_app_settings,
     save_assistants_config,
 )
-from dingent.dashboard.ui_components import bordered_container, inject_base_css, render_confirm_dialog
+from dingent.dashboard.ui_components import bordered_container, inject_base_css, render_confirm_dialog, status_tag
 
 # --- Page Setup ---
 st.set_page_config(page_title="Assistant Configuration Editor", page_icon="🤖", layout="wide")
@@ -31,8 +36,7 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
         return value
     if value in (None, "", "None"):
         return default
-    # Fix fatal runtime: isinstance doesn't accept union types; use a tuple.
-    if isinstance(value, int | float):
+    if isinstance(value, (int, float)):
         return bool(value)
     if isinstance(value, str):
         return value.strip().lower() in ("1", "true", "t", "yes", "y", "on")
@@ -62,17 +66,6 @@ def _status_level_from_text(text: str) -> str:
     return "unknown"
 
 
-def _build_status_badge(label: str, level: str, title: str | None = None) -> str:
-    """
-    Generate an HTML snippet for a status badge.
-    level: ok | warn | error | disabled | unknown
-    """
-    safe_label = html.escape(label if label is not None else "")
-    classes = f"status-badge status-{level}"
-    title_attr = f' title="{html.escape(title)}"' if title else ""
-    return f'<span class="{classes}"{title_attr}><span class="dot"></span>{safe_label}</span>'
-
-
 def _effective_status_for_assistant(raw_status: Any, enabled: bool) -> tuple[str, str]:
     """
     Compute the display (level, label) based on enable state and original status.
@@ -81,14 +74,12 @@ def _effective_status_for_assistant(raw_status: Any, enabled: bool) -> tuple[str
         return "disabled", "Disabled"
     text = _to_str(raw_status) or "Unknown"
     level = _status_level_from_text(text)
-    # Make the label friendlier (retain original text)
     label_map = {
         "ok": "OK",
         "warn": "Warning",
         "error": "Error",
         "unknown": "Unknown",
     }
-    # Supplement with the original status: e.g., "OK (running)"
     friendly = f"{label_map.get(level, 'Unknown')} ({text})"
     return level, friendly
 
@@ -130,6 +121,32 @@ def close_all_add_plugin_modes():
                 pass
 
 
+def _to_hashable_df(records: list[dict]) -> pd.DataFrame:
+    """
+    将日志记录转换为可哈希的 DataFrame：
+    1) 先扁平化（把 context 等字典打平成列）
+    2) 对所有 object 列，把 dict/list/set/tuple 转为 JSON 字符串
+    """
+    df = pd.json_normalize(records, sep=".")
+
+    def make_hashable(x):
+        if x is None or (isinstance(x, float) and pd.isna(x)):
+            return x
+        if isinstance(x, set):
+            x = sorted(list(x))
+        if isinstance(x, (dict, list, tuple)):
+            try:
+                return json.dumps(x, ensure_ascii=False, sort_keys=True)
+            except Exception:
+                return str(x)
+        return x
+
+    for col in df.columns:
+        if df[col].dtype == "object":
+            df[col] = df[col].map(make_hashable)
+    return df
+
+
 # --- Init session states ---
 if "app_settings" not in st.session_state:
     st.session_state.app_settings = get_app_settings()
@@ -145,7 +162,6 @@ with st.sidebar:
         st.session_state.app_settings = get_app_settings()
         st.session_state.assistants_config = get_assistants_config()
         st.toast("Configuration refreshed!", icon="✅")
-        st.rerun()
 
     save_clicked = st.button(
         "💾 Save all changes",
@@ -170,8 +186,37 @@ tab_assistants, tab_plugins, tab_other_settings, tab_logs = st.tabs(["🤖 Assis
 PREFIX_ADD = "dlg_add_plugin_"
 PREFIX_REMOVE = "dlg_remove_plugin_"
 PREFIX_DELETE = "dlg_delete_plugin_"
+PREFIX_DELETE_ASSISTANT = "dlg_delete_assistant_"  # <-- new prefix
 
 with tab_assistants:
+    if st.button("➕ Add New Assistant", key="add_assistant_btn"):
+        st.session_state.show_add_assistant_form = True
+
+    if st.session_state.get("show_add_assistant_form"):
+        with bordered_container():
+            st.subheader("Create New Assistant")
+            with st.form("new_assistant_form"):
+                name = st.text_input("Assistant Name*", placeholder="My New Assistant")
+                description = st.text_area("Description", placeholder="A brief description of what this assistant does.")
+
+                submit_col, cancel_col = st.columns(2)
+                with submit_col:
+                    submitted = st.form_submit_button("✅ Create Assistant", use_container_width=True, type="primary")
+                with cancel_col:
+                    if st.form_submit_button("❌ Cancel", use_container_width=True):
+                        del st.session_state.show_add_assistant_form
+
+            if submitted:
+                if not name.strip():
+                    st.warning("Assistant Name is required.")
+                else:
+                    new_assistant_data = AssistantCreate(name=name, description=description)
+                    if add_assistant(new_assistant_data):
+                        st.toast("Assistant added successfully!", icon="🎉")
+                        del st.session_state.show_add_assistant_form
+                        refresh_assistants_state()
+
+    st.markdown("---")
     if not editable_assistants:
         st.info("There are currently no assistants to configure.")
 
@@ -189,10 +234,20 @@ with tab_assistants:
             with col2:
                 assistant["enabled"] = st.toggle("Enable this assistant", value=_safe_bool(assistant.get("enabled"), default=False), key=f"as_{i}_enabled")
             with col3:
-                # Colored status badge instead of a gray disabled input
                 lvl, label = _effective_status_for_assistant(status, _safe_bool(assistant.get("enabled"), False))
-                badge_html = _build_status_badge(label, lvl, title=_to_str(status))
-                st.markdown(f"Service Status: {badge_html}", unsafe_allow_html=True)
+                st.markdown("Service Status:")
+                status_tag(label, lvl, assistant_id)
+                # Delete assistant button
+                if st.button("🗑️ Delete Assistant", key=f"as_{i}_delete_assistant", help=f"Delete assistant '{name}'"):
+                    if not assistant_id:
+                        st.error("Cannot delete assistant: Assistant ID not found. Please Refresh.")
+                    else:
+                        dlg_key = f"{PREFIX_DELETE_ASSISTANT}{assistant_id}"
+                        st.session_state[dlg_key] = {
+                            "open": True,
+                            "result": None,
+                            "payload": {"assistant_id": assistant_id, "assistant_name": name},
+                        }
 
             assistant["description"] = st.text_area("Assistant Description", value=_to_str(assistant.get("description", "")), key=f"as_{i}_desc")
             st.markdown("---")
@@ -204,6 +259,7 @@ with tab_assistants:
             with cols_add_plugin[1]:
                 if st.button("➕ Add Plugin", key=f"as_{i}_add_plugin"):
                     st.session_state[add_plugin_key] = True
+
             if st.session_state.get(add_plugin_key):
                 with bordered_container():
                     all_plugins = get_available_plugins() or []
@@ -213,7 +269,6 @@ with tab_assistants:
                         st.warning("No other plugins available to add.")
                         if st.button("Close", key=f"as_{i}_close_add"):
                             del st.session_state[add_plugin_key]
-                            st.rerun()
                     else:
                         st.markdown("Select a plugin to add:")
                         col_select, col_confirm, col_cancel = st.columns([2, 1, 1])
@@ -227,7 +282,7 @@ with tab_assistants:
                         with col_confirm:
                             if st.button("Confirm Add", key=f"as_{i}_confirm_add", type="primary"):
                                 if not assistant_id:
-                                    st.error("Cannot add plugin: Assistant ID not found. Please refresh the page.")
+                                    st.error("Cannot add plugin: Assistant ID not found. Please Refresh.")
                                 elif not selected_plugin_name:
                                     st.warning("Please select a plugin.")
                                 else:
@@ -241,11 +296,10 @@ with tab_assistants:
                                             "plugin_name": selected_plugin_name,
                                         },
                                     }
-                                    st.rerun()
                         with col_cancel:
                             if st.button("Cancel", key=f"as_{i}_cancel_add"):
-                                del st.session_state[add_plugin_key]
-                                st.rerun()
+                                if add_plugin_key in st.session_state:
+                                    del st.session_state[add_plugin_key]
 
             plugins = assistant.get("plugins", [])
             if not plugins:
@@ -261,15 +315,14 @@ with tab_assistants:
                     with colp1:
                         st.markdown(f"Plugin: `{_to_str(p_name)}`")
                         lvl, label = _effective_status_for_plugin(p_status, p_enabled)
-                        badge = _build_status_badge(label, lvl, title=_to_str(p_status))
-                        st.markdown(f"Status: {badge}", unsafe_allow_html=True)
+                        st.markdown("Status:")
+                        status_tag(label, lvl, f"{assistant_id}_{p_name}")
                     with colp2:
                         plugin["enabled"] = st.toggle(
                             "Enable plugin",
                             value=p_enabled,
                             key=f"as_{i}_pl_{j}_enabled",
                         )
-                        # If user toggles the switch, update badge state immediately
                         p_enabled = plugin["enabled"]
                     with colp3:
                         if st.button("🗑️", key=f"as_{i}_pl_{j}_remove", help=f"Remove {p_name} from {name}"):
@@ -279,7 +332,6 @@ with tab_assistants:
                                 "result": None,
                                 "payload": {"assistant_id": assistant_id, "assistant_name": name, "plugin_name": p_name},
                             }
-                            st.rerun()
 
                     # Configuration area
                     config_items = plugin.get("config")
@@ -339,7 +391,6 @@ with tab_assistants:
                                 if is_enabled and tool.get("description"):
                                     st.caption(_to_str(tool.get("description")))
 
-
 with tab_plugins:
     st.subheader("Install New Plugin (Placeholder)")
     with bordered_container():
@@ -374,7 +425,6 @@ with tab_plugins:
                             "result": None,
                             "payload": {"plugin_name": p_name},
                         }
-                        st.rerun()
                 dependencies = p_manifest.get("dependencies")
                 if isinstance(dependencies, list) and dependencies:
                     st.markdown("Dependencies:")
@@ -415,10 +465,7 @@ with tab_logs:
         log_stats = get_log_statistics()
 
         if log_stats["total_logs"] > 0:
-            # Display basic stats
             st.metric("Total Logs", log_stats["total_logs"])
-
-            # Display by level
             if log_stats["by_level"]:
                 st.markdown("**By Level:**")
                 level_cols = st.columns(len(log_stats["by_level"]))
@@ -432,74 +479,23 @@ with tab_logs:
         st.markdown("**Actions**")
         if st.button("🔄 Refresh Logs", use_container_width=True):
             get_logs.clear()
-            st.rerun()
-
         if st.button("🗑️ Clear All Logs", type="secondary", use_container_width=True):
             if clear_all_logs():
                 st.toast("All logs cleared", icon="✅")
-                st.rerun()
 
     st.markdown("---")
 
-    # Log filtering section
-    st.markdown("**Filter Logs**")
-    filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
-
-    with filter_col1:
-        level_filter = st.selectbox("Level", options=["All", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], index=0)
-
-    with filter_col2:
-        module_filter = st.text_input("Module", placeholder="e.g., config_manager")
-
-    with filter_col3:
-        search_filter = st.text_input("Search", placeholder="Search in message...")
-
-    with filter_col4:
-        limit_filter = st.number_input("Limit", min_value=10, max_value=500, value=100, step=10)
-
-    # Apply filters
-    level_param = None if level_filter == "All" else level_filter
-    module_param = module_filter if module_filter.strip() else None
-    search_param = search_filter if search_filter.strip() else None
-
-    # Get and display logs
-    logs = get_logs(level=level_param, module=module_param, limit=int(limit_filter), search=search_param)
-
+    logs = get_logs(limit=500)  # fetch recent logs
     if logs:
-        st.markdown(f"**Showing {len(logs)} logs**")
-
-        # Display logs in an expandable format
-        for log in logs:
-            timestamp = log.get("timestamp", "Unknown")
-            level = log.get("level", "UNKNOWN")
-            message = log.get("message", "")
-            module = log.get("module", "unknown")
-            function = log.get("function", "unknown")
-
-            # Color code by level
-            level_colors = {"DEBUG": "#808080", "INFO": "#0066CC", "WARNING": "#FF8C00", "ERROR": "#FF4444", "CRITICAL": "#CC0000"}
-            color = level_colors.get(level, "#000000")
-
-            with st.expander(f"[{timestamp[:19]}] **{level}** in `{module}.{function}` - {message[:100]}", expanded=False):
-                st.markdown(f"**Level:** <span style='color: {color}; font-weight: bold;'>{level}</span>", unsafe_allow_html=True)
-                st.markdown(f"**Timestamp:** {timestamp}")
-                st.markdown(f"**Module:** `{module}`")
-                st.markdown(f"**Function:** `{function}`")
-                st.markdown("**Message:**")
-                st.code(message, language="text")
-
-                # Show context if available
-                context = log.get("context")
-                if context and context != {}:
-                    st.markdown("**Context:**")
-                    st.json(context)
-
-                # Show correlation ID if available
-                correlation_id = log.get("correlation_id")
-                if correlation_id:
-                    st.markdown(f"**Correlation ID:** `{correlation_id}`")
+        df = _to_hashable_df(logs)
+        for col in ["timestamp", "level", "message", "module", "function"]:
+            if col not in df.columns:
+                df[col] = ""
+        st.caption("Use the filters on the table header to refine results.")
+        filtered_df = dataframe_explorer(df, case=False)
+        st.dataframe(filtered_df, use_container_width=True, height=480)
     else:
-        st.info("No logs match the current filters.")
+        st.info("No logs to display.")
 
 # --- Save Action ---
 if save_clicked:
@@ -516,7 +512,6 @@ if save_clicked:
             st.session_state.app_settings = get_app_settings()
             st.session_state.assistants_config = get_assistants_config()
             st.toast("✅ All configuration saved and refreshed successfully!")
-            st.rerun()
         else:
             st.error("❌ Save failed. Please check the error messages above and try again.")
 
@@ -546,7 +541,6 @@ for key in list(st.session_state.keys()):
                     st.toast(f"Added plugin '{payload['plugin_name']}' to {payload['assistant_name']}", icon="✅")
                     refresh_assistants_state()
                     close_all_add_plugin_modes()
-                    st.rerun()
 
     if key.startswith(PREFIX_REMOVE):
         state = st.session_state.get(key) or {}
@@ -571,7 +565,6 @@ for key in list(st.session_state.keys()):
                 if ok:
                     st.toast(f"Plugin '{payload['plugin_name']}' removed from {payload['assistant_name']}", icon="✅")
                     refresh_assistants_state()
-                    st.rerun()
 
     if key.startswith(PREFIX_DELETE):
         state = st.session_state.get(key) or {}
@@ -595,4 +588,26 @@ for key in list(st.session_state.keys()):
                 if ok:
                     st.toast(f"Plugin '{payload['plugin_name']}' deleted", icon="✅")
                     refresh_assistants_state()
-                    st.rerun()
+
+    if key.startswith(PREFIX_DELETE_ASSISTANT):
+        state = st.session_state.get(key) or {}
+        if state.get("open"):
+            payload = state.get("payload", {})
+            assistant_name = payload.get("assistant_name", "")
+            render_confirm_dialog(
+                key,
+                "Confirm Delete Assistant",
+                f"Are you sure you want to delete assistant '{assistant_name}'? This action cannot be undone.",
+                confirm_text="Confirm Delete",
+                cancel_text="Cancel",
+            )
+        elif state.get("result") in ("confirmed", "cancelled"):
+            payload = (state.get("payload") or {}).copy()
+            confirmed = state["result"] == "confirmed"
+            st.session_state.pop(key, None)
+            if confirmed:
+                with st.spinner("Deleting assistant..."):
+                    ok = remove_assistant(payload["assistant_id"])
+                if ok:
+                    st.toast(f"Assistant '{payload['assistant_name']}' deleted", icon="✅")
+                    refresh_assistants_state()
