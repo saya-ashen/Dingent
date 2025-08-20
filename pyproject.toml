@@ -2,56 +2,52 @@
 name = "dingent"
 description = "AI agent framework"
 readme = "README.md"
-authors = [
-    {name = "saya", email = "c3313433633@gmail.com"},
-]
+authors = [{ name = "saya", email = "c3313433633@gmail.com" }]
 dynamic = ["version"]
 requires-python = ">=3.12, <3.14"
-license-files = [
-    "LICENSE"
-]
+license-files = ["LICENSE"]
 
 dependencies = [
-    "cookiecutter>=2.6.0",
-    "toml>=0.10.2",
-    "pydantic-settings<3.0.0,>=2.4.0",
-    "loguru>=0.7.3",
-    "langgraph>=0.6.3",
-    "typer>=0.16.0",
-    "copilotkit>=0.1.56",
-    "fastapi>=0.115.6",
-    "langchain>=0.3.23",
-    "langchain-chroma>=0.2.3",
-    "langchain-community>=0.3.21",
-    "fastmcp>=2.2.0",
-    "langchain-experimental>=0.3.4",
-    "langchain-mcp-adapters>=0.0.11",
-    "langchain-openai>=0.3.14,<1.0.0",
-    "langgraph>=0.3.31,<1.0.0",
-    "langgraph-cli[inmem]>=0.1.73",
-    "langgraph-swarm>=0.0.12",
-    "numpy>=2.3.0",
-    "tomlkit>=0.13.3",
-    "streamlit>=1.48.1",
-    "streamlit-extras>=0.7.6",
+  "cookiecutter>=2.6.0",
+  "toml>=0.10.2",
+  "pydantic-settings<3.0.0,>=2.4.0",
+  "loguru>=0.7.3",
+  "langgraph>=0.6.3",
+  "typer>=0.16.0",
+  "copilotkit>=0.1.56",
+  "fastapi>=0.115.6",
+  "langchain>=0.3.23",
+  "langchain-chroma>=0.2.3",
+  "langchain-community>=0.3.21",
+  "fastmcp>=2.2.0",
+  "langchain-experimental>=0.3.4",
+  "langchain-mcp-adapters>=0.0.11",
+  "langchain-openai>=0.3.14,<1.0.0",
+  "langgraph>=0.3.31,<1.0.0",
+  "langgraph-cli[inmem]>=0.1.73",
+  "langgraph-swarm>=0.0.12",
+  "numpy>=2.3.0",
+  "tomlkit>=0.13.3",
+  "streamlit>=1.48.1",
+  "streamlit-extras>=0.7.6",
 ]
 dev = [
-    "ipython>=9.4.0",
-    "pytest-mock>=3.14.1",
-    "aiobotocore>=2.22.0",
-    "basedpyright>=1.28",
-    "coverage<8.0.0,>=7.4.3",
-    "pre-commit<4.0.0,>=3.6.2",
-    "pytest<9.0.0,>=8.4.1",
-    "pytest-asyncio>=0.26.0",
-    "pytest-mock>=3.14.1",
-    "python-dotenv>=1.1.0",
-    "ruff<1.0.0,>=0.11.3",
+  "ipython>=9.4.0",
+  "pytest-mock>=3.14.1",
+  "aiobotocore>=2.22.0",
+  "basedpyright>=1.28",
+  "coverage<8.0.0,>=7.4.3",
+  "pre-commit<4.0.0,>=3.6.2",
+  "pytest<9.0.0,>=8.4.1",
+  "pytest-asyncio>=0.26.0",
+  "pytest-mock>=3.14.1",
+  "python-dotenv>=1.1.0",
+  "ruff<1.0.0,>=0.11.3",
 ]
 
 
 [build-system]
-requires = ["hatchling","hatch-vcs"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.ruff]
@@ -59,10 +55,10 @@ target-version = "py313"
 line-length = 180
 
 [tool.ruff.lint]
-select = [ "E", "W", "F", "I", "B", "C4", "UP", "ARG001" ]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "ARG001"]
 ignore = [
-    "B008", # do not perform function calls in argument defaults
-    "B904", # Allow raising exceptions without from e, for HTTPException
+  "B008", # do not perform function calls in argument defaults
+  "B904", # Allow raising exceptions without from e, for HTTPException
 ]
 
 [tool.ruff.lint.pyupgrade]
@@ -77,7 +73,7 @@ indent-style = "space"
 
 [tool.basedpyright]
 include = ["src/"]
-exclude = [ "**/__pycache__" ]
+exclude = ["**/__pycache__"]
 defineConstant = { DEBUG = true }
 reportMissingImports = "error"
 reportMissingTypeStubs = false
@@ -98,12 +94,12 @@ default-groups = "all"
 
 [dependency-groups]
 dev = [
-    "ipython>=9.4.0",
-    "pytest>=8.4.1",
-    "pytest-asyncio>=1.1.0",
-    "pytest-cov>=6.2.1",
-    "pytest-mock>=3.14.1",
-    "ruff>=0.12.7",
+  "ipython>=9.4.0",
+  "pytest>=8.4.1",
+  "pytest-asyncio>=1.1.0",
+  "pytest-cov>=6.2.1",
+  "pytest-mock>=3.14.1",
+  "ruff>=0.12.7",
 ]
 [project.scripts]
 dingent = "dingent.cli:app"
