@@ -211,3 +211,5 @@ __marimo__/
 
 # ignore templates directory
 !templates/
+
+src/dingent/static/frontend

@@ -1,19 +1,38 @@
+# build-admin: Builds the admin dashboard and copies assets.
 build-admin:
     @echo "Building admin dashboard..."
-    # Step 1: Navigate to the frontend directory and run the build command.
-    # The command is run in a subshell `()` so the change of directory doesn't
-    # affect subsequent commands.
     @(cd ui/admin-dashboard && bun run build)
 
-    @echo "Copying build artifacts..."
-    # Step 2: Ensure the destination directory is clean by removing it first.
+    @echo "Copying admin dashboard artifacts..."
     @rm -rf src/dingent/static/admin_dashboard
-    # Recreate the destination directory. The `-p` flag creates parent directories
-    # if they don't exist and doesn't error if the directory already exists.
     @mkdir -p src/dingent/static/admin_dashboard
-
-    # Step 3: Copy all files from the build output directory to the destination.
-    # The `.` at the end of the source path ensures that the *contents* of 'dist' are copied.
     @cp -r ui/admin-dashboard/dist/. src/dingent/static/admin_dashboard/
 
     @echo "✅ Admin dashboard built and copied successfully."
+
+
+# build-frontend: Builds the Next.js frontend for standalone deployment.
+build-frontend:
+    @echo "Building user frontend..."
+    # Step 1: Navigate to the frontend directory and run the build.
+    @(cd ui/frontend && bun run build)
+
+    @echo "Copying Next.js standalone artifacts to 'src/dingent/static/frontend'..."
+    # Step 2: Clean and recreate the destination directory for a fresh copy.
+    @rm -rf src/dingent/static/frontend
+    @mkdir -p src/dingent/static/frontend
+
+    # Step 3: Copy the core standalone server files (like server.js, node_modules).
+    @cp -r ui/frontend/.next/standalone/. src/dingent/static/frontend/
+
+    # Step 4: The standalone server needs the '.next/static' and 'public' folders
+    # to serve assets correctly. We copy them to the expected locations.
+    @cp -r ui/frontend/.next/static src/dingent/static/frontend/.next/
+    @cp -r ui/frontend/public src/dingent/static/frontend/
+
+    @echo "✅ User frontend built and copied successfully."
+
+
+# build-ui: A helper command to build both frontend applications.
+build-ui: build-admin build-frontend
+    @echo "🚀 All UI applications have been built."
