@@ -20,4 +20,4 @@ def find_project_root(marker: str = "dingent.toml") -> Path | None:
     if (current_dir / marker).exists():
         return current_dir
 
-    return None
+    return current_dir

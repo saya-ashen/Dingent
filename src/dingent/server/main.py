@@ -79,6 +79,10 @@ def register_admin_routes(app: FastAPI, base_path: str = "/admin") -> None:
 
 
 def register_frontend_routes(app: FastAPI) -> None:
+    @app.get("/ok")
+    async def ok():
+        return {"status": "ok"}
+
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
     async def reverse_proxy(request: Request):
         client: httpx.AsyncClient = request.app.state.client
@@ -121,3 +125,6 @@ def build_agent_api(**kwargs) -> FastAPI:
         return Response(content=content, media_type=content_type, headers={"Cache-Control": "public, max-age=0"})
 
     return app
+
+
+app = build_agent_api()
