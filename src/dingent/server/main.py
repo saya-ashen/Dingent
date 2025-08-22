@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
     print("Plugins would be initialized here if needed.")
 
-    app.state.client = httpx.AsyncClient(base_url=FRONTEND_URL)
+    # app.state.client = httpx.AsyncClient(base_url=FRONTEND_URL)
 
     try:
         yield
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
         print("--- Application Shutdown ---")
         try:
             await assistant_manager.aclose()
-            await app.state.client.aclose()
+            # await app.state.client.aclose()
         except Exception as e:
             print(f"Error during assistant_manager.aclose(): {e}")
         print("All plugin subprocesses have been shut down.")
@@ -112,7 +112,7 @@ def build_agent_api(**kwargs) -> FastAPI:
     app = FastAPI(**kwargs)
     app.include_router(admin_config_router, prefix="/api/v1")
     register_admin_routes(app, "/admin")
-    register_frontend_routes(app)
+    # register_frontend_routes(app)
 
     @app.get("/api/resource/{resource_id}")
     async def get_resource(resource_id: str):
