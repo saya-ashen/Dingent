@@ -139,14 +139,26 @@ class ServiceSupervisor:
                         raise typer.Exit(1)
                 time.sleep(0.3)
         except KeyboardInterrupt:
-            print("\n[bold yellow]收到中断信号，正在关闭服务...[/bold yellow]")
-            self.stop_all()
+            if not hasattr(self, "_shutting_down"):
+                self._shutting_down = True
+                print("\n[bold yellow]收到中断信号，正在关闭服务 (再次 Ctrl+C 将强制退出)...[/bold yellow]")
+                try:
+                    self.stop_all()
+                except KeyboardInterrupt:
+                    print("\n[bold red]二次中断：立即强制终止所有进程[/bold red]")
+                    self.stop_all(force=True)
+            else:
+                print("\n[bold red]再次收到中断，强制终止...[/bold red]")
+                self.stop_all(force=True)
 
-    def stop_all(self):
+    def stop_all(self, force: bool = False):
+        """
+        Signals all running services to stop and waits for their termination.
+        """
         self._stop_event.set()
         for svc in reversed(self.services):
             if svc.process and svc.process.poll() is None:
-                _terminate_process_tree(svc.process, svc.name)
+                _terminate_process_tree(svc.process, svc.name, force=force)
         print("[bold blue]🛑 所有进程已结束[/bold blue]")
 
     def _start_service(self, svc: Service):
@@ -208,44 +220,106 @@ class ServiceSupervisor:
                         print("[yellow]⚠️ 无法自动打开浏览器[/yellow]")
 
 
-def _terminate_process_tree(proc: subprocess.Popen, name: str):
+def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = False):
+    """
+    Terminates a process and its entire process tree gracefully.
+
+    For POSIX:
+    1. Sends SIGINT (like Ctrl+C).
+    2. Waits, then sends SIGTERM if it's still running.
+    3. Waits again, then sends SIGKILL as a last resort.
+
+    For Windows:
+    1. Sends CTRL_BREAK_EVENT.
+    2. Waits, then uses 'taskkill /T /F' to terminate the tree.
+
+    Args:
+        proc: The Popen object for the process.
+        name: The name of the service for logging.
+        force: If True, immediately uses the most forceful method (SIGKILL/taskkill).
+    """
     if proc.poll() is not None:
         return
+
     print(f"[yellow]停止 {name} (PID {proc.pid}) ...[/yellow]", end="")
+
     try:
         if os.name == "posix":
+            pgid = None
             try:
                 pgid = os.getpgid(proc.pid)
-                os.killpg(pgid, signal.SIGTERM)
-            except Exception:
-                proc.terminate()
+            except OSError:
+                # Process might have already died
+                pass
+
+            def _group_kill(sig):
+                """Helper to send a signal to the process group or just the process."""
+                if pgid is not None:
+                    try:
+                        os.killpg(pgid, sig)
+                    except OSError:
+                        pass  # Group might not exist anymore
+                else:
+                    try:
+                        proc.send_signal(sig)
+                    except OSError:
+                        pass  # Process might not exist
+
+            if force:
+                _group_kill(signal.SIGKILL)
+                proc.wait(timeout=5)
+                print("[yellow] (force) ✓[/yellow]")
+                return
+
+            # 1) Try SIGINT first (simulates user Ctrl+C for graceful shutdown)
+            _group_kill(signal.SIGINT)
             try:
-                proc.wait(timeout=15)
+                proc.wait(timeout=4)
                 print("[green] ✓[/green]")
                 return
             except subprocess.TimeoutExpired:
-                try:
-                    pgid = os.getpgid(proc.pid)
-                    os.killpg(pgid, signal.SIGKILL)
-                except Exception:
-                    proc.kill()
-        else:
+                pass
+
+            # 2) Then, try SIGTERM for a more standard termination
+            _group_kill(signal.SIGTERM)
             try:
+                proc.wait(timeout=8)
+                print("[green] ✓[/green]")
+                return
+            except subprocess.TimeoutExpired:
+                pass
+
+            # 3) Finally, resort to SIGKILL
+            _group_kill(signal.SIGKILL)
+            proc.wait(timeout=5)
+            print("[yellow] (kill) ✓[/yellow]")
+
+        else:  # For Windows
+            if force:
+                # Forcefully skip to the taskkill part by raising a timeout
+                raise subprocess.TimeoutExpired(proc.args, timeout=0)
+
+            try:
+                # Send CTRL_BREAK_EVENT to the process group
                 proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
             except Exception:
                 pass
+
             try:
-                proc.wait(timeout=15)
+                proc.wait(timeout=8)
                 print("[green] ✓[/green]")
                 return
             except subprocess.TimeoutExpired:
+                # Terminate the entire process tree forcefully
                 subprocess.run(
                     ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                    check=False,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-        proc.wait(timeout=5)
-        print("[yellow] (force) [/yellow]")
+                proc.wait(timeout=5)
+                print("[yellow] (force) ✓[/yellow]")
+
     except Exception as e:
         print(f"[red] 失败: {e}[/red]")
 
