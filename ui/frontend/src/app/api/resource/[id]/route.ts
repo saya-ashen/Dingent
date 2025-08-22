@@ -12,7 +12,7 @@ export async function GET(request: Request, context: unknown) {
         return NextResponse.json({ message: 'Missing resource id' }, { status: 400 });
     }
 
-    const backendApiUrl = process.env.BACKEND_API_URL ?? 'http://127.0.0.1:2024';
+    const backendApiUrl = process.env.BACKEND_API_URL ?? 'http://127.0.0.1:8000';
     const targetUrl = `${backendApiUrl}/api/resource/${resourceId}`;
 
     console.log(`Forwarding request for resource [${resourceId}] to [${targetUrl}]`);

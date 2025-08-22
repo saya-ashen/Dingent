@@ -1,9 +1,9 @@
-[backend]
-port = 8000
-plugins.directory = "plugins"
+backend_port = 8000
+frontend_port = 8080
+default_assistant = "NewsCurator"
 
-[dashboard]
-port = 8501
-
-[frontend]
-port = 3000
+[llm]
+model = "gpt-4.1"
+provider = ""
+base_url = "https://www.dmxapi.cn/v1"
+api_key = "sk-mx79KrgdiE7LAshJy6Qc4EzPCrxf36zLk1YGpx4t24GaMrLb"
