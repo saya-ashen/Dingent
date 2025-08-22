@@ -1,5 +1,0 @@
-llm.model = "gpt-4.1"
-[[assistants]]
-name = "arXiv_assistant"
-description = "This is an assistant for arXiv search"
-tools = [{ plugin_name = "arXiv-Searcher", name = "arXiv" }]
