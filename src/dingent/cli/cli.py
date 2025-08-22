@@ -151,15 +151,15 @@ class ServiceSupervisor:
 
     def _start_service(self, svc: Service):
         env = {**os.environ, **svc.env}
-        popen_kwargs = dict(
-            cwd=str(svc.cwd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=env,
-            text=True,
-            bufsize=1,
-            errors="replace",
-        )
+        popen_kwargs = {
+            "cwd": str(svc.cwd),
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.STDOUT,
+            "env": env,
+            "text": True,
+            "bufsize": 1,
+            "errors": "replace",
+        }
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True
         else:

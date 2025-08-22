@@ -179,7 +179,7 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             from { opacity: 0; transform: translateX(-50%) translateY(8px); }
             to { opacity: 1; transform: translateX(-50%) translateY(0); }
           }
-          
+
           .usage-banner {
             position: fixed;
             bottom: 24px;
@@ -189,13 +189,13 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             z-index: 10000;
             animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
           }
-          
+
           .banner-content {
             background: linear-gradient(135deg, ${e.bg} 0%, ${e.bg}f5 100%);
             border: 1px solid ${e.border};
             border-radius: 12px;
             padding: 18px 20px;
-            box-shadow: 
+            box-shadow:
               0 4px 24px rgba(0, 0, 0, 0.08),
               0 2px 8px rgba(0, 0, 0, 0.04),
               inset 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -207,7 +207,7 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             position: relative;
             overflow: hidden;
           }
-          
+
           .banner-content::before {
             content: '';
             position: absolute;
@@ -217,7 +217,7 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             height: 1px;
             background: linear-gradient(90deg, transparent, ${e.accent}40, transparent);
           }
-          
+
           .banner-message {
             color: ${e.text};
             font-size: 14px;
@@ -226,7 +226,7 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             flex: 1;
             letter-spacing: -0.01em;
           }
-          
+
           .close-btn {
             background: rgba(0, 0, 0, 0.05);
             border: none;
@@ -245,13 +245,13 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             align-items: center;
             justify-content: center;
           }
-          
+
           .close-btn:hover {
             opacity: 1;
             background: rgba(0, 0, 0, 0.08);
             transform: scale(1.05);
           }
-          
+
           .btn-primary {
             background: linear-gradient(135deg, ${e.accent} 0%, ${e.accent}e6 100%);
             color: white;
@@ -264,44 +264,44 @@ ${b}`:"")}},65773:(a,b,c)=>{"use strict";Object.defineProperty(b,"__esModule",{v
             transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
             font-family: inherit;
             flex-shrink: 0;
-            box-shadow: 
+            box-shadow:
               0 2px 8px ${e.accent}30,
               inset 0 1px 0 rgba(255, 255, 255, 0.2);
             letter-spacing: -0.01em;
           }
-          
+
           .btn-primary:hover {
             transform: translateY(-1px) scale(1.02);
-            box-shadow: 
+            box-shadow:
               0 4px 12px ${e.accent}40,
               inset 0 1px 0 rgba(255, 255, 255, 0.25);
           }
-          
+
           .btn-primary:active {
             transform: translateY(0) scale(0.98);
             transition: all 0.08s cubic-bezier(0.16, 1, 0.3, 1);
           }
-          
+
           @media (max-width: 640px) {
             .usage-banner {
               width: calc(100vw - 24px);
             }
-            
+
             .banner-content {
               padding: 16px;
               gap: 12px;
             }
-            
+
             .banner-message {
               font-size: 13px;
               line-height: 1.45;
             }
-            
+
             .btn-primary {
               padding: 8px 14px;
               font-size: 12px;
             }
-            
+
             .close-btn {
               width: 22px;
               height: 22px;
@@ -356,7 +356,7 @@ ${f}`}else b=`${c?`Agent '${c}'`:"The requested agent"} was not found. Please se
 Possible reasons:
 - -The server may have an error preventing it from returning a response (Check the server logs for more info).
 - -The server might be down or unreachable
-- -There might be a network issue (e.g., DNS failure, connection timeout) 
+- -There might be a network issue (e.g., DNS failure, connection timeout)
 - -The URL might be incorrect
 - -The server is not running on the specified port
 
