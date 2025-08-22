@@ -16,7 +16,6 @@ from __future__ import annotations
 import os
 import queue
 import re
-import signal
 import subprocess
 import tempfile
 import threading
@@ -24,6 +23,7 @@ import time
 import webbrowser
 from pathlib import Path
 
+import psutil
 import typer
 from rich import print
 from rich.text import Text
@@ -152,14 +152,20 @@ class ServiceSupervisor:
                 self.stop_all(force=True)
 
     def stop_all(self, force: bool = False):
-        """
-        Signals all running services to stop and waits for their termination.
-        """
         self._stop_event.set()
         for svc in reversed(self.services):
             if svc.process and svc.process.poll() is None:
                 _terminate_process_tree(svc.process, svc.name, force=force)
         print("[bold blue]🛑 所有进程已结束[/bold blue]")
+
+        # 新增：清理临时目录（防止GC不及时，导致下次端口占用）
+        global _TEMP_DIRS
+        for td in _TEMP_DIRS:
+            try:
+                td.cleanup()
+            except Exception:
+                pass
+        _TEMP_DIRS.clear()
 
     def _start_service(self, svc: Service):
         env = {**os.environ, **svc.env}
@@ -222,21 +228,8 @@ class ServiceSupervisor:
 
 def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = False):
     """
-    Terminates a process and its entire process tree gracefully.
-
-    For POSIX:
-    1. Sends SIGINT (like Ctrl+C).
-    2. Waits, then sends SIGTERM if it's still running.
-    3. Waits again, then sends SIGKILL as a last resort.
-
-    For Windows:
-    1. Sends CTRL_BREAK_EVENT.
-    2. Waits, then uses 'taskkill /T /F' to terminate the tree.
-
-    Args:
-        proc: The Popen object for the process.
-        name: The name of the service for logging.
-        force: If True, immediately uses the most forceful method (SIGKILL/taskkill).
+    使用 psutil 递归终止进程及其所有后代进程。
+    先尝试 graceful terminate (等效SIGTERM)，超时后 force kill (等效SIGKILL)。
     """
     if proc.poll() is not None:
         return
@@ -244,82 +237,41 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
     print(f"[yellow]停止 {name} (PID {proc.pid}) ...[/yellow]", end="")
 
     try:
-        if os.name == "posix":
-            pgid = None
-            try:
-                pgid = os.getpgid(proc.pid)
-            except OSError:
-                # Process might have already died
-                pass
+        # 获取主进程
+        main_proc = psutil.Process(proc.pid)
 
-            def _group_kill(sig):
-                """Helper to send a signal to the process group or just the process."""
-                if pgid is not None:
-                    try:
-                        os.killpg(pgid, sig)
-                    except OSError:
-                        pass  # Group might not exist anymore
-                else:
-                    try:
-                        proc.send_signal(sig)
-                    except OSError:
-                        pass  # Process might not exist
+        # 获取所有后代进程（递归）
+        children = main_proc.children(recursive=True)
 
-            if force:
-                _group_kill(signal.SIGKILL)
-                proc.wait(timeout=5)
-                print("[yellow] (force) ✓[/yellow]")
-                return
+        # 先尝试 graceful terminate（发送SIGTERM等效）
+        if not force:
+            main_proc.terminate()
+            for child in children:
+                try:
+                    child.terminate()
+                except psutil.NoSuchProcess:
+                    pass
 
-            # 1) Try SIGINT first (simulates user Ctrl+C for graceful shutdown)
-            _group_kill(signal.SIGINT)
-            try:
-                proc.wait(timeout=4)
+            # 等待（最多8秒）
+            gone, alive = psutil.wait_procs([main_proc] + children, timeout=8)
+            if not alive:
                 print("[green] ✓[/green]")
                 return
-            except subprocess.TimeoutExpired:
+
+        # 如果超时或force，直接kill
+        main_proc.kill()
+        for child in children:
+            try:
+                child.kill()
+            except psutil.NoSuchProcess:
                 pass
 
-            # 2) Then, try SIGTERM for a more standard termination
-            _group_kill(signal.SIGTERM)
-            try:
-                proc.wait(timeout=8)
-                print("[green] ✓[/green]")
-                return
-            except subprocess.TimeoutExpired:
-                pass
+        # 等待确认（最多5秒）
+        psutil.wait_procs([main_proc] + children, timeout=5)
+        print("[yellow] (force/kill) ✓[/yellow]")
 
-            # 3) Finally, resort to SIGKILL
-            _group_kill(signal.SIGKILL)
-            proc.wait(timeout=5)
-            print("[yellow] (kill) ✓[/yellow]")
-
-        else:  # For Windows
-            if force:
-                # Forcefully skip to the taskkill part by raising a timeout
-                raise subprocess.TimeoutExpired(proc.args, timeout=0)
-
-            try:
-                # Send CTRL_BREAK_EVENT to the process group
-                proc.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
-            except Exception:
-                pass
-
-            try:
-                proc.wait(timeout=8)
-                print("[green] ✓[/green]")
-                return
-            except subprocess.TimeoutExpired:
-                # Terminate the entire process tree forcefully
-                subprocess.run(
-                    ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
-                    check=False,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                proc.wait(timeout=5)
-                print("[yellow] (force) ✓[/yellow]")
-
+    except psutil.NoSuchProcess:
+        print("[green] ✓ (已结束)[/green]")
     except Exception as e:
         print(f"[red] 失败: {e}[/red]")
 
@@ -355,6 +307,8 @@ def run(
         "dev",
         "--no-browser",
         "--allow-blocking",
+        "--host",
+        "127.0.0.1",  # 新增：显式绑定localhost，减少风险
         "--port",
         str(cli_ctx.backend_port),
         "--config",

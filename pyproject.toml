@@ -33,6 +33,7 @@ dependencies = [
   "streamlit-antd-components>=0.3.2",
   "streamlit-modal>=0.1.2",
   "nodejs-wheel>=22.18.0",
+  "psutil>=7.0.0",
 ]
 dev = [
   "ipython>=9.4.0",
@@ -53,6 +54,9 @@ dev = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+# 强制包含 src/dingent/static 目录到最终包的 dingent/static 路径下
+force-include = { "src/dingent/static" = "dingent/static" }
 
 [tool.ruff]
 target-version = "py313"
