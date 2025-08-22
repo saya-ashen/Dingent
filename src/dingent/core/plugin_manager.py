@@ -373,7 +373,7 @@ class PluginManager:
         if not plugin_dir:
             project_root = find_project_root()
             if project_root:
-                self.plugin_dir = project_root / "backend" / "plugins"
+                self.plugin_dir = project_root / "plugins"
             else:
                 raise ValueError("Plugin directory must be specified or a project root must be found.")
         else:
