@@ -79,6 +79,11 @@ docstring-code-line-length = 20
 quote-style = "double"
 indent-style = "space"
 
+[tool.hatch.build]
+artifacts = [
+  "src/dingent/static/dist/**",
+]
+
 [tool.basedpyright]
 include = ["src/"]
 exclude = ["**/__pycache__"]
