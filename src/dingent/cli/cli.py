@@ -330,7 +330,7 @@ def run(
         Service(
             name="frontend",
             command=frontend_cmd,
-            cwd=cli_ctx.project_root,
+            cwd=cli_ctx.frontend_path,
             color="cyan",
             env={"DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
             open_browser_hint=True,
@@ -369,6 +369,7 @@ def dev(
         "langgraph",
         "dev",
         "--allow-blocking",
+        "--no-reload",
         "--port",
         str(cli_ctx.backend_port),
         "--config",

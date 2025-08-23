@@ -16,10 +16,10 @@ export interface ThreadContextType {
 }
 
 export interface TablePayload {
+    title?: string
     type?: string
     columns: string[];
     rows: Record<string, string | number>[];
-    title?: string;
 }
 export interface MarkdownPayload {
     type?: string

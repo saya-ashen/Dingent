@@ -1,21 +1,30 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import ReactMarkdown from 'react-markdown';
+import 'highlight.js/styles/github.css';
+import './MarkdownWidget.css';
 
 interface MarkdownWidgetCardProps {
-    data: {
-        content: string;
-    };
+  data: {
+    content: string;
+  };
 }
 
 export function MarkdownWidget({ data }: MarkdownWidgetCardProps) {
-    return (
-        <div className="max-w-4xl w-full bg-white/80 backdrop-blur-sm rounded-lg shadow-lg overflow-hidden">
-            <article className="prose prose-indigo lg:prose-xl p-6">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {data.content}
-                </ReactMarkdown>
-            </article>
-        </div>
-    );
+  return (
+    <ReactMarkdown
+      className="markdown-body"
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ node, ...props }) => (
+          <a {...props} target="_blank" rel="noreferrer" />
+        ),
+        img: ({ node, ...props }) => (
+          <img {...props} loading="lazy" style={{ maxWidth: '100%' }} />
+        ),
+      }}
+    >
+      {data.content}
+    </ReactMarkdown>
+  );
 }

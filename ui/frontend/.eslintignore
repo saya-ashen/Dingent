@@ -1,3 +1,0 @@
-# Ignore shadcn-ui generated files
-src/components/ui/*
-src/lib/utils.ts

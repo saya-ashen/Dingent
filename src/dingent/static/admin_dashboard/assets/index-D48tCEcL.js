@@ -144,23 +144,23 @@ Please change the parent <Route path="${C}"> to <Route path="${C==="/"?"*":`${C}
     margin-right: `).concat(h,"px ").concat(o,`;
     `),a==="padding"&&"padding-right: ".concat(h,"px ").concat(o,";")].filter(Boolean).join(""),`
   }
-  
+
   .`).concat(zu,` {
     right: `).concat(h,"px ").concat(o,`;
   }
-  
+
   .`).concat(ju,` {
     margin-right: `).concat(h,"px ").concat(o,`;
   }
-  
+
   .`).concat(zu," .").concat(zu,` {
     right: 0 `).concat(o,`;
   }
-  
+
   .`).concat(ju," .").concat(ju,` {
     margin-right: 0 `).concat(o,`;
   }
-  
+
   body[`).concat(eo,`] {
     `).concat(Y2,": ").concat(h,`px;
   }
@@ -187,7 +187,7 @@ For more information, see https://radix-ui.com/primitives/docs/components/alert-
             path: iss.path ? [${H}, ...iss.path] : [${H}]
           })));
         }
-        
+
         if (${M}.value === undefined) {
           if (${H} in input) {
             newResult[${H}] = undefined;
