@@ -52,7 +52,7 @@ class AppSettings(BaseModel):
     model_config = ConfigDict(env_prefix="DINGENT_", populate_by_name=True, extra="ignore")
     assistants: list[AssistantSettings] = []
     default_assistant: str | None = None
-    llm: LlmSettings
+    llm: LlmSettings | None = None
     backend_port: int = 8000
     frontend_port: int = 8080
 
