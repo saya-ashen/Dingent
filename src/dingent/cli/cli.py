@@ -22,9 +22,12 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
+from typing import Annotated
 
 import psutil
 import typer
+from cookiecutter.exceptions import RepositoryNotFound
+from cookiecutter.main import cookiecutter
 from rich import print
 from rich.text import Text
 
@@ -37,6 +40,13 @@ DEFAULT_API_SPEC = "dingent.server.main:app"
 ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
 ENV_API_SPEC = "DINGENT_API_SPEC"
 
+PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
+DEV_REPO_URL = "/home/saya/Workspace/Dingent"
+
+AVAILABLE_TEMPLATES = ["basic"]
+IS_DEV_MODE = os.getenv("DINGENT_DEV")
+
+REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
 # --------- 工具函数 ---------
 def _resolve_node_binary() -> str:
@@ -90,6 +100,53 @@ def import_json_dumps(obj) -> str:
 
 
 _TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # 防止被 GC 清理
+
+
+
+
+class ProjectInitializer:
+    """Handles the logic for the 'init' command."""
+
+    def __init__(self, project_name, template, checkout ):
+        self.project_name = project_name
+        self.template = template
+        self.checkout = checkout
+        self.project_path = None
+
+    def run(self):
+        """Executes the entire project initialization workflow."""
+        try:
+            self._create_from_template()
+            self._print_final_summary()
+        except RepositoryNotFound:
+            print(f"[bold red]\n❌ Error: Repository not found at {REPO_URL}[/bold red]")
+            print("[bold red]\nPlease check the URL and your network connection.[/bold red]")
+            raise typer.Exit()
+        except Exception as e:
+            print(f"[bold red]\nAn unexpected error occurred: {e}[/bold red]")
+            raise typer.Exit()
+
+    def _create_from_template(self):
+        """Uses Cookiecutter to scaffold the project."""
+        print(f"[bold green]🚀 Initializing project from git repository: {REPO_URL}[/bold green]")
+        template_dir = f"templates/{self.template}"
+        created_path = cookiecutter(
+            REPO_URL,
+            directory=template_dir,
+            checkout=self.checkout,
+            extra_context={"project_slug": self.project_name},
+            output_dir=".",
+        )
+        self.project_path = Path(created_path)
+        print(f"[bold green]✅ Project created at {self.project_path}[/bold green]")
+
+    def _print_final_summary(self):
+        """Prints the final success message and next steps."""
+        final_project_name = self.project_path.name
+        print("[bold green]\n🎉 Project initialized successfully![/bold green]")
+        print("\nNext steps:")
+        print(f"  1. Navigate to your project: cd {final_project_name}")
+        print("  2. Start all services: uvx dingent run")
 
 
 class Service:
@@ -405,6 +462,15 @@ def dev(
     supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)
     supervisor.start_all()
 
+@app.command("init")
+def init(
+    project_name: Annotated[str, typer.Argument()],
+    template: Annotated[str, typer.Option(help="The template used to create the project.")] = "basic",
+    checkout: Annotated[str, typer.Option(help="The branch, tag, or commit to checkout.")] = "main",
+):
+    """Creates a new agent project from a template."""
+    initializer = ProjectInitializer(project_name, template, checkout )
+    initializer.run()
 
 @app.command()
 def version():

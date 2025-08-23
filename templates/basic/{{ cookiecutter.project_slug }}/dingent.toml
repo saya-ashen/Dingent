@@ -1,6 +1,5 @@
 backend_port = 8000
-frontend_port = 8080
-default_assistant = "NewsCurator"
+default_assistant = ""
 
 [llm]
 model = "gpt-4.1"
