@@ -48,6 +48,7 @@ IS_DEV_MODE = os.getenv("DINGENT_DEV")
 
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
+
 # --------- 工具函数 ---------
 def _resolve_node_binary() -> str:
     """
@@ -102,12 +103,10 @@ def import_json_dumps(obj) -> str:
 _TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # 防止被 GC 清理
 
 
-
-
 class ProjectInitializer:
     """Handles the logic for the 'init' command."""
 
-    def __init__(self, project_name, template, checkout ):
+    def __init__(self, project_name, template, checkout):
         self.project_name = project_name
         self.template = template
         self.checkout = checkout
@@ -462,6 +461,7 @@ def dev(
     supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)
     supervisor.start_all()
 
+
 @app.command("init")
 def init(
     project_name: Annotated[str, typer.Argument()],
@@ -469,8 +469,9 @@ def init(
     checkout: Annotated[str, typer.Option(help="The branch, tag, or commit to checkout.")] = "main",
 ):
     """Creates a new agent project from a template."""
-    initializer = ProjectInitializer(project_name, template, checkout )
+    initializer = ProjectInitializer(project_name, template, checkout)
     initializer.run()
+
 
 @app.command()
 def version():
