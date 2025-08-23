@@ -97,6 +97,7 @@ force-include = { "src/dingent/static" = "src/dingent/static" }
 source = "vcs"
 [tool.hatch.version.raw-options]
 version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
 
 
 [tool.basedpyright]
