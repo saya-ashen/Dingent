@@ -47,6 +47,12 @@ dev = [
   "pytest-mock>=3.14.1",
   "python-dotenv>=1.1.0",
   "ruff<1.0.0,>=0.11.3",
+  "ipython>=9.4.0",
+  "pytest>=8.4.1",
+  "pytest-asyncio>=1.1.0",
+  "pytest-cov>=6.2.1",
+  "pytest-mock>=3.14.1",
+  "ruff>=0.12.7",
 ]
 
 
@@ -110,14 +116,5 @@ link-mode = "symlink"
 default-groups = "all"
 
 
-[dependency-groups]
-dev = [
-  "ipython>=9.4.0",
-  "pytest>=8.4.1",
-  "pytest-asyncio>=1.1.0",
-  "pytest-cov>=6.2.1",
-  "pytest-mock>=3.14.1",
-  "ruff>=0.12.7",
-]
 [project.scripts]
 dingent = "dingent.cli:app"

@@ -209,5 +209,4 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# ignore templates directory
-!templates/
+src/dingent/static
