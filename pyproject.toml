@@ -54,10 +54,6 @@ dev = [
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.targets.wheel]
-# 强制包含 src/dingent/static 目录到最终包的 dingent/static 路径下
-force-include = { "src/dingent/static" = "dingent/static" }
-
 [tool.ruff]
 target-version = "py313"
 line-length = 180
@@ -80,25 +76,22 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.hatch.build]
-include = ["/src"]
 exclude = [
-  # 排除所有前端相关的大文件/目录
+  "tests",
+  ".git",
+  ".github",
   "/ui",
-  "/node_modules",
-  "/.next",
+  ".vscode",
+  ".idea",
+  ".pytest_cache",
+  "__pycache__",
+]
+force-include = { "src/dingent/static" = "src/dingent/static" }
+[tool.hatch.version]
+source = "vcs"
+[tool.hatch.version.raw-options]
+version_scheme = "no-guess-dev"
 
-  # 排除常见的开发和测试目录
-  "/tests",
-  "/.git",
-  "/.github",
-  "/.vscode",
-  "/.idea",
-  "/.pytest_cache",
-  "/__pycache__",
-]
-artifacts = [
-  "src/dingent/static/dist/**",
-]
 
 [tool.basedpyright]
 include = ["src/"]
@@ -110,10 +103,6 @@ pythonVersion = "3.13"
 pythonPlatform = "Linux"
 typeCheckingMode = "standard"
 
-[tool.hatch.version]
-source = "vcs"
-[tool.hatch.version.raw-options]
-version_scheme = "no-guess-dev"
 
 
 [tool.uv]
