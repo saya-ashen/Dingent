@@ -20,7 +20,7 @@ export default function CopilotKitPage() {
             { name: "tool_output_id", type: "string", description: "tool_output_id", required: true },
         ],
         followUp: false,
-        handler: async () => {
+        handler: async ({tool_output_id}) => {
         },
     });
 
