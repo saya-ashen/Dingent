@@ -7,12 +7,14 @@ from pydantic import BaseModel, Field
 from dingent.core import Assistant, get_assistant_manager, get_config_manager, get_plugin_manager
 from dingent.core.log_manager import get_log_manager
 from dingent.core.plugin_manager import PluginManifest
-from dingent.core.types import AssistantBase, AssistantCreate, ConfigItemDetail, PluginUserConfig
+from dingent.core.types import AssistantBase, AssistantCreate, ConfigItemDetail, PluginUserConfig, Workflow, WorkflowCreate, WorkflowUpdate
+from dingent.core.workflow_manager import get_workflow_manager
 
 router = APIRouter()
 config_manager = get_config_manager()
 assistant_manager = get_assistant_manager()
 plugin_manager = get_plugin_manager()
+workflow_manager = get_workflow_manager()
 
 
 class ToolAdminDetail(BaseModel):
@@ -269,3 +271,73 @@ async def log_statistics():
         return log_manager.get_log_stats()
     except Exception:
         raise HTTPException(404)
+
+
+# --- Workflows ---
+
+@router.get("/workflows", response_model=list[Workflow])
+async def get_all_workflows():
+    """
+    Get all workflows.
+    """
+    return workflow_manager.get_workflows()
+
+
+@router.get("/workflows/{workflow_id}", response_model=Workflow)
+async def get_workflow(workflow_id: str):
+    """
+    Get a specific workflow by ID.
+    """
+    workflow = workflow_manager.get_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    return workflow
+
+
+@router.post("/workflows", response_model=Workflow)
+async def create_workflow(workflow_create: WorkflowCreate):
+    """
+    Create a new workflow.
+    """
+    try:
+        workflow = workflow_manager.create_workflow(workflow_create)
+        return workflow
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/workflows/{workflow_id}", response_model=Workflow)
+async def save_workflow(workflow_id: str, workflow: Workflow):
+    """
+    Save/update a complete workflow.
+    """
+    if workflow.id != workflow_id:
+        raise HTTPException(status_code=400, detail="Workflow ID mismatch")
+    
+    try:
+        saved_workflow = workflow_manager.save_workflow(workflow)
+        return saved_workflow
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/workflows/{workflow_id}", response_model=Workflow)
+async def update_workflow(workflow_id: str, workflow_update: WorkflowUpdate):
+    """
+    Partially update a workflow.
+    """
+    workflow = workflow_manager.update_workflow(workflow_id, workflow_update)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    return workflow
+
+
+@router.delete("/workflows/{workflow_id}")
+async def delete_workflow(workflow_id: str):
+    """
+    Delete a workflow.
+    """
+    success = workflow_manager.delete_workflow(workflow_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    return {"status": "success", "message": f"Workflow {workflow_id} deleted successfully"}

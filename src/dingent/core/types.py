@@ -114,3 +114,53 @@ class PluginBase(BaseModel):
     name: str = Field(..., description="插件名称")
     description: str = Field(..., description="插件描述")
     version: str | float = Field("0.1.0", description="插件版本")
+
+
+class WorkflowNodeData(BaseModel):
+    assistantId: str = Field(..., description="Assistant ID referenced by this node")
+    assistantName: str = Field(..., description="Assistant name for display")
+    description: str | None = Field(None, description="Node description")
+
+
+class WorkflowNode(BaseModel):
+    id: str = Field(..., description="Unique node identifier")
+    type: Literal["assistant"] = Field("assistant", description="Node type")
+    position: dict[str, float] = Field(..., description="Node position {x, y}")
+    data: WorkflowNodeData = Field(..., description="Node data")
+
+
+class WorkflowEdgeData(BaseModel):
+    condition: str | None = Field(None, description="Edge condition")
+    label: str | None = Field(None, description="Edge label")
+
+
+class WorkflowEdge(BaseModel):
+    id: str = Field(..., description="Unique edge identifier")
+    source: str = Field(..., description="Source node ID")
+    target: str = Field(..., description="Target node ID")
+    type: str | None = Field("default", description="Edge type")
+    data: WorkflowEdgeData | None = Field(None, description="Edge data")
+
+
+class WorkflowBase(BaseModel):
+    name: str = Field(..., description="Workflow name")
+    description: str | None = Field(None, description="Workflow description")
+
+
+class WorkflowCreate(WorkflowBase):
+    pass
+
+
+class WorkflowUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    nodes: list[WorkflowNode] | None = None
+    edges: list[WorkflowEdge] | None = None
+
+
+class Workflow(WorkflowBase):
+    id: str = Field(..., description="Unique workflow identifier")
+    nodes: list[WorkflowNode] = Field(default_factory=list, description="Workflow nodes")
+    edges: list[WorkflowEdge] = Field(default_factory=list, description="Workflow edges")
+    created_at: str | None = Field(None, description="Creation timestamp")
+    updated_at: str | None = Field(None, description="Last update timestamp")

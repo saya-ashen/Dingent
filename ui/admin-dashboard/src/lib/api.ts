@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest } from "./types";
+import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow } from "./types";
 
 const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
@@ -174,5 +174,52 @@ export async function clearAllLogs(): Promise<boolean> {
         return true;
     } catch {
         return false;
+    }
+}
+
+
+// --- Workflows ---
+
+export async function getWorkflows(): Promise<Workflow[] | null> {
+    try {
+        const { data } = await http.get<Workflow[]>("/workflows");
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to fetch workflows: ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function getWorkflow(workflowId: string): Promise<Workflow | null> {
+    try {
+        const { data } = await http.get<Workflow>(`/workflows/${workflowId}`);
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to fetch workflow '${workflowId}': ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function saveWorkflow(workflow: Workflow): Promise<Workflow> {
+    try {
+        const { data } = await http.put<Workflow>(`/workflows/${workflow.id}`, workflow);
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to save workflow '${workflow.id}': ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function createWorkflow(name: string, description?: string): Promise<Workflow> {
+    try {
+        const { data } = await http.post<Workflow>("/workflows", { name, description });
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to create workflow '${name}': ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function deleteWorkflow(workflowId: string): Promise<void> {
+    try {
+        await http.delete(`/workflows/${workflowId}`);
+    } catch (err) {
+        throw new Error(`Failed to delete workflow '${workflowId}': ${extractErrorMessage(err)}`);
     }
 }

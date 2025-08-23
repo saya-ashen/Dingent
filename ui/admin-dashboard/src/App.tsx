@@ -5,6 +5,7 @@ import AssistantsPage from "@/pages/Assistants";
 import PluginsPage from "@/pages/Plugins";
 import SettingsPage from "@/pages/Settings";
 import LogsPage from "@/pages/Logs";
+import WorkflowsPage from "@/pages/Workflows";
 
 export default function App() {
     return (
@@ -13,6 +14,7 @@ export default function App() {
             <Page>
                 <Routes>
                     <Route path="/" element={<AssistantsPage />} />
+                    <Route path="/workflows" element={<WorkflowsPage />} />
                     <Route path="/plugins" element={<PluginsPage />} />
                     <Route path="/settings" element={<SettingsPage />} />
                     <Route path="/logs" element={<LogsPage />} />

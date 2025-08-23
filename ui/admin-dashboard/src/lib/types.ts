@@ -67,3 +67,35 @@ export type PluginManifest = {
     execution?: { mode?: string };
     dependencies?: string[];
 };
+
+export type WorkflowNode = {
+    id: string;
+    type: 'assistant';
+    position: { x: number; y: number };
+    data: {
+        assistantId: string;
+        assistantName: string;
+        description?: string;
+    };
+};
+
+export type WorkflowEdge = {
+    id: string;
+    source: string;
+    target: string;
+    type?: 'default' | 'smoothstep' | 'step';
+    data?: {
+        condition?: string;
+        label?: string;
+    };
+};
+
+export type Workflow = {
+    id: string;
+    name: string;
+    description?: string;
+    nodes: WorkflowNode[];
+    edges: WorkflowEdge[];
+    created_at?: string;
+    updated_at?: string;
+};
