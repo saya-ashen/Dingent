@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Assistant, AssistantPlugin, PluginManifest } from "@/lib/types";
+import { FloatingActionButtons } from "@/components/layout/FloatingActionButtons";
 import {
     addPluginToAssistant,
     getAssistantsConfig,
@@ -118,93 +119,6 @@ export default function AssistantsPage() {
             < PageHeader
                 title="Assistant Configuration"
                 description="Manage assistants, enable/disable plugins, and edit plugin settings and tools."
-                actions={
-                    < div className="flex gap-2" >
-                        {/* --- Add Assistant Dialog --- */}
-                        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline">Add Assistant</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Add New Assistant</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="new-name">Name (Required)</Label>
-                                        <Input
-                                            id="new-name"
-                                            value={newAssistant.name}
-                                            onChange={e => setNewAssistant(prev => ({ ...prev, name: e.target.value }))}
-                                            placeholder="Enter assistant name"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="new-desc">Description</Label>
-                                        <Textarea
-                                            id="new-desc"
-                                            value={newAssistant.description}
-                                            onChange={e => setNewAssistant(prev => ({ ...prev, description: e.target.value }))}
-                                            placeholder="Enter assistant description"
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        onClick={() => addAssistantMutation.mutate({ name: newAssistant.name, description: newAssistant.description })}
-                                        disabled={addAssistantMutation.isPending}
-                                    >
-                                        {addAssistantMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        {addAssistantMutation.isPending ? "Adding..." : "Add"}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                        {/* --- Save Configuration Dialog --- */}
-                        <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button>Save All Changes</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Confirm Your Changes</DialogTitle>
-                                    <DialogDescription>
-                                        Are you sure you want to save all changes? This will update the
-                                        configuration for all assistants and reload them.
-                                    </DialogDescription>
-                                </DialogHeader>
-
-                                {/* The main content/body of the dialog can go here if needed,
-            but for a simple confirmation, the description is enough. */}
-
-                                <DialogFooter className="gap-2 sm:justify-end">
-                                    {/* 1. Cancel Button */}
-                                    <DialogClose asChild>
-                                        <Button type="button" variant="outline">
-                                            Cancel
-                                        </Button>
-                                    </DialogClose>
-
-                                    {/* 2. Save/Confirm Button */}
-                                    <Button
-                                        type="button"
-                                        onClick={() => saveMutation.mutate(editable)}
-                                        disabled={saveMutation.isPending}
-                                    >
-                                        {saveMutation.isPending ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            "Confirm & Save"
-                                        )}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </div >
-                }
             />
 
             {assistantsQ.isLoading && <LoadingSkeleton lines={5} />}
@@ -271,6 +185,91 @@ export default function AssistantsPage() {
                     );
                 })}
             </Accordion>
+            <FloatingActionButtons>
+                {/* --- Add Assistant Dialog --- */}
+                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline">Add Assistant</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add New Assistant</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="new-name">Name (Required)</Label>
+                                <Input
+                                    id="new-name"
+                                    value={newAssistant.name}
+                                    onChange={e => setNewAssistant(prev => ({ ...prev, name: e.target.value }))}
+                                    placeholder="Enter assistant name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="new-desc">Description</Label>
+                                <Textarea
+                                    id="new-desc"
+                                    value={newAssistant.description}
+                                    onChange={e => setNewAssistant(prev => ({ ...prev, description: e.target.value }))}
+                                    placeholder="Enter assistant description"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                onClick={() => addAssistantMutation.mutate({ name: newAssistant.name, description: newAssistant.description })}
+                                disabled={addAssistantMutation.isPending}
+                            >
+                                {addAssistantMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {addAssistantMutation.isPending ? "Adding..." : "Add"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+                {/* --- Save Configuration Dialog --- */}
+                <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button>Save All Changes</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Confirm Your Changes</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to save all changes? This will update the
+                                configuration for all assistants and reload them.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {/* The main content/body of the dialog can go here if needed,
+            but for a simple confirmation, the description is enough. */}
+
+                        <DialogFooter className="gap-2 sm:justify-end">
+                            {/* 1. Cancel Button */}
+                            <DialogClose asChild>
+                                <Button type="button" variant="outline">
+                                    Cancel
+                                </Button>
+                            </DialogClose>
+
+                            {/* 2. Save/Confirm Button */}
+                            <Button
+                                type="button"
+                                onClick={() => saveMutation.mutate(editable)}
+                                disabled={saveMutation.isPending}
+                            >
+                                {saveMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    "Confirm & Save"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </FloatingActionButtons>
         </div >
     );
 }

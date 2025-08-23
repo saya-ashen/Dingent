@@ -70,12 +70,13 @@ export type PluginManifest = {
 
 export type WorkflowNode = {
     id: string;
-    type: 'assistant';
+    type: 'assistant' | 'start';
     position: { x: number; y: number };
     data: {
         assistantId: string;
         assistantName: string;
         description?: string;
+        label?: string
     };
 };
 

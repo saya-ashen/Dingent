@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow } from "./types";
 
-const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "") + "/api/v1";
+const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
 
 // 可选：从本地存储读取鉴权令牌
@@ -78,7 +78,7 @@ export async function getAssistantsConfig(): Promise<Assistant[] | null> {
                 plugins: []
             },
             {
-                id: "escalation-bot", 
+                id: "escalation-bot",
                 name: "Escalation Bot",
                 description: "Handles complex escalated issues",
                 enabled: true,
@@ -90,7 +90,7 @@ export async function getAssistantsConfig(): Promise<Assistant[] | null> {
                 name: "Data Analyst",
                 description: "Analyzes customer data and generates reports",
                 enabled: true,
-                status: "active", 
+                status: "active",
                 plugins: []
             }
         ];
@@ -231,7 +231,7 @@ export async function getWorkflows(): Promise<Workflow[] | null> {
                         }
                     },
                     {
-                        id: "node-2", 
+                        id: "node-2",
                         type: "assistant",
                         position: { x: 300, y: 100 },
                         data: {

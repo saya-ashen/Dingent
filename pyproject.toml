@@ -17,7 +17,7 @@ dependencies = [
   "copilotkit>=0.1.56",
   "fastapi>=0.115.6",
   "langchain>=0.3.23",
-  "langchain-chroma>=0.2.3",
+  # "langchain-chroma>=0.2.3",
   "langchain-community>=0.3.21",
   "fastmcp>=2.2.0",
   "langchain-experimental>=0.3.4",
@@ -28,10 +28,6 @@ dependencies = [
   "langgraph-swarm>=0.0.12",
   "numpy>=2.3.0",
   "tomlkit>=0.13.3",
-  "streamlit>=1.48.1",
-  "streamlit-extras>=0.7.6",
-  "streamlit-antd-components>=0.3.2",
-  "streamlit-modal>=0.1.2",
   "nodejs-wheel>=22.18.0",
   "psutil>=7.0.0",
 ]
@@ -48,10 +44,6 @@ dev = [
   "python-dotenv>=1.1.0",
   "ruff<1.0.0,>=0.11.3",
   "ipython>=9.4.0",
-  "pytest>=8.4.1",
-  "pytest-asyncio>=1.1.0",
-  "pytest-cov>=6.2.1",
-  "pytest-mock>=3.14.1",
   "ruff>=0.12.7",
 ]
 
