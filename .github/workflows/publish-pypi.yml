@@ -16,6 +16,11 @@ jobs:
         persist-credentials: false
         fetch-depth: 0
 
+    - uses: extractions/setup-just@v3
+
+    - name: Build UI
+      run: just build-ui
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
