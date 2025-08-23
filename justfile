@@ -1,7 +1,7 @@
 # build-admin: Builds the admin dashboard and copies assets.
 build-admin:
     @echo "Building admin dashboard..."
-    @(cd ui/admin-dashboard && bun run build)
+    @(cd ui/admin-dashboard && bun install && bun run build)
 
     @echo "Copying admin dashboard artifacts..."
     @rm -rf src/dingent/static/admin_dashboard
@@ -15,7 +15,7 @@ build-admin:
 build-frontend:
     @echo "Building user frontend..."
     # Step 1: Navigate to the frontend directory and run the build.
-    @(cd ui/frontend && bun run build)
+    @(cd ui/frontend && bun install && bun run build)
 
     @echo "Copying Next.js standalone artifacts to 'src/dingent/static/frontend'..."
     # Step 2: Clean and recreate the destination directory for a fresh copy.
