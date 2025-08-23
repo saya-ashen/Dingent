@@ -80,6 +80,22 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.hatch.build]
+include = ["/src"]
+exclude = [
+  # 排除所有前端相关的大文件/目录
+  "/ui",
+  "/node_modules",
+  "/.next",
+
+  # 排除常见的开发和测试目录
+  "/tests",
+  "/.git",
+  "/.github",
+  "/.vscode",
+  "/.idea",
+  "/.pytest_cache",
+  "/__pycache__",
+]
 artifacts = [
   "src/dingent/static/dist/**",
 ]
