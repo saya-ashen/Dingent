@@ -1,0 +1,6 @@
+title = "gitleaks"
+
+[allowlist]
+paths = [
+  '''^src/dingent/static/.*$''',  # Ignore all files under src/dingent/static directory
+]
