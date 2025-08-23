@@ -16,6 +16,7 @@ jobs:
         persist-credentials: false
         fetch-depth: 0
 
+    - uses: oven-sh/setup-bun@v2
     - uses: extractions/setup-just@v3
 
     - name: Build UI
