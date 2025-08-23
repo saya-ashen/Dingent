@@ -11,6 +11,8 @@ import {
     addEdge,
     ReactFlowProvider,
     Panel,
+    Handle,
+    Position,
     type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -47,6 +49,7 @@ import type { Workflow, WorkflowNode, Assistant } from "@/lib/types";
 function AssistantNode({ data }: { data: { assistantName: string; description?: string } }) {
     return (
         <div className="px-4 py-2 shadow-md rounded-md bg-white border-2 border-stone-400 min-w-[150px]">
+            <Handle type="target" position={Position.Top} />
             <div className="flex">
                 <div className="rounded-full w-3 h-3 bg-blue-500 border-2 border-gray-300 mr-2 mt-1"></div>
                 <div className="ml-2">
@@ -56,6 +59,7 @@ function AssistantNode({ data }: { data: { assistantName: string; description?: 
                     )}
                 </div>
             </div>
+            <Handle type="source" position={Position.Bottom} />
         </div>
     );
 }
