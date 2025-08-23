@@ -2,9 +2,10 @@
 Dingent CLI (含前端 + 后端并发运行的精简版)
 
 命令:
-  dingent run        并发启动 backend(langgraph dev 无UI) + frontend(node)
-  dingent dev        启动带 UI 的 langgraph dev (仅后端，调试 Graph + API)
-  dingent version    显示版本
+  dingent run       并发启动 backend(langgraph dev 无UI) + frontend(node)
+  dingent dev       启动带 UI 的 langgraph dev (仅后端，调试 Graph + API)
+  dingent init      从模板创建一个新的 Agent 项目
+  dingent version   显示版本
 
 可选环境变量:
   DINGENT_GRAPH_SPEC  覆盖默认 Graph 入口 (默认: dingent.engine.graph:make_graph)
@@ -41,6 +42,7 @@ ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
 ENV_API_SPEC = "DINGENT_API_SPEC"
 
 PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
+# 如果在开发模式下运行，可以指向本地仓库以方便调试
 DEV_REPO_URL = "/home/saya/Workspace/Dingent"
 
 AVAILABLE_TEMPLATES = ["basic"]
@@ -48,12 +50,46 @@ IS_DEV_MODE = os.getenv("DINGENT_DEV")
 
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
+DEFAULT_DINGENT_TOML = """
+[project]
+[backend]
+port = 8000
+plugins.directory = "plugins"
+
+[dashboard]
+port = 8501
+
+[frontend]
+port = 3000
+"""
 
 # --------- 工具函数 ---------
+
+
+def _ensure_project_root(cli_ctx: CliContext) -> CliContext:
+    """
+    检查当前目录是否为 Dingent 项目，如果不是，则提示用户创建 dingent.toml。
+    """
+    if not cli_ctx.project_root:
+        print("[bold yellow]⚠️ 当前目录不是一个 Dingent 项目 (缺少 dingent.toml)。[/bold yellow]")
+        create_file = typer.confirm("你希望在这里创建一个默认的 dingent.toml 配置文件吗？")
+        if create_file:
+            cwd = Path.cwd()
+            project_name = cwd.name
+            config_path = cwd / "dingent.toml"
+            config_content = DEFAULT_DINGENT_TOML.format(project_name=project_name)
+            config_path.write_text(config_content, encoding="utf-8")
+            print(f"[bold green]✅ 已在 {config_path} 创建默认配置文件，请重新运行命令启动[/bold green]")
+            raise typer.Exit()
+        else:
+            print("[bold red]操作已取消。[/bold red]")
+            raise typer.Exit()
+    return cli_ctx
+
+
 def _resolve_node_binary() -> str:
     """
     使用 nodejs_wheel 获取 node 可执行路径。
-    你之前使用 nodejs_wheel.node()，这里复用思路。
     """
     try:
         from nodejs_wheel import node
@@ -73,12 +109,12 @@ def _resolve_node_binary() -> str:
 
 def _make_backend_temp_config() -> Path:
     """
-    生成后端 langgraph.dev 使用的临时配置文件（无 UI 模式）。
+    生成后端 langgraph.dev 使用的临时配置文件。
     返回配置文件路径。
     """
     graph_spec = os.getenv(ENV_GRAPH_SPEC, DEFAULT_GRAPH_SPEC)
     api_spec = os.getenv(ENV_API_SPEC, DEFAULT_API_SPEC)
-    td = tempfile.TemporaryDirectory()  # 不立即释放，挂到全局列表防止 GC
+    td = tempfile.TemporaryDirectory()
     _TEMP_DIRS.append(td)
     cfg_path = Path(td.name) / "langgraph.json"
     cfg = {
@@ -104,7 +140,7 @@ _TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # 防止被 GC 清理
 
 
 class ProjectInitializer:
-    """Handles the logic for the 'init' command."""
+    """处理 'init' 命令的逻辑。"""
 
     def __init__(self, project_name, template, checkout):
         self.project_name = project_name
@@ -113,21 +149,21 @@ class ProjectInitializer:
         self.project_path = None
 
     def run(self):
-        """Executes the entire project initialization workflow."""
+        """执行整个项目初始化工作流。"""
         try:
             self._create_from_template()
             self._print_final_summary()
         except RepositoryNotFound:
-            print(f"[bold red]\n❌ Error: Repository not found at {REPO_URL}[/bold red]")
-            print("[bold red]\nPlease check the URL and your network connection.[/bold red]")
+            print(f"[bold red]\n❌ 错误: 仓库未找到 {REPO_URL}[/bold red]")
+            print("[bold red]\n请检查 URL 和你的网络连接。[/bold red]")
             raise typer.Exit()
         except Exception as e:
-            print(f"[bold red]\nAn unexpected error occurred: {e}[/bold red]")
+            print(f"[bold red]\n发生意外错误: {e}[/bold red]")
             raise typer.Exit()
 
     def _create_from_template(self):
-        """Uses Cookiecutter to scaffold the project."""
-        print(f"[bold green]🚀 Initializing project from git repository: {REPO_URL}[/bold green]")
+        """使用 Cookiecutter 构建项目。"""
+        print(f"[bold green]🚀 从 Git 仓库初始化项目: {REPO_URL}[/bold green]")
         template_dir = f"templates/{self.template}"
         created_path = cookiecutter(
             REPO_URL,
@@ -137,15 +173,15 @@ class ProjectInitializer:
             output_dir=".",
         )
         self.project_path = Path(created_path)
-        print(f"[bold green]✅ Project created at {self.project_path}[/bold green]")
+        print(f"[bold green]✅ 项目已创建于 {self.project_path}[/bold green]")
 
     def _print_final_summary(self):
-        """Prints the final success message and next steps."""
+        """打印最终的成功信息和后续步骤。"""
         final_project_name = self.project_path.name
-        print("[bold green]\n🎉 Project initialized successfully![/bold green]")
-        print("\nNext steps:")
-        print(f"  1. Navigate to your project: cd {final_project_name}")
-        print("  2. Start all services: uvx dingent run")
+        print("[bold green]\n🎉 项目初始化成功！[/bold green]")
+        print("\n后续步骤:")
+        print(f"  1. 进入项目目录: cd {final_project_name}")
+        print("  2. 启动所有服务: dingent run")
 
 
 class Service:
@@ -180,14 +216,12 @@ class ServiceSupervisor:
         for svc in self.services:
             self._start_service(svc)
 
-        # 启动日志线程
         t = threading.Thread(target=self._log_loop, daemon=True)
         t.start()
 
         print("[bold green]✓ 所有服务已启动，实时日志如下 (Ctrl+C 退出)[/bold green]")
         try:
             while not self._stop_event.is_set():
-                # 检查存活
                 for svc in self.services:
                     if svc.process and svc.process.poll() is not None:
                         print(f"\n[bold red]服务 {svc.name} 已退出，代码 {svc.process.returncode}，准备关闭其它服务...[/bold red]")
@@ -214,7 +248,6 @@ class ServiceSupervisor:
                 _terminate_process_tree(svc.process, svc.name, force=force)
         print("[bold blue]🛑 所有进程已结束[/bold blue]")
 
-        # 新增：清理临时目录（防止GC不及时，导致下次端口占用）
         global _TEMP_DIRS
         for td in _TEMP_DIRS:
             try:
@@ -237,9 +270,9 @@ class ServiceSupervisor:
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True
         else:
-            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         try:
-            svc.process = subprocess.Popen(svc.command, **popen_kwargs)  # noqa: S603
+            svc.process = subprocess.Popen(svc.command, **popen_kwargs)
         except FileNotFoundError:
             print(f"[bold red]❌ 启动 {svc.name} 失败：命令不存在: {svc.command[0]}[/bold red]")
             raise typer.Exit(1)
@@ -269,7 +302,6 @@ class ServiceSupervisor:
             text = Text.from_markup(f"[{color}][{name.upper():^8}][/]: {line}")
             print(text)
 
-            # 自动打开前端
             if svc and svc.open_browser_hint and self.auto_open_frontend and not self._browser_opened:
                 m = port_regex.search(line)
                 if m:
@@ -285,7 +317,6 @@ class ServiceSupervisor:
 def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = False):
     """
     使用 psutil 递归终止进程及其所有后代进程。
-    先尝试 graceful terminate (等效SIGTERM)，超时后 force kill (等效SIGKILL)。
     """
     if proc.poll() is not None:
         return
@@ -293,13 +324,9 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
     print(f"[yellow]停止 {name} (PID {proc.pid}) ...[/yellow]", end="")
 
     try:
-        # 获取主进程
         main_proc = psutil.Process(proc.pid)
-
-        # 获取所有后代进程（递归）
         children = main_proc.children(recursive=True)
 
-        # 先尝试 graceful terminate（发送SIGTERM等效）
         if not force:
             main_proc.terminate()
             for child in children:
@@ -308,13 +335,11 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
                 except psutil.NoSuchProcess:
                     pass
 
-            # 等待（最多8秒）
-            gone, alive = psutil.wait_procs([main_proc] + children, timeout=8)
+            _, alive = psutil.wait_procs([main_proc] + children, timeout=8)
             if not alive:
                 print("[green] ✓[/green]")
                 return
 
-        # 如果超时或force，直接kill
         main_proc.kill()
         for child in children:
             try:
@@ -322,7 +347,6 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
             except psutil.NoSuchProcess:
                 pass
 
-        # 等待确认（最多5秒）
         psutil.wait_procs([main_proc] + children, timeout=5)
         print("[yellow] (force/kill) ✓[/yellow]")
 
@@ -338,44 +362,32 @@ def run(
     no_browser: bool = typer.Option(False, "--no-browser", help="不自动打开前端页面"),
 ):
     """
-    并发启动:
-      - backend: langgraph dev (无浏览器) 使用内置 Graph + API 临时配置
-      - frontend: node server.js
+    并发启动 backend 和 frontend 服务。
     """
     cli_ctx = CliContext()
-    if not cli_ctx.project_root:
-        print("[bold red]❌ 当前目录不是 Dingent 项目（缺少 dingent.toml）[/bold red]")
-        raise typer.Exit(1)
+    cli_ctx = _ensure_project_root(cli_ctx)
 
-    # 生成临时 config
     cfg_path = _make_backend_temp_config()
-
-    # 解析 node
     try:
         node_bin = _resolve_node_binary()
     except Exception as e:
         print(f"[bold red]❌ 解析 Node 失败: {e}[/bold red]")
         raise typer.Exit(1)
 
-    # 构建服务
     backend_cmd = [
         "langgraph",
         "dev",
         "--no-browser",
         "--allow-blocking",
         "--host",
-        "127.0.0.1",  # 新增：显式绑定localhost，减少风险
+        "127.0.0.1",
         "--port",
         str(cli_ctx.backend_port),
         "--config",
         str(cfg_path),
     ]
-    frontend_cmd = [
-        node_bin,
-        "server.js",
-        "--port",
-        str(cli_ctx.frontend_port),
-    ]
+    frontend_cmd = [node_bin, "server.js", "--port", str(cli_ctx.frontend_port)]
+
     services = [
         Service(
             name="backend",
@@ -400,17 +412,20 @@ def run(
 @app.command()
 def dev(
     open_ui: bool = typer.Option(True, "--ui/--no-ui", help="启动官方 langgraph dev UI"),
-    with_frontend: bool = typer.Option(True, "--with-frontend", help="同时启动前端(简单后台日志合并)"),
-    no_browser: bool = typer.Option(False, "--no-browser", help="与 --with-frontend 一起使用时不自动开浏览器"),
+    with_frontend: bool = typer.Option(True, "--with-frontend", help="同时启动前端"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="当 --with-frontend 启用时不自动打开浏览器"),
 ):
+    """
+    启动开发服务，主要用于调试后端 Graph 和 API。
+    """
     if not open_ui and not with_frontend:
-        print("[yellow]未指定任何操作(加 --ui 或 --with-frontend)；退出。[/yellow]")
+        print("[yellow]未指定任何操作 (请使用 --ui 或 --with-frontend)，已退出。[/yellow]")
         raise typer.Exit(0)
 
     cli_ctx = CliContext()
+    cli_ctx = _ensure_project_root(cli_ctx)
 
     if open_ui and not with_frontend:
-        # 直接使用 dev_runner (阻塞)
         try:
             from .dev_runner import start_langgraph_ui
         except Exception as e:
@@ -419,7 +434,6 @@ def dev(
         start_langgraph_ui()
         return
 
-    # 启动 UI 和前端：UI 作为一个服务（--allow-blocking 避免后台阻塞）
     cfg_path = _make_backend_temp_config()
     backend_cmd = [
         "langgraph",
@@ -431,17 +445,7 @@ def dev(
         "--config",
         str(cfg_path),
     ]
-    try:
-        node_bin = _resolve_node_binary()
-    except Exception as e:
-        print(f"[bold red]❌ 解析 Node 失败: {e}[/bold red]")
-        raise typer.Exit(1)
-    frontend_cmd = [
-        node_bin,
-        "server.js",
-        "--port",
-        str(cli_ctx.frontend_port),
-    ]
+
     services = [
         Service(
             name="backend-ui" if open_ui else "backend",
@@ -450,25 +454,37 @@ def dev(
             color="magenta",
             open_browser_hint=True,
         ),
-        Service(
-            name="frontend",
-            command=frontend_cmd,
-            cwd=cli_ctx.frontend_path,
-            color="cyan",
-            env={"DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
-        ),
     ]
+
+    if with_frontend:
+        try:
+            node_bin = _resolve_node_binary()
+        except Exception as e:
+            print(f"[bold red]❌ 解析 Node 失败: {e}[/bold red]")
+            raise typer.Exit(1)
+
+        frontend_cmd = [node_bin, "server.js", "--port", str(cli_ctx.frontend_port)]
+        services.append(
+            Service(
+                name="frontend",
+                command=frontend_cmd,
+                cwd=cli_ctx.frontend_path,
+                color="cyan",
+                env={"DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
+            )
+        )
+
     supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)
     supervisor.start_all()
 
 
 @app.command("init")
 def init(
-    project_name: Annotated[str, typer.Argument()],
-    template: Annotated[str, typer.Option(help="The template used to create the project.")] = "basic",
-    checkout: Annotated[str, typer.Option(help="The branch, tag, or commit to checkout.")] = "main",
+    project_name: Annotated[str, typer.Argument(help="新项目的名称")],
+    template: Annotated[str, typer.Option(help="用于创建项目的模板")] = "basic",
+    checkout: Annotated[str, typer.Option(help="要检出的分支、标签或提交")] = "main",
 ):
-    """Creates a new agent project from a template."""
+    """从模板创建一个新的 Agent 项目。"""
     initializer = ProjectInitializer(project_name, template, checkout)
     initializer.run()
 
@@ -489,5 +505,5 @@ def main():
     app()
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     main()
