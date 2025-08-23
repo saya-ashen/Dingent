@@ -1,0 +1,8 @@
+backend_port = 8000
+frontend_port = 8080
+default_assistant = "NewsCurator"
+
+[llm]
+model = "gpt-4.1"
+provider = ""
+api_key = ""
