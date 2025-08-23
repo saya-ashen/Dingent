@@ -224,7 +224,7 @@ export function TableWidget({ data }: { data: TablePayload }) {
             cell: ({ getValue }) => (
                 <ReactMarkdown
                     // Add basic styling to prevent large margins from paragraphs
-                    className="prose prose-sm prose-p:my-0"
+                    // className="prose prose-sm prose-p:my-0"
                 >
                     {String(getValue() ?? '')}
                 </ReactMarkdown>
