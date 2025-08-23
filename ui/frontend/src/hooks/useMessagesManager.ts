@@ -5,9 +5,9 @@ import {
     ActionExecutionMessage,
     loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
+import { MarkdownPayload, TablePayload, Widget } from "@/types";
 import { useMemo, useState, useEffect, useRef } from "react";
 
-import { MarkdownPayload, TablePayload, Widget } from "@/types";
 
 import { useCopilotMessagesContext, } from "@copilotkit/react-core";
 import { useCopilotContext } from "@copilotkit/react-core";
@@ -30,7 +30,8 @@ export function useMessagesManager() {
     }, [threads, threadId]);
     const threadRef = useRef(currentThread);
 
-    // Effect for fetching initial messages when thread or agent changes
+
+    // HACK: This is a hack to fix the issue where messages don't automatically refresh when creating a new conversation.
     useEffect(() => {
         if (
             !threadId ||
@@ -42,18 +43,27 @@ export function useMessagesManager() {
 
         const fetchMessages = async () => {
             if (!agentSession?.agentName) return;
-            const result = await runtimeClient.loadAgentState({ threadId, agentName: agentSession.agentName });
+
+            const result = await runtimeClient.loadAgentState({
+                threadId,
+                agentName: agentSession.agentName,
+            });
+
             if (result.error) {
                 console.error("Failed to load agent state:", result.error);
                 lastLoadedThreadId.current = threadId;
                 lastLoadedAgentName.current = agentSession.agentName;
                 return;
             }
+
             const newMessages = result.data?.loadAgentState?.messages;
+
+
             if (result.data?.loadAgentState?.threadExists) {
                 lastLoadedMessages.current = newMessages || "";
                 lastLoadedThreadId.current = threadId;
                 lastLoadedAgentName.current = agentSession.agentName;
+
                 const parsedMessages = loadMessagesFromJsonRepresentation(JSON.parse(newMessages || "[]"));
                 setMessages(parsedMessages);
             }
@@ -65,16 +75,18 @@ export function useMessagesManager() {
         };
 
         void fetchMessages();
+
     }, [threadId, agentSession?.agentName, runtimeClient, setMessages]);
 
-    // Effect for updating thread title from first message
     useEffect(() => {
         threadRef.current = currentThread;
     }, [currentThread]);
+
     useEffect(() => {
         if (!messages || messages.length === 0 || !threadRef.current) {
             return;
         }
+
         if (currentThread && currentThread.title === 'New Chat') {
             const firstUserMessage = messages.find(
                 (m): m is Message & { role: 'user'; content: string } => 'role' in m && m.role === 'user'
@@ -84,46 +96,53 @@ export function useMessagesManager() {
                 updateThreadTitle(threadRef.current.id, newTitle);
             }
         }
-    }, [messages, updateThreadTitle, currentThread]);
 
-    // Create a memoized array of only the specific action messages we need
-    // using an INLINE type guard as requested.
-    const showDataActionMessages = useMemo(() => {
-        return messages.filter(
-            (message): message is Message & {
-                type: "ActionExecutionMessage";
-                name: "show_data";
-                arguments: { tool_output_id: string;[key: string]: unknown };
-            } => {
-                // First, check the `type` property. This should narrow the type for TypeScript.
-                if (message.type !== "ActionExecutionMessage") {
-                    return false;
-                }
-                // Now, safely check the other properties.
-                const actionMessage = message as ActionExecutionMessage;
-                return (
-                    actionMessage.name === "show_data" &&
-                    typeof actionMessage.arguments === "object" &&
-                    actionMessage.arguments !== null &&
-                    "tool_output_id" in actionMessage.arguments &&
-                    typeof actionMessage.arguments.tool_output_id === "string"
-                );
-            }
-        );
+    }, [messages, updateThreadTitle]);
+    const widgetIdDependency = useMemo(() => {
+        const allIds = messages
+            .filter(
+                (message) =>
+                    message.type === "ActionExecutionMessage" &&
+                    "name" in message &&
+                    message.name === "show_data" &&
+                    'arguments' in message &&
+                    typeof message.arguments === "object" &&
+                    message.arguments !== null &&
+                    "tool_output_id" in message.arguments &&
+                    typeof message.arguments.tool_output_id === "string" &&
+                    !!message.arguments.tool_output_id?.length
+            )
+            .flatMap((message) => 'arguments' in message &&
+                typeof message.arguments === "object" &&
+                message.arguments !== null &&
+                "tool_output_id" in message.arguments &&
+                typeof message.arguments.tool_output_id === "string" &&
+                !!message.arguments.tool_output_id?.length && message.arguments.tool_output_id as string);
+
+        const uniqueSortedIds = [...new Set(allIds)].sort();
+
+        return JSON.stringify(uniqueSortedIds);
     }, [messages]);
 
-    // Effect to fetch widget data, depending on the memoized array above.
     useEffect(() => {
         const fetchWidgetData = async () => {
-            if (showDataActionMessages.length === 0) {
+            const dataMessages = messages.filter(
+                (message): message is ActionExecutionMessage =>
+                    message.type === "ActionExecutionMessage" &&
+                    "name" in message && message.name === "show_data" &&
+                    'arguments' in message &&
+                    typeof message.arguments === "object" && message.arguments !== null && "tool_output_id" in message.arguments &&
+                    typeof message.arguments.tool_output_id === "string" && !!message.arguments.tool_output_id?.length
+            );
+
+            if (dataMessages.length === 0) {
                 setWidgets([]);
                 return;
             }
 
             try {
-                const widgetArraysPromises = showDataActionMessages.map(async (message): Promise<Widget[]> => {
-                    // Because of the filter above, `message` is guaranteed to have the correct shape.
-                    const resourceId = message.arguments.tool_output_id;
+                const widgetArraysPromises = dataMessages.map(async (message): Promise<Widget[]> => {
+                    const resourceId = message.arguments.tool_output_id as string;
 
                     try {
                         const res = await fetch(`/api/resource/${resourceId}`);
@@ -154,6 +173,8 @@ export function useMessagesManager() {
 
                 const resolvedWidgetArrays = await Promise.all(widgetArraysPromises);
                 const flattenedWidgets = resolvedWidgetArrays.flat();
+                console.log(flattenedWidgets)
+
                 setWidgets(flattenedWidgets);
             } catch (error) {
                 console.error("An error occurred while fetching widget data:", error);
@@ -162,7 +183,7 @@ export function useMessagesManager() {
         };
 
         void fetchWidgetData();
-    }, [showDataActionMessages]);
+    }, [widgetIdDependency]);
 
 
     return { messages, widgets };

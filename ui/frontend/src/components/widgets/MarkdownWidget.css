@@ -1,0 +1,23 @@
+/* 恢复基本排版，特别是列表样式与缩进 */
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 1em;
+  padding-left: 1.5em;  /* 左缩进 */
+}
+
+.markdown-body ul {
+  list-style: disc;      /* 实心圆点 */
+}
+
+.markdown-body ol {
+  list-style: decimal;   /* 数字序号 */
+}
+
+.markdown-body li {
+  margin: 0.25em 0;
+}
+
+/* 有些解析会把 li 里的 p 保留，去掉多余间距更紧凑 */
+.markdown-body li > p {
+  margin: 0;
+}
