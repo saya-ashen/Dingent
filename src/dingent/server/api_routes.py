@@ -275,6 +275,7 @@ async def log_statistics():
 
 # --- Workflows ---
 
+
 @router.get("/workflows", response_model=list[Workflow])
 async def get_all_workflows():
     """
@@ -313,9 +314,9 @@ async def save_workflow(workflow_id: str, workflow: Workflow):
     """
     if workflow.id != workflow_id:
         raise HTTPException(status_code=400, detail="Workflow ID mismatch")
-    
     try:
         saved_workflow = workflow_manager.save_workflow(workflow)
+        config_manager.reload()
         return saved_workflow
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

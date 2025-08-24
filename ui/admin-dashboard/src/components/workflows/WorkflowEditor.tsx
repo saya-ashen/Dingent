@@ -96,15 +96,6 @@ export function WorkflowEditor({
         [screenToFlowPosition, onNodeAdd]
     );
 
-    const onConnectStart = useCallback(
-        (_, params: { nodeId?: string; handleId?: string }) => {
-            console.log("ConnectStart from node", params.nodeId, "handle", params.handleId);
-        },
-        []
-    );
-    const onConnectEnd = useCallback((ev: MouseEvent | TouchEvent) => {
-        console.log("ConnectEnd", ev.type);
-    }, []);
 
     return (
         <div className="h-full border rounded-lg relative">
@@ -116,8 +107,6 @@ export function WorkflowEditor({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
-                onConnectStart={onConnectStart}
-                onConnectEnd={onConnectEnd}
                 onDrop={onDrop}
                 onDragOver={onDragOver}
                 onNodeContextMenu={onNodeContextMenu}

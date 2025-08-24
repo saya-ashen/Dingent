@@ -268,6 +268,7 @@ export async function getWorkflow(workflowId: string): Promise<Workflow | null> 
 
 export async function saveWorkflow(workflow: Workflow): Promise<Workflow> {
     try {
+        console.log("Saving workflow", workflow);
         const { data } = await http.put<Workflow>(`/workflows/${workflow.id}`, workflow);
         return data;
     } catch (err) {

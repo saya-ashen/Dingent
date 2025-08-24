@@ -45,7 +45,6 @@ export default function WorkflowsPage() {
     const workflows = workflowsQ.data || [];
     const allAssistants = assistantsQ.data || [];
 
-    // 规范化加载：把旧的 type==='start' 迁移为 assistant + data.isStart
     useEffect(() => {
         if (selectedWorkflow) {
             const rawNodes = structuredClone(selectedWorkflow.nodes ?? []);
@@ -192,9 +191,22 @@ export default function WorkflowsPage() {
     );
 
     const onEdgesChange = useCallback(
-        (changes: EdgeChange[]) =>
-            setEdges((eds) => applyEdgeChanges(changes, eds)),
-        []
+        (changes: EdgeChange[]) => {
+            // --- Start of Debugging Output ---
+
+            // Log the array of changes received from React Flow
+            console.log("onEdgesChange triggered. Changes:", changes);
+
+            // You can also inspect the state *before* the changes are applied
+            setEdges((currentEdges) => {
+                console.log("Edges before applying changes:", currentEdges);
+                const nextEdges = applyEdgeChanges(changes, currentEdges);
+                console.log("Edges after applying changes:", nextEdges);
+                return nextEdges;
+            });
+
+        },
+        [setEdges] // It's good practice to include the setter in the dependency array
     );
 
     const onConnect = useCallback(
@@ -279,6 +291,7 @@ export default function WorkflowsPage() {
             },
         ];
     }, [menu, nodes, setStartNode]);
+
 
     if (workflowsQ.isLoading || assistantsQ.isLoading)
         return <LoadingSkeleton lines={5} />;

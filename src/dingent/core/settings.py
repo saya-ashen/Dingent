@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
-from .types import AssistantBase, PluginUserConfig
+from .types import AssistantBase, PluginUserConfig, Workflow
 from .utils import find_project_root
 
 
@@ -55,6 +55,7 @@ class AppSettings(BaseModel):
     llm: LlmSettings | None = None
     backend_port: int = 8000
     frontend_port: int = 8080
+    workflows: list[Workflow] = Field(default_factory=list, description="All workflows cached in settings")
 
     def save(self):
         source = TomlConfigSettingsSource(self.__class__)

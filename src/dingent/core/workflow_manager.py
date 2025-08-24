@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from dingent.core.types import Workflow, WorkflowCreate, WorkflowNode, WorkflowUpdate
+from dingent.core.types import Workflow, WorkflowCreate, WorkflowUpdate
 from dingent.core.utils import find_project_root
 
 
@@ -74,10 +74,7 @@ class WorkflowManager:
         """Create a new workflow."""
         workflow_id = str(uuid.uuid4())
         now = datetime.now().isoformat()
-        start_node_id = str(uuid.uuid4())
-        start_node = WorkflowNode(id=start_node_id, type="start", position={"x": 0, "y": 0}, data={"assistantId": "", "assistantName": "Start", "description": "Start Node"})
-
-        workflow = Workflow(id=workflow_id, name=workflow_create.name, description=workflow_create.description, nodes=[start_node], edges=[], created_at=now, updated_at=now)
+        workflow = Workflow(id=workflow_id, name=workflow_create.name, description=workflow_create.description, nodes=[], edges=[], created_at=now, updated_at=now)
 
         self._workflows[workflow_id] = workflow
         self._save_workflow_to_file(workflow)

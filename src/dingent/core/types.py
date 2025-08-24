@@ -120,6 +120,7 @@ class WorkflowNodeData(BaseModel):
     assistantId: str = Field(..., description="Assistant ID referenced by this node")
     assistantName: str = Field(..., description="Assistant name for display")
     description: str | None = Field(None, description="Node description")
+    isStart: bool = Field(False, description="Is this the start node")
 
 
 class WorkflowNode(BaseModel):
@@ -130,14 +131,15 @@ class WorkflowNode(BaseModel):
 
 
 class WorkflowEdgeData(BaseModel):
-    condition: str | None = Field(None, description="Edge condition")
-    label: str | None = Field(None, description="Edge label")
+    mode: Literal["single", "bidirectional"] = Field("single", description="Edge mode")
 
 
 class WorkflowEdge(BaseModel):
     id: str = Field(..., description="Unique edge identifier")
     source: str = Field(..., description="Source node ID")
     target: str = Field(..., description="Target node ID")
+    sourceHandle: str | None = Field(None, description="Source handle ID")
+    targetHandle: str | None = Field(None, description="Target handle ID")
     type: str | None = Field("default", description="Edge type")
     data: WorkflowEdgeData | None = Field(None, description="Edge data")
 

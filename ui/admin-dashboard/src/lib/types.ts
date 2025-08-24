@@ -92,11 +92,7 @@ export type DirectionRole = "forward" | "backward";
 export type WorkflowNode = Node<AssistantWorkflowNode['data']>;
 
 export type WorkflowEdge = Edge<{
-    directionRole?: DirectionRole;
-    condition?: string;
-    label?: string;
-    pairKey?: string;
-    pair?: boolean;
+    mode?: "bidirectional" | "single";
 }>;
 
 export type Workflow = {
