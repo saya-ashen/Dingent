@@ -125,7 +125,7 @@ class WorkflowNodeData(BaseModel):
 
 class WorkflowNode(BaseModel):
     id: str = Field(..., description="Unique node identifier")
-    type: Literal["assistant", "start"] = Field("assistant", description="Node type")
+    type: Literal["assistant"] = Field("assistant", description="Node type")
     position: dict[str, float] = Field(..., description="Node position {x, y}")
     data: WorkflowNodeData = Field(..., description="Node data")
 

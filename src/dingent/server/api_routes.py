@@ -38,9 +38,9 @@ class AssistantAdminDetail(AssistantBase):
 
 
 class AppAdminDetail(BaseModel):
-    default_assistant: str | None = None
+    current_workflow: str | None = None
+    workflows: list[dict[str, str]] = Field(default_factory=list)
     llm: dict[str, Any]
-    assistants: list[AssistantAdminDetail]
 
 
 class AddPluginRequest(BaseModel):
@@ -119,10 +119,10 @@ async def get_app_settings():
     获取应用的核心配置（不包括助手列表）。
     """
     app_config = config_manager.get_config()
-    # We return the model but will exclude the 'assistants' part
-    # The response_model will handle filtering if 'assistants' is optional
-    app_settings_dict = app_config.model_dump(exclude={"assistants"})
-    app_settings_dict["assistants"] = []  # Return empty list to satisfy model
+    app_settings_dict = app_config.model_dump(exclude={"assistants", "workflows"})
+    workflows = app_config.workflows or []
+    workflows_summary = [{"id": wf.id, "name": wf.name} for wf in workflows]
+    app_settings_dict["workflows"] = workflows_summary
     return AppAdminDetail(**app_settings_dict)
 
 
@@ -132,7 +132,11 @@ async def update_app_settings(settings: dict):
     更新应用的核心配置（例如 LLM 设置）。
     """
     # Create a partial config dictionary to update
-    config_to_update = {"llm": settings.get("llm"), "default_assistant": settings.get("default_assistant")}
+    current_workflow_id = settings.get("current_workflow")
+    config_to_update = {
+        "llm": settings.get("llm"),
+        "current_workflow": current_workflow_id,
+    }
 
     config_manager.update_config(config_to_update, True)
     config_manager.save_config()
@@ -302,6 +306,7 @@ async def create_workflow(workflow_create: WorkflowCreate):
     """
     try:
         workflow = workflow_manager.create_workflow(workflow_create)
+        config_manager.reload()
         return workflow
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -330,6 +335,7 @@ async def update_workflow(workflow_id: str, workflow_update: WorkflowUpdate):
     workflow = workflow_manager.update_workflow(workflow_id, workflow_update)
     if not workflow:
         raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    config_manager.reload()
     return workflow
 
 

@@ -58,7 +58,11 @@ export type AppSettings = {
         provider?: string;
         api_key?: string;
     };
-    default_assistant?: string;
+    workflows?: {
+        id: string;
+        name: string;
+    }[]
+    current_workflow?: string;
 };
 
 export type PluginManifest = {

@@ -108,6 +108,11 @@ typeCheckingMode = "standard"
 link-mode = "symlink"
 default-groups = "all"
 
+[dependency-groups]
+dev = [
+    "ipython>=9.4.0",
+]
+
 
 [project.scripts]
 dingent = "dingent.cli:app"

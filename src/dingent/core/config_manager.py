@@ -614,6 +614,18 @@ class ConfigManager:
                     break
             self.save_config()
 
+    def get_current_workflow(self):
+        with self._lock:
+            workflow_manager = get_workflow_manager()
+            workflow_id = self._settings.current_workflow
+            workflow = workflow_manager.get_workflow(str(workflow_id))
+            if not workflow and self._settings.workflows:
+                workflows = workflow_manager.get_workflows()
+                workflow = workflows[0] if workflows else None
+            if not workflow:
+                raise ValueError("No workflow available.")
+            return workflow
+
 
 config_manager: ConfigManager | None = None
 

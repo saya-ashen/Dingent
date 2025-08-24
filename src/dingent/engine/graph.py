@@ -6,7 +6,7 @@ from typing import Annotated, Any, TypedDict, cast
 
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolCall, ToolMessage
-from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
+from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import InjectedState, create_react_agent
@@ -17,11 +17,13 @@ from pydantic import BaseModel, Field
 
 from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
 from dingent.core.log_manager import log_with_context
+from dingent.core.workflow_manager import get_workflow_manager
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
 tool_call_events_queue = Queue()
 config_manager = get_config_manager()
+workflow_manager = get_workflow_manager()
 
 
 client_resource_id_map: dict[str, str] = {}
@@ -213,17 +215,27 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
 
 
 @asynccontextmanager
-async def create_assistant_graphs(llm):
+async def create_assistant_graphs(workflow_id, llm):
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    assistants = await assistant_manager.get_assistants()
+    assistants = await workflow_manager.instantiate_workflow_assistants(workflow_id, reset_assistants=False)
+
+    handoff_tools: dict[str, BaseTool] = {}
+
+    for assistant in assistants.values():
+        name = assistant.name
+        handoff_tools[name] = create_handoff_tool(
+            agent_name=name, description=f"Transfer the conversation to {name} assistant. {name} assistant's description: {assistant.description}"
+        )
 
     async with AsyncExitStack() as stack:
         for assistant in assistants.values():
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
             filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not getattr(tool, "name", "").startswith("__")]
+            destinations = assistant.destinations
+            destination_tools = [handoff_tools[dest] for dest in destinations if dest in handoff_tools]
             graph = create_react_agent(
                 model=llm,
-                tools=filtered_tools,
+                tools=destination_tools + filtered_tools,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
                 name=f"{assistant.name}",
@@ -268,22 +280,26 @@ def get_safe_swarm(compiled_swarm):
 @asynccontextmanager
 async def make_graph():
     config = config_manager.get_config()
-    default_active_agent = config.default_assistant
+    current_workflow = config_manager.get_current_workflow()
     model_config = config.llm.model_dump()
     llm = llm_manager.get_llm(**model_config)
 
-    # 打开所有助手工具的会话
-    async with create_assistant_graphs(llm) as assistants:
-        if not default_active_agent:
-            print("No default active agent specified, using the first available assistant.")
-            default_active_agent = list(assistants.keys())[0]
-        else:
-            default_active_agent = f"{default_active_agent}"
+    node = current_workflow.nodes
+    start_node = None
+    for n in node:
+        if n.data.isStart:
+            start_node = n
+            break
 
+    if not start_node:
+        raise ValueError("No start node found in the current workflow.")
+
+    # 打开所有助手工具的会话
+    async with create_assistant_graphs(current_workflow.id, llm) as assistants:
         swarm = create_swarm(
             agents=list(assistants.values()),
             state_schema=MainState,
-            default_active_agent=default_active_agent,
+            default_active_agent=start_node.data.assistantName,
             context_schema=ConfigSchema,
         )
         compiled_swarm = swarm.compile()
