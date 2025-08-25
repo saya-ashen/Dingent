@@ -379,11 +379,13 @@ async def make_graph():
     if not start_node:
         raise ValueError("No start node found in the current workflow.")
 
+    default_active_agent = _normalize_name(start_node.data.assistantName)
+
     async with create_assistant_graphs(current_workflow.id, llm) as assistants:
         swarm = create_swarm(
             agents=list(assistants.values()),
             state_schema=MainState,
-            default_active_agent=start_node.data.assistantName,
+            default_active_agent=default_active_agent,
             context_schema=ConfigSchema,
         )
         compiled_swarm = swarm.compile()
