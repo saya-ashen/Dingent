@@ -1,4 +1,5 @@
-import { useEffect  } from "react";
+import { useEffect } from "react";
+import { FloatingActionButtons } from "@/components/layout/FloatingActionButtons";
 import { SearchableSelect } from "@/components/SearchableSelect";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
@@ -10,7 +11,7 @@ import { getAppSettings, saveAppSettings } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/layout/Page";
+import { PageHeader } from "@/components/layout/AppLayout";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { toast } from "sonner";
 
@@ -80,7 +81,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
             <PageHeader title="App Settings" description="Configure LLM provider and general defaults." />
             <form
                 className="space-y-4"
@@ -122,9 +123,11 @@ export default function SettingsPage() {
                     </Field>
                 </div>
 
-                <Button type="submit" disabled={isSubmitting || saveMut.isPending || !isDirty}>
-                    {saveMut.isPending ? "Saving..." : "Save"}
-                </Button>
+                <FloatingActionButtons>
+                    <Button type="submit" disabled={isSubmitting || saveMut.isPending || !isDirty}>
+                        {saveMut.isPending ? "Saving..." : "Save"}
+                    </Button>
+                </FloatingActionButtons>
             </form>
         </div>
     );

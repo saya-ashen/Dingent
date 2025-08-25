@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import { toast } from "sonner";
 
-import { PageHeader } from "@/components/layout/Page";
+import { PageHeader } from "@/components/layout/AppLayout";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { WorkflowEditor } from "@/components/workflows/WorkflowEditor";

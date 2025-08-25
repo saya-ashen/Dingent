@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getLogStatistics, getLogs, clearAllLogs } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PageHeader } from "@/components/layout/Page";
+import { PageHeader } from "@/components/layout/AppLayout";
 import { toast } from "sonner";
 import { FloatingActionButtons } from "@/components/layout/FloatingActionButtons";
 
@@ -50,7 +50,7 @@ export default function LogsPage() {
     const byLevelEntries = useMemo(() => Object.entries(statsQ.data?.by_level ?? {}), [statsQ.data]);
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 relative">
             <PageHeader
                 title="System Logs"
                 description="Inspect logs and filter by level, module, or keywords."

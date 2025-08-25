@@ -1,6 +1,5 @@
 import { Route, Routes } from "react-router-dom";
-import { DefaultLayout } from "@/layouts/DefaultLayout";
-import { WideLayout } from "@/layouts/WideLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import AssistantsPage from "@/pages/Assistants";
 import PluginsPage from "@/pages/Plugins";
 import SettingsPage from "@/pages/Settings";
@@ -10,7 +9,7 @@ import WorkflowsPage from "@/pages/Workflows";
 export default function App() {
     return (
         <Routes>
-            <Route element={<DefaultLayout />}>
+            <Route element={<AppLayout variant="default" />}>
                 <Route path="/" element={<AssistantsPage />} />
                 <Route path="/plugins" element={<PluginsPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
@@ -18,7 +17,7 @@ export default function App() {
             </Route>
 
             {/* 使用宽屏布局的页面 */}
-            <Route element={<WideLayout />}>
+            <Route element={<AppLayout variant="wide" />}>
                 <Route path="/workflows" element={<WorkflowsPage />} />
             </Route>
         </Routes>
