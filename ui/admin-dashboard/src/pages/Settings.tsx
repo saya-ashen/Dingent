@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect  } from "react";
+import { SearchableSelect } from "@/components/SearchableSelect";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { AppSettings } from "@/lib/types";
 import { getAppSettings, saveAppSettings } from "@/lib/api";
@@ -19,7 +21,7 @@ const schema = z.object({
         provider: z.string().optional().or(z.literal("")),
         api_key: z.string().optional().or(z.literal(""))
     }),
-    default_assistant: z.string().optional().or(z.literal(""))
+    current_workflow: z.string().optional().or(z.literal(""))
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -33,10 +35,12 @@ export default function SettingsPage() {
         staleTime: 5_000
     });
 
-    const { register, handleSubmit, setValue, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
+    const workflows = settingsQ.data?.workflows || [];
+    const { register, handleSubmit, setValue, control, formState: { errors, isSubmitting, isDirty } } = useForm<FormValues>({
         resolver: zodResolver(schema),
-        defaultValues: { llm: {}, default_assistant: "" }
+        defaultValues: { llm: {}, current_workflow: "" }
     });
+
 
     useEffect(() => {
         if (settingsQ.data) {
@@ -44,7 +48,7 @@ export default function SettingsPage() {
             setValue("llm.base_url", settingsQ.data.llm?.base_url || "");
             setValue("llm.provider", settingsQ.data.llm?.provider || "");
             setValue("llm.api_key", settingsQ.data.llm?.api_key || "");
-            setValue("default_assistant", settingsQ.data.default_assistant || "");
+            setValue("current_workflow", settingsQ.data.current_workflow || "");
         }
     }, [settingsQ.data, setValue]);
 
@@ -100,8 +104,21 @@ export default function SettingsPage() {
 
                 <div className="rounded-lg border p-4 space-y-3">
                     <h2 className="text-lg font-semibold">General Settings</h2>
-                    <Field label="Default Assistant Name" hint="The assistant name used by default when the user does not specify one.">
-                        <Input {...register("default_assistant")} />
+                    <Field label="Current Workflow" hint="The assistant name used by default when the user does not specify one.">
+                        <Controller
+                            name="current_workflow"
+                            control={control}
+                            render={({ field }) => (
+                                <SearchableSelect
+                                    options={workflows.map(wf => ({ label: wf.name, value: wf.id }))}
+                                    value={field.value}
+                                    onChange={field.onChange} // Use onChange from the controller
+                                    placeholder="Select a workflow"
+                                    className="min-w-[160px] sm:min-w-[220px]"
+                                />
+                            )}
+                        />
+
                     </Field>
                 </div>
 

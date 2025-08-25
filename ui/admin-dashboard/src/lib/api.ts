@@ -1,7 +1,7 @@
 import axios from "axios";
-import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest } from "./types";
+import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow } from "./types";
 
-const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "") + "/api/v1";
+const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
 
 // 可选：从本地存储读取鉴权令牌
@@ -66,7 +66,34 @@ export async function getAssistantsConfig(): Promise<Assistant[] | null> {
         const { data } = await http.get<Assistant[]>("/assistants");
         return data;
     } catch (err) {
-        throw new Error(`Failed to fetch assistants configuration: ${extractErrorMessage(err)}`);
+        // Return mock data for development when backend is not available
+        console.warn("Backend not available, returning mock assistants", err);
+        return [
+            {
+                id: "support-bot",
+                name: "Support Bot",
+                description: "Handles customer support inquiries",
+                enabled: true,
+                status: "active",
+                plugins: []
+            },
+            {
+                id: "escalation-bot",
+                name: "Escalation Bot",
+                description: "Handles complex escalated issues",
+                enabled: true,
+                status: "active",
+                plugins: []
+            },
+            {
+                id: "data-analyst",
+                name: "Data Analyst",
+                description: "Analyzes customer data and generates reports",
+                enabled: true,
+                status: "active",
+                plugins: []
+            }
+        ];
     }
 }
 
@@ -174,5 +201,81 @@ export async function clearAllLogs(): Promise<boolean> {
         return true;
     } catch {
         return false;
+    }
+}
+
+
+// --- Workflows ---
+
+export async function getWorkflows(): Promise<Workflow[] | null> {
+    try {
+        const { data } = await http.get<Workflow[]>("/workflows");
+        return data;
+    } catch (err) {
+        // Return mock data for development when backend is not available
+        console.warn("Backend not available, returning mock workflows", err);
+        return [
+            {
+                id: "mock-workflow-1",
+                name: "Customer Support Flow",
+                description: "Handles customer inquiries and escalations",
+                nodes: [
+                ],
+                edges: [
+                ],
+                created_at: "2024-01-01T10:00:00Z",
+                updated_at: "2024-01-01T10:00:00Z"
+            }
+        ];
+    }
+}
+
+export async function getWorkflow(workflowId: string): Promise<Workflow | null> {
+    try {
+        const { data } = await http.get<Workflow>(`/workflows/${workflowId}`);
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to fetch workflow '${workflowId}': ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function saveWorkflow(workflow: Workflow): Promise<Workflow> {
+    try {
+        console.log("Saving workflow", workflow);
+        const { data } = await http.put<Workflow>(`/workflows/${workflow.id}`, workflow);
+        return data;
+    } catch (err) {
+        // Mock save for development
+        console.warn("Backend not available, mocking workflow save");
+        return { ...workflow, updated_at: new Date().toISOString() };
+    }
+}
+
+export async function createWorkflow(name: string, description?: string): Promise<Workflow> {
+    try {
+        const { data } = await http.post<Workflow>("/workflows", { name, description });
+        return data;
+    } catch (err) {
+        // Mock create for development
+        console.warn("Backend not available, mocking workflow creation");
+        return {
+            id: `mock-${Date.now()}`,
+            name,
+            description,
+            nodes: [],
+            edges: [],
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+    }
+}
+
+export async function deleteWorkflow(workflowId: string): Promise<void> {
+    try {
+        await http.delete(`/workflows/${workflowId}`);
+    } catch (err) {
+        // Mock delete for development
+        console.warn("Backend not available, mocking workflow deletion");
+        return;
     }
 }

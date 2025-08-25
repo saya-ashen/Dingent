@@ -7,12 +7,14 @@ from pydantic import BaseModel, Field
 from dingent.core import Assistant, get_assistant_manager, get_config_manager, get_plugin_manager
 from dingent.core.log_manager import get_log_manager
 from dingent.core.plugin_manager import PluginManifest
-from dingent.core.types import AssistantBase, AssistantCreate, ConfigItemDetail, PluginUserConfig
+from dingent.core.types import AssistantBase, AssistantCreate, ConfigItemDetail, PluginUserConfig, Workflow, WorkflowCreate, WorkflowUpdate
+from dingent.core.workflow_manager import get_workflow_manager
 
 router = APIRouter()
 config_manager = get_config_manager()
 assistant_manager = get_assistant_manager()
 plugin_manager = get_plugin_manager()
+workflow_manager = get_workflow_manager()
 
 
 class ToolAdminDetail(BaseModel):
@@ -36,9 +38,9 @@ class AssistantAdminDetail(AssistantBase):
 
 
 class AppAdminDetail(BaseModel):
-    default_assistant: str | None = None
+    current_workflow: str | None = None
+    workflows: list[dict[str, str]] = Field(default_factory=list)
     llm: dict[str, Any]
-    assistants: list[AssistantAdminDetail]
 
 
 class AddPluginRequest(BaseModel):
@@ -117,10 +119,10 @@ async def get_app_settings():
     获取应用的核心配置（不包括助手列表）。
     """
     app_config = config_manager.get_config()
-    # We return the model but will exclude the 'assistants' part
-    # The response_model will handle filtering if 'assistants' is optional
-    app_settings_dict = app_config.model_dump(exclude={"assistants"})
-    app_settings_dict["assistants"] = []  # Return empty list to satisfy model
+    app_settings_dict = app_config.model_dump(exclude={"assistants", "workflows"})
+    workflows = app_config.workflows or []
+    workflows_summary = [{"id": wf.id, "name": wf.name} for wf in workflows]
+    app_settings_dict["workflows"] = workflows_summary
     return AppAdminDetail(**app_settings_dict)
 
 
@@ -130,7 +132,11 @@ async def update_app_settings(settings: dict):
     更新应用的核心配置（例如 LLM 设置）。
     """
     # Create a partial config dictionary to update
-    config_to_update = {"llm": settings.get("llm"), "default_assistant": settings.get("default_assistant")}
+    current_workflow_id = settings.get("current_workflow")
+    config_to_update = {
+        "llm": settings.get("llm"),
+        "current_workflow": current_workflow_id,
+    }
 
     config_manager.update_config(config_to_update, True)
     config_manager.save_config()
@@ -269,3 +275,76 @@ async def log_statistics():
         return log_manager.get_log_stats()
     except Exception:
         raise HTTPException(404)
+
+
+# --- Workflows ---
+
+
+@router.get("/workflows", response_model=list[Workflow])
+async def get_all_workflows():
+    """
+    Get all workflows.
+    """
+    return workflow_manager.get_workflows()
+
+
+@router.get("/workflows/{workflow_id}", response_model=Workflow)
+async def get_workflow(workflow_id: str):
+    """
+    Get a specific workflow by ID.
+    """
+    workflow = workflow_manager.get_workflow(workflow_id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    return workflow
+
+
+@router.post("/workflows", response_model=Workflow)
+async def create_workflow(workflow_create: WorkflowCreate):
+    """
+    Create a new workflow.
+    """
+    try:
+        workflow = workflow_manager.create_workflow(workflow_create)
+        config_manager.reload()
+        return workflow
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/workflows/{workflow_id}", response_model=Workflow)
+async def save_workflow(workflow_id: str, workflow: Workflow):
+    """
+    Save/update a complete workflow.
+    """
+    if workflow.id != workflow_id:
+        raise HTTPException(status_code=400, detail="Workflow ID mismatch")
+    try:
+        saved_workflow = workflow_manager.save_workflow(workflow)
+        config_manager.reload()
+        return saved_workflow
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.patch("/workflows/{workflow_id}", response_model=Workflow)
+async def update_workflow(workflow_id: str, workflow_update: WorkflowUpdate):
+    """
+    Partially update a workflow.
+    """
+    workflow = workflow_manager.update_workflow(workflow_id, workflow_update)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    config_manager.reload()
+    return workflow
+
+
+@router.delete("/workflows/{workflow_id}")
+async def delete_workflow(workflow_id: str):
+    """
+    Delete a workflow.
+    """
+    success = workflow_manager.delete_workflow(workflow_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Workflow {workflow_id} not found")
+    return {"status": "success", "message": f"Workflow {workflow_id} deleted successfully"}

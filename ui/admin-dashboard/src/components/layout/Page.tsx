@@ -6,7 +6,7 @@ export function Page({ children }: { children: ReactNode }) {
 
 export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
     return (
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col items-center text-center gap-3 md:flex-row md:justify-center md:gap-6">
             <div>
                 <h1 className="text-2xl font-semibold">{title}</h1>
                 {description && <p className="text-sm text-muted-foreground">{description}</p>}
