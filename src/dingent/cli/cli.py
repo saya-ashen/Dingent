@@ -1,15 +1,15 @@
 """
-Dingent CLI (含前端 + 后端并发运行的精简版)
+Dingent CLI (Simplified version for concurrent Frontend + Backend execution)
 
-命令:
-  dingent run       并发启动 backend(langgraph dev 无UI) + frontend(node)
-  dingent dev       启动带 UI 的 langgraph dev (仅后端，调试 Graph + API)
-  dingent init      从模板创建一个新的 Agent 项目
-  dingent version   显示版本
+Commands:
+  dingent run        Concurrently start backend (langgraph dev no UI) + frontend (node)
+  dingent dev        Start langgraph dev with UI (backend only, for debugging Graph + API)
+  dingent init       Create a new Agent project from a template
+  dingent version    Show version
 
-可选环境变量:
-  DINGENT_GRAPH_SPEC  覆盖默认 Graph 入口 (默认: dingent.engine.graph:make_graph)
-  DINGENT_API_SPEC    覆盖默认 FastAPI 应用入口 (默认: dingent.server.main:app)
+Optional Environment Variables:
+  DINGENT_GRAPH_SPEC   Override default Graph entrypoint (default: dingent.engine.graph:make_graph)
+  DINGENT_API_SPEC     Override default FastAPI application entrypoint (default: dingent.server.main:app)
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
 ENV_API_SPEC = "DINGENT_API_SPEC"
 
 PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
-# 如果在开发模式下运行，可以指向本地仓库以方便调试
+# When running in development mode, this can point to a local repository for easier debugging
 DEV_REPO_URL = "/home/saya/Workspace/Dingent"
 
 AVAILABLE_TEMPLATES = ["basic"]
@@ -63,33 +63,33 @@ port = 8501
 port = 3000
 """
 
-# --------- 工具函数 ---------
+# --------- Utility Functions ---------
 
 
 def _ensure_project_root(cli_ctx: CliContext) -> CliContext:
     """
-    检查当前目录是否为 Dingent 项目，如果不是，则提示用户创建 dingent.toml。
+    Checks if the current directory is a Dingent project. If not, prompts the user to create dingent.toml.
     """
     if not cli_ctx.project_root:
-        print("[bold yellow]⚠️ 当前目录不是一个 Dingent 项目 (缺少 dingent.toml)。[/bold yellow]")
-        create_file = typer.confirm("你希望在这里创建一个默认的 dingent.toml 配置文件吗？")
+        print("[bold yellow]⚠️ Not a Dingent project directory (missing dingent.toml).[/bold yellow]")
+        create_file = typer.confirm("Would you like to create a default dingent.toml configuration file here?")
         if create_file:
             cwd = Path.cwd()
             project_name = cwd.name
             config_path = cwd / "dingent.toml"
             config_content = DEFAULT_DINGENT_TOML.format(project_name=project_name)
             config_path.write_text(config_content, encoding="utf-8")
-            print(f"[bold green]✅ 已在 {config_path} 创建默认配置文件，请重新运行命令启动[/bold green]")
+            print(f"[bold green]✅ Default config created at {config_path}. Please re-run the command to start.[/bold green]")
             raise typer.Exit()
         else:
-            print("[bold red]操作已取消。[/bold red]")
+            print("[bold red]Operation cancelled.[/bold red]")
             raise typer.Exit()
     return cli_ctx
 
 
 def _resolve_node_binary() -> str:
     """
-    使用 nodejs_wheel 获取 node 可执行路径。
+    Gets the node executable path using nodejs_wheel.
     """
     try:
         from nodejs_wheel import node
@@ -102,15 +102,15 @@ def _resolve_node_binary() -> str:
         )
         if isinstance(cp, subprocess.CompletedProcess) and cp.returncode == 0 and cp.stdout:
             return cp.stdout.strip()
-        raise RuntimeError("nodejs_wheel 返回异常")
+        raise RuntimeError("nodejs_wheel returned an exception")
     except Exception as e:
-        raise RuntimeError(f"无法解析 Node 可执行文件: {e}")
+        raise RuntimeError(f"Could not resolve Node executable: {e}")
 
 
 def _make_backend_temp_config() -> Path:
     """
-    生成后端 langgraph.dev 使用的临时配置文件。
-    返回配置文件路径。
+    Generates a temporary configuration file for the backend's langgraph.dev.
+    Returns the path to the config file.
     """
     graph_spec = os.getenv(ENV_GRAPH_SPEC, DEFAULT_GRAPH_SPEC)
     api_spec = os.getenv(ENV_API_SPEC, DEFAULT_API_SPEC)
@@ -136,11 +136,11 @@ def import_json_dumps(obj) -> str:
     return json.dumps(obj, ensure_ascii=False, indent=2)
 
 
-_TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # 防止被 GC 清理
+_TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # Prevent cleanup by garbage collector
 
 
 class ProjectInitializer:
-    """处理 'init' 命令的逻辑。"""
+    """Handles the logic for the 'init' command."""
 
     def __init__(self, project_name, template, checkout):
         self.project_name = project_name
@@ -149,21 +149,21 @@ class ProjectInitializer:
         self.project_path = None
 
     def run(self):
-        """执行整个项目初始化工作流。"""
+        """Executes the entire project initialization workflow."""
         try:
             self._create_from_template()
             self._print_final_summary()
         except RepositoryNotFound:
-            print(f"[bold red]\n❌ 错误: 仓库未找到 {REPO_URL}[/bold red]")
-            print("[bold red]\n请检查 URL 和你的网络连接。[/bold red]")
+            print(f"[bold red]\n❌ Error: Repository not found at {REPO_URL}[/bold red]")
+            print("[bold red]\nPlease check the URL and your network connection.[/bold red]")
             raise typer.Exit()
         except Exception as e:
-            print(f"[bold red]\n发生意外错误: {e}[/bold red]")
+            print(f"[bold red]\nAn unexpected error occurred: {e}[/bold red]")
             raise typer.Exit()
 
     def _create_from_template(self):
-        """使用 Cookiecutter 构建项目。"""
-        print(f"[bold green]🚀 从 Git 仓库初始化项目: {REPO_URL}[/bold green]")
+        """Builds the project using Cookiecutter."""
+        print(f"[bold green]🚀 Initializing project from Git repository: {REPO_URL}[/bold green]")
         template_dir = f"templates/{self.template}"
         created_path = cookiecutter(
             REPO_URL,
@@ -173,15 +173,15 @@ class ProjectInitializer:
             output_dir=".",
         )
         self.project_path = Path(created_path)
-        print(f"[bold green]✅ 项目已创建于 {self.project_path}[/bold green]")
+        print(f"[bold green]✅ Project created at {self.project_path}[/bold green]")
 
     def _print_final_summary(self):
-        """打印最终的成功信息和后续步骤。"""
+        """Prints the final success message and next steps."""
         final_project_name = self.project_path.name
-        print("[bold green]\n🎉 项目初始化成功！[/bold green]")
-        print("\n后续步骤:")
-        print(f"  1. 进入项目目录: cd {final_project_name}")
-        print("  2. 启动所有服务: dingent run")
+        print("[bold green]\n🎉 Project initialized successfully![/bold green]")
+        print("\nNext steps:")
+        print(f"  1. Change into the project directory: cd {final_project_name}")
+        print("  2. Start all services: dingent run")
 
 
 class Service:
@@ -212,33 +212,33 @@ class ServiceSupervisor:
         self._stop_event = threading.Event()
 
     def start_all(self):
-        print("[bold cyan]🚀 启动服务...[/bold cyan]")
+        print("[bold cyan]🚀 Starting services...[/bold cyan]")
         for svc in self.services:
             self._start_service(svc)
 
         t = threading.Thread(target=self._log_loop, daemon=True)
         t.start()
 
-        print("[bold green]✓ 所有服务已启动，实时日志如下 (Ctrl+C 退出)[/bold green]")
+        print("[bold green]✓ All services started. Real-time logs below (Ctrl+C to exit).[/bold green]")
         try:
             while not self._stop_event.is_set():
                 for svc in self.services:
                     if svc.process and svc.process.poll() is not None:
-                        print(f"\n[bold red]服务 {svc.name} 已退出，代码 {svc.process.returncode}，准备关闭其它服务...[/bold red]")
+                        print(f"\n[bold red]Service {svc.name} has exited with code {svc.process.returncode}. Shutting down other services...[/bold red]")
                         self.stop_all()
                         raise typer.Exit(1)
                 time.sleep(0.3)
         except KeyboardInterrupt:
             if not hasattr(self, "_shutting_down"):
                 self._shutting_down = True
-                print("\n[bold yellow]收到中断信号，正在关闭服务 (再次 Ctrl+C 将强制退出)...[/bold yellow]")
+                print("\n[bold yellow]Received interrupt signal. Shutting down services (press Ctrl+C again to force quit)...[/bold yellow]")
                 try:
                     self.stop_all()
                 except KeyboardInterrupt:
-                    print("\n[bold red]二次中断：立即强制终止所有进程[/bold red]")
+                    print("\n[bold red]Second interrupt: Forcibly terminating all processes now.[/bold red]")
                     self.stop_all(force=True)
             else:
-                print("\n[bold red]再次收到中断，强制终止...[/bold red]")
+                print("\n[bold red]Received interrupt again, force quitting...[/bold red]")
                 self.stop_all(force=True)
 
     def stop_all(self, force: bool = False):
@@ -246,7 +246,7 @@ class ServiceSupervisor:
         for svc in reversed(self.services):
             if svc.process and svc.process.poll() is None:
                 _terminate_process_tree(svc.process, svc.name, force=force)
-        print("[bold blue]🛑 所有进程已结束[/bold blue]")
+        print("[bold blue]🛑 All processes have been terminated.[/bold blue]")
 
         global _TEMP_DIRS
         for td in _TEMP_DIRS:
@@ -274,10 +274,10 @@ class ServiceSupervisor:
         try:
             svc.process = subprocess.Popen(svc.command, **popen_kwargs)
         except FileNotFoundError:
-            print(f"[bold red]❌ 启动 {svc.name} 失败：命令不存在: {svc.command[0]}[/bold red]")
+            print(f"[bold red]❌ Failed to start {svc.name}: Command not found: {svc.command[0]}[/bold red]")
             raise typer.Exit(1)
         threading.Thread(target=self._stream_reader, args=(svc,), daemon=True).start()
-        print(f"[bold green]✓ {svc.name} (PID {svc.process.pid}) 已启动: {' '.join(svc.command)}[/bold green]")
+        print(f"[bold green]✓ {svc.name} (PID {svc.process.pid}) started: {' '.join(svc.command)}[/bold green]")
 
     def _stream_reader(self, svc: Service):
         assert svc.process and svc.process.stdout
@@ -306,22 +306,22 @@ class ServiceSupervisor:
                 m = port_regex.search(line)
                 if m:
                     url = f"http://localhost:{m.group(1)}"
-                    print(f"[bold blue]🌐 打开浏览器: {url}[/bold blue]")
+                    print(f"[bold blue]🌐 Opening browser: {url}[/bold blue]")
                     try:
                         webbrowser.open_new_tab(url)
                         self._browser_opened = True
                     except Exception:
-                        print("[yellow]⚠️ 无法自动打开浏览器[/yellow]")
+                        print("[yellow]⚠️ Could not open browser automatically.[/yellow]")
 
 
 def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = False):
     """
-    使用 psutil 递归终止进程及其所有后代进程。
+    Recursively terminates a process and all its descendants using psutil.
     """
     if proc.poll() is not None:
         return
 
-    print(f"[yellow]停止 {name} (PID {proc.pid}) ...[/yellow]", end="")
+    print(f"[yellow]Stopping {name} (PID {proc.pid}) ...[/yellow]", end="")
 
     try:
         main_proc = psutil.Process(proc.pid)
@@ -351,18 +351,18 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
         print("[yellow] (force/kill) ✓[/yellow]")
 
     except psutil.NoSuchProcess:
-        print("[green] ✓ (已结束)[/green]")
+        print("[green] ✓ (already terminated)[/green]")
     except Exception as e:
-        print(f"[red] 失败: {e}[/red]")
+        print(f"[red] Failed: {e}[/red]")
 
 
 # --------- Commands ---------
 @app.command()
 def run(
-    no_browser: bool = typer.Option(False, "--no-browser", help="不自动打开前端页面"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the frontend page in a browser automatically."),
 ):
     """
-    并发启动 backend 和 frontend 服务。
+    Concurrently starts the backend and frontend services.
     """
     cli_ctx = CliContext()
     cli_ctx = _ensure_project_root(cli_ctx)
@@ -371,7 +371,7 @@ def run(
     try:
         node_bin = _resolve_node_binary()
     except Exception as e:
-        print(f"[bold red]❌ 解析 Node 失败: {e}[/bold red]")
+        print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
         raise typer.Exit(1)
 
     backend_cmd = [
@@ -411,15 +411,15 @@ def run(
 
 @app.command()
 def dev(
-    open_ui: bool = typer.Option(True, "--ui/--no-ui", help="启动官方 langgraph dev UI"),
-    with_frontend: bool = typer.Option(True, "--with-frontend", help="同时启动前端"),
-    no_browser: bool = typer.Option(False, "--no-browser", help="当 --with-frontend 启用时不自动打开浏览器"),
+    open_ui: bool = typer.Option(True, "--ui/--no-ui", help="Start the official langgraph dev UI"),
+    with_frontend: bool = typer.Option(True, "--with-frontend", help="Also start the frontend"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="When --with-frontend is enabled, do not open the browser automatically"),
 ):
     """
-    启动开发服务，主要用于调试后端 Graph 和 API。
+    Starts the development server, primarily for debugging the backend Graph and API.
     """
     if not open_ui and not with_frontend:
-        print("[yellow]未指定任何操作 (请使用 --ui 或 --with-frontend)，已退出。[/yellow]")
+        print("[yellow]No action specified (use --ui or --with-frontend). Exiting.[/yellow]")
         raise typer.Exit(0)
 
     cli_ctx = CliContext()
@@ -429,7 +429,7 @@ def dev(
         try:
             from .dev_runner import start_langgraph_ui
         except Exception as e:
-            print(f"[bold red]导入 dev_runner 失败: {e}[/bold red]")
+            print(f"[bold red]Failed to import dev_runner: {e}[/bold red]")
             raise typer.Exit(1)
         start_langgraph_ui()
         return
@@ -460,7 +460,7 @@ def dev(
         try:
             node_bin = _resolve_node_binary()
         except Exception as e:
-            print(f"[bold red]❌ 解析 Node 失败: {e}[/bold red]")
+            print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
             raise typer.Exit(1)
 
         frontend_cmd = [node_bin, "server.js", "--port", str(cli_ctx.frontend_port)]
@@ -480,18 +480,18 @@ def dev(
 
 @app.command("init")
 def init(
-    project_name: Annotated[str, typer.Argument(help="新项目的名称")],
-    template: Annotated[str, typer.Option(help="用于创建项目的模板")] = "basic",
-    checkout: Annotated[str, typer.Option(help="要检出的分支、标签或提交")] = "main",
+    project_name: Annotated[str, typer.Argument(help="The name of the new project")],
+    template: Annotated[str, typer.Option(help="The template to use for creating the project")] = "basic",
+    checkout: Annotated[str, typer.Option(help="The branch, tag, or commit to check out")] = "main",
 ):
-    """从模板创建一个新的 Agent 项目。"""
+    """Create a new Agent project from a template."""
     initializer = ProjectInitializer(project_name, template, checkout)
     initializer.run()
 
 
 @app.command()
 def version():
-    """显示 Dingent 版本"""
+    """Show the Dingent version"""
     try:
         from importlib.metadata import version as _v
 
