@@ -44,7 +44,7 @@ When building LLM data applications, developers often spend a significant amount
 
 ## ✨ Features
 
-  * **Instant Project Setup**: Simply run `dingent dev` in any directory to initialize a new project. 
+  * **Instant Project Setup**: Simply run `dingent dev` in any directory to initialize a new project.
   * **Integrated Admin Dashboard**: A powerful, React-based web interface to visually manage your assistants, workflows, plugins, and settings.
   * **Bundled Frontend**: A pre-built, standalone Next.js chat interface is included out-of-the-box. No need for manual setup or compilation.
   * **Lightweight and Easy to Use**: A clean design and a gentle learning curve let you focus on business logic rather than tedious configuration.
@@ -131,7 +131,7 @@ my-awesome-agent/
   - **💡 3. Plugin System**
 
       - `[x]` **Auto-Discovery**: Automatically loads plugins from the `plugins/` directory.
-      - `[ ]` ~~**Plugin CLI:** Install and manage plugins via the command line.~~ 
+      - `[ ]` ~~**Plugin CLI:** Install and manage plugins via the command line.~~
        (Superseded by UI management in the Admin Dashboard)
       - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
 
