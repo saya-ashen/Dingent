@@ -259,9 +259,10 @@ class WorkflowManager:
             removed_node_count = original_node_count - len(workflow.nodes)
             removed_edge_count = original_edge_count - len(workflow.edges)
             
-            print(f"Cleaned up workflow '{workflow.name}' ({workflow_id}): "
-                  f"removed {removed_node_count} nodes and {removed_edge_count} edges "
-                  f"referencing deleted assistant {assistant_id}")
+            from loguru import logger
+            logger.info(f"Cleaned up workflow '{workflow.name}' ({workflow_id}): "
+                       f"removed {removed_node_count} nodes and {removed_edge_count} edges "
+                       f"referencing deleted assistant {assistant_id}")
         
         return modified_workflow_ids
 
