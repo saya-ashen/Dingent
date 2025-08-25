@@ -153,7 +153,7 @@ def create_dynamic_pydantic_class(
     return type(name, (base_class,), attributes)
 
 
-def mcp_tool_wrapper(_tool: StructuredTool, client_name: str) -> BaseTool:
+def mcp_tool_wrapper(_tool: StructuredTool) -> BaseTool:
     """
     包装 MCP 工具：采集 tool_output_id 并写入当前子图状态 (SubgraphState.tool_output_ids)
     """
@@ -287,7 +287,7 @@ async def create_assistant_graphs(workflow_id: str, llm):
     async with AsyncExitStack() as stack:
         for assistant in assistants.values():
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered = [mcp_tool_wrapper(t, assistant.name) for t in tools if not getattr(t, "name", "").startswith("__")]
+            filtered = [mcp_tool_wrapper(t) for t in tools if not getattr(t, "name", "").startswith("__")]
             dest_tools = [handoff_tools[d] for d in assistant.destinations if d in handoff_tools]
 
             base_agent = create_react_agent(
