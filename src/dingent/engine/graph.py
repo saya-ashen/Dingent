@@ -1,5 +1,6 @@
 import json
 import operator
+import re
 import uuid
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -269,37 +270,63 @@ def wrap_agent_with_post_process(name: str, agent_graph: CompiledStateGraph) -> 
     return compiled
 
 
+def _normalize_name(name: str) -> str:
+    """
+    Standardizes a name to be a valid identifier.
+    It replaces non-alphanumeric characters with underscores
+    and ensures the name doesn't start with a digit.
+    """
+    # Replace any character that is not a letter, number, or underscore with an underscore
+    s = re.sub(r"\W|^(?=\d)", "_", name)
+    return s
+
+
 @asynccontextmanager
 async def create_assistant_graphs(workflow_id: str, llm):
     """
-    为每个 assistant 创建其核心 agent，然后用 wrap_agent_with_post_process 包一层
+    Creates the core agent for each assistant and wraps it with post-processing.
     """
     assistant_graphs: dict[str, CompiledStateGraph] = {}
     assistants = await workflow_manager.instantiate_workflow_assistants(workflow_id, reset_assistants=False)
 
+    # Create mappings between original and normalized names
+    assistants_by_name = {a.name: a for a in assistants.values()}
+    name_map = {original: _normalize_name(original) for original in assistants_by_name}
+
+    # Create handoff tools using normalized names as identifiers
     handoff_tools: dict[str, BaseTool] = {}
-    # FIXME: assistant name 需要标准化，避免特殊字符和空格
-    for assistant in assistants.values():
-        handoff_tools[assistant.name] = create_handoff_tool(
-            agent_name=assistant.name,
-            description=f"Transfer the conversation to {assistant.name} assistant. {assistant.name} assistant's description: {assistant.description}",
+    for original_name, assistant in assistants_by_name.items():
+        normalized_name = name_map[original_name]
+        handoff_tools[normalized_name] = create_handoff_tool(
+            agent_name=normalized_name,
+            # The description still uses the user-friendly original name
+            description=f"Transfer the conversation to {original_name} assistant. {original_name}'s description: {assistant.description}",
         )
 
     async with AsyncExitStack() as stack:
-        for assistant in assistants.values():
-            tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered = [mcp_tool_wrapper(t) for t in tools if not getattr(t, "name", "").startswith("__")]
-            dest_tools = [handoff_tools[d] for d in assistant.destinations if d in handoff_tools]
+        for original_name, assistant in assistants_by_name.items():
+            normalized_name = name_map[original_name]
 
+            # Load tools for the current assistant
+            tools = await stack.enter_async_context(assistant.load_tools_langgraph())
+            filtered_tools = [mcp_tool_wrapper(t) for t in tools if not getattr(t, "name", "").startswith("__")]
+
+            # Get destination tools by mapping destination names to their normalized versions
+            normalized_destinations = [_normalize_name(d) for d in assistant.destinations if d in name_map]
+            dest_tools = [handoff_tools[norm_d] for norm_d in normalized_destinations if norm_d in handoff_tools]
+
+            # Create the agent with the normalized name
             base_agent = create_react_agent(
                 model=llm,
-                tools=dest_tools + filtered,
+                tools=dest_tools + filtered_tools,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
-                name=assistant.name,
+                name=normalized_name,  # Use normalized name for the agent
             )
-            wrapped_agent = wrap_agent_with_post_process(assistant.name, base_agent)
-            assistant_graphs[assistant.name] = wrapped_agent
+
+            # Wrap and store the compiled graph using the normalized name as the key
+            wrapped_agent = wrap_agent_with_post_process(normalized_name, base_agent)
+            assistant_graphs[normalized_name] = wrapped_agent
 
         yield assistant_graphs
 
