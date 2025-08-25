@@ -202,6 +202,69 @@ class WorkflowManager:
     def clear_active_workflow(self):
         self._active_workflow_id = None
 
+    def cleanup_workflows_for_deleted_assistant(self, assistant_id: str) -> list[str]:
+        """
+        Clean up all workflows that reference a deleted assistant.
+        
+        This method:
+        1. Finds all workflows containing nodes that reference the deleted assistant
+        2. Removes those nodes from the workflows
+        3. Removes any edges connected to the removed nodes
+        4. Saves the updated workflows
+        
+        Args:
+            assistant_id: The ID of the deleted assistant
+            
+        Returns:
+            List of workflow IDs that were modified
+        """
+        modified_workflow_ids = []
+        
+        for workflow_id, workflow in self._workflows.items():
+            original_node_count = len(workflow.nodes)
+            original_edge_count = len(workflow.edges)
+            
+            # Find nodes that reference the deleted assistant
+            nodes_to_remove = [
+                node for node in workflow.nodes 
+                if node.data.assistantId == assistant_id
+            ]
+            
+            if not nodes_to_remove:
+                continue  # No nodes reference this assistant in this workflow
+            
+            # Get IDs of nodes to remove
+            node_ids_to_remove = {node.id for node in nodes_to_remove}
+            
+            # Remove the nodes
+            workflow.nodes = [
+                node for node in workflow.nodes 
+                if node.data.assistantId != assistant_id
+            ]
+            
+            # Remove edges connected to the removed nodes
+            workflow.edges = [
+                edge for edge in workflow.edges
+                if edge.source not in node_ids_to_remove and edge.target not in node_ids_to_remove
+            ]
+            
+            # Update timestamp
+            workflow.updated_at = datetime.now().isoformat()
+            
+            # Save the updated workflow
+            self._save_workflow_to_file(workflow)
+            modified_workflow_ids.append(workflow_id)
+            
+            # Log the cleanup action
+            removed_node_count = original_node_count - len(workflow.nodes)
+            removed_edge_count = original_edge_count - len(workflow.edges)
+            
+            print(f"Cleaned up workflow '{workflow.name}' ({workflow_id}): "
+                  f"removed {removed_node_count} nodes and {removed_edge_count} edges "
+                  f"referencing deleted assistant {assistant_id}")
+        
+        return modified_workflow_ids
+
 
 # Global workflow manager instance
 _workflow_manager: WorkflowManager | None = None
