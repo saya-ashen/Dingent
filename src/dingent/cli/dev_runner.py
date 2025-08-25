@@ -4,6 +4,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from rich import print
+
 DEFAULT_GRAPH_SPEC = "dingent.engine.graph:make_graph"
 DEFAULT_API_SPEC = "dingent.server.main:app"
 ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
@@ -20,10 +22,10 @@ def _api_spec():
 
 def start_langgraph_ui():
     """
-    启动 LangGraph 官方 dev UI：
-      - 在临时目录创建 langgraph.json
-      - 指向内部 Graph 与 API
-      - 不污染用户项目
+    Starts the official LangGraph dev UI:
+      - Creates langgraph.json in a temporary directory
+      - Points to the internal Graph and API
+      - Does not pollute the user's project
     """
     graph_spec = _graph_spec()
     api_spec = _api_spec()
@@ -37,10 +39,10 @@ def start_langgraph_ui():
             "metadata": {"provider": "dingent", "mode": "dev-ui"},
         }
         cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"[dingent] 临时配置生成: {cfg_path}")
+        print(f"[dingent] Temporary config generated: {cfg_path}")
         try:
             subprocess.run(["langgraph", "dev", "--config", str(cfg_path)], check=True)
         except FileNotFoundError:
-            print("[dingent] 未找到 langgraph 可执行文件，请先安装：pip install langgraph")
+            print("[dingent] 'langgraph' executable not found. Please install it first: pip install langgraph")
         except subprocess.CalledProcessError as e:
-            print(f"[dingent] 启动 langgraph dev 失败: {e}")
+            print(f"[dingent] Failed to start langgraph dev: {e}")
