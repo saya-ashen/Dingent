@@ -278,6 +278,7 @@ async def create_assistant_graphs(workflow_id: str, llm):
     assistants = await workflow_manager.instantiate_workflow_assistants(workflow_id, reset_assistants=False)
 
     handoff_tools: dict[str, BaseTool] = {}
+    # FIXME: assistant name 需要标准化，避免特殊字符和空格
     for assistant in assistants.values():
         handoff_tools[assistant.name] = create_handoff_tool(
             agent_name=assistant.name,
