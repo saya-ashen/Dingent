@@ -1,4 +1,5 @@
 import json
+import operator
 import uuid
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -26,39 +27,60 @@ config_manager = get_config_manager()
 workflow_manager = get_workflow_manager()
 
 
-client_resource_id_map: dict[str, str] = {}
-
-
+# =========================
+# State
+# =========================
 class MainState(CopilotKitState, SwarmState):
+    """
+    Swarm 全局状态
+    （这里不再需要聚合 tool_output_ids，可留空或保留字段视需要）
+    """
+
     pass
 
 
 class SubgraphState(CopilotKitState, AgentState):
-    pass
+    """
+    单个 assistant 子图状态
+    在一次子图执行期间收集工具输出 ID；执行结束后 post_process 会消费并清空
+    """
+
+    tool_output_ids: Annotated[list, operator.concat]
 
 
-def call_actions(state, list_of_args: list[dict]):
+# =========================
+# 消息/工具辅助
+# =========================
+def build_action_messages(state: dict, list_of_args: list[dict]) -> list[AIMessage | ToolMessage]:
+    """
+    构造 show_data 工具调用消息对
+    """
     actions = state.get("copilotkit", {}).get("actions", [])
     show_data_action = None
     for action in actions:
-        if action["type"] == "function" and action["function"]["name"] == "show_data":
+        if action.get("type") == "function" and action.get("function", {}).get("name") == "show_data":
             show_data_action = action
+            break
     if show_data_action is None:
         return []
-    action_call_messages = []
+
+    messages: list[AIMessage | ToolMessage] = []
     for args in list_of_args:
-        tool_call_id = f"{uuid.uuid4()}"
+        tool_call_id = str(uuid.uuid4())
         tool_call = ToolCall(
             name="show_data",
             args=args,
             id=tool_call_id,
         )
-        action_call_messages.append(AIMessage(content="", tool_calls=[tool_call]))
-        action_call_messages.append(ToolMessage(content="show data", tool_call_id=tool_call_id))
-    return action_call_messages
+        messages.append(AIMessage(content="", tool_calls=[tool_call]))
+        messages.append(ToolMessage(content="show data", tool_call_id=tool_call_id))
+    return messages
 
 
-def create_handoff_tool(*, agent_name: str, description: str | None = None):
+def create_handoff_tool(*, agent_name: str, description: str | None = None) -> BaseTool:
+    """
+    交接工具：把对话控制权转移给指定 agent
+    """
     name = f"transfer_to_{agent_name}"
 
     @tool(name, description=description)
@@ -72,10 +94,11 @@ def create_handoff_tool(*, agent_name: str, description: str | None = None):
             "name": name,
             "tool_call_id": tool_call_id,
         }
-
+        # 去掉最后一条 AI (调用该工具的消息) 避免重复
+        new_messages = cast(list, state["messages"])[:-1] + [tool_message]
         return Command(
-            goto=Send(agent_name, arg={**state, "messages": state["messages"][:-1]}),
-            update={**state, "messages": cast(list, state["messages"]) + [tool_message]},
+            goto=Send(agent_name, arg={**state, "messages": new_messages}),
+            update={**state, "messages": new_messages},
             graph=Command.PARENT,
         )
 
@@ -86,10 +109,10 @@ json_type_to_python_type = {
     "string": str,
     "integer": int,
     "boolean": bool,
-    "number": float,  # Could also be int depending on context, float is safer default for number
+    "number": float,
     "array": list,
     "object": dict,
-    "null": type(None),  # For nullable types
+    "null": type(None),
     "any": Any,
 }
 
@@ -99,53 +122,40 @@ def create_dynamic_pydantic_class(
     schema_dict: dict,
     name: str,
 ) -> type[BaseModel]:
-    """
-    Dynamically create a new Pydantic class, which inherit base_class provided and add fields in schema_dict.
-
-    Args:
-        base_class: The base class that needs to be inherited
-        schema_dict: A json schema dictionary which includes property definition.
-        name: The name of the new class returned
-
-    Returns:
-        The dynamically created Pydantic class.
-    """
-    attributes = {}
-
+    attributes: dict[str, Any] = {}
     attributes["__annotations__"] = {}
-    attributes["__annotations__"].update(base_class.__annotations__)
+    attributes["__annotations__"].update(getattr(base_class, "__annotations__", {}))
 
     attributes["model_config"] = {}
     if schema_dict.get("additionalProperties", True) is False:
         attributes["model_config"]["extra"] = "forbid"
+
     properties = schema_dict.get("properties", {})
     required_fields = set(schema_dict.get("required", []))
 
     for field_name, field_info in properties.items():
         json_type = field_info.get("type", "any")
         python_type = json_type_to_python_type.get(json_type, Any)
-
         is_required = field_name in required_fields
-
-        if not is_required:
-            attributes["__annotations__"][field_name] = python_type | None
-        else:
+        if is_required:
             attributes["__annotations__"][field_name] = python_type
+            default_value = ...
+        else:
+            attributes["__annotations__"][field_name] = python_type | None
+            default_value = None
 
-        default_value = ... if is_required else None
+        attributes[field_name] = Field(
+            title=field_info.get("title"),
+            description=field_info.get("description"),
+            default=default_value,
+        )
 
-        field_definition = Field(title=field_info.get("title"), description=field_info.get("description"), default=default_value)
-
-        attributes[field_name] = field_definition
-
-    DynamicClass = type(name, (base_class,), attributes)
-
-    return DynamicClass
+    return type(name, (base_class,), attributes)
 
 
-def mcp_tool_wrapper(_tool: StructuredTool, client_name):
+def mcp_tool_wrapper(_tool: StructuredTool, client_name: str) -> BaseTool:
     """
-    Add a wrapper for tool which is obtained from mcp service, to support advanced funcitons in langgraph
+    包装 MCP 工具：采集 tool_output_id 并写入当前子图状态 (SubgraphState.tool_output_ids)
     """
 
     class ToolArgsSchema(BaseModel):
@@ -160,7 +170,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
     CombinedToolArgsSchema = create_dynamic_pydantic_class(
         ToolArgsSchema,
         tool_args_schema,
-        name="CombinedToolArgsSchema",
+        name=f"CombinedToolArgsSchema_{_tool.name}",
     )
 
     @tool(
@@ -169,7 +179,7 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
         args_schema=CombinedToolArgsSchema,
     )
     async def call_tool(
-        state: Annotated[MainState, InjectedState],
+        state: Annotated[SubgraphState, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
         **kwargs,
     ) -> Command:
@@ -181,66 +191,114 @@ def mcp_tool_wrapper(_tool: StructuredTool, client_name):
                 context={"response_raw": response_raw, "tool_name": _tool.name, "tool_call_id": tool_call_id},
             )
         except Exception as e:
-            error_msg = f"{type(e).__name__}:{e}"
-            log_with_context("error", message="Error: {error_msg}", context={"error_msg": f"{error_msg}", "tool_name": _tool.name, "tool_call_id": tool_call_id})
-            messages = [ToolMessage(content=error_msg, tool_call_id=tool_call_id)]
-            return Command(
-                update={
-                    "messages": messages,
-                }
+            error_msg = f"{type(e).__name__}: {e}"
+            log_with_context(
+                "error",
+                message="Error: {error_msg}",
+                context={"error_msg": error_msg, "tool_name": _tool.name, "tool_call_id": tool_call_id},
             )
+            return Command(update={"messages": [ToolMessage(content=error_msg, tool_call_id=tool_call_id)]})
+
+        messages: list = []
+        collected_ids: list[str] = []
 
         try:
-            response = json.loads(response_raw)
-            if isinstance(response, dict) and {"context", "tool_output_id"}.issubset(response.keys()):
-                context = response.get("context", response_raw)
-                tool_output_id = response.get("tool_output_id")
+            data = json.loads(response_raw)
+            if isinstance(data, dict) and {"context", "tool_output_id"} <= data.keys():
+                context_text = data.get("context") or ""
+                tool_output_id = data.get("tool_output_id")
                 if tool_output_id:
-                    client_resource_id_map[tool_output_id] = client_name
-                messages = [ToolMessage(context, tool_call_id=tool_call_id)]
-                action_data = {"tool_output_id": tool_output_id}
-                messages.extend(call_actions(state, [action_data]))
+                    collected_ids.append(tool_output_id)
+                messages.append(ToolMessage(content=context_text, tool_call_id=tool_call_id))
             else:
-                messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
+                messages.append(ToolMessage(content=response_raw, tool_call_id=tool_call_id))
         except json.JSONDecodeError:
-            response = {"context": response_raw}
-            messages = [ToolMessage(response_raw, tool_call_id=tool_call_id)]
+            messages.append(ToolMessage(content=response_raw, tool_call_id=tool_call_id))
+
+        # 合并去重
+        new_ids = list(dict.fromkeys(state.get("tool_output_ids", []) + collected_ids))
         return Command(
             update={
                 "messages": messages,
+                "tool_output_ids": new_ids,
             }
         )
 
     return call_tool
 
 
+# =========================
+# 包装 create_react_agent （核心：后处理添加 show_data 并清空）
+# =========================
+def wrap_agent_with_post_process(name: str, agent_graph: CompiledStateGraph) -> CompiledStateGraph:
+    """
+    WRAPPER: 把原始 create_react_agent 的 compiled 图包在一个新的 StateGraph 中
+    执行顺序:
+      START -> core(调用原 agent 图) -> post_process(追加 show_data & 清空 tool_output_ids) -> END
+    """
+    wrapper = StateGraph(SubgraphState)
+
+    async def core_node(state: SubgraphState):
+        # 直接调用原图
+        return await agent_graph.ainvoke(state)
+
+    def post_process(state: SubgraphState):
+        tool_output_ids = state.get("tool_output_ids", [])
+        if tool_output_ids:
+            msgs = state["messages"]
+            action_args = [{"tool_output_id": tid} for tid in tool_output_ids]
+            action_messages = build_action_messages(state, action_args)
+            if action_messages:
+                msgs.extend(action_messages)
+            # 清空 tool_output_ids
+            return {
+                **state,
+                "messages": msgs,
+                "tool_output_ids": [],
+            }
+        return state
+
+    wrapper.add_node("core", core_node)
+    wrapper.add_node("post_process", post_process)
+    wrapper.add_edge(START, "core")
+    wrapper.add_edge("core", "post_process")
+    wrapper.add_edge("post_process", END)
+
+    compiled = wrapper.compile()
+    compiled.name = name
+    return compiled
+
+
 @asynccontextmanager
-async def create_assistant_graphs(workflow_id, llm):
+async def create_assistant_graphs(workflow_id: str, llm):
+    """
+    为每个 assistant 创建其核心 agent，然后用 wrap_agent_with_post_process 包一层
+    """
     assistant_graphs: dict[str, CompiledStateGraph] = {}
     assistants = await workflow_manager.instantiate_workflow_assistants(workflow_id, reset_assistants=False)
 
     handoff_tools: dict[str, BaseTool] = {}
-
     for assistant in assistants.values():
-        name = assistant.name
-        handoff_tools[name] = create_handoff_tool(
-            agent_name=name, description=f"Transfer the conversation to {name} assistant. {name} assistant's description: {assistant.description}"
+        handoff_tools[assistant.name] = create_handoff_tool(
+            agent_name=assistant.name,
+            description=f"Transfer the conversation to {assistant.name} assistant. {assistant.name} assistant's description: {assistant.description}",
         )
 
     async with AsyncExitStack() as stack:
         for assistant in assistants.values():
             tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered_tools = [mcp_tool_wrapper(tool, assistant.name) for tool in tools if not getattr(tool, "name", "").startswith("__")]
-            destinations = assistant.destinations
-            destination_tools = [handoff_tools[dest] for dest in destinations if dest in handoff_tools]
-            graph = create_react_agent(
+            filtered = [mcp_tool_wrapper(t, assistant.name) for t in tools if not getattr(t, "name", "").startswith("__")]
+            dest_tools = [handoff_tools[d] for d in assistant.destinations if d in handoff_tools]
+
+            base_agent = create_react_agent(
                 model=llm,
-                tools=destination_tools + filtered_tools,
+                tools=dest_tools + filtered,
                 state_schema=SubgraphState,
                 prompt=assistant.description,
-                name=f"{assistant.name}",
+                name=assistant.name,
             )
-            assistant_graphs[assistant.name] = graph
+            wrapped_agent = wrap_agent_with_post_process(assistant.name, base_agent)
+            assistant_graphs[assistant.name] = wrapped_agent
 
         yield assistant_graphs
 
@@ -251,27 +309,29 @@ class ConfigSchema(TypedDict):
     default_route: str
 
 
-def get_safe_swarm(compiled_swarm):
+def get_safe_swarm(compiled_swarm: CompiledStateGraph):
+    """
+    仅负责安全执行 swarm（交给子图自己做 show_data 追加）
+    """
+
     async def run_swarm_safely(state: MainState, config=None):
         try:
-            # 直接调用已编译的 swarm 子图
             return await compiled_swarm.ainvoke(state, config=config)
         except Exception as e:
-            # 取最近的持久化状态（如果没有检查点，则退回输入状态）
+            error_msg_content = f"抱歉，本轮执行出错：{type(e).__name__}: {e}"
+            log_with_context("error", error_msg_content, context={"error_type": type(e).__name__})
+            # 取最近快照
             try:
                 snap = await compiled_swarm.aget_state(config)
                 base_state = (getattr(snap, "values", None) or snap) if snap else state
             except Exception:
                 base_state = state
-
-            # 统一错误消息（建议带上 error 标记，前端可据此渲染）
-            error_msg_content = f"抱歉，本轮执行出错：{type(e).__name__}: {e}"
-            log_with_context("error", error_msg_content, context={"error": type(e).__name__})
-            err_msg = AIMessage(
-                content=error_msg_content,
-                additional_kwargs={"error": True, "error_type": type(e).__name__},
-            )
-            msgs = list(base_state.get("messages", [])) + [err_msg]
+            msgs = list(base_state.get("messages", [])) + [
+                AIMessage(
+                    content=error_msg_content,
+                    additional_kwargs={"error": True, "error_type": type(e).__name__},
+                )
+            ]
             return {**base_state, "messages": msgs}
 
     return run_swarm_safely
@@ -279,22 +339,18 @@ def get_safe_swarm(compiled_swarm):
 
 @asynccontextmanager
 async def make_graph():
+    """
+    构建最外层图：现在 show_data 的处理已在每个子 agent 包装内完成
+    """
     config = config_manager.get_config()
     current_workflow = config_manager.get_current_workflow()
     model_config = config.llm.model_dump()
     llm = llm_manager.get_llm(**model_config)
 
-    node = current_workflow.nodes
-    start_node = None
-    for n in node:
-        if n.data.isStart:
-            start_node = n
-            break
-
+    start_node = next((n for n in current_workflow.nodes if n.data.isStart), None)
     if not start_node:
         raise ValueError("No start node found in the current workflow.")
 
-    # 打开所有助手工具的会话
     async with create_assistant_graphs(current_workflow.id, llm) as assistants:
         swarm = create_swarm(
             agents=list(assistants.values()),
@@ -303,12 +359,13 @@ async def make_graph():
             context_schema=ConfigSchema,
         )
         compiled_swarm = swarm.compile()
-        graph = StateGraph(MainState)
+
+        outer = StateGraph(MainState)
         safe_swarm = get_safe_swarm(compiled_swarm)
-        graph.add_node("swarm", safe_swarm)
-        graph.add_edge(START, "swarm")
-        graph.add_edge("swarm", END)
-        compiled_graph = graph.compile()
+        outer.add_node("swarm", safe_swarm)
+        outer.add_edge(START, "swarm")
+        outer.add_edge("swarm", END)
+        compiled_graph = outer.compile()
         compiled_graph.name = "Agent"
 
         yield compiled_graph
