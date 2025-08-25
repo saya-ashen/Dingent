@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/layout/Page";
 import { toast } from "sonner";
+import { FloatingActionButtons } from "@/components/layout/FloatingActionButtons";
+
 
 const levelColors: Record<string, string> = {
     DEBUG: "#808080",
@@ -52,39 +54,6 @@ export default function LogsPage() {
             <PageHeader
                 title="System Logs"
                 description="Inspect logs and filter by level, module, or keywords."
-                actions={
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant={autoRefresh ? "default" : "outline"}
-                            onClick={() => setAutoRefresh(v => !v)}
-                        >
-                            {autoRefresh ? "Auto Refresh: ON" : "Auto Refresh: OFF"}
-                        </Button>
-                        <Button
-                            onClick={async () => {
-                                await qc.invalidateQueries({ queryKey: ["logs"] });
-                                await qc.invalidateQueries({ queryKey: ["log-stats"] });
-                            }}
-                        >
-                            Refresh
-                        </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={async () => {
-                                const ok = await clearAllLogs();
-                                if (ok) {
-                                    toast.success("All logs cleared");
-                                    await qc.invalidateQueries({ queryKey: ["logs"] });
-                                    await qc.invalidateQueries({ queryKey: ["log-stats"] });
-                                } else {
-                                    toast.info("Clear All Logs not implemented on backend");
-                                }
-                            }}
-                        >
-                            Clear All
-                        </Button>
-                    </div>
-                }
             />
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-[2fr_1fr]">
@@ -185,6 +154,41 @@ export default function LogsPage() {
                     <div className="text-sm text-muted-foreground">No logs match the current filters.</div>
                 )}
             </div>
+            <FloatingActionButtons>
+                {/* We moved the buttons from PageHeader into this component */}
+                <Button
+                    variant={autoRefresh ? "default" : "outline"}
+                    onClick={() => setAutoRefresh(v => !v)}
+                    className="w-40 justify-center shadow-lg"
+                >
+                    {autoRefresh ? "Auto Refresh: ON" : "Auto Refresh: OFF"}
+                </Button>
+                <Button
+                    onClick={async () => {
+                        await qc.invalidateQueries({ queryKey: ["logs"] });
+                        await qc.invalidateQueries({ queryKey: ["log-stats"] });
+                    }}
+                    className="shadow-lg"
+                >
+                    Refresh
+                </Button>
+                <Button
+                    variant="destructive"
+                    onClick={async () => {
+                        const ok = await clearAllLogs();
+                        if (ok) {
+                            toast.success("All logs cleared");
+                            await qc.invalidateQueries({ queryKey: ["logs"] });
+                            await qc.invalidateQueries({ queryKey: ["log-stats"] });
+                        } else {
+                            toast.error("Failed to clear logs");
+                        }
+                    }}
+                    className="shadow-lg"
+                >
+                    Clear All
+                </Button>
+            </FloatingActionButtons>
         </div>
     );
 }

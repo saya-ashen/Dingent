@@ -27,7 +27,6 @@ class CliContext:
 
     @property
     def project_root(self):
-        assert self._project_root
         return self._project_root
 
     @property

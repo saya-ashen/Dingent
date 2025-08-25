@@ -1,3 +1,5 @@
+import type { Edge, Node } from '@xyflow/react';
+
 export type LogItem = {
     timestamp: string;
     level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" | string;
@@ -56,7 +58,11 @@ export type AppSettings = {
         provider?: string;
         api_key?: string;
     };
-    default_assistant?: string;
+    workflows?: {
+        id: string;
+        name: string;
+    }[]
+    current_workflow?: string;
 };
 
 export type PluginManifest = {
@@ -66,4 +72,39 @@ export type PluginManifest = {
     spec_version?: string;
     execution?: { mode?: string };
     dependencies?: string[];
+};
+
+// Base properties common to all nodes
+interface BaseWorkflowNode {
+    id: string;
+    position: { x: number; y: number };
+}
+
+// Specific data and type for an Assistant node
+export interface AssistantWorkflowNode extends BaseWorkflowNode {
+    type: 'assistant';
+    data: {
+        assistantId: string;
+        isStart?: boolean;
+        assistantName: string;
+        description?: string;
+    };
+}
+
+export type DirectionRole = "forward" | "backward";
+
+export type WorkflowNode = Node<AssistantWorkflowNode['data']>;
+
+export type WorkflowEdge = Edge<{
+    mode?: "bidirectional" | "single";
+}>;
+
+export type Workflow = {
+    id: string;
+    name: string;
+    description?: string;
+    nodes: WorkflowNode[];
+    edges: WorkflowEdge[];
+    created_at?: string;
+    updated_at?: string;
 };

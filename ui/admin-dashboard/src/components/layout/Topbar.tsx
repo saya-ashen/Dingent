@@ -12,6 +12,7 @@ export function Topbar() {
                 </div>
                 <nav className="flex items-center gap-1">
                     <NavItem to="/" end>Assistants</NavItem>
+                    <NavItem to="/workflows">Workflows</NavItem>
                     <NavItem to="/plugins">Plugins</NavItem>
                     <NavItem to="/settings">Settings</NavItem>
                     <NavItem to="/logs">Logs</NavItem>

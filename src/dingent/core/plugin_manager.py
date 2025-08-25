@@ -207,7 +207,7 @@ class PluginInstance:
                 project_directory=manifest.path.as_posix(),
                 env_vars=env,
                 python_version=manifest.python_version,
-                keep_alive=False,
+                # keep_alive=False,
             )
             remote_proxy = FastMCP.as_proxy(transport)
 
