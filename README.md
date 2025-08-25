@@ -6,7 +6,7 @@
 
 **English** · [简体中文](./README.zh-CN.md)
 
-[Fast Track](https://saya-ashen.github.io/Dingent/docs/intro#fast-track)
+[Quick Start](https://saya-ashen.github.io/Dingent/docs/intro%23quick-start)
 |
 [Installation](https://saya-ashen.github.io/Dingent/docs/getting-started/installation)
 |
@@ -15,17 +15,20 @@
 </div>
 
 **Dingent** is a lightweight, user-friendly agent framework whose core goal is to simplify the process of creating data-driven applications powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit, with a standout feature of automatic database connectivity. This allows you to quickly link your database with an LLM to build applications capable of intelligent Q\&A, data extraction, and analysis. For other data sources like APIs and local documents, Dingent offers a flexible framework that developers can easily extend by writing custom code.
+
 ### Chat Interface
+
 | Chat View 1 | Chat View 2 |
 | :---: | :---: |
-| [![Chat Screenshot 1](./assets/Chat1.png)](./assets/Chat1.png) | [![Chat Screenshot 2](./assets/Chat2.png)](./assets/Chat2.png) |
+| ![chat1](./assets/Chat1.png) | ![chat2](./assets/Chat2.png) |
 
-### Dashboard Overview
-| Dashboard - View 1 | Dashboard - View 2 |
+### Admin Dashboard Overview
+
+| Dashboard - Assistants | Dashboard - Workflows |
 | :---: | :---: |
-| [![Dashboard Screenshot 1](./assets/Dashboard1.png)](./assets/Dashboard1.png) | [![Dashboard Screenshot 2](./assets/Dashboard2.png)](./assets/Dashboard2.png) |
-| **Dashboard - View 3** | **Dashboard - View 4** |
-| [![Dashboard Screenshot 3](./assets/Dashboard3.png)](./assets/Dashboard3.png) | [![Dashboard Screenshot 4](./assets/Dashboard4.png)](./assets/Dashboard4.png) |
+| ![assistants](./assets/admin-assistants.png) | ![workflows](./assets/admin-workflows.png) |
+| **Dashboard - Settings** | **Dashboard - Logs** |
+| ![settings](./assets/admin-settings.png) | ![logs](./assets/admin-logs.png) |
 
 ## 🎯 Why Choose Dingent?
 
@@ -33,31 +36,30 @@ When building LLM data applications, developers often spend a significant amount
 
 **Dingent's core value lies in:**
 
-- **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (**Plugin System**), and frontend presentation (CopilotKit) into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.   
-* **Core Features Built-In**: We believe a simple and easy-to-use agent shouldn't require users to spend a lot of time maintaining plugins. Therefore, we are committed to integrating features the community deems important directly into the framework. If you think a feature is crucial, we encourage you to open an Issue or PR. This directly reflects our core mission of "making Agents simpler for users."
-
-* **Focused, Not Comprehensive**: Unlike other general-purpose Agent frameworks, Dingent specializes in data retrieval and Q\&A scenarios, offering a more lightweight and focused solution.
-
-- **Smooth Learning Curve**: You only need a basic understanding of Python and some frontend knowledge to build powerful applications, without needing to be an expert in LangGraph or FastAPI. At the same time, we retain the flexibility to expand functionalities, ensuring the framework can fully support custom development when needed.
+  - **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (**Plugin System**), a chat interface (CopilotKit), and a **full-featured admin dashboard** into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.
+  * **Configuration via UI**: Forget manually editing complex configuration files. With Dingent's integrated admin dashboard, you can manage assistants, build workflows, and configure settings through an intuitive graphical interface.
+  * **Core Features Built-In**: We believe a simple and easy-to-use agent shouldn't require users to spend a lot of time maintaining plugins. Therefore, we are committed to integrating features the community deems important directly into the framework. If you think a feature is crucial, we encourage you to open an Issue or PR. This directly reflects our core mission of "making Agents simpler for users."
+  * **Focused, Not Comprehensive**: Unlike other general-purpose Agent frameworks, Dingent specializes in data retrieval and Q\&A scenarios, offering a more lightweight and focused solution.
+  - **Smooth Learning Curve**: You only need a basic understanding of Python to build powerful applications, without needing to be an expert in LangGraph or FastAPI. At the same time, we retain the flexibility to expand functionalities, ensuring the framework can fully support custom development when needed.
 
 ## ✨ Features
 
-* **One-Click Project Initialization**: Use the `uvx dingent init` command to quickly generate a complete project structure with a frontend, backend, and core logic using templates.
-* **Admin Dashboard**: A web-based configuration management interface built with Streamlit for easy setup and management of assistants, plugins, and settings.
-* **Lightweight and Easy to Use**: A clean design and a gentle learning curve let you focus on business logic rather than tedious configuration.
-* **Specialized for Data Retrieval**: Optimized for scenarios like data Q\&A, extraction, and analysis to provide efficient solutions.
-* **Flexible Data Source Integration**: Easily integrate with various data sources, including APIs, databases, and files (PDF, Markdown, etc.).
-* **LLM-Powered**: Seamlessly connect with mainstream LLMs like the OpenAI GPT series, local models, and more.
+  * **Instant Project Setup**: Simply run `dingent dev` in any directory to initialize a new project. 
+  * **Integrated Admin Dashboard**: A powerful, React-based web interface to visually manage your assistants, workflows, plugins, and settings.
+  * **Bundled Frontend**: A pre-built, standalone Next.js chat interface is included out-of-the-box. No need for manual setup or compilation.
+  * **Lightweight and Easy to Use**: A clean design and a gentle learning curve let you focus on business logic rather than tedious configuration.
 
 ## 🚀 Quick Start
 
-Create a fully functional agent project from scratch in just a few minutes.
+Create and run a fully functional agent project in just a few minutes.
 
 ### 1. Prerequisites
 
 Before you begin, ensure your development environment has the following installed:
 
-* [**uv**](https://docs.astral.sh/uv/getting-started/installation/): A very fast Python package installer and resolver.
+  * [**uv**](https://docs.astral.sh/uv/getting-started/installation/): A very fast Python package installer and resolver.
+
+<!-- end list -->
 
 ```bash
 # On macOS and Linux
@@ -67,99 +69,76 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-* [**Node.js**](https://nodejs.org/en/download/) version 18.0 or above (which can be checked by running node -v)
+### 2. Initialize and Run Your Project
 
-    Installation: [https://nodejs.org/en/download](https://nodejs.org/en/download)
-
-* [**bun**](https://bun.com/): A node package manager that is used to install the frontend dependencies.
+Navigate to an empty directory where you want to create your project and run the development server.
 
 ```bash
-# On macOS and Linux
-curl -fsSL https://bun.sh/install | bash
-
-# On window
-powershell -c "irm bun.sh/install.ps1 | iex"
-```
-
-### 2. Initialize Your Agent Project
-
-Run the following command, and the Dingent CLI will guide you through the project creation process.
-
-```bash
-# Use the 'basic' template to create a new project
-uvx dingent init basic
-```
-
-The CLI will prompt you for a project name, author, etc., and then automatically create the project directory and install all frontend and backend dependencies.
-
-### 3. Launch and Develop
-
-Once the project is created, navigate to the project directory:
-
-```bash
+mkdir my-awesome-agent
 cd my-awesome-agent
 
-# On macOS and Linux
-export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxx # Replace with your OpenAI API Key
-
-# On Windows (PowerShell)
-$env:OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxx" # Replace with your OpenAI API Key
-
-uvx dingent run
+# Run the development server
+uvx dingent dev
 ```
 
-By default, Dingent will start three services: the backend service (automatically loading any available plugins), the frontend interface, and an admin dashboard for configuration management. The frontend will open automatically in your browser at [http://localhost:3000](http://localhost:3000), and the admin dashboard will be available at [http://localhost:8501](http://localhost:8501).
+The first time you run this command, Dingent will ask if you want to create a `dingent.toml` configuration file, officially turning the directory into a Dingent project root.
 
-Your project skeleton is now ready\! You can now:
+The `dev` command will start all necessary services:
 
-  * **Configure your assistant**: Use the admin dashboard at `http://localhost:8501` to manage plugins, assistants, and LLM settings.
-  * **Explore the project structure**: See the `🏛️ Project Architecture` section below to understand the directory layout.
-  * **Develop the backend logic**: Edit the Python files in the `backend/` directory to implement your core agent logic. Custom tools and integrations should be placed in the `backend/plugins/` directory.
-  * **Develop the frontend interface**: Build your user interface in the `frontend/` directory.
+  * **Frontend Chat**: Accessible at [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
+  * **Backend API**: Running at [http://localhost:8000](https://www.google.com/search?q=http://localhost:8000)
+  * **Admin Dashboard**: Accessible at [http://localhost:8000/admin](https://www.google.com/search?q=http://localhost:8000/admin)
+
+Your project is now live\! You can now:
+
+  * **Configure your application**: Open the admin dashboard at `http://localhost:8000/admin` to create assistants, build workflows, and configure your LLM settings.
+  * **Add custom tools**: Place your custom MCP server plugins into the `plugins/` directory.
+  * **Interact with your agent**: Start chatting with your agent through the frontend at `http://localhost:3000`.
 
 ## 🏛️ Project Architecture
 
-Projects generated with the `init` command have a standardized structure, making collaboration and maintenance easier:
+A Dingent project has a simple and intuitive structure, managed automatically for you:
 
 ```plaintext
 my-awesome-agent/
-├── 📁 backend/       # Backend service (based on FastAPI and LangGraph)
-├── 📁 frontend/      # Frontend application (based on CopilotKit)
-└── 📄 README.md      # The project's documentation
+├── 📄 dingent.toml     # Main project config (ports, model, etc.). Marks the project root.
+├── 📁 config/          # Stores all application configurations managed by the dashboard.
+│   ├── 📁 assistants/
+│   ├── 📁 plugins/
+│   └── 📁 workflows/
+└── 📁 plugins/         # Directory for your custom tool plugins (e.g., MCP servers).
 ```
 
-Dingent automatically provides an admin dashboard for configuration management, accessible at `http://localhost:8501` when you run your project.
-
-### 📦 backend/
-
-* The backend service is the core coordinator of the application, built with FastAPI and [LangGraph](https://www.langchain.com/langgraph).
-* **Primary Responsibilities**: It handles requests from the frontend, orchestrates the Agent's core logic, interacts with the LLM, and manages all plugins.
-* **`plugins/` subdirectory**: This is where you place your custom tools. Any standard FastMCP service can be dropped in here (with a `plugin.toml` file) to be automatically discovered and loaded by Dingent.
-* **Files**: `main.py` is the service entry point where you can define API routes and the Agent's execution flow. For details, refer to the [LangGraph documentation](https://langchain-ai.github.io/langgraph).
-
-### 📦 frontend/
-
-* The frontend is a modern web interface built with [CopilotKit](https://docs.copilotkit.ai), responsible for all user interaction.
-* **Primary Responsibilities**: It provides an interface for users to ask questions and displays the Agent's streaming responses, data tables, Markdown, and other content formats.
-* **Files**: The core page logic is in `src/app/page.tsx`, and UI components are in `src/components/`.
+  * **`dingent.toml`**: The single source of truth for your project's core settings. The presence of this file tells Dingent commands that they are in a project directory.
+  * **`config/`**: This directory holds the configuration for your assistants, plugins, and workflows. You typically won't need to edit these files manually, as they are managed through the **Admin Dashboard**.
+  * **`plugins/`**: This is where you add your own functionality. Place any MCP-compatible server in this directory, and Dingent will automatically discover and integrate it.
 
 ## 🗺️ Roadmap
 
   - **✅ 1. Documentation & Tutorials**
-    - `[x]` **Basic Docs:** Installation and configuration guides.
-    - `[ ]` **Core Concepts:** In-depth explanations of key features and design.
-    - `[ ]` **Plugin Dev Guide:** How to build your own plugins.
-    - `[ ]` **End-to-End Tutorials:** Complete, step-by-step project examples.
 
-  - **⏳ 2. Plugin System**
-    - `[x]` **Plugin management system**: Automatically loads plugin configurations and manages dependencies.
-    - `[ ]` **Plugin CLI:** Install and manage plugins via the command line.
-    - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
-    - `[x]` **Plugin Manager GUI:** A graphical interface to easily manage your plugins.
+      - `[x]` **Basic Docs:** Installation and configuration guides.
+      - `[ ]` **Core Concepts:** In-depth explanations of key features and design.
+      - `[ ]` **Plugin Dev Guide:** How to build your own plugins.
+      - `[ ]` **End-to-End Tutorials:** Complete, step-by-step project examples.
 
-  - **💡 3. Core Plugins**
-    - `[x]` **Database Plugin:** Connect to mainstream databases.
-    - `[ ]` **Knowledge Base Q\&A Plugin:** Quickly build a Q\&A application on your documents.
+  - **⏳ 2. Admin Dashboard**
+
+      - `[x]` **Core UI**: Fully functional dashboard for managing assistants, workflows, and settings.
+      - `[ ]` **Plugin Management**: Add/remove plugins directly from the UI.
+      - `[ ]` **Advanced Workflow Editor**: More powerful tools for building complex agent behaviors.
+
+  - **💡 3. Plugin System**
+
+      - `[x]` **Auto-Discovery**: Automatically loads plugins from the `plugins/` directory.
+      - `[ ]` ~~**Plugin CLI:** Install and manage plugins via the command line.~~ 
+       (Superseded by UI management in the Admin Dashboard)
+      - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
+
+  - **📦 4. Core Plugins**
+
+      - `[x]` **Database Plugin:** Connect to mainstream databases.
+      - `[ ]` **Knowledge Base Q\&A Plugin:** Quickly build a Q\&A application on your documents.
 
 ## 🤝 How to Contribute
 
@@ -169,20 +148,14 @@ If a feature is important to you, we strongly encourage you to discuss it by ope
 
 If you share our vision and wish to contribute code, please follow these steps:
 
-1. Fork this repository.
-2. Create a new feature branch (`git checkout -b feature/YourAmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push your branch to GitHub (`git push origin feature/YourAmazingFeature`).
-5. Create a Pull Request and clearly describe the value of your feature.
+1.  Fork this repository.
+2.  Create a new feature branch (`git checkout -b feature/YourAmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push your branch to GitHub (`git push origin feature/YourAmazingFeature`).
+5.  Create a Pull Request and clearly describe the value of your feature.
 
 We believe that through our collective efforts, Dingent can become a truly powerful and "out-of-the-box" tool.
 
-## 🙏 Acknowledgements
-
-This project incorporates code from the following open-source projects. We are grateful to their developers for their contributions to the community:
-
-  * **[arxiv-mcp-server](https://github.com/prashalruchiranga/arxiv-mcp-server)**: Licensed under the MIT License.
-
 ## 📄 License
 
-This project is licensed under the [MIT License](./LICENSE).
+This project is licensed under the [MIT License](https://www.google.com/search?q=./LICENSE).
