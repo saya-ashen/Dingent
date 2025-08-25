@@ -32,7 +32,7 @@ const edgeTypes = {
 interface WorkflowEditorProps {
     nodes: WorkflowNode[];
     edges: WorkflowEdge[];
-    onNodesChange: (changes: NodeChange[]) => void;
+    onNodesChange: (changes: NodeChange<WorkflowNode>[]) => void;
     onEdgesChange: (changes: EdgeChange[]) => void;
     onConnect: (connection: Connection) => void;
     onNodeAdd: (node: WorkflowNode) => void;

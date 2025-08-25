@@ -33,6 +33,14 @@ jobs:
       - name: Set up Just
         uses: extractions/setup-just@v3
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+
       - name: Build UI
         run: just build-ui 
 

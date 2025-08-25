@@ -175,7 +175,7 @@ export default function WorkflowsPage() {
     });
 
     const onNodesChange = useCallback(
-        (changes: NodeChange[]) => {
+        (changes: NodeChange<WorkflowNode>[]) => {
             const removeChanges = changes.filter(
                 (change) =>
                     change.type === "remove" &&
@@ -185,7 +185,7 @@ export default function WorkflowsPage() {
                 toast.warning("The Start node cannot be deleted.");
                 return;
             }
-            setNodes((nds) => applyNodeChanges(changes, nds));
+            setNodes((nds) => applyNodeChanges<WorkflowNode>(changes, nds));
         },
         [nodes]
     );

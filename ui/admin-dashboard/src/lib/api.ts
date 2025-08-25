@@ -220,35 +220,8 @@ export async function getWorkflows(): Promise<Workflow[] | null> {
                 name: "Customer Support Flow",
                 description: "Handles customer inquiries and escalations",
                 nodes: [
-                    {
-                        id: "node-1",
-                        type: "assistant",
-                        position: { x: 100, y: 100 },
-                        data: {
-                            assistantId: "support-bot",
-                            assistantName: "Support Bot",
-                            description: "Initial customer support assistant"
-                        }
-                    },
-                    {
-                        id: "node-2",
-                        type: "assistant",
-                        position: { x: 300, y: 100 },
-                        data: {
-                            assistantId: "escalation-bot",
-                            assistantName: "Escalation Bot",
-                            description: "Handles complex issues"
-                        }
-                    }
                 ],
                 edges: [
-                    {
-                        id: "edge-1",
-                        source: "node-1",
-                        target: "node-2",
-                        type: "default",
-                        data: { label: "Escalate complex issues" }
-                    }
                 ],
                 created_at: "2024-01-01T10:00:00Z",
                 updated_at: "2024-01-01T10:00:00Z"
