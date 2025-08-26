@@ -1,33 +1,36 @@
 import { NextResponse } from 'next/server';
 
-/**
- * Reverse proxy for a backend resource
- */
-export async function GET(request: Request, context: unknown) {
-    const contextTyped = context as { params?: { id?: string | string[] } };
-    const raw = contextTyped.params?.id;
-    const resourceId = Array.isArray(raw) ? raw[0] : raw;
+export async function GET(
+    request: Request,
+    { params }: { params: Promise<{ id: string }> } // 注意这里声明为 Promise
+) {
+    const { id } = await params; // 必须 await
 
-    if (!resourceId) {
+    if (!id) {
         return NextResponse.json({ message: 'Missing resource id' }, { status: 400 });
     }
 
     const backendApiUrl = process.env.BACKEND_API_URL ?? 'http://127.0.0.1:8000';
-    const targetUrl = `${backendApiUrl}/api/resource/${resourceId}`;
+    const targetUrl = `${backendApiUrl}/api/resource/${id}`;
 
-    console.log(`Forwarding request for resource [${resourceId}] to [${targetUrl}]`);
+    console.log(`Forwarding request for resource [${id}] to [${targetUrl}]`);
 
     try {
+        // 如果不想把 Host 等前端请求头原样转发，可以手动挑选需要的头
+        const forwardHeaders = new Headers(request.headers);
+        forwardHeaders.delete('host');
+
         const response = await fetch(targetUrl, {
             method: 'GET',
-            headers: request.headers, // forward original request headers
+            headers: forwardHeaders,
         });
 
-        // Stream back the response using the standard Response
+        // 直接返回下游响应（克隆 headers，避免某些只读/不可复用问题）
+        const headers = new Headers(response.headers);
         return new Response(response.body, {
             status: response.status,
             statusText: response.statusText,
-            headers: response.headers,
+            headers,
         });
     } catch (error) {
         console.error(`Error proxying request to ${targetUrl}:`, error);

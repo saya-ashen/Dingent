@@ -15,21 +15,25 @@ export interface ThreadContextType {
     updateThreadTitle: (id: string, title: string) => void;
 }
 
-export interface TablePayload {
-    title?: string
-    type?: string
-    columns: string[];
-    rows: Record<string, string | number>[];
-}
+
 export interface MarkdownPayload {
-    type?: string
+    type: "markdown";
     content: string;
+    [k: string]: unknown;
 }
+
+export interface TablePayload {
+    type: "table";
+    columns: string[];
+    rows: unknown[][];
+    [k: string]: unknown;
+}
+
+export type WidgetPayload = MarkdownPayload | TablePayload;
+
 export interface Widget {
-    id: string;
-    type: string;
-    payload: TablePayload | MarkdownPayload;
-    metadata?: {
-        title?: string;
-    };
+    id: string;          // resourceId
+    type: string;        // payload type, fallback 'markdown'
+    payload: WidgetPayload;
+    metadata?: unknown;
 }

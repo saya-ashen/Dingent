@@ -1,25 +1,24 @@
 import json
 import operator
 import re
-import uuid
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Annotated, Any, TypedDict, cast
+from typing import Annotated, Any, TypedDict
 
 from copilotkit import CopilotKitState
-from langchain_core.messages import AIMessage, ToolCall, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
-from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt import InjectedState, create_react_agent
 from langgraph.prebuilt.chat_agent_executor import AgentState
-from langgraph.types import Command, Send
+from langgraph.types import Command
 from langgraph_swarm import SwarmState, create_swarm
 from pydantic import BaseModel, Field
 
 from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
 from dingent.core.log_manager import log_with_context
 from dingent.core.workflow_manager import get_workflow_manager
+
+from .simple_react_agent import build_simple_react_agent
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
@@ -31,13 +30,14 @@ workflow_manager = get_workflow_manager()
 # =========================
 # State
 # =========================
+
+
 class MainState(CopilotKitState, SwarmState):
     """
     Swarm 全局状态
-    （这里不再需要聚合 tool_output_ids，可留空或保留字段视需要）
     """
 
-    pass
+    tool_output_ids: Annotated[list[str], operator.concat] = []
 
 
 class SubgraphState(CopilotKitState, AgentState):
@@ -46,47 +46,19 @@ class SubgraphState(CopilotKitState, AgentState):
     在一次子图执行期间收集工具输出 ID；执行结束后 post_process 会消费并清空
     """
 
-    tool_output_ids: Annotated[list, operator.concat]
+    tool_output_ids: Annotated[list[str], operator.concat] = []
 
 
 # =========================
 # 消息/工具辅助
 # =========================
-def build_action_messages(state: dict, list_of_args: list[dict]) -> list[AIMessage | ToolMessage]:
-    """
-    构造 show_data 工具调用消息对
-    """
-    actions = state.get("copilotkit", {}).get("actions", [])
-    show_data_action = None
-    for action in actions:
-        if action.get("type") == "function" and action.get("function", {}).get("name") == "show_data":
-            show_data_action = action
-            break
-    if show_data_action is None:
-        return []
-
-    messages: list[AIMessage | ToolMessage] = []
-    for args in list_of_args:
-        tool_call_id = str(uuid.uuid4())
-        tool_call = ToolCall(
-            name="show_data",
-            args=args,
-            id=tool_call_id,
-        )
-        messages.append(AIMessage(content="", tool_calls=[tool_call]))
-        messages.append(ToolMessage(content="show data", tool_call_id=tool_call_id))
-    return messages
 
 
 def create_handoff_tool(*, agent_name: str, description: str | None = None) -> BaseTool:
-    """
-    交接工具：把对话控制权转移给指定 agent
-    """
     name = f"transfer_to_{agent_name}"
 
     @tool(name, description=description)
     async def handoff_tool(
-        state: Annotated[dict, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
     ) -> Command:
         tool_message = {
@@ -95,11 +67,9 @@ def create_handoff_tool(*, agent_name: str, description: str | None = None) -> B
             "name": name,
             "tool_call_id": tool_call_id,
         }
-        # 去掉最后一条 AI (调用该工具的消息) 避免重复
-        new_messages = cast(list, state["messages"])[:-1] + [tool_message]
         return Command(
-            goto=Send(agent_name, arg={**state, "messages": new_messages}),
-            update={**state, "messages": new_messages},
+            goto=agent_name,
+            update={"messages": [tool_message]},
             graph=Command.PARENT,
         )
 
@@ -160,7 +130,6 @@ def mcp_tool_wrapper(_tool: StructuredTool) -> BaseTool:
     """
 
     class ToolArgsSchema(BaseModel):
-        state: Annotated[dict, InjectedState]
         tool_call_id: Annotated[str, InjectedToolCallId]
 
     if isinstance(_tool.args_schema, dict):
@@ -180,10 +149,9 @@ def mcp_tool_wrapper(_tool: StructuredTool) -> BaseTool:
         args_schema=CombinedToolArgsSchema,
     )
     async def call_tool(
-        state: Annotated[SubgraphState, InjectedState],
         tool_call_id: Annotated[str, InjectedToolCallId],
         **kwargs,
-    ) -> Command:
+    ):
         try:
             response_raw = await _tool.ainvoke(kwargs)
             log_with_context(
@@ -216,58 +184,14 @@ def mcp_tool_wrapper(_tool: StructuredTool) -> BaseTool:
         except json.JSONDecodeError:
             messages.append(ToolMessage(content=response_raw, tool_call_id=tool_call_id))
 
-        # 合并去重
-        new_ids = list(dict.fromkeys(state.get("tool_output_ids", []) + collected_ids))
         return Command(
             update={
                 "messages": messages,
-                "tool_output_ids": new_ids,
-            }
+                "tool_output_ids": collected_ids,
+            },
         )
 
     return call_tool
-
-
-# =========================
-# 包装 create_react_agent （核心：后处理添加 show_data 并清空）
-# =========================
-def wrap_agent_with_post_process(name: str, agent_graph: CompiledStateGraph) -> CompiledStateGraph:
-    """
-    WRAPPER: 把原始 create_react_agent 的 compiled 图包在一个新的 StateGraph 中
-    执行顺序:
-      START -> core(调用原 agent 图) -> post_process(追加 show_data & 清空 tool_output_ids) -> END
-    """
-    wrapper = StateGraph(SubgraphState)
-
-    async def core_node(state: SubgraphState):
-        # 直接调用原图
-        return await agent_graph.ainvoke(state)
-
-    def post_process(state: SubgraphState):
-        tool_output_ids = state.get("tool_output_ids", [])
-        if tool_output_ids:
-            msgs = state["messages"]
-            action_args = [{"tool_output_id": tid} for tid in tool_output_ids]
-            action_messages = build_action_messages(state, action_args)
-            if action_messages:
-                msgs.extend(action_messages)
-            # 清空 tool_output_ids
-            return {
-                **state,
-                "messages": msgs,
-                "tool_output_ids": [],
-            }
-        return state
-
-    wrapper.add_node("core", core_node)
-    wrapper.add_node("post_process", post_process)
-    wrapper.add_edge(START, "core")
-    wrapper.add_edge("core", "post_process")
-    wrapper.add_edge("post_process", END)
-
-    compiled = wrapper.compile()
-    compiled.name = name
-    return compiled
 
 
 def _normalize_name(name: str) -> str:
@@ -316,17 +240,15 @@ async def create_assistant_graphs(workflow_id: str, llm):
             dest_tools = [handoff_tools[norm_d] for norm_d in normalized_destinations if norm_d in handoff_tools]
 
             # Create the agent with the normalized name
-            base_agent = create_react_agent(
-                model=llm,
+            agent = build_simple_react_agent(
+                llm=llm,
                 tools=dest_tools + filtered_tools,
-                state_schema=SubgraphState,
-                prompt=assistant.description,
-                name=normalized_name,  # Use normalized name for the agent
+                system_prompt=assistant.description,
+                name=normalized_name,
             )
 
             # Wrap and store the compiled graph using the normalized name as the key
-            wrapped_agent = wrap_agent_with_post_process(normalized_name, base_agent)
-            assistant_graphs[normalized_name] = wrapped_agent
+            assistant_graphs[normalized_name] = agent
 
         yield assistant_graphs
 
@@ -347,7 +269,7 @@ def get_safe_swarm(compiled_swarm: CompiledStateGraph):
             return await compiled_swarm.ainvoke(state, config=config)
         except Exception as e:
             error_msg_content = f"抱歉，本轮执行出错：{type(e).__name__}: {e}"
-            log_with_context("error", error_msg_content, context={"error_type": type(e).__name__})
+            log_with_context("error", "{error_type}: {error_msg}", context={"error_type": type(e).__name__, "error_msg": error_msg_content})
             # 取最近快照
             try:
                 snap = await compiled_swarm.aget_state(config)
@@ -389,13 +311,14 @@ async def make_graph():
             context_schema=ConfigSchema,
         )
         compiled_swarm = swarm.compile()
+        yield compiled_swarm
 
-        outer = StateGraph(MainState)
-        safe_swarm = get_safe_swarm(compiled_swarm)
-        outer.add_node("swarm", safe_swarm)
-        outer.add_edge(START, "swarm")
-        outer.add_edge("swarm", END)
-        compiled_graph = outer.compile()
-        compiled_graph.name = "Agent"
-
-        yield compiled_graph
+        # outer = StateGraph(MainState)
+        # safe_swarm = get_safe_swarm(compiled_swarm)
+        # outer.add_node("swarm", safe_swarm)
+        # outer.add_edge(START, "swarm")
+        # outer.add_edge("swarm", END)
+        # compiled_graph = outer.compile()
+        # compiled_graph.name = "Agent"
+        #
+        # yield compiled_graph
