@@ -1,4 +1,3 @@
-import json
 import mimetypes
 from contextlib import asynccontextmanager
 from importlib.resources import files
@@ -115,12 +114,15 @@ def build_agent_api(**kwargs) -> FastAPI:
     # register_frontend_routes(app)
 
     @app.get("/api/resource/{resource_id}")
-    async def get_resource(resource_id: str):
+    async def get_resource(resource_id: str, with_model_text=False):
         resource_manager = get_resource_manager()
         resource = resource_manager.get(resource_id)
         if not resource:
             raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
-        content = json.dumps(resource)
+        if not with_model_text:
+            content = resource.model_dump_json(exclude={"model_text"})
+        else:
+            content = resource.model_dump_json()
         content_type = "application/json"
         return Response(content=content, media_type=content_type, headers={"Cache-Control": "public, max-age=0"})
 

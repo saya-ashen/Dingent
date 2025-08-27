@@ -23,8 +23,8 @@ class Greeter(BaseTool):
         target: Annotated[str, Field(description="Say hello to this person.")],
     ) -> dict:
         """Use the tool."""
-        tool_output_ids = []
-        tool_output_ids.append(
+        artifact_ids = []
+        artifact_ids.append(
             self.resource_manager.register(ToolOutput(type="greeter", payload=TablePayload(columns=["greeter", "target"], rows=[{"greeter": self.name, "target": target}])))
         )
-        return {"context": f"{self.name} is saying hello to {target}", "tool_output_ids": tool_output_ids, "source": "greeter"}
+        return {"context": f"{self.name} is saying hello to {target}", "artifact_ids": artifact_ids, "source": "greeter"}

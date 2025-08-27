@@ -1,4 +1,3 @@
-import json
 import re
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -15,6 +14,7 @@ from langgraph_swarm import SwarmState, create_swarm
 from pydantic import BaseModel, Field
 
 from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
+from dingent.core.assistant_manager import RunnableTool
 from dingent.core.log_manager import log_with_context
 from dingent.core.workflow_manager import get_workflow_manager
 
@@ -37,7 +37,7 @@ class MainState(CopilotKitState, SwarmState):
     Swarm 全局状态
     """
 
-    tool_output_ids: list[str]
+    artifact_ids: list[str]
 
 
 class SubgraphState(CopilotKitState, AgentState):
@@ -47,7 +47,7 @@ class SubgraphState(CopilotKitState, AgentState):
     """
 
     iteration: int  # 覆盖型
-    tool_output_ids: list[str] = []
+    artifact_ids: list[str] = []
 
 
 # =========================
@@ -125,74 +125,78 @@ def create_dynamic_pydantic_class(
     return type(name, (base_class,), attributes)
 
 
-def mcp_tool_wrapper(_tool: StructuredTool) -> BaseTool:
+def mcp_tool_wrapper(runnable_tool: RunnableTool) -> BaseTool:
     """
-    包装 MCP 工具：采集 tool_output_id 并写入当前子图状态 (SubgraphState.tool_output_ids)
+    包装 MCP 工具：采集 artifact_id 并写入当前子图状态 (SubgraphState.artifact_ids)
     """
 
-    class ToolArgsSchema(BaseModel):
-        tool_call_id: Annotated[str, InjectedToolCallId]
+    tool = runnable_tool.tool
 
-    if isinstance(_tool.args_schema, dict):
-        tool_args_schema = _tool.args_schema
-    else:
-        tool_args_schema = _tool.args_schema.model_json_schema()
-
-    CombinedToolArgsSchema = create_dynamic_pydantic_class(
-        ToolArgsSchema,
-        tool_args_schema,
-        name=f"CombinedToolArgsSchema_{_tool.name}",
-    )
-
-    @tool(
-        _tool.name,
-        description=_tool.description,
-        args_schema=CombinedToolArgsSchema,
-    )
     async def call_tool(
         tool_call_id: Annotated[str, InjectedToolCallId],
         **kwargs,
-    ):
+    ) -> Command:
+        """
+        适配新版 ResourceMiddleware 输出结构:
+        中间件标准化后（理想/推荐做法）工具侧最终文本可能是:
+          1) 仅 model_text 纯字符串           （result.content[0].text = model_text）
+          2) 也可能是最小 JSON:
+             {
+               "artifact_id": "...",
+               "model_text": "...",
+               "version": "1.0"
+             }
+
+        我们这里做两件事：
+          - 若能解析出 {"artifact_id","model_text"} => 使用 model_text 作为消息内容，记录 artifact_id
+          - 否则把原始字符串当作对模型的消息（没有可追踪的结构化展示资源）
+        """
         try:
-            response_raw = await _tool.ainvoke(kwargs)
+            response_raw = await runnable_tool.run(kwargs)
             log_with_context(
                 "info",
                 "Tool Call Result: {response_raw}",
-                context={"response_raw": response_raw, "tool_name": _tool.name, "tool_call_id": tool_call_id},
+                context={"response_raw": response_raw, "tool_name": tool.name, "tool_call_id": tool_call_id},
             )
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
             log_with_context(
                 "error",
                 message="Error: {error_msg}",
-                context={"error_msg": error_msg, "tool_name": _tool.name, "tool_call_id": tool_call_id},
+                context={"error_msg": error_msg, "tool_name": tool.name, "tool_call_id": tool_call_id},
             )
             return Command(update={"messages": [ToolMessage(content=error_msg, tool_call_id=tool_call_id)]})
 
-        messages: list = []
-        collected_ids: list[str] = []
+        structred_response: dict = response_raw.data
+        artifact_id = structred_response.get("artifact_id")
+        model_text = structred_response["model_text"]
 
-        try:
-            data = json.loads(response_raw)
-            if isinstance(data, dict) and {"context", "tool_output_id"} <= data.keys():
-                context_text = data.get("context") or ""
-                tool_output_id = data.get("tool_output_id")
-                if tool_output_id:
-                    collected_ids.append(tool_output_id)
-                messages.append(ToolMessage(content=context_text, tool_call_id=tool_call_id))
-            else:
-                messages.append(ToolMessage(content=response_raw, tool_call_id=tool_call_id))
-        except json.JSONDecodeError:
-            messages.append(ToolMessage(content=response_raw, tool_call_id=tool_call_id))
+        # 默认内容（若无法解析出结构化字段）
+        tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id)
 
         return Command(
             update={
-                "messages": messages,
-                "tool_output_ids": collected_ids,
+                "messages": [tool_message],
+                "artifact_ids": [artifact_id] if artifact_id else [],
             },
         )
 
-    return call_tool
+    class ToolArgsSchema(BaseModel):
+        tool_call_id: Annotated[str, InjectedToolCallId]
+
+    CombinedToolArgsSchema = create_dynamic_pydantic_class(
+        ToolArgsSchema,
+        tool.inputSchema,
+        name=f"CombinedToolArgsSchema_{tool.name}",
+    )
+
+    return StructuredTool(
+        name=tool.name,
+        description=tool.description or "",
+        args_schema=CombinedToolArgsSchema,
+        coroutine=call_tool,
+        metadata=tool.annotations.model_dump() if tool.annotations else None,
+    )
 
 
 def _normalize_name(name: str) -> str:
@@ -233,8 +237,10 @@ async def create_assistant_graphs(workflow_id: str, llm):
             normalized_name = name_map[original_name]
 
             # Load tools for the current assistant
-            tools = await stack.enter_async_context(assistant.load_tools_langgraph())
-            filtered_tools = [mcp_tool_wrapper(t) for t in tools if not getattr(t, "name", "").startswith("__")]
+            # tools = await stack.enter_async_context(assistant.load_tools_langgraph())
+            tools: list[RunnableTool] = await stack.enter_async_context(assistant.load_tools())
+            wrapped_tools = [mcp_tool_wrapper(t) for t in tools]
+            # filtered_tools = [mcp_tool_wrapper(t) for t in tools if not getattr(t, "name", "").startswith("__")]
 
             # Get destination tools by mapping destination names to their normalized versions
             normalized_destinations = [_normalize_name(d) for d in assistant.destinations if d in name_map]
@@ -243,7 +249,7 @@ async def create_assistant_graphs(workflow_id: str, llm):
             # Create the agent with the normalized name
             agent = build_simple_react_agent(
                 llm=llm,
-                tools=dest_tools + filtered_tools,
+                tools=dest_tools + wrapped_tools,
                 system_prompt=assistant.description,
                 name=normalized_name,
             )
@@ -269,7 +275,7 @@ def get_safe_swarm(compiled_swarm: CompiledStateGraph):
         try:
             return await compiled_swarm.ainvoke(state, config=config)
         except Exception as e:
-            error_msg_content = f"抱歉，本轮执行出错：{type(e).__name__}: {e}"
+            error_msg_content = f"An error occurred during this execution round: {type(e).__name__}: {e}"
             log_with_context("error", "{error_type}: {error_msg}", context={"error_type": type(e).__name__, "error_msg": error_msg_content})
             # 取最近快照
             try:

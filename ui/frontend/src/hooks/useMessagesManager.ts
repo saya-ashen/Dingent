@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import {
     useCopilotMessagesContext,
     useCopilotContext,
+    useCoAgent,
 } from "@copilotkit/react-core";
 import {
     Message,
@@ -16,8 +17,9 @@ import { useThreadContext } from "@/contexts/ThreadProvider";
  */
 export function useMessagesManager() {
     const { messages, setMessages } = useCopilotMessagesContext();
-    const { threadId, agentSession, runtimeClient } = useCopilotContext();
+    const { threadId, agentSession, runtimeClient, } = useCopilotContext();
     const { threads, updateThreadTitle } = useThreadContext();
+    const { setState } = useCoAgent({ name: "sample_agent" });
 
     const lastLoadedThreadId = useRef<string>("");
     const lastLoadedAgentName = useRef<string>("");
@@ -31,7 +33,7 @@ export function useMessagesManager() {
 
     useEffect(() => {
         threadRef.current = currentThread;
-    }, [currentThread]);
+    }, [currentThread, setMessages]);
 
     useEffect(() => {
         const agentName = agentSession?.agentName;
@@ -62,6 +64,8 @@ export function useMessagesManager() {
 
             const newMessages = result.data?.loadAgentState?.messages;
             const threadExists = result.data?.loadAgentState?.threadExists;
+            // const artifactIds = result.data?.loadAgentState?.state.artifact_ids || [];
+            const state = result.data?.loadAgentState?.state;
 
             if (threadExists) {
                 lastLoadedMessages.current = newMessages || "";
@@ -71,13 +75,17 @@ export function useMessagesManager() {
                     const parsed = loadMessagesFromJsonRepresentation(
                         JSON.parse(newMessages || "[]")
                     );
+                    const artifactIds = JSON.parse(state || "{}").artifact_ids || [];
                     setMessages(parsed);
+                    setState({ artifact_ids: artifactIds })
                 } catch (e) {
                     console.error("Error parsing messages JSON:", e);
                     setMessages([]);
+                    setState({ artifact_ids: [] })
                 }
             } else {
                 setMessages([]);
+                setState({ artifact_ids: [] })
                 lastLoadedThreadId.current = threadId;
                 lastLoadedAgentName.current = agentName;
             }
@@ -88,7 +96,7 @@ export function useMessagesManager() {
         return () => {
             cancelled = true;
         };
-    }, [threadId, agentSession?.agentName, runtimeClient, setMessages]);
+    }, [threadId, agentSession?.agentName, runtimeClient, setMessages, setState]);
 
     // 自动设置标题
     useEffect(() => {
@@ -97,7 +105,7 @@ export function useMessagesManager() {
         if (cur && cur.title === "New Chat") {
             const firstUserMessage = messages.find(
                 (m): m is Message & { role: "user"; content: string } =>
-                    "role" in m && (m as any).role === "user"
+                    "role" in m && (m).role === "user"
             );
             if (firstUserMessage?.content) {
                 const newTitle = firstUserMessage.content.substring(0, 50).trim();

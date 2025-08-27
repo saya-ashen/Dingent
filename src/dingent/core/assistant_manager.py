@@ -1,7 +1,10 @@
 import logging
+from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from langchain_mcp_adapters.tools import load_mcp_tools
+from mcp.types import Tool
+from pydantic import BaseModel
 
 from .config_manager import get_config_manager
 from .plugin_manager import PluginInstance, get_plugin_manager
@@ -9,6 +12,11 @@ from .settings import AssistantSettings
 
 config_manager = get_config_manager()
 logger = logging.getLogger(__name__)
+
+
+class RunnableTool(BaseModel):
+    tool: Tool
+    run: Callable
 
 
 class Assistant:
@@ -50,6 +58,23 @@ class Assistant:
                 _tools = await load_mcp_tools(session)
                 tools.extend(_tools)
             yield tools
+
+    @asynccontextmanager
+    async def load_tools(self):
+        runnable_tools = []
+        async with AsyncExitStack() as stack:
+            for ins in self.plugin_instances.values():
+                client = await stack.enter_async_context(ins.mcp_client)
+
+                _tools = await client.list_tools()
+                for t in _tools:
+
+                    async def call_tool(arguments: dict, _client=client, _tool=t):
+                        return await _client.call_tool(_tool.name, arguments=arguments)
+
+                    runnable_tool = RunnableTool(tool=t, run=call_tool)
+                    runnable_tools.append(runnable_tool)
+            yield runnable_tools
 
     async def aclose(self):
         for instance in self.plugin_instances.values():

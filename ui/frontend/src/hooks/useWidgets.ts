@@ -2,12 +2,40 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCoAgent } from "@copilotkit/react-core";
 import { Widget } from "@/types";
 
-type AgentState = { tool_output_ids: string[] };
+/**
+ * 你的 Agent state：artifact_ids 可能不存在
+ */
+type AgentState = { artifact_ids?: string[] };
 
+/**
+ * 后端新格式（不再兼容旧 payloads）
+ * 示例：
+ * {
+ *   "version": "1.0",
+ *   "display": [
+ *     {
+ *       "type": "table",
+ *       "columns": [...],
+ *       "rows": [...],
+ *       "title": "top stories"
+ *     }
+ *   ],
+ *   "data": null,
+ *   "metadata": {}
+ * }
+ */
+interface DisplayItem {
+    type?: string;
+    title?: string;
+    columns?: string[];
+    rows?: unknown[];
+    [k: string]: unknown;
+}
 
-interface FetchedResource {
-    id?: string;
-    payloads?: unknown[];
+interface ResourceResponse {
+    version?: string;
+    display: DisplayItem[];             // 现在强制要求后端给这个
+    data?: unknown;
     metadata?: unknown;
     [k: string]: unknown;
 }
@@ -27,10 +55,10 @@ interface UseResourceWidgetsResult {
 }
 
 /**
- * 底层：可接收外部传入的 id 列表
+ * 内部 Hook：支持 ids 为 undefined（表示“这次调用不想改变已有 ids”）
  */
 export function useResourceWidgets(
-    ids: string[],
+    ids?: string[] | null,
     {
         clearOnEmptyIds = true,
         autoFetch = true,
@@ -44,13 +72,15 @@ export function useResourceWidgets(
     const abortControllers = useRef<Record<string, AbortController>>({});
     const hasFetchedRef = useRef(false);
 
-    const normalizedIds = useMemo(
-        () => Array.from(new Set(ids.filter(Boolean))),
-        [ids]
-    );
+    // ids 为 undefined -> 不变更
+    const normalizedIds = useMemo(() => {
+        if (!ids) return undefined;
+        return Array.from(new Set(ids.filter(Boolean)));
+    }, [ids]);
 
     const removeWidgetsNotInIds = useCallback(() => {
         if (keepOrphanWidgets) return;
+        if (!normalizedIds) return;
         setWidgetsById(prev => {
             const next: Record<string, Widget[]> = {};
             for (const id of normalizedIds) {
@@ -60,11 +90,52 @@ export function useResourceWidgets(
         });
     }, [normalizedIds, keepOrphanWidgets]);
 
+    const buildWidgets = useCallback(
+        (resource: ResourceResponse, resourceId: string): Widget[] => {
+            if (!Array.isArray(resource.display)) {
+                throw new Error("Invalid response: 'display' must be an array");
+            }
+
+            return resource.display.map((item, index) => {
+                const type = (typeof item.type === "string" && item.type) || "unknown";
+                const widgetId = `${resourceId}::${index}`;
+
+                if (type === "table") {
+                    return {
+                        id: widgetId,
+                        type: "table",
+                        payload: {
+                            type: "table",
+                            title: item.title,
+                            columns: Array.isArray(item.columns) ? item.columns : [],
+                            rows: Array.isArray(item.rows) ? item.rows : [],
+                            raw: item, // 可选：调试用
+                        },
+                        metadata: resource.metadata,
+                    } as Widget;
+                }
+
+                // 其它类型：通用透传
+                return {
+                    id: widgetId,
+                    type,
+                    payload: {
+                        type,
+                        title: item.title,
+                        ...item,
+                    },
+                    metadata: resource.metadata,
+                } as Widget;
+            });
+        },
+        []
+    );
+
     const fetchOne = useCallback(
         async (id: string, force = false) => {
             if (!force && fetchedIdsRef.current.has(id)) return;
 
-            // cancel ongoing fetch for same id
+            // 取消同 id 正在进行的请求
             if (abortControllers.current[id]) {
                 abortControllers.current[id].abort();
             }
@@ -73,52 +144,41 @@ export function useResourceWidgets(
 
             setLoadingIds(prev => (prev.includes(id) ? prev : [...prev, id]));
             setErrorById(prev => {
-                const { [id]: _, ...rest } = prev;
+                const { [id]: _omit, ...rest } = prev;
                 return rest;
             });
 
             try {
-                const res = await fetch(`/api/resource/${id}`, {
-                    signal: controller.signal,
-                });
+                const res = await fetch(`/api/resource/${id}`, { signal: controller.signal });
                 if (!res.ok) {
                     throw new Error(`HTTP ${res.status}`);
                 }
-                const resource = (await res.json()) as FetchedResource;
-                if (!resource || !Array.isArray(resource.payloads)) {
-                    throw new Error("Invalid resource payloads structure");
-                }
+                const resource = (await res.json()) as ResourceResponse;
 
-                const widgets: Widget[] = resource.payloads.map((item) => {
-                    const payload = item as Partial<WidgetPayload> & Record<string, unknown>;
-                    const type = typeof payload.type === "string" ? payload.type : "markdown";
-                    return {
-                        id,
-                        type,
-                        payload: {
-                            ...(payload as WidgetPayload),
-                            type,
-                        },
-                        metadata: resource.metadata,
-                    };
-                });
-
+                const widgets = buildWidgets(resource, id);
                 setWidgetsById(prev => ({ ...prev, [id]: widgets }));
                 fetchedIdsRef.current.add(id);
                 hasFetchedRef.current = true;
-            } catch (err: any) {
-                if (err?.name === "AbortError") return;
-                setErrorById(prev => ({ ...prev, [id]: err?.message || "Unknown fetch error" }));
+            } catch (err: unknown) {
+                if (err instanceof Error && err.name === "AbortError") {
+                    return;
+                }
+                let errorMessage = "Unknown fetch error";
+                if (err instanceof Error) {
+                    errorMessage = err.message;
+                }
+                setErrorById(prev => ({ ...prev, [id]: errorMessage }));
             } finally {
                 setLoadingIds(prev => prev.filter(x => x !== id));
                 delete abortControllers.current[id];
             }
         },
-        []
+        [buildWidgets]
     );
 
     const refresh = useCallback(
         (target: string[] | "all" = "all") => {
+            if (!normalizedIds || normalizedIds.length === 0) return;
             const targetIds =
                 target === "all" ? normalizedIds : target.filter(id => normalizedIds.includes(id));
             for (const id of targetIds) {
@@ -129,17 +189,18 @@ export function useResourceWidgets(
         [normalizedIds, fetchOne]
     );
 
-    // auto fetch
+    // 自动拉取逻辑
     useEffect(() => {
+        // undefined：保持现状，不清空不加载
+        if (normalizedIds === undefined) return;
+
         if (normalizedIds.length === 0) {
             if (clearOnEmptyIds) {
                 setWidgetsById(prev => {
-                    if (Object.keys(prev).length === 0) return prev; // 幂等
+                    if (Object.keys(prev).length === 0) return prev;
                     return {};
                 });
-                if (fetchedIdsRef.current.size > 0) {
-                    fetchedIdsRef.current.clear();
-                }
+                fetchedIdsRef.current.clear();
             }
             return;
         }
@@ -161,7 +222,7 @@ export function useResourceWidgets(
         fetchOne,
     ]);
 
-    // cleanup
+    // 卸载时中止所有请求
     useEffect(() => {
         return () => {
             Object.values(abortControllers.current).forEach(c => c.abort());
@@ -169,6 +230,10 @@ export function useResourceWidgets(
     }, []);
 
     const widgets = useMemo(() => {
+        if (normalizedIds === undefined) {
+            // 未提供新的 ids，返回当前全部
+            return Object.values(widgetsById).flat();
+        }
         const list: Widget[] = [];
         for (const id of normalizedIds) {
             const arr = widgetsById[id];
@@ -187,12 +252,17 @@ export function useResourceWidgets(
 }
 
 /**
- * 对外暴露的最终 Hook：
- * 自动从 agent state 中读取 tool_output_ids
+ * 对外 Hook：从 agent state 里读取 artifact_ids
+ * - 没有该字段 => 传 undefined，不触发重置
+ * - 字段存在 (可为空数组) => 按值传递
  */
 export function useWidgets() {
-    const { state } = useCoAgent<AgentState>({ name: "sample_agent", });
-    const ids = state?.tool_output_ids || [];
-    console.log("state", state)
+    const { state, threadId } = useCoAgent<AgentState>({ name: "sample_agent" });
+    const ids = state && Object.prototype.hasOwnProperty.call(state, "artifact_ids")
+        ? state.artifact_ids
+        : undefined;
+
+    // 调试
+    console.log("state", state, threadId);
     return useResourceWidgets(ids);
 }
