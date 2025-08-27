@@ -25,7 +25,7 @@ export interface MarkdownPayload {
 export interface TablePayload {
     type: "table";
     columns: string[];
-    rows: unknown[][];
+    rows: unknown;
     [k: string]: unknown;
 }
 

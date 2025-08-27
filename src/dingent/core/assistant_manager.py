@@ -70,7 +70,7 @@ class Assistant:
                 for t in _tools:
 
                     async def call_tool(arguments: dict, _client=client, _tool=t):
-                        return await client.call_tool(_tool.name, arguments=arguments)
+                        return await _client.call_tool(_tool.name, arguments=arguments)
 
                     runnable_tool = RunnableTool(tool=t, run=call_tool)
                     runnable_tools.append(runnable_tool)

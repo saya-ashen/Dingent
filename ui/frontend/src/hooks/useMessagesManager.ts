@@ -96,7 +96,7 @@ export function useMessagesManager() {
         return () => {
             cancelled = true;
         };
-    }, [threadId, agentSession?.agentName, runtimeClient, setMessages]);
+    }, [threadId, agentSession?.agentName, runtimeClient, setMessages, setState]);
 
     // 自动设置标题
     useEffect(() => {
@@ -105,7 +105,7 @@ export function useMessagesManager() {
         if (cur && cur.title === "New Chat") {
             const firstUserMessage = messages.find(
                 (m): m is Message & { role: "user"; content: string } =>
-                    "role" in m && (m as any).role === "user"
+                    "role" in m && (m).role === "user"
             );
             if (firstUserMessage?.content) {
                 const newTitle = firstUserMessage.content.substring(0, 50).trim();

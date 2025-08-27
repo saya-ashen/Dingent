@@ -223,8 +223,8 @@ export function TableWidget({ data }: { data: TablePayload }) {
             header: header,
             cell: ({ getValue }) => (
                 <ReactMarkdown
-                    // Add basic styling to prevent large margins from paragraphs
-                    // className="prose prose-sm prose-p:my-0"
+                // Add basic styling to prevent large margins from paragraphs
+                // className="prose prose-sm prose-p:my-0"
                 >
                     {String(getValue() ?? '')}
                 </ReactMarkdown>
@@ -240,9 +240,9 @@ export function TableWidget({ data }: { data: TablePayload }) {
         <div className="max-w-4xl w-full p-4 bg-white/80 backdrop-blur-sm rounded-lg shadow-lg">
             <DataTableWidget
                 columns={tableColumns}
-                data={tableData}
+                data={tableData as Record<string, unknown>[]}
                 isLoading={isLoading}
-                title={title}
+                title={title as string | undefined}
             />
         </div>
     );

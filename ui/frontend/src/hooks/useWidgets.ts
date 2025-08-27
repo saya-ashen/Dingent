@@ -28,7 +28,7 @@ interface DisplayItem {
     type?: string;
     title?: string;
     columns?: string[];
-    rows?: any[];
+    rows?: unknown[];
     [k: string]: unknown;
 }
 
@@ -159,9 +159,15 @@ export function useResourceWidgets(
                 setWidgetsById(prev => ({ ...prev, [id]: widgets }));
                 fetchedIdsRef.current.add(id);
                 hasFetchedRef.current = true;
-            } catch (err: any) {
-                if (err?.name === "AbortError") return;
-                setErrorById(prev => ({ ...prev, [id]: err?.message || "Unknown fetch error" }));
+            } catch (err: unknown) {
+                if (err instanceof Error && err.name === "AbortError") {
+                    return;
+                }
+                let errorMessage = "Unknown fetch error";
+                if (err instanceof Error) {
+                    errorMessage = err.message;
+                }
+                setErrorById(prev => ({ ...prev, [id]: errorMessage }));
             } finally {
                 setLoadingIds(prev => prev.filter(x => x !== id));
                 delete abortControllers.current[id];
