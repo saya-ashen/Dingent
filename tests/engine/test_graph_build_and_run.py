@@ -64,6 +64,4 @@ async def test_make_graph_build_and_run():
         # assert "messages" in result_state
         # assert isinstance(result_state["messages"], list)
         # assert "tool_output_ids" in result_state
-        import pdb
-
-        pdb.set_trace()
+        assert result_state

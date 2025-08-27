@@ -29,7 +29,6 @@ def build_simple_react_agent(
     tools: list[BaseTool],
     system_prompt: str | None = None,
     max_iterations: int = 6,
-    tool_result_state_key: str | None = None,
     stop_when_no_tool: bool = True,
     name: str = "simple_react_agent",
 ):
