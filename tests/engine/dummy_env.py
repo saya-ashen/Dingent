@@ -79,10 +79,9 @@ class DummyLLMManager:
     def get_llm(self, **kwargs):
         # 如果你想用真实模型，可在这里替换，比如返回 ChatOpenAI(...)
         return init_chat_model(
-            model="gpt-5",
+            model="gpt-4.1",
             model_provider="openai",
             base_url="https://www.dmxapi.cn/v1",
-            api_key="sk-mx79KrgdiE7LAshJy6Qc4EzPCrxf36zLk1YGpx4t24GaMrLb",
         )
 
 
@@ -119,7 +118,7 @@ def get_weather(city: str) -> str:
     天气工具，返回 JSON 格式
     """
     fake_weather = {"city": city, "temp_c": 26, "condition": "Sunny"}
-    payload = {"context": f"Weather for {city}: {fake_weather['temp_c']}C, {fake_weather['condition']}", "tool_output_id": str(uuid.uuid4()), "raw": fake_weather}
+    payload = {"context": f"北京的天气： {fake_weather['temp_c']}C, {fake_weather['condition']}", "tool_output_id": str(uuid.uuid4()), "raw": fake_weather}
     return json.dumps(payload, ensure_ascii=False)
 
 
@@ -128,7 +127,13 @@ def get_time(zone: str) -> str:
     """
     时间查询
     """
-    return f"Zone {zone} time: 2025-08-26T09:00:00"
+    fake_time = {"zone": zone, "time": "2025-08-26T09:00:00"}
+    payload = {
+        "context": f"当前时间：Zone {zone} time: 2025-08-26T09:00:00",
+        "tool_output_id": str(uuid.uuid4()),
+        "raw": fake_time,
+    }
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def build_dummy_assistants():

@@ -55,11 +55,11 @@ def dummy_environment(monkeypatch):
 async def test_make_graph_build_and_run():
     async with graph.make_graph() as compiled:
         init_state = {
-            "messages": [HumanMessage(content="查询北京的天气，然后查询当前的时间，每个工具只能调用一次！！！")],
+            "messages": [HumanMessage(content="查询北京的天气，然后查询当前的时间，一次可以调用多个工具")],
             "tool_output_ids": [],
         }
         result_state = await compiled.ainvoke(init_state)
-        # async for chunk in compiled.astream(init_state, subgraphs=True):
+        # async for chunk in compiled.astream(init_state, stream_mode="debug", subgraphs=True):
         #     print("Streamed chunk:", chunk)
         # assert "messages" in result_state
         # assert isinstance(result_state["messages"], list)

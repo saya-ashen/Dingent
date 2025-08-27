@@ -1,5 +1,4 @@
 import json
-import operator
 import re
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -8,6 +7,7 @@ from typing import Annotated, Any, TypedDict
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt.chat_agent_executor import AgentState
 from langgraph.types import Command
@@ -37,7 +37,7 @@ class MainState(CopilotKitState, SwarmState):
     Swarm 全局状态
     """
 
-    tool_output_ids: Annotated[list[str], operator.concat] = []
+    tool_output_ids: list[str]
 
 
 class SubgraphState(CopilotKitState, AgentState):
@@ -46,7 +46,8 @@ class SubgraphState(CopilotKitState, AgentState):
     在一次子图执行期间收集工具输出 ID；执行结束后 post_process 会消费并清空
     """
 
-    tool_output_ids: Annotated[list[str], operator.concat] = []
+    iteration: int  # 覆盖型
+    tool_output_ids: list[str] = []
 
 
 # =========================
@@ -311,14 +312,13 @@ async def make_graph():
             context_schema=ConfigSchema,
         )
         compiled_swarm = swarm.compile()
-        yield compiled_swarm
 
-        # outer = StateGraph(MainState)
-        # safe_swarm = get_safe_swarm(compiled_swarm)
-        # outer.add_node("swarm", safe_swarm)
-        # outer.add_edge(START, "swarm")
-        # outer.add_edge("swarm", END)
-        # compiled_graph = outer.compile()
-        # compiled_graph.name = "Agent"
-        #
-        # yield compiled_graph
+        outer = StateGraph(MainState)
+        safe_swarm = get_safe_swarm(compiled_swarm)
+        outer.add_node("swarm", safe_swarm)
+        outer.add_edge(START, "swarm")
+        outer.add_edge("swarm", END)
+        compiled_graph = outer.compile()
+        compiled_graph.name = "Agent"
+
+        yield compiled_graph

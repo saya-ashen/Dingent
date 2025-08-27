@@ -21,6 +21,7 @@ from langgraph.types import Command
 class SimpleAgentState(TypedDict, total=False):
     messages: Annotated[list[BaseMessage], operator.add]
     iteration: int  # 覆盖型
+    tool_output_ids: list[str] = []
 
 
 def build_simple_react_agent(
@@ -63,21 +64,11 @@ def build_simple_react_agent(
         if system_prompt:
             model_messages.append(SystemMessage(content=system_prompt))
 
-        # 你可以在此插入一个“状态摘要”消息，例如 facts:
-        if "facts" in state and state["facts"]:
-            # 把 facts 列表当作系统注入
-            facts_text = "\n".join(state["facts"])
-            model_messages.append(SystemMessage(content=f"[FACTS]\n{facts_text}"))
-
         model_messages.extend(messages)
         llm_with_tools = llm.bind_tools(tools=tools)
 
-        try:
-            response = await llm_with_tools.ainvoke(model_messages)
-        except Exception:
-            import pdb
+        response = await llm_with_tools.ainvoke(model_messages)
 
-            pdb.set_trace()
         # 返回 iteration+1 以及新 AI 响应
         return {
             "messages": [response],
@@ -96,8 +87,9 @@ def build_simple_react_agent(
             return {}
 
         tool_messages: list[ToolMessage] = []
-        aggregate_state_update: dict[str, Any] = {}
-        results: list[Command] = []
+        end_command: Command | None = None
+        goto = None
+        tool_output_ids = []
 
         for tc in last_ai.tool_calls:
             tool_name = tc["name"]
@@ -128,30 +120,30 @@ def build_simple_react_agent(
             )
 
             if result.goto:
-                command = Command(
-                    goto=result.goto,
-                    update={
-                        **state,
-                        "messages": state.get("messages", []) + (result.update or {}).get("messages", []),
-                    },
-                    graph=result.graph,
-                )
-                results.append(command)
+                goto = {"node": result.goto, "graph": result.graph}
+                tool_messages.extend(result.update["messages"])
             else:
-                results.append(result)
+                tool_messages.extend(result.update["messages"])
+                tool_output_ids.extend(result.update.get("tool_output_ids", []))
 
-        return results
+        if goto:
+            end_command = Command(
+                goto=goto["node"],
+                update={
+                    "messages": state["messages"] + tool_messages,
+                    "tool_output_ids": state.get("tool_output_ids", []) + tool_output_ids,
+                },
+                graph=goto["graph"],
+            )
 
-        update: dict[str, Any] = {"messages": tool_messages}
-        # 把聚合的 state_update 写回
-        for k, v in aggregate_state_update.items():
-            # 如果父状态定义了该键且是 list，并且 v 是 list，则直接追加
-            if isinstance(v, list):
-                # 直接返回 list，父图若在 TypedDict 中对该字段用了 operator.add，会自动 merge
-                update.setdefault(k, v)
-            else:
-                update[k] = v
-        return update
+        else:
+            end_command = Command(
+                update={
+                    "messages": tool_messages,
+                    "tool_output_ids": state.get("tool_output_ids", []) + tool_output_ids,
+                }
+            )
+        return end_command
 
     # ---- 结束条件路由 ----
     async def route_after_model(state: SimpleAgentState):
