@@ -4,18 +4,56 @@ version = "1.0.0"
 spec_version = 2.0
 description = "A text to sql tool"
 execution.mode = "local"
-execution.script_path="tool.py"
-dependencies=[
-    "langchain-openai>=0.3.14,<1.0.0",
-    "langchain-community>=0.3.21",
-    "pymysql>=1.1.1",
-    "sqlglot[rs]>=26.15.0",
-    "langchain>=0.3.23",
-    "langgraph>=0.3.31,<1.0.0",
-    "langdetect>=1.0.9",
-    "fastmcp>=2.2.0",
-    "mcp[cli]>=1.7.1",
-    "pandas>=2.2.3",
-    "sqlmodel>=0.0.24",
-    "psycopg2-binary>=2.9.10",
+execution.script_path = "main.py"
+dependencies = [
+  "langchain-openai>=0.3.14,<1.0.0",
+  "langchain-community>=0.3.21",
+  "pymysql>=1.1.1",
+  "sqlglot[rs]>=26.15.0",
+  "langchain>=0.3.23",
+  "langgraph>=0.3.31,<1.0.0",
+  "langdetect>=1.0.9",
+  "fastmcp>=2.2.0",
+  "mcp[cli]>=1.7.1",
+  "pandas>=2.2.3",
+  "sqlmodel>=0.0.24",
+  "psycopg2-binary>=2.9.10",
 ]
+[[plugin.config_schema]]
+name = "DB_URI"
+type = "string"
+required = true
+description = ""
+
+[[plugin.config_schema]]
+name = "DB_NAME"
+type = "string"
+required = true
+description = ""
+
+[[plugin.config_schema]]
+name = "DB_DIALECT"
+type = "string"
+required = false
+description = ""
+
+[[plugin.config_schema]]
+name = "LLM_MODEL_NAME"
+type = "string"
+required = true
+description = ""
+[[plugin.config_schema]]
+name = "LLM_PROVIDER"
+type = "string"
+required = false
+description = ""
+[[plugin.config_schema]]
+name = "LLM_API_KEY"
+type = "string"
+required = true
+description = ""
+[[plugin.config_schema]]
+name = "base_url"
+type = "string"
+required = false
+description = ""

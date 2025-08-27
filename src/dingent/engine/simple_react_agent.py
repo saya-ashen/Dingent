@@ -3,6 +3,7 @@ from __future__ import annotations
 import operator
 from typing import Annotated, Any, TypedDict
 
+from copilotkit.langgraph import copilotkit_emit_state
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
@@ -13,6 +14,7 @@ from langchain_core.messages import (
 from langchain_core.messages.tool import ToolCall
 from langchain_core.tools import BaseTool
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import RunnableConfig
 from langgraph.types import Command
 
 
@@ -21,7 +23,7 @@ from langgraph.types import Command
 class SimpleAgentState(TypedDict, total=False):
     messages: Annotated[list[BaseMessage], operator.add]
     iteration: int  # 覆盖型
-    tool_output_ids: list[str] = []
+    artifact_ids: list[str] = []
 
 
 def build_simple_react_agent(
@@ -74,74 +76,81 @@ def build_simple_react_agent(
             "iteration": iteration + 1,
         }
 
-    # ---- 工具节点 ----
-    async def tools_node(state: SimpleAgentState) -> dict[str, Any] | Command:
-        # 找出最近的 AIMessage（含 tool_calls）
-        last_ai: AIMessage | None = None
-        for m in reversed(state["messages"]):
-            if isinstance(m, AIMessage) and getattr(m, "tool_calls", None):
-                last_ai = m
-                break
+    async def tools_node(state: SimpleAgentState, config: RunnableConfig) -> dict[str, Any] | Command:
+        # 找出最近一个包含 tool_calls 的 AIMessage
+        last_ai: AIMessage | None = next(
+            (m for m in reversed(state["messages"]) if isinstance(m, AIMessage) and getattr(m, "tool_calls", None)),
+            None,
+        )
         if last_ai is None:
             return {}
 
         tool_messages: list[ToolMessage] = []
-        end_command: Command | None = None
-        goto = None
-        tool_output_ids = []
+        artifact_ids: list[str] = []
+        goto_data: dict[str, Any] | None = None
 
         for tc in last_ai.tool_calls:
-            tool_name = tc["name"]
-            args = tc.get("args", {})
+            tool_name = tc.get("name")
+            args = tc.get("args", {}) or {}
             tool = name_to_tool.get(tool_name)
             if tool is None:
-                # 工具未找到：返回一个错误 ToolMessage
-                err_text = f"[ToolError] Tool '{tool_name}' not registered."
                 tool_messages.append(
                     ToolMessage(
-                        content=err_text,
+                        content=f"[ToolError] Tool '{tool_name}' not registered.",
                         name=tool_name,
-                        tool_call_id=tc["id"],
+                        tool_call_id=tc.get("id"),
                     )
                 )
                 continue
 
-            # 执行工具
             result: Command = await tool.ainvoke(
                 ToolCall(
                     {
                         "name": tool.name,
                         "args": args,
                         "type": "tool_call",
-                        "id": tc["id"],
+                        "id": tc.get("id"),
                     }
                 )
             )
 
+            # 收集输出
+            tool_messages.extend(result.update.get("messages", []))
+            artifact_ids.extend(result.update.get("artifact_ids", []))
+
+            # 如果存在跳转，记录（保持与原逻辑一致——后出现的覆盖先出现的）
             if result.goto:
-                goto = {"node": result.goto, "graph": result.graph}
-                tool_messages.extend(result.update["messages"])
-            else:
-                tool_messages.extend(result.update["messages"])
-                tool_output_ids.extend(result.update.get("tool_output_ids", []))
+                goto_data = {"node": result.goto, "graph": result.graph}
 
-        if goto:
+        updated_messages_full = state["messages"] + tool_messages
+        updated_artifact_ids = state.get("artifact_ids", []) + artifact_ids
+
+        if goto_data:
             end_command = Command(
-                goto=goto["node"],
+                goto=goto_data["node"],
+                graph=goto_data["graph"],
                 update={
-                    "messages": state["messages"] + tool_messages,
-                    "tool_output_ids": state.get("tool_output_ids", []) + tool_output_ids,
+                    "messages": updated_messages_full,
+                    "artifact_ids": updated_artifact_ids,
                 },
-                graph=goto["graph"],
             )
-
         else:
+            # 保留原始行为：不带 goto 时 update 里只放新增的 tool_messages
             end_command = Command(
                 update={
                     "messages": tool_messages,
-                    "tool_output_ids": state.get("tool_output_ids", []) + tool_output_ids,
+                    "artifact_ids": updated_artifact_ids,
                 }
             )
+
+        # 向外部状态广播：总是带全量 messages（与原实现一致）
+        await copilotkit_emit_state(
+            config=config,
+            state={
+                "messages": updated_messages_full,
+                "artifact_ids": updated_artifact_ids,
+            },
+        )
         return end_command
 
     # ---- 结束条件路由 ----
