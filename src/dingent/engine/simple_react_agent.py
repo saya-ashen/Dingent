@@ -1,0 +1,172 @@
+from __future__ import annotations
+
+import operator
+from typing import Annotated, Any, TypedDict
+
+from langchain.chat_models.base import BaseChatModel
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_core.messages.tool import ToolCall
+from langchain_core.tools import BaseTool
+from langgraph.graph import END, StateGraph
+from langgraph.types import Command
+
+
+# -------- State 定义 --------
+# 这里只定义 messages + iteration。其它父状态（如 facts）由父图的 TypedDict 决定。
+class SimpleAgentState(TypedDict, total=False):
+    messages: Annotated[list[BaseMessage], operator.add]
+    iteration: int  # 覆盖型
+    tool_output_ids: list[str] = []
+
+
+def build_simple_react_agent(
+    llm: BaseChatModel,
+    tools: list[BaseTool],
+    system_prompt: str | None = None,
+    max_iterations: int = 6,
+    tool_result_state_key: str | None = None,
+    stop_when_no_tool: bool = True,
+    name: str = "simple_react_agent",
+):
+    """
+    返回一个可作为子图嵌入父图的 LangGraph 图对象（已 compile）。
+    参数:
+        llm: 任意兼容 .invoke(messages, tools=[...]) 的 Chat 模型
+        tools: @tool 装饰的工具列表
+        system_prompt: 可选系统提示
+        max_iterations: 最大 LLM->Tool 循环次数
+        tool_result_state_key: 如果工具返回的是非 str / dict，则把原始结果塞进这个 state key
+        stop_when_no_tool: 如果模型消息没有 tool_calls，则终止
+
+    使用方式:
+        agent_app = build_simple_react_agent(...)
+        # 在父图里 add_node("agent", agent_app)
+    """
+
+    name_to_tool: dict[str, BaseTool] = {t.name: t for t in tools}
+
+    # ---- 模型节点 ----
+    async def model_node(state: SimpleAgentState) -> dict[str, Any]:
+        iteration = state.get("iteration", 0)
+        if iteration >= max_iterations:
+            # 不再继续，直接返回（不再新增 AIMessage）
+            return {}
+
+        messages: list[BaseMessage] = state.get("messages", [])
+
+        # 如果需要把父状态中的其它字段作为“压缩上下文”注入，可在此构造：
+        model_messages: list[BaseMessage] = []
+        if system_prompt:
+            model_messages.append(SystemMessage(content=system_prompt))
+
+        model_messages.extend(messages)
+        llm_with_tools = llm.bind_tools(tools=tools)
+
+        response = await llm_with_tools.ainvoke(model_messages)
+
+        # 返回 iteration+1 以及新 AI 响应
+        return {
+            "messages": [response],
+            "iteration": iteration + 1,
+        }
+
+    # ---- 工具节点 ----
+    async def tools_node(state: SimpleAgentState) -> dict[str, Any] | Command:
+        # 找出最近的 AIMessage（含 tool_calls）
+        last_ai: AIMessage | None = None
+        for m in reversed(state["messages"]):
+            if isinstance(m, AIMessage) and getattr(m, "tool_calls", None):
+                last_ai = m
+                break
+        if last_ai is None:
+            return {}
+
+        tool_messages: list[ToolMessage] = []
+        end_command: Command | None = None
+        goto = None
+        tool_output_ids = []
+
+        for tc in last_ai.tool_calls:
+            tool_name = tc["name"]
+            args = tc.get("args", {})
+            tool = name_to_tool.get(tool_name)
+            if tool is None:
+                # 工具未找到：返回一个错误 ToolMessage
+                err_text = f"[ToolError] Tool '{tool_name}' not registered."
+                tool_messages.append(
+                    ToolMessage(
+                        content=err_text,
+                        name=tool_name,
+                        tool_call_id=tc["id"],
+                    )
+                )
+                continue
+
+            # 执行工具
+            result: Command = await tool.ainvoke(
+                ToolCall(
+                    {
+                        "name": tool.name,
+                        "args": args,
+                        "type": "tool_call",
+                        "id": tc["id"],
+                    }
+                )
+            )
+
+            if result.goto:
+                goto = {"node": result.goto, "graph": result.graph}
+                tool_messages.extend(result.update["messages"])
+            else:
+                tool_messages.extend(result.update["messages"])
+                tool_output_ids.extend(result.update.get("tool_output_ids", []))
+
+        if goto:
+            end_command = Command(
+                goto=goto["node"],
+                update={
+                    "messages": state["messages"] + tool_messages,
+                    "tool_output_ids": state.get("tool_output_ids", []) + tool_output_ids,
+                },
+                graph=goto["graph"],
+            )
+
+        else:
+            end_command = Command(
+                update={
+                    "messages": tool_messages,
+                    "tool_output_ids": state.get("tool_output_ids", []) + tool_output_ids,
+                }
+            )
+        return end_command
+
+    # ---- 结束条件路由 ----
+    async def route_after_model(state: SimpleAgentState):
+        if not state.get("messages"):
+            return END
+        last = state["messages"][-1]
+        # 如果是 AI 且有 tool_calls 并且没超过迭代限制 -> tools
+        if isinstance(last, AIMessage) and getattr(last, "tool_calls", None) and state.get("iteration", 0) <= max_iterations:
+            return "tools"
+        # 否则终止（如果 stop_when_no_tool=True）
+        if stop_when_no_tool:
+            return END
+        return END  # 简化：这里也直接结束
+
+    # 构建子图
+    graph = StateGraph(SimpleAgentState)
+    graph.add_node("model", model_node)
+    graph.add_node("tools", tools_node)
+
+    graph.set_entry_point("model")
+    graph.add_conditional_edges("model", route_after_model, {"tools": "tools", END: END})
+    graph.add_edge("tools", "model")
+
+    compiled_graph = graph.compile()
+    compiled_graph.name = name
+    return compiled_graph

@@ -1,28 +1,19 @@
 "use client";
 
-import { useCopilotAction } from "@copilotkit/react-core";
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import React, { useState } from "react";
 import "./style.css";
 import { ChatHistorySidebar } from "@/components/ChatHistorySidebar";
 import { MainContent } from "@/components/MainContent";
+import { useWidgets } from "@/hooks/useWidgets";
 import { useMessagesManager } from "@/hooks/useMessagesManager";
+
 
 
 export default function CopilotKitPage() {
     const [themeColor] = useState("#6366f1");
-    const { widgets } = useMessagesManager();
-
-    useCopilotAction({
-        name: "show_data",
-        description: "",
-        parameters: [
-            { name: "tool_output_id", type: "string", description: "tool_output_id", required: true },
-        ],
-        followUp: false,
-        handler: async ({tool_output_id}) => {
-        },
-    });
+    const { widgets } = useWidgets();
+    useMessagesManager()
 
     return (
         <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
