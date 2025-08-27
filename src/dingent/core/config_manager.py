@@ -476,7 +476,7 @@ class ConfigManager:
             after = len(self._settings.assistants)
             if before == after:
                 raise AssistantNotFoundError(f"Assistant '{assistant_id}' not found.")
-            
+
             # Clean up workflows that reference this assistant (if workflow manager is available)
             try:
                 workflow_manager = get_workflow_manager()
@@ -485,7 +485,7 @@ class ConfigManager:
                     logger.info(f"Cleaned up {len(modified_workflows)} workflows after deleting assistant '{assistant_id}'")
             except Exception as e:
                 logger.warning(f"Could not clean up workflows for deleted assistant '{assistant_id}': {e}")
-            
+
             if self._assistants_dir:
                 afile = self._assistants_dir / f"{assistant_id}.yaml"
                 if afile.is_file():
