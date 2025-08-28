@@ -7,7 +7,7 @@ from pathlib import Path
 from rich import print
 
 DEFAULT_GRAPH_SPEC = "dingent.engine.graph:make_graph"
-DEFAULT_API_SPEC = "dingent.server.main:app"
+DEFAULT_API_SPEC = "dingent.server.app_factory:app"
 ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
 ENV_API_SPEC = "DINGENT_API_SPEC"
 

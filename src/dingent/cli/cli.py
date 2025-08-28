@@ -37,7 +37,7 @@ from .context import CliContext
 app = typer.Typer(help="Dingent Agent Framework CLI")
 
 DEFAULT_GRAPH_SPEC = "dingent.engine.graph:make_graph"
-DEFAULT_API_SPEC = "dingent.server.main:app"
+DEFAULT_API_SPEC = "dingent.server.app_factory:app"
 ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
 ENV_API_SPEC = "DINGENT_API_SPEC"
 
@@ -107,16 +107,19 @@ def _resolve_node_binary() -> str:
         raise RuntimeError(f"Could not resolve Node executable: {e}")
 
 
-def _make_backend_temp_config() -> Path:
+def _create_backend_config(cli_ctx: CliContext) -> Path:
     """
-    Generates a temporary configuration file for the backend's langgraph.dev.
+    Generates a configuration file for the backend's langgraph.dev inside the project's .dingent directory.
     Returns the path to the config file.
     """
     graph_spec = os.getenv(ENV_GRAPH_SPEC, DEFAULT_GRAPH_SPEC)
     api_spec = os.getenv(ENV_API_SPEC, DEFAULT_API_SPEC)
-    td = tempfile.TemporaryDirectory()
-    _TEMP_DIRS.append(td)
-    cfg_path = Path(td.name) / "langgraph.json"
+
+    # Create the .dingent directory if it doesn't exist
+    dingent_dir = cli_ctx.project_root / ".dingent"
+    dingent_dir.mkdir(parents=True, exist_ok=True)
+
+    cfg_path = dingent_dir / "langgraph.json"
     cfg = {
         "graphs": {"agent": graph_spec},
         "http": {"app": api_spec},
@@ -356,7 +359,6 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
         print(f"[red] Failed: {e}[/red]")
 
 
-# --------- Commands ---------
 @app.command()
 def run(
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the frontend page in a browser automatically."),
@@ -367,7 +369,6 @@ def run(
     cli_ctx = CliContext()
     cli_ctx = _ensure_project_root(cli_ctx)
 
-    cfg_path = _make_backend_temp_config()
     try:
         node_bin = _resolve_node_binary()
     except Exception as e:
@@ -375,16 +376,12 @@ def run(
         raise typer.Exit(1)
 
     backend_cmd = [
-        "langgraph",
-        "dev",
-        "--no-browser",
-        "--allow-blocking",
+        "uvicorn",
+        "dingent.server.copilot_server:app",
         "--host",
         "127.0.0.1",
         "--port",
         str(cli_ctx.backend_port),
-        "--config",
-        str(cfg_path),
     ]
     frontend_cmd = [node_bin, "server.js", "--port", str(cli_ctx.frontend_port)]
 
@@ -434,7 +431,8 @@ def dev(
         start_langgraph_ui()
         return
 
-    cfg_path = _make_backend_temp_config()
+    # MODIFICATION: Using the new function to create the config
+    cfg_path = _create_backend_config(cli_ctx)
     backend_cmd = [
         "langgraph",
         "dev",
@@ -451,6 +449,7 @@ def dev(
             name="backend-ui" if open_ui else "backend",
             command=backend_cmd,
             cwd=cli_ctx.project_root,
+            env={"DING_DEV": "true"},
             color="magenta",
             open_browser_hint=True,
         ),
@@ -470,7 +469,10 @@ def dev(
                 command=frontend_cmd,
                 cwd=cli_ctx.frontend_path,
                 color="cyan",
-                env={"DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
+                env={
+                    "DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}",
+                    "DING_DEV": "true",
+                },
             )
         )
 

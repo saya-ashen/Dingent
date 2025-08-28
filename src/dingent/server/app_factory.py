@@ -29,8 +29,6 @@ async def lifespan(app: FastAPI):
 
     print("Plugins would be initialized here if needed.")
 
-    # app.state.client = httpx.AsyncClient(base_url=FRONTEND_URL)
-
     try:
         yield
     finally:

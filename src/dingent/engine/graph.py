@@ -1,11 +1,14 @@
 import re
+import sqlite3
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt.chat_agent_executor import AgentState
@@ -19,6 +22,13 @@ from dingent.core.log_manager import log_with_context
 from dingent.core.workflow_manager import get_workflow_manager
 
 from .simple_react_agent import build_simple_react_agent
+
+db_path = Path(".dingent/checkpoints.sqlite")
+db_path.parent.mkdir(parents=True, exist_ok=True)
+conn = sqlite3.connect(db_path, check_same_thread=False)
+
+checkpointer = SqliteSaver(conn)
+
 
 llm_manager = get_llm_manager()
 assistant_manager = get_assistant_manager()
@@ -324,7 +334,7 @@ async def make_graph():
         outer.add_node("swarm", safe_swarm)
         outer.add_edge(START, "swarm")
         outer.add_edge("swarm", END)
-        compiled_graph = outer.compile()
+        compiled_graph = outer.compile(checkpointer)
         compiled_graph.name = "Agent"
 
         yield compiled_graph
