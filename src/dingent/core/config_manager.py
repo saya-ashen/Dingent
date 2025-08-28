@@ -238,7 +238,7 @@ class ConfigManager:
         如果 id 存在则更新；如果不存在则创建。
         AssistantUpdate 若缺 id 则报错。
         """
-        if isinstance(data, (AssistantCreate, AssistantUpdate)):
+        if isinstance(data, AssistantCreate | AssistantUpdate):
             patch = data.model_dump(exclude_unset=True)
         else:
             patch = dict(data)

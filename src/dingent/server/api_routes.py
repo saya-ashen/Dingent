@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
 from dingent.core import get_app_context
+from dingent.core.log_manager import get_log_manager
 from dingent.core.plugin_manager import PluginManifest
 from dingent.core.settings import AssistantSettings
 from dingent.core.types import (
@@ -314,7 +315,7 @@ async def bulk_replace_assistants(req: AssistantsBulkReplaceRequest):
     """
     raw_list = []
     for item in req.assistants:
-        if isinstance(item, (AssistantCreate, AssistantUpdate)):
+        if isinstance(item, AssistantCreate | AssistantUpdate):
             raw = item.model_dump(exclude_unset=True)
         else:
             raw = dict(item)
@@ -456,8 +457,6 @@ async def remove_plugin_global(plugin_name: str):
 # ---------------------------------------------------------------------------
 # Logs (保持原逻辑)
 # ---------------------------------------------------------------------------
-
-from dingent.core.log_manager import get_log_manager
 
 
 @router.get("/logs")
