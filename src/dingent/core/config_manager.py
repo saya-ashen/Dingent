@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import os
+import shutil
+import time
+from collections.abc import Callable
+from contextlib import contextmanager
+from copy import deepcopy
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -10,12 +15,8 @@ import yaml
 from loguru import logger
 from pydantic import ValidationError
 
-from .log_manager import log_with_context
-from .plugin_manager import get_plugin_manager
 from .settings import AppSettings, AssistantSettings
 from .types import AssistantCreate, AssistantUpdate, PluginUserConfig
-from .utils import find_project_root
-from .workflow_manager import get_workflow_manager  # NEW: 引入工作流管理器
 
 
 # =========================================================
@@ -101,6 +102,9 @@ def _clean_patch(patch: dict) -> dict:
     return cleaned_dict
 
 
+OnChangeCallback = Callable[[AppSettings, AppSettings], None]
+
+
 # =========================================================
 # 异常
 # =========================================================
@@ -121,7 +125,44 @@ class AssistantNotFoundError(ConfigError, KeyError):
 # =========================================================
 ASSISTANTS_DIR_NAME = "assistants"
 PLUGINS_DIR_NAME = "plugins"
-WORKFLOWS_DIR_NAME = "workflows"  # 仅用于日志展示（实际加载由 workflow_manager 负责）
+WORKFLOWS_DIR_NAME = "workflows"  # 仍然保留目录常量（如需要显示），不主动管理其内部文件
+GLOBAL_CONFIG_FILE = "dingent.toml"
+
+
+class MigrationError(Exception):
+    pass
+
+
+class ConfigMigrationRegistry:
+    def __init__(self):
+        self._migrations: dict[int, Callable[[dict], dict]] = {}
+
+    def register(self, from_version: int, func: Callable[[dict], dict]) -> None:
+        self._migrations[from_version] = func
+
+    def migrate(self, data: dict, current_version: int, target_version: int) -> dict:
+        """
+        顺序执行 from_version -> from_version+1 ... 直到 target_version
+        若中间缺失迁移函数则抛出异常。
+        """
+        version = current_version
+        while version < target_version:
+            if version not in self._migrations:
+                raise MigrationError(f"Missing migration function for version {version} -> {version + 1}")
+            data = self._migrations[version](data)
+            version += 1
+        return data
+
+
+migration_registry = ConfigMigrationRegistry()
+
+# 示例：注册一个占位迁移（如需要）
+# @migration_registry.register(1)
+# def migrate_1_to_2(data: dict) -> dict:
+#     # mutate or copy
+#     data["some_new_field"] = data.get("some_new_field", {})
+#     data["config_version"] = 2
+#     return data
 
 
 # =========================================================
@@ -129,519 +170,483 @@ WORKFLOWS_DIR_NAME = "workflows"  # 仅用于日志展示（实际加载由 work
 # =========================================================
 class ConfigManager:
     """
-    多源配置管理：
-      - dingent.toml: 全局 (llm, default_assistant, 其它全局字段)
-      - config/assistants/{assistant_id}.yaml: 每个助理
-      - config/plugins/{plugin_name}/{assistant_id}.yaml: 每个助理的该插件实例配置
-      - config/workflows/{workflow_id}.json: 工作流（通过 WorkflowManager 统一管理）
+    职责聚焦版：
+      - 负责拆分式配置文件的 I/O（global / assistants / plugins）
+      - 提供线程安全获取与更新
+      - 提供快照/恢复、事务批处理、迁移框架、on_change 订阅
+      - 不做：插件业务逻辑（增删单个插件）、工作流对象管理、跨服务协作
 
-    删除插件：删除其目录 (config/plugins/{plugin_name}) + reload()
-    删除助理：删除 assistant 文件 + 其所有插件实例文件
-
-    save_config(): 对齐（写入期望的全部文件 & 清理孤立文件）
+    目录结构：
+      project_root/
+        dingent.toml
+        config/
+          assistants/{assistant_id}.yaml
+          plugins/{plugin_name}/{assistant_id}.yaml
+          workflows/ (ConfigManager 不写入，不解析内部结构，只保留 AppSettings 中已有字段)
     """
 
-    _instance: ConfigManager | None = None
-    _lock = RLock()
+    def __init__(
+        self,
+        project_root: Path,
+        backup_dir_name: str = ".config_backups",
+        max_backups: int = 5,
+        auto_migrate: bool = True,
+        target_config_version: int = 1,  # 你可以根据需要调整或从常量处读取
+    ):
+        self.project_root = Path(project_root)
+        self._global_config_path = self.project_root / GLOBAL_CONFIG_FILE
+        self._config_root = self.project_root / "config"
+        self._assistants_dir = self._config_root / ASSISTANTS_DIR_NAME
+        self._plugins_dir = self._config_root / PLUGINS_DIR_NAME
+        self._workflows_dir = self._config_root / WORKFLOWS_DIR_NAME  # 只为展示或透传
 
-    _settings: AppSettings | None = None
-    _global_config_path: Path | None = None
-    _config_root: Path | None = None
-    _assistants_dir: Path | None = None
-    _plugins_dir: Path | None = None
-    _workflows_dir: Path | None = None  # 仅用于信息展示
+        self._backup_root = self.project_root / backup_dir_name
+        self._max_backups = max_backups
 
-    def __init__(self):
-        project_root = find_project_root()
-        self.project_root = project_root
-        if project_root:
-            self._global_config_path = project_root / "dingent.toml"
-            self._config_root = project_root / "config"
-            self._assistants_dir = self._config_root / ASSISTANTS_DIR_NAME
-            self._plugins_dir = self._config_root / PLUGINS_DIR_NAME
-            self._workflows_dir = self._config_root / WORKFLOWS_DIR_NAME
-        else:
-            self._global_config_path = None
-            self._config_root = None
-            self._assistants_dir = None
-            self._plugins_dir = None
-            self._workflows_dir = None
+        self._lock = RLock()
+        self._on_change_callbacks: list[OnChangeCallback] = []
 
-        self._settings = self._load_config()
+        # 载入+迁移
+        raw_data = self._load_all()
+        if auto_migrate:
+            raw_data = self._maybe_migrate(raw_data, target_config_version)
+        self._settings = self._validate(raw_data)
 
-        log_with_context(
-            "info",
-            "Configuration Manager initialized (split-files mode)",
-            context={
-                "global_config_path": str(self._global_config_path) if self._global_config_path else None,
-                "assistants_dir": str(self._assistants_dir) if self._assistants_dir else None,
-                "plugins_dir": str(self._plugins_dir) if self._plugins_dir else None,
-                "workflows_dir": str(self._workflows_dir) if self._workflows_dir else None,
-                "total_assistants": len(self._settings.assistants) if self._settings else 0,
-                "total_workflows": len(self._settings.workflows) if self._settings else 0,
+        logger.info(
+            "ConfigManager initialized",
+            extra={
+                "assistants": len(self._settings.assistants),
+                "has_current_workflow": bool(self._settings.current_workflow),
             },
-            correlation_id="config_init_split",
         )
 
-    # =================== 加载逻辑 ===================
-    def _load_global_toml(self) -> dict[str, Any]:
-        data = {}
-        if self._global_config_path and self._global_config_path.is_file():
-            try:
-                with self._global_config_path.open("r", encoding="utf-8") as f:
-                    data = tomlkit.parse(f.read()).unwrap()
-            except Exception as e:
-                logger.error(f"读取 {self._global_config_path} 失败: {e}")
+    # ---------- 对外基础接口 ----------
+    def get_settings(self) -> AppSettings:
+        with self._lock:
+            return self._settings.model_copy(deep=True)
+
+    def list_assistants(self) -> list[AssistantSettings]:
+        with self._lock:
+            return [a.model_copy(deep=True) for a in self._settings.assistants]
+
+    def get_assistant(self, assistant_id: str) -> AssistantSettings | None:
+        with self._lock:
+            return next((a.model_copy(deep=True) for a in self._settings.assistants if a.id == assistant_id), None)
+
+    def upsert_assistant(self, data: AssistantCreate | AssistantUpdate | dict) -> AssistantSettings:
+        """
+        如果 id 存在则更新；如果不存在则创建。
+        AssistantUpdate 若缺 id 则报错。
+        """
+        if isinstance(data, AssistantCreate | AssistantUpdate):
+            patch = data.model_dump(exclude_unset=True)
         else:
-            logger.warning("未找到 dingent.toml，使用空全局配置。")
-        return data
+            patch = dict(data)
+
+        with self._lock:
+            old_settings = self._settings
+            assistants_map = {a.id: a for a in old_settings.assistants}
+            a_id = patch.get("id")
+
+            if a_id and a_id in assistants_map:
+                base = assistants_map[a_id].model_dump()
+                merged = deep_merge(base, patch, ["id", "name"])
+                new_assistant = AssistantSettings.model_validate(merged)
+                # replace
+                new_list = []
+                for a in old_settings.assistants:
+                    if a.id == a_id:
+                        new_list.append(new_assistant)
+                    else:
+                        new_list.append(a)
+            else:
+                # create new
+                create_obj = AssistantCreate.model_validate(patch)
+                new_assistant = AssistantSettings.model_validate(create_obj.model_dump())
+                new_list = list(old_settings.assistants) + [new_assistant]
+
+            new_app = old_settings.model_copy(update={"assistants": new_list})
+            self._replace_settings(old_settings, new_app)
+            return new_assistant.model_copy(deep=True)
+
+    def delete_assistant(self, assistant_id: str) -> bool:
+        with self._lock:
+            old = self._settings
+            new_list = [a for a in old.assistants if a.id != assistant_id]
+            if len(new_list) == len(old.assistants):
+                return False
+            new_app = old.model_copy(update={"assistants": new_list})
+            self._replace_settings(old, new_app)
+            # 删除文件
+            self._delete_assistant_files(assistant_id)
+            return True
+
+    def update_global(self, patch: dict[str, Any], clean: bool = True) -> AppSettings:
+        """
+        更新全局顶层字段（包含 default_assistant, llm 等），不会对 assistants 做任何修改。
+        """
+        with self._lock:
+            old = self._settings
+            base = old.model_dump()
+            if clean:
+                patch = _clean_patch(patch) or {}
+            merged = deep_merge(base, patch, ["id", "name"])
+            # 只保留原 assistants / 不覆盖
+            merged["assistants"] = base["assistants"]
+            try:
+                new_app = AppSettings.model_validate(merged)
+            except ValidationError as e:
+                raise ValueError(f"Global patch invalid: {e}") from e
+            self._replace_settings(old, new_app)
+            return new_app.model_copy(deep=True)
+
+    def update_plugins_for_assistant(self, assistant_id: str, plugin_configs: list[dict | PluginUserConfig]) -> AssistantSettings:
+        """
+        仅提供“整体替换”能力，不做增删业务细化（由外部服务组合）。
+        """
+        with self._lock:
+            old = self._settings
+            target = next((a for a in old.assistants if a.id == assistant_id), None)
+            if not target:
+                raise ValueError(f"Assistant '{assistant_id}' not found.")
+
+            new_plugins: list[PluginUserConfig] = []
+            for pc in plugin_configs:
+                if isinstance(pc, PluginUserConfig):
+                    new_plugins.append(pc)
+                else:
+                    new_plugins.append(PluginUserConfig.model_validate(pc))
+
+            new_assistant = target.model_copy(update={"plugins": new_plugins})
+            updated_assistants = []
+            for a in old.assistants:
+                updated_assistants.append(new_assistant if a.id == assistant_id else a)
+            new_app = old.model_copy(update={"assistants": updated_assistants})
+            self._replace_settings(old, new_app)
+            return new_assistant.model_copy(deep=True)
+
+    # ---------- 事务、快照与导入导出 ----------
+    @contextmanager
+    def transaction(self):
+        """
+        在上下文内多次修改 settings（使用 self._settings = ... 或暴露的 API），退出时统一保存。
+        如果中途出现异常则不写入磁盘。
+        """
+        with self._lock:
+            original = self._settings
+            working_copy = original.model_copy(deep=True)
+            self._settings = working_copy  # 临时工作副本
+            try:
+                yield working_copy
+                # 成功 -> 写入文件并触发回调
+                self._replace_settings(original, working_copy, already_locked=True)
+            except Exception:
+                # 回滚到 original
+                self._settings = original
+                raise
+
+    def export_snapshot(self) -> dict:
+        """
+        返回完整可 JSON 序列化的配置字典（含 assistants/plugins）。
+        """
+        with self._lock:
+            return self._settings.model_dump(mode="json")
+
+    def import_snapshot(self, data: dict, overwrite: bool = True) -> AppSettings:
+        """
+        从完整配置字典导入；默认覆盖（overwrite=True）。
+        """
+        with self._lock:
+            base = self._settings.model_dump() if not overwrite else {}
+            merged = deep_merge(base, data, ["id", "name"]) if not overwrite else data
+            new_app = self._validate(merged)
+            old = self._settings
+            self._replace_settings(old, new_app)
+            return new_app.model_copy(deep=True)
+
+    def dry_run_merge(self, patch: dict[str, Any]) -> tuple[bool, ValidationError | None]:
+        """
+        测试一个 patch 能否成功合并并通过校验。
+        """
+        with self._lock:
+            base = self._settings.model_dump()
+            merged = deep_merge(base, patch, ["id", "name"])
+            try:
+                AppSettings.model_validate(merged)
+                return True, None
+            except ValidationError as e:
+                return False, e
+
+    # ---------- 订阅机制 ----------
+    def register_on_change(self, callback: OnChangeCallback) -> None:
+        with self._lock:
+            if callback not in self._on_change_callbacks:
+                self._on_change_callbacks.append(callback)
+
+    def unregister_on_change(self, callback: OnChangeCallback) -> None:
+        with self._lock:
+            if callback in self._on_change_callbacks:
+                self._on_change_callbacks.remove(callback)
+
+    # ---------- 内部：迁移 & 验证 ----------
+    def _maybe_migrate(self, raw: dict, target_version: int) -> dict:
+        current_version = int(raw.get("config_version") or 1)
+        if current_version >= target_version:
+            return raw
+        logger.info(f"Migrating config {current_version} -> {target_version}")
+        migrated = migration_registry.migrate(raw, current_version, target_version)
+        if "config_version" not in migrated:
+            migrated["config_version"] = target_version
+        return migrated
+
+    def _validate(self, raw: dict) -> AppSettings:
+        # 环境变量覆盖
+        if "APP_DEFAULT_ASSISTANT" in os.environ:
+            raw["default_assistant"] = os.environ["APP_DEFAULT_ASSISTANT"]
+        try:
+            return AppSettings.model_validate(raw)
+        except ValidationError as e:
+            logger.error(f"Configuration validation failed: {e}")
+            raise
+
+    # ---------- 内部：文件加载 ----------
+    def _load_all(self) -> dict:
+        global_part = self._load_global()
+        assistants_raw = self._load_assistants()
+        plugin_map = self._load_plugin_instances()
+
+        assistants: list[dict] = []
+        for a_id, a_data in assistants_raw.items():
+            copy_data = deepcopy(a_data)
+            copy_data["plugins"] = plugin_map.get(a_id, [])
+            assistants.append(copy_data)
+
+        # workflows 字段：如果你希望仍保留（不深度解析），则可读取 global_part 里或留空
+        if "workflows" not in global_part:
+            global_part["workflows"] = []  # 仅占位
+        global_part["assistants"] = assistants
+        return global_part
+
+    def _load_global(self) -> dict:
+        if not self._global_config_path.is_file():
+            logger.warning("Global config file missing, using defaults.")
+            return {}
+        try:
+            text = self._global_config_path.read_text("utf-8")
+            doc = tomlkit.parse(text).unwrap()
+            return doc
+        except Exception as e:
+            logger.error(f"Failed to read global config: {e}")
+            return {}
 
     def _load_assistants(self) -> dict[str, dict]:
-        """
-        返回 {assistant_id: assistant_dict(不含plugins)}
-        """
         result: dict[str, dict] = {}
-        if not self._assistants_dir or not self._assistants_dir.is_dir():
+        if not self._assistants_dir.is_dir():
             return result
         for f in self._assistants_dir.glob("*.yaml"):
             try:
                 data = yaml.safe_load(f.read_text("utf-8")) or {}
                 if not isinstance(data, dict):
-                    logger.warning(f"Assistant 文件 {f} 顶层不是字典，跳过。")
+                    logger.warning(f"Assistant file {f} top-level not dict. Skip.")
                     continue
-                if "id" not in data or not data["id"]:
-                    logger.warning(f"Assistant 文件 {f} 缺少 id，将自动生成。")
-                result_id = data.get("id")
-                if not result_id:
-                    import uuid
-
-                    result_id = str(uuid.uuid4())
-                    data["id"] = result_id
-                    f.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), "utf-8")
-                data.pop("plugins", None)
-                result[result_id] = data
+                aid = data.get("id")
+                if not aid:
+                    logger.warning(f"Assistant file {f} missing id. Skip.")
+                    continue
+                data.pop("plugins", None)  # 强制移除，实际以拆分插件为准
+                result[aid] = data
             except Exception as e:
-                logger.error(f"读取助理文件 {f} 失败: {e}")
+                logger.error(f"Read assistant file {f} failed: {e}")
         return result
 
     def _load_plugin_instances(self) -> dict[str, list[dict]]:
-        """
-        遍历 config/plugins/{plugin_name} 下的所有 *.yaml:
-          文件内容需要包含 assistant_id
-        返回 mapping: assistant_id -> [plugin_config_dict, ...]
-        """
         mapping: dict[str, list[dict]] = {}
-        if not self._plugins_dir or not self._plugins_dir.is_dir():
+        if not self._plugins_dir.is_dir():
             return mapping
-
-        for plugin_dir in self._plugins_dir.iterdir():
-            if not plugin_dir.is_dir():
+        for pdir in self._plugins_dir.iterdir():
+            if not pdir.is_dir():
                 continue
-            plugin_name = plugin_dir.name
-            for cfg_file in plugin_dir.glob("*.yaml"):
+            plugin_name = pdir.name
+            for cfg in pdir.glob("*.yaml"):
                 try:
-                    pdata = yaml.safe_load(cfg_file.read_text("utf-8")) or {}
+                    pdata = yaml.safe_load(cfg.read_text("utf-8")) or {}
                     if not isinstance(pdata, dict):
-                        logger.warning(f"插件配置 {cfg_file} 顶层不是字典，跳过。")
                         continue
-                    assistant_id = pdata.get("assistant_id")
-                    if not assistant_id:
-                        logger.warning(f"插件配置 {cfg_file} 缺少 assistant_id，跳过。")
+                    aid = pdata.get("assistant_id")
+                    if not aid:
+                        logger.warning(f"Plugin instance {cfg} missing assistant_id. Skip.")
                         continue
-                    if "plugin_name" not in pdata or pdata["plugin_name"] != plugin_name:
+                    if pdata.get("plugin_name") != plugin_name:
                         pdata["plugin_name"] = plugin_name
-                    if "name" not in pdata or not pdata["name"]:
+                    if not pdata.get("name"):
                         pdata["name"] = plugin_name
-                    mapping.setdefault(assistant_id, []).append(pdata)
+                    mapping.setdefault(aid, []).append(pdata)
                 except Exception as e:
-                    logger.error(f"读取插件实例文件 {cfg_file} 失败: {e}")
+                    logger.error(f"Failed reading plugin file {cfg}: {e}")
         return mapping
 
-    def _load_workflows(self) -> list[dict]:
+    # ---------- 内部：写入 ----------
+    def _replace_settings(self, old: AppSettings, new: AppSettings, already_locked: bool = False) -> None:
         """
-        通过 WorkflowManager 读取所有工作流，返回列表(dict)。
-        工作流的物理存储位于 config/workflows/*.json
+        将内存配置替换并持久化到文件；触发 on_change 回调。
         """
+        lock_cm = self._lock if not already_locked else None
+        if lock_cm:
+            lock_cm.acquire()
         try:
-            wm = get_workflow_manager()
-            return [w.model_dump() for w in wm.get_workflows()]
-        except Exception as e:
-            logger.error(f"加载工作流失败: {e}")
-            return []
+            if old is new:
+                # 同一对象引用（事务内会出现），仍执行持久化
+                pass
+            self._settings = new
+            self._persist()
+            self._emit_change(old, new)
+        finally:
+            if lock_cm:
+                lock_cm.release()
 
-    def _assemble_settings(
-        self,
-        global_data: dict[str, Any],
-        assistants_raw: dict[str, dict],
-        plugin_map: dict[str, list[dict]],
-        workflows: list[dict],
-    ) -> dict[str, Any]:
-        assistants: list[dict] = []
-        for a_id, a_data in assistants_raw.items():
-            a_copy = dict(a_data)
-            plugin_list = plugin_map.get(a_id, [])
-            a_copy["plugins"] = plugin_list
-            assistants.append(a_copy)
+    def _persist(self) -> None:
+        # 先写入备份
+        self._write_backup()
+        data = self._settings.model_dump(mode="json", exclude_none=True)
+        assistants = data.pop("assistants", [])
 
-        merged = dict(global_data)
-        merged["assistants"] = assistants
-        merged["workflows"] = workflows  # NEW
-        return merged
+        # workflows: 不主动写拆分文件（保持兼容），仅留在 global toml 中（若字段很大可单独剥离）
+        self._write_global(data)
+        self._write_assistants_and_plugins(assistants)
 
-    def _load_config(self) -> AppSettings:
-        global_data = self._load_global_toml()
-        assistants_raw = self._load_assistants()
-        plugin_map = self._load_plugin_instances()
-        workflows = self._load_workflows()  # NEW
-
-        # 环境变量覆盖
-        if "APP_DEFAULT_ASSISTANT" in os.environ:
-            global_data["default_assistant"] = os.environ["APP_DEFAULT_ASSISTANT"]
-
-        merged_data = self._assemble_settings(global_data, assistants_raw, plugin_map, workflows)
-
-        try:
-            return AppSettings.model_validate(merged_data)
-        except ValidationError as e:
-            logger.error(f"配置校验失败，使用占位默认: {e}")
-            return AppSettings.model_validate(
-                {
-                    "llm": {
-                        "model": "placeholder-model",
-                        "provider": None,
-                        "base_url": None,
-                        "api_key": None,
-                    },
-                    "assistants": [],
-                    "workflows": [],
-                }
-            )
-
-    # =================== 保存逻辑 ===================
-    def save_config(self) -> None:
-        with self._lock:
-            if not self._settings:
-                logger.error("无 _settings，无法保存。")
-                return
-
-            data = self._settings.model_dump(mode="json", exclude_none=True)
-            assistants = data.pop("assistants", [])
-            # 不将 workflows 写入 dingent.toml（它们由 WorkflowManager 单独管理）
-            workflows = data.pop("workflows", None)
-
-            self._write_global_toml(data)
-            self._write_assistants_and_plugins(assistants)
-
-            log_with_context(
-                "info",
-                "Configuration saved (split-files)",
-                context={
-                    "global_config_path": str(self._global_config_path) if self._global_config_path else None,
-                    "assistants_count": len(assistants),
-                    "workflows_cached": len(workflows) if workflows else 0,
-                },
-                correlation_id="config_save_split",
-            )
-
-    def _write_global_toml(self, global_part: dict[str, Any]) -> None:
-        if not self._global_config_path:
-            logger.warning("未设置 global_config_path，跳过写入 dingent.toml。")
-            return
+    def _write_global(self, global_part: dict[str, Any]) -> None:
         self._global_config_path.parent.mkdir(parents=True, exist_ok=True)
         if self._global_config_path.is_file():
             doc = tomlkit.parse(self._global_config_path.read_text("utf-8"))
         else:
             doc = tomlkit.document()
+        # 清空再写（可选：保留历史字段）
+        for k in list(doc.keys()):
+            if k not in global_part:
+                # 保守做法：不删除未知字段
+                # 若希望强制对齐，可执行: del doc[k]
+                pass
         doc.update(global_part)
         self._global_config_path.write_text(tomlkit.dumps(doc), "utf-8")
 
     def _write_assistants_and_plugins(self, assistants: list[dict]) -> None:
-        if not self._assistants_dir or not self._plugins_dir:
-            logger.warning("未初始化 assistants/plugins 目录，跳过写入。")
-            return
-
         self._assistants_dir.mkdir(parents=True, exist_ok=True)
         self._plugins_dir.mkdir(parents=True, exist_ok=True)
 
-        current_assistant_ids = set()
+        desired_assistant_ids = set()
         desired_plugin_files: set[Path] = set()
 
         for a in assistants:
             a_id = a.get("id")
             if not a_id:
-                logger.warning(f"发现缺少 id 的 assistant: {a.get('name')}，跳过保存其文件。")
+                logger.warning("Assistant without id discarded during save.")
                 continue
-            current_assistant_ids.add(a_id)
-
+            desired_assistant_ids.add(a_id)
             a_copy = dict(a)
             plugin_list = a_copy.pop("plugins", [])
 
-            assistant_file = self._assistants_dir / f"{a_id}.yaml"
-            with assistant_file.open("w", encoding="utf-8") as f:
-                yaml.safe_dump(a_copy, f, allow_unicode=True, sort_keys=False, default_flow_style=False)
+            # 写 assistant
+            (self._assistants_dir / f"{a_id}.yaml").write_text(
+                yaml.safe_dump(a_copy, allow_unicode=True, sort_keys=False),
+                "utf-8",
+            )
 
+            # 写 plugin instances
             for p in plugin_list:
                 p_copy = dict(p)
                 p_copy["assistant_id"] = a_id
                 plugin_name = p_copy.get("plugin_name") or p_copy.get("name")
                 if not plugin_name:
-                    logger.warning(f"插件实例缺少 plugin_name/name 字段，assistant {a_id} 跳过: {p}")
+                    logger.warning(f"Plugin config for assistant {a_id} missing plugin_name.")
                     continue
-                target_dir = self._plugins_dir / plugin_name
-                target_dir.mkdir(parents=True, exist_ok=True)
-                plugin_file = target_dir / f"{a_id}.yaml"
-                desired_plugin_files.add(plugin_file)
-                with plugin_file.open("w", encoding="utf-8") as pf:
-                    yaml.safe_dump(
-                        p_copy,
-                        pf,
-                        allow_unicode=True,
-                        sort_keys=False,
-                        default_flow_style=False,
-                    )
+                p_dir = self._plugins_dir / plugin_name
+                p_dir.mkdir(parents=True, exist_ok=True)
+                pf = p_dir / f"{a_id}.yaml"
+                desired_plugin_files.add(pf)
+                pf.write_text(
+                    yaml.safe_dump(p_copy, allow_unicode=True, sort_keys=False),
+                    "utf-8",
+                )
 
+        # 清理多余 assistants
         for old_file in self._assistants_dir.glob("*.yaml"):
-            try:
-                if old_file.stem not in current_assistant_ids:
+            if old_file.stem not in desired_assistant_ids:
+                try:
                     old_file.unlink()
-            except Exception as e:
-                logger.error(f"删除过期助理文件 {old_file} 失败: {e}")
+                except Exception as e:
+                    logger.error(f"Remove stale assistant file {old_file} failed: {e}")
 
-        for plugin_dir in self._plugins_dir.iterdir():
-            if not plugin_dir.is_dir():
+        # 清理多余插件实例
+        for pdir in self._plugins_dir.iterdir():
+            if not pdir.is_dir():
                 continue
-            for cfg_file in plugin_dir.glob("*.yaml"):
-                if cfg_file not in desired_plugin_files:
+            for cfg in pdir.glob("*.yaml"):
+                if cfg not in desired_plugin_files:
                     try:
-                        cfg_file.unlink()
+                        cfg.unlink()
                     except Exception as e:
-                        logger.error(f"删除过期插件实例文件 {cfg_file} 失败: {e}")
+                        logger.error(f"Remove stale plugin instance {cfg} failed: {e}")
+            # 删除空目录
             try:
-                if not any(plugin_dir.iterdir()):
-                    plugin_dir.rmdir()
+                if not any(pdir.iterdir()):
+                    pdir.rmdir()
             except Exception:
                 pass
 
-    # =================== 公共 API ===================
-    def get_config(self) -> AppSettings:
-        with self._lock:
-            return self._settings.model_copy(deep=True)
-
-    def reload(self) -> None:
-        with self._lock:
-            self._settings = self._load_config()
-            logger.info("配置已重新加载。")
-
-    def update_config(self, new_config_data: dict[str, Any], override_empty=False) -> None:
-        if not isinstance(new_config_data, dict):
-            raise TypeError("new_config_data must be a dict")
-        with self._lock:
+    def _delete_assistant_files(self, assistant_id: str) -> None:
+        # 删除 assistant YAML
+        f = self._assistants_dir / f"{assistant_id}.yaml"
+        if f.is_file():
             try:
-                cleaned = new_config_data if override_empty else _clean_patch(new_config_data)
-                if not cleaned:
-                    logger.debug("更新跳过：清洗后为空。")
-                    return
-                current_data = self._settings.model_dump()
-                merged = deep_merge(current_data, cleaned, ["id", "name"])
-                new_settings = AppSettings.model_validate(merged)
-                self._settings = new_settings
-                self.save_config()
-            except ValidationError as e:
-                raise ConfigUpdateError(f"Configuration validation failed: {e}") from e
-
-    def get_all_assistants_config(self) -> dict[str, Any]:
-        with self._lock:
-            return {a.id: a for a in self._settings.assistants}
-
-    def get_assistant_by_id(self, assistant_id: str) -> AssistantSettings | None:
-        with self._lock:
-            return next((a for a in self._settings.assistants if a.id == assistant_id), None)
-
-    def get_assistant_by_name(self, assistant_name: str) -> AssistantSettings | None:
-        with self._lock:
-            return next((a for a in self._settings.assistants if a.name == assistant_name), None)
-
-    def add_assistant(self, assistant: AssistantCreate) -> None:
-        with self._lock:
-            if self.get_assistant_by_name(assistant.name):
-                raise ValueError(f"Assistant name '{assistant.name}' already exists.")
-            assistant_settings = AssistantSettings.model_validate(assistant.model_dump())
-            self._settings.assistants.append(assistant_settings)
-            self.save_config()
-
-    def remove_assistant(self, assistant_id: str) -> None:
-        with self._lock:
-            before = len(self._settings.assistants)
-            self._settings.assistants = [a for a in self._settings.assistants if a.id != assistant_id]
-            after = len(self._settings.assistants)
-            if before == after:
-                raise AssistantNotFoundError(f"Assistant '{assistant_id}' not found.")
-
-            # Clean up workflows that reference this assistant (if workflow manager is available)
-            try:
-                workflow_manager = get_workflow_manager()
-                modified_workflows = workflow_manager.cleanup_workflows_for_deleted_assistant(assistant_id)
-                if modified_workflows:
-                    logger.info(f"Cleaned up {len(modified_workflows)} workflows after deleting assistant '{assistant_id}'")
+                f.unlink()
             except Exception as e:
-                logger.warning(f"Could not clean up workflows for deleted assistant '{assistant_id}': {e}")
-
-            if self._assistants_dir:
-                afile = self._assistants_dir / f"{assistant_id}.yaml"
-                if afile.is_file():
+                logger.error(f"Failed to remove assistant file {f}: {e}")
+        # 删除该 assistant 的所有插件实例
+        if self._plugins_dir.is_dir():
+            for pdir in self._plugins_dir.iterdir():
+                if not pdir.is_dir():
+                    continue
+                inst = pdir / f"{assistant_id}.yaml"
+                if inst.is_file():
                     try:
-                        afile.unlink()
+                        inst.unlink()
                     except Exception as e:
-                        logger.error(f"删除助理文件失败 {afile}: {e}")
-            if self._plugins_dir and self._plugins_dir.is_dir():
-                for pdir in self._plugins_dir.iterdir():
-                    if not pdir.is_dir():
-                        continue
-                    inst_file = pdir / f"{assistant_id}.yaml"
-                    if inst_file.is_file():
-                        try:
-                            inst_file.unlink()
-                        except Exception as e:
-                            logger.error(f"删除插件实例文件失败 {inst_file}: {e}")
-                    try:
-                        if not any(pdir.iterdir()):
-                            pdir.rmdir()
-                    except Exception:
-                        pass
-            self.save_config()
-
-    # ============ 插件操作 ============
-    def add_plugin_config_to_assistant(self, assistant_id: str, plugin_name: str) -> None:
-        plugin_manager = get_plugin_manager()
-        plugin_manifest = plugin_manager.get_plugin_manifest(plugin_name)
-        if not plugin_manifest:
-            raise ValueError(f"Plugin '{plugin_name}' 未注册或不存在。")
-
-        with self._lock:
-            assistant = self.get_assistant_by_id(assistant_id)
-            if not assistant:
-                raise AssistantNotFoundError(f"Assistant '{assistant_id}' not found.")
-
-            if any(p.plugin_name == plugin_name for p in assistant.plugins):
-                raise ValueError(f"Plugin '{plugin_name}' 已存在于助手 '{assistant.name}'。")
-
-            new_plugin_config = PluginUserConfig(
-                name=plugin_name,
-                plugin_name=plugin_name,
-                enabled=True,
-                tools_default_enabled=True,
-                config={},
-                tools=[],
-            )
-            assistant.plugins.append(new_plugin_config)
-            self.save_config()
-
-            log_with_context(
-                "info",
-                "Plugin added",
-                context={
-                    "plugin_name": plugin_name,
-                    "assistant_id": assistant_id,
-                    "assistant_name": assistant.name,
-                },
-                correlation_id=f"plugin_add_{plugin_name}_{assistant_id}",
-            )
-
-    def remove_plugin_from_assistant(self, assistant_id: str, plugin_name: str) -> None:
-        with self._lock:
-            assistant = self.get_assistant_by_id(assistant_id)
-            if not assistant:
-                raise AssistantNotFoundError(f"Assistant '{assistant_id}' not found.")
-
-            target = None
-            for p in assistant.plugins:
-                if p.plugin_name == plugin_name or p.name == plugin_name:
-                    target = p
-                    break
-            if not target:
-                raise ValueError(f"Assistant '{assistant.name}' 未配置插件 '{plugin_name}'。")
-
-            assistant.plugins.remove(target)
-
-            if self._plugins_dir:
-                plugin_dir = self._plugins_dir / plugin_name
-                inst_file = plugin_dir / f"{assistant_id}.yaml"
-                if inst_file.is_file():
-                    try:
-                        inst_file.unlink()
-                    except Exception as e:
-                        logger.error(f"删除插件实例文件失败 {inst_file}: {e}")
+                        logger.error(f"Failed remove plugin instance {inst}: {e}")
                 try:
-                    if plugin_dir.is_dir() and not any(plugin_dir.iterdir()):
-                        plugin_dir.rmdir()
+                    if not any(pdir.iterdir()):
+                        pdir.rmdir()
                 except Exception:
                     pass
 
-            self.save_config()
-            logger.success(f"已从助手 '{assistant.name}' 移除插件 '{plugin_name}'。")
+    # ---------- 内部：备份 & 变更通知 ----------
+    def _write_backup(self) -> None:
+        try:
+            self._backup_root.mkdir(parents=True, exist_ok=True)
+            ts = time.strftime("%Y%m%d-%H%M%S")
+            backup_dir = self._backup_root / ts
+            backup_dir.mkdir()
+            # 复制 global
+            if self._global_config_path.exists():
+                shutil.copy2(self._global_config_path, backup_dir / self._global_config_path.name)
+            # 复制 assistants & plugins
+            for d in (self._assistants_dir, self._plugins_dir):
+                if d.exists():
+                    target_sub = backup_dir / d.name
+                    shutil.copytree(d, target_sub)
+            # 保留最新 N 份
+            backups = sorted(self._backup_root.iterdir(), key=lambda p: p.name, reverse=True)
+            for old in backups[self._max_backups :]:
+                if old.is_dir():
+                    shutil.rmtree(old, ignore_errors=True)
+        except Exception as e:
+            logger.warning(f"Write backup failed (ignored): {e}")
 
-    def remove_plugin_globally(self, plugin_name: str) -> None:
-        with self._lock:
-            changed = False
-            for assistant in self._settings.assistants:
-                original_len = len(assistant.plugins)
-                assistant.plugins = [p for p in assistant.plugins if not (p.plugin_name == plugin_name or p.name == plugin_name)]
-                if len(assistant.plugins) != original_len:
-                    changed = True
-
-            if self._plugins_dir:
-                plugin_dir = self._plugins_dir / plugin_name
-                if plugin_dir.is_dir():
-                    for f in plugin_dir.glob("*.yaml"):
-                        try:
-                            f.unlink()
-                        except Exception as e:
-                            logger.error(f"删除文件失败 {f}: {e}")
-                    try:
-                        plugin_dir.rmdir()
-                    except Exception as e:
-                        logger.error(f"删除目录失败 {plugin_dir}: {e}")
-
-            if changed:
-                self.save_config()
-                logger.success(f"插件 '{plugin_name}' 全局删除完成。")
-            else:
-                logger.info(f"没有任何助理使用插件 '{plugin_name}'。")
-
-    def update_assistant(self, assistant_id: str, updated_data: AssistantUpdate) -> None:
-        with self._lock:
-            assistant = self.get_assistant_by_id(assistant_id)
-            if not assistant:
-                raise AssistantNotFoundError(f"Assistant '{assistant_id}' not found.")
-            raw = assistant.model_dump()
-            patch = {k: v for k, v in updated_data.model_dump(exclude_unset=True).items() if v is not None}
-            merged = deep_merge(raw, patch, ["id", "name"])
-            new_assistant = AssistantSettings.model_validate(merged)
-
-            for i, a in enumerate(self._settings.assistants):
-                if a.id == assistant_id:
-                    self._settings.assistants[i] = new_assistant
-                    break
-            self.save_config()
-
-    def get_current_workflow(self):
-        with self._lock:
-            workflow_manager = get_workflow_manager()
-            workflow_id = self._settings.current_workflow
-            workflow = workflow_manager.get_workflow(str(workflow_id))
-            if not workflow and self._settings.workflows:
-                workflows = workflow_manager.get_workflows()
-                workflow = workflows[0] if workflows else None
-            if not workflow:
-                raise ValueError("No workflow available.")
-            return workflow
-
-
-config_manager: ConfigManager | None = None
-
-
-def get_config_manager():
-    global config_manager
-    if config_manager is None:
-        config_manager = ConfigManager()
-    return config_manager
+    def _emit_change(self, old: AppSettings, new: AppSettings) -> None:
+        if old is new:
+            # 事务中 old 与 new 引用不同，这里不做过多判断
+            pass
+        for cb in list(self._on_change_callbacks):
+            try:
+                cb(old, new)
+            except Exception as e:
+                logger.error(f"on_change callback error: {e}")

@@ -257,12 +257,10 @@ export function useResourceWidgets(
  * - 字段存在 (可为空数组) => 按值传递
  */
 export function useWidgets() {
-    const { state, threadId } = useCoAgent<AgentState>({ name: "sample_agent" });
+    const { state } = useCoAgent<AgentState>({ name: "dingent" });
     const ids = state && Object.prototype.hasOwnProperty.call(state, "artifact_ids")
         ? state.artifact_ids
         : undefined;
 
-    // 调试
-    console.log("state", state, threadId);
     return useResourceWidgets(ids);
 }

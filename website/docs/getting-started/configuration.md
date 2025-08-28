@@ -69,7 +69,7 @@ Each tool is created by a developer and encapsulates the logic for interacting w
 
 [[assistants]]
 name = "sakila"
-host = "127.0.0.1"
+host = "localhost"
 port = "8888"
 description = """
 This assistant can only answer questions about the operations of a DVD rental business stored in the database. The query should be about analyzing business performance, customer behavior, or film inventory.

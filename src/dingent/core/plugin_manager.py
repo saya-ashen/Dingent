@@ -13,9 +13,9 @@ from loguru import logger
 from mcp.types import TextContent
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
-from dingent.core.log_manager import log_with_context
-
-from .resource_manager import get_resource_manager
+from .config_manager import ConfigManager
+from .log_manager import log_with_context
+from .resource_manager import ResourceManager
 from .types import (
     ConfigItemDetail,
     ExecutionModel,
@@ -24,7 +24,6 @@ from .types import (
     PluginUserConfig,
     ToolResult,
 )
-from .utils import find_project_root
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 
@@ -34,8 +33,11 @@ class ResourceMiddleware(Middleware):
     拦截工具调用结果，标准化为 ToolResult，并存储，仅向模型暴露最小必要文本。
     """
 
+    def __init__(self, resource_manager: ResourceManager):
+        super().__init__()
+        self.resource_manager = resource_manager
+
     async def on_call_tool(self, context: MiddlewareContext, call_next):
-        resource_manager = get_resource_manager()
         result = await call_next(context)
 
         assert context.fastmcp_context
@@ -68,7 +70,7 @@ class ResourceMiddleware(Middleware):
             tool_result = ToolResult.from_any(raw_text)
 
         # 4. 注册资源
-        artifact_id = resource_manager.register(tool_result)
+        artifact_id = self.resource_manager.register(tool_result)
 
         # 5. 构建最小结构，喂给模型的文本直接用 model_text
         minimal_struct = {
@@ -135,9 +137,6 @@ def _prepare_environment(validated_config: BaseModel) -> dict[str, str]:
     return env_vars
 
 
-middleware = ResourceMiddleware()
-
-
 class PluginInstance:
     mcp_client: Client
     name: str
@@ -170,6 +169,7 @@ class PluginInstance:
         cls,
         manifest: "PluginManifest",
         user_config: PluginUserConfig,
+        middleware: Middleware | None = None,
     ) -> "PluginInstance":
         if not user_config.enabled:
             raise ValueError(f"Plugin '{manifest.name}' is not enabled. This should not happend")
@@ -218,7 +218,8 @@ class PluginInstance:
 
         mcp = FastMCP(name=user_config.name)
         mcp.mount(remote_proxy)
-        mcp.add_middleware(middleware)
+        if middleware:
+            mcp.add_middleware(middleware)
 
         base_tools_dict = await mcp.get_tools()
 
@@ -329,30 +330,27 @@ class PluginManifest(PluginBase):
     async def create_instance(
         self,
         user_config: PluginUserConfig,
+        middleware: Middleware | None = None,
     ) -> "PluginInstance":
         if self.path is None:
             raise ValueError("Plugin path is not set. Please set the path before creating an instance.")
         return await PluginInstance.from_config(
             manifest=self,
             user_config=user_config,
+            middleware=middleware,
         )
 
 
 class PluginManager:
     plugins: dict[str, PluginManifest] = {}
 
-    def __init__(self, plugin_dir: str | None = None):
-        if not plugin_dir:
-            project_root = find_project_root()
-            if project_root:
-                self.plugin_dir = project_root / "plugins"
-            else:
-                raise ValueError("Plugin directory must be specified or a project root must be found.")
-        else:
-            self.plugin_dir = Path(plugin_dir)
-        if self.plugin_dir:
-            logger.info(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
-            self._scan_and_register_plugins()
+    def __init__(self, config_manager: ConfigManager, resource_manager: ResourceManager):
+        plugin_dir = config_manager.project_root / "plugins"
+        self.plugin_dir = plugin_dir
+        self.plugin_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Initializing PluginManager, scanning directory: '{self.plugin_dir}'")
+        self._scan_and_register_plugins()
+        self.middleware = ResourceMiddleware(resource_manager)
 
     def _scan_and_register_plugins(self):
         if not self.plugin_dir.is_dir():
@@ -381,7 +379,10 @@ class PluginManager:
         if plugin_name not in self.plugins:
             raise ValueError(f"Plugin '{plugin_name}' is not registered or failed to load.")
         plugin_definition = self.plugins[plugin_name]
-        return await plugin_definition.create_instance(instance_settings)
+        return await plugin_definition.create_instance(
+            instance_settings,
+            self.middleware,
+        )
 
     def get_plugin_manifest(self, plugin_name: str) -> PluginManifest | None:
         return self.plugins.get(plugin_name)
@@ -391,13 +392,3 @@ class PluginManager:
             logger.error(f"Plugin '{self.plugins[plugin_name].path}' removed from PluginManager.")
         else:
             logger.warning(f"Plugin '{plugin_name}' not found in PluginManager.")
-
-
-plugin_manager = None
-
-
-def get_plugin_manager() -> PluginManager:
-    global plugin_manager
-    if plugin_manager is None:
-        plugin_manager = PluginManager()
-    return plugin_manager

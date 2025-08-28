@@ -2,17 +2,14 @@ import mimetypes
 from contextlib import asynccontextmanager
 from importlib.resources import files
 
-import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 
-from dingent.core.assistant_manager import get_assistant_manager
-from dingent.core.resource_manager import get_resource_manager
+from dingent.core.context import get_app_context
 
 from .api_routes import router as admin_config_router
 
 assistant_id = "agent"
-FRONTEND_URL = "http://localhost:3000"
 
 
 @asynccontextmanager
@@ -24,20 +21,15 @@ async def lifespan(app: FastAPI):
     """
     print(f"--- Application Startup ---\n{app.summary}")
 
-    assistant_manager = get_assistant_manager()
-    await assistant_manager.get_assistants()
-
     print("Plugins would be initialized here if needed.")
-
-    # app.state.client = httpx.AsyncClient(base_url=FRONTEND_URL)
+    app.state.app_context = get_app_context()
 
     try:
         yield
     finally:
         print("--- Application Shutdown ---")
         try:
-            await assistant_manager.aclose()
-            # await app.state.client.aclose()
+            await app.state.app_context.close()
         except Exception as e:
             print(f"Error during assistant_manager.aclose(): {e}")
         print("All plugin subprocesses have been shut down.")
@@ -77,45 +69,16 @@ def register_admin_routes(app: FastAPI, base_path: str = "/admin") -> None:
             raise HTTPException(404, detail="Not found")
 
 
-def register_frontend_routes(app: FastAPI) -> None:
-    @app.get("/ok")
-    async def ok():
-        return {"status": "ok"}
-
-    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
-    async def reverse_proxy(request: Request):
-        client: httpx.AsyncClient = request.app.state.client
-
-        # Build the URL for the backend request
-        url = httpx.URL(path=request.url.path, query=request.url.query.encode("utf-8"))
-
-        # Prepare the request to be forwarded
-        rp_request = client.build_request(method=request.method, url=url, headers=request.headers.raw, content=await request.body())
-
-        # Make the request to the frontend server
-        # stream=True is crucial for handling large files and streaming responses
-        rp_response = await client.send(rp_request, stream=True)
-
-        # Return the response from the frontend server back to the client
-        # We use StreamingResponse to efficiently handle the data flow
-        return StreamingResponse(
-            rp_response.aiter_raw(),
-            status_code=rp_response.status_code,
-            headers=rp_response.headers,
-            background=rp_response.aclose,  # Ensure the connection is closed
-        )
-
-
 def build_agent_api(**kwargs) -> FastAPI:
     kwargs["lifespan"] = lifespan
     app = FastAPI(**kwargs)
     app.include_router(admin_config_router, prefix="/api/v1")
     register_admin_routes(app, "/admin")
-    # register_frontend_routes(app)
 
     @app.get("/api/resource/{resource_id}")
-    async def get_resource(resource_id: str, with_model_text=False):
-        resource_manager = get_resource_manager()
+    async def get_resource(resource_id: str, request: Request, with_model_text=False):
+        app_context = request.app.state.app_context
+        resource_manager = app_context.resource_manager
         resource = resource_manager.get(resource_id)
         if not resource:
             raise HTTPException(status_code=404, detail=f"Resource {resource_id} not found")
@@ -130,3 +93,16 @@ def build_agent_api(**kwargs) -> FastAPI:
 
 
 app = build_agent_api()
+
+
+origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+)

@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow } from "./types";
 
-const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000") + "/api/v1";
+const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8000") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
 
 // 可选：从本地存储读取鉴权令牌

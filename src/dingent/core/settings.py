@@ -41,7 +41,7 @@ class AssistantSettings(AssistantBase):
     plugins: list[PluginUserConfig] = []
 
 
-class LlmSettings(BaseModel):
+class LLMSettings(BaseModel):
     model: str = Field("gpt-4.1", description="LLM model name.")
     provider: str | None = Field(None, description="Provider name.")
     base_url: str | None = Field(None, description="Base URL.")
@@ -51,7 +51,7 @@ class LlmSettings(BaseModel):
 class AppSettings(BaseModel):
     model_config = ConfigDict(env_prefix="DINGENT_", populate_by_name=True, extra="ignore")
     assistants: list[AssistantSettings] = []
-    llm: LlmSettings = Field(default_factory=LlmSettings)
+    llm: LLMSettings = LLMSettings()
     backend_port: int = 8000
     frontend_port: int = 8080
     workflows: list[Workflow] = Field(default_factory=list, description="All workflows cached in settings")
