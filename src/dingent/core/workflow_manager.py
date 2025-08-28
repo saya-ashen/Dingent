@@ -12,6 +12,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from dingent.core.config_manager import ConfigManager
+from dingent.core.settings import AppSettings
 from dingent.core.types import (
     Workflow,
     WorkflowCreate,
@@ -89,6 +90,9 @@ class WorkflowManager:
             first_id = next(iter(self._workflows.keys()))
             self._active_workflow_id = first_id
             self._persist_active_workflow_id(first_id)
+
+        # Register callback to handle assistant deletions
+        self.config_manager.register_on_change(self._on_config_change)
 
         logger.info(
             "WorkflowManager initialized",
@@ -213,6 +217,64 @@ class WorkflowManager:
 
     def rename_workflow(self, workflow_id: str, new_name: str) -> Workflow:
         return self.update_workflow(workflow_id, WorkflowUpdate(name=new_name))
+
+    def cleanup_workflows_for_deleted_assistant(self, assistant_id: str) -> list[str]:
+        """
+        Clean up all workflows by removing nodes that reference the deleted assistant
+        and their connected edges. Returns list of workflow IDs that were modified.
+        """
+        modified_workflow_ids = []
+        
+        with self._lock:
+            for workflow_id, workflow in self._workflows.items():
+                # Find nodes that reference the deleted assistant
+                nodes_to_remove = [node for node in workflow.nodes if node.data.assistantId == assistant_id]
+                
+                if not nodes_to_remove:
+                    continue  # No changes needed for this workflow
+                
+                # Get IDs of nodes to remove
+                node_ids_to_remove = {node.id for node in nodes_to_remove}
+                
+                # Remove nodes that reference the deleted assistant
+                updated_nodes = [node for node in workflow.nodes if node.data.assistantId != assistant_id]
+                
+                # Remove edges that connect to/from the removed nodes
+                updated_edges = [
+                    edge for edge in workflow.edges 
+                    if edge.source not in node_ids_to_remove and edge.target not in node_ids_to_remove
+                ]
+                
+                # Update the workflow
+                workflow.nodes = updated_nodes
+                workflow.edges = updated_edges
+                workflow.updated_at = datetime.utcnow().isoformat()
+                
+                # Persist changes
+                self._write_workflow_file(workflow)
+                self._emit_change("updated", workflow_id, workflow)
+                modified_workflow_ids.append(workflow_id)
+        
+        return modified_workflow_ids
+
+    def _on_config_change(self, old_settings: AppSettings, new_settings: AppSettings) -> None:
+        """Handle configuration changes, specifically assistant deletions."""
+        try:
+            # Get list of assistant IDs before and after the change
+            old_assistant_ids = {assistant.id for assistant in old_settings.assistants}
+            new_assistant_ids = {assistant.id for assistant in new_settings.assistants}
+            
+            # Find deleted assistants
+            deleted_assistant_ids = old_assistant_ids - new_assistant_ids
+            
+            # Clean up workflows for each deleted assistant
+            for assistant_id in deleted_assistant_ids:
+                modified_workflows = self.cleanup_workflows_for_deleted_assistant(assistant_id)
+                if modified_workflows:
+                    logger.info(f"Cleaned up workflows {modified_workflows} after assistant {assistant_id} deletion")
+                    
+        except Exception as e:
+            logger.error(f"Error handling config change for workflow cleanup: {e}")
 
     # -----------------------------------------------------------------------
     # Active Workflow
