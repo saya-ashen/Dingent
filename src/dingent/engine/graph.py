@@ -8,7 +8,7 @@ from typing import Annotated, Any, TypedDict
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt.chat_agent_executor import AgentState
@@ -16,25 +16,24 @@ from langgraph.types import Command
 from langgraph_swarm import SwarmState, create_swarm
 from pydantic import BaseModel, Field
 
-from dingent.core import get_assistant_manager, get_config_manager, get_llm_manager
+from dingent.core import get_app_context
 from dingent.core.assistant_manager import RunnableTool
 from dingent.core.log_manager import log_with_context
-from dingent.core.workflow_manager import get_workflow_manager
 
 from .simple_react_agent import build_simple_react_agent
 
-db_path = Path(".dingent/checkpoints.sqlite")
+db_path = Path(".dingent/data/checkpoints.sqlite")
 db_path.parent.mkdir(parents=True, exist_ok=True)
 conn = sqlite3.connect(db_path, check_same_thread=False)
 
-checkpointer = SqliteSaver(conn)
 
+app_context = get_app_context()
 
-llm_manager = get_llm_manager()
-assistant_manager = get_assistant_manager()
+llm_manager = app_context.llm_manager
+assistant_manager = app_context.assistant_manager
+config_manager = app_context.config_manager
+workflow_manager = workflow_manager = app_context.workflow_manager
 tool_call_events_queue = Queue()
-config_manager = get_config_manager()
-workflow_manager = get_workflow_manager()
 
 
 # =========================
@@ -309,8 +308,11 @@ async def make_graph():
     """
     构建最外层图：现在 show_data 的处理已在每个子 agent 包装内完成
     """
-    config = config_manager.get_config()
-    current_workflow = config_manager.get_current_workflow()
+    config = config_manager.get_settings()
+    current_workflow_id = config.current_workflow
+    assert current_workflow_id, "No current workflow is set in the configuration."
+    current_workflow = workflow_manager.get_workflow(current_workflow_id)
+    assert current_workflow, f"Workflow '{current_workflow_id}' not found."
     model_config = config.llm.model_dump()
     llm = llm_manager.get_llm(**model_config)
 
@@ -320,7 +322,7 @@ async def make_graph():
 
     default_active_agent = _normalize_name(start_node.data.assistantName)
 
-    async with create_assistant_graphs(current_workflow.id, llm) as assistants:
+    async with create_assistant_graphs(current_workflow_id, llm) as assistants:
         swarm = create_swarm(
             agents=list(assistants.values()),
             state_schema=MainState,
@@ -334,7 +336,8 @@ async def make_graph():
         outer.add_node("swarm", safe_swarm)
         outer.add_edge(START, "swarm")
         outer.add_edge("swarm", END)
-        compiled_graph = outer.compile(checkpointer)
-        compiled_graph.name = "Agent"
+        async with AsyncSqliteSaver.from_conn_string(db_path.as_posix()) as checkpointer:
+            compiled_graph = outer.compile(checkpointer)
+            compiled_graph.name = "agent"
 
-        yield compiled_graph
+            yield compiled_graph

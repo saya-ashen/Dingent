@@ -9,17 +9,17 @@ from .log_manager import log_with_context
 from .types import ToolResult
 
 
-class SqliteResourceManager:
+class ResourceManager:
     """
     使用 SQLite 存储 ToolResult（工具完整输出）的持久化资源管理器。
     当达到最大容量时，会根据时间戳移除最旧的资源 (FIFO)。
     """
 
-    def __init__(self, db_path: str, max_size: int = 100):
+    def __init__(self, store_path: str | Path, max_size: int = 100):
         if not isinstance(max_size, int) or max_size <= 0:
             raise ValueError("max_size must be a positive integer.")
 
-        self.db_path = Path(db_path)
+        self.db_path = Path(store_path)
         self.max_size = max_size
 
         # Ensure the directory for the database exists
@@ -118,19 +118,3 @@ class SqliteResourceManager:
 
     def __repr__(self) -> str:
         return f"<SqliteResourceManager(db='{self.db_path}', current_size={len(self)}, max_size={self.max_size})>"
-
-
-resource_manager: SqliteResourceManager | None = None
-
-
-def get_resource_manager() -> SqliteResourceManager:
-    """
-    获取 SqliteResourceManager 的单例实例。
-    数据库文件默认存储在项目根目录下的 .dingent/resources.sqlite。
-    """
-    global resource_manager
-    if resource_manager is None:
-        db_file_path = ".dingent/resources.sqlite"
-        resource_manager = SqliteResourceManager(db_path=db_file_path, max_size=100)
-        logger.info(f"Created a new SqliteResourceManager singleton instance. DB at: {db_file_path}")
-    return resource_manager
