@@ -379,7 +379,7 @@ def run(
         "uvicorn",
         "dingent.server.copilot_server:app",
         "--host",
-        "127.0.0.1",
+        "localhost",
         "--port",
         str(cli_ctx.backend_port),
     ]
@@ -397,7 +397,7 @@ def run(
             command=frontend_cmd,
             cwd=cli_ctx.frontend_path,
             color="cyan",
-            env={"DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}"},
+            env={"DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}"},
             open_browser_hint=True,
         ),
     ]
@@ -470,7 +470,7 @@ def dev(
                 cwd=cli_ctx.frontend_path,
                 color="cyan",
                 env={
-                    "DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}",
+                    "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
                     "DINGENT_DEV": "true",
                 },
             )

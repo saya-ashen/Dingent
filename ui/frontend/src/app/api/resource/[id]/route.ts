@@ -10,7 +10,7 @@ export async function GET(
         return NextResponse.json({ message: 'Missing resource id' }, { status: 400 });
     }
 
-    const backendApiUrl = process.env.BACKEND_API_URL ?? 'http://127.0.0.1:8000';
+    const backendApiUrl = process.env.BACKEND_API_URL ?? 'http://localhost:8000';
     const targetUrl = `${backendApiUrl}/api/resource/${id}`;
 
 

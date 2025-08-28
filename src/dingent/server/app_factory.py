@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from importlib.resources import files
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
 from dingent.core.context import get_app_context
 
@@ -92,3 +93,16 @@ def build_agent_api(**kwargs) -> FastAPI:
 
 
 app = build_agent_api()
+
+
+origins = [
+    "http://localhost",
+    "http://localhost:8000",
+    "http://127.0.0.1",
+    "http://127.0.0.1:8000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+)
