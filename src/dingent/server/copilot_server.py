@@ -27,7 +27,7 @@ async def extended_lifespan(app: FastAPI):
 
         async with make_graph() as graph:
             add_langgraph_fastapi_endpoint(
-                app=app, agent=LangGraphAGUIAgent(name="sample_agent", description="An example agent to use as a starting point for your own agent.", graph=graph), path="/"
+                app=app, agent=LangGraphAGUIAgent(name="dingent", description="An example agent to use as a starting point for your own agent.", graph=graph), path="/"
             )
 
             yield

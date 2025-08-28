@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING
 from dingent.core.types import Workflow, WorkflowCreate, WorkflowUpdate  # 依据你的真实路径
 from dingent.core.utils import find_project_root
 
-# 引入 AssistantManager
-
 if TYPE_CHECKING:
     from .assistant_manager import Assistant
 

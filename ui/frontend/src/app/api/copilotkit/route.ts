@@ -14,7 +14,7 @@ if (process.env.DINGENT_DEV === 'true') {
     console.log("DINGENT_DEV is true. Running in development mode.");
     runtime = new CopilotRuntime({
         agents: {
-            'sample_agent': new LangGraphAgent({
+            'dingent': new LangGraphAgent({
                 deploymentUrl: process.env.DING_BACKEND_URL || 'http://127.0.0.1:8000',
                 graphId: 'agent',
             }),
@@ -26,7 +26,7 @@ if (process.env.DINGENT_DEV === 'true') {
     console.log("DINGENT_DEV is not set to true. Running in production mode.");
     runtime = new CopilotRuntime({
         agents: {
-            "sample_agent": new LangGraphHttpAgent({
+            "dingent": new LangGraphHttpAgent({
                 url: process.env.DING_BACKEND_URL || "http://localhost:8000"
             }),
         }

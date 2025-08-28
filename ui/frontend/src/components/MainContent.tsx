@@ -86,7 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <CopilotKit
             runtimeUrl="/api/copilotkit"
             showDevConsole={true}
-            agent="sample_agent"
+            agent="dingent"
             threadId={activeThreadId}
         >
             <ThreadContext.Provider value={initialThreadContextValue}>

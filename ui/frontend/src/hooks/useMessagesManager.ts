@@ -19,7 +19,7 @@ export function useMessagesManager() {
     const { messages, setMessages } = useCopilotMessagesContext();
     const { threadId, agentSession, runtimeClient, } = useCopilotContext();
     const { threads, updateThreadTitle } = useThreadContext();
-    const { setState } = useCoAgent({ name: "sample_agent" });
+    const { setState } = useCoAgent({ name: "dingent" });
 
     const lastLoadedThreadId = useRef<string>("");
     const lastLoadedAgentName = useRef<string>("");
