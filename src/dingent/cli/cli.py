@@ -449,7 +449,7 @@ def dev(
             name="backend-ui" if open_ui else "backend",
             command=backend_cmd,
             cwd=cli_ctx.project_root,
-            env={"DING_DEV": "true"},
+            env={"DINGENT_DEV": "true"},
             color="magenta",
             open_browser_hint=True,
         ),
@@ -471,7 +471,7 @@ def dev(
                 color="cyan",
                 env={
                     "DING_BACKEND_URL": f"http://127.0.0.1:{cli_ctx.backend_port}",
-                    "DING_DEV": "true",
+                    "DINGENT_DEV": "true",
                 },
             )
         )

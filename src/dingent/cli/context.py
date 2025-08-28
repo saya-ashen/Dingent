@@ -4,26 +4,30 @@ from importlib import resources
 
 class CliContext:
     def __init__(self):
-        from dingent.core.config_manager import get_config_manager
+        from dingent.core import get_app_context
 
-        config_manager = get_config_manager()
+        app_context = get_app_context()
 
-        self._config = config_manager.get_config()
+        config_manager = app_context.config_manager
+
+        self._config = config_manager.get_settings()
         self._project_root = config_manager.project_root
 
     @cached_property
     def plugin_manager(self):
-        from dingent.core.plugin_manager import get_plugin_manager
+        from dingent.core import get_app_context
 
-        return get_plugin_manager()
+        app_context = get_app_context()
+
+        return app_context.plugin_manager
 
     @cached_property
     def assistant_manager(self):
-        if not self.plugin_manager:
-            return None
-        from dingent.core import get_assistant_manager
+        from dingent.core import get_app_context
 
-        return get_assistant_manager()
+        app_context = get_app_context()
+
+        return app_context.assistant_manager
 
     @property
     def project_root(self):
