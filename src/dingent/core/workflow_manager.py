@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING
@@ -12,6 +12,7 @@ from loguru import logger
 from pydantic import ValidationError
 
 from dingent.core.config_manager import ConfigManager
+from dingent.core.log_manager import log_with_context
 from dingent.core.settings import AppSettings
 from dingent.core.types import (
     Workflow,
@@ -194,7 +195,7 @@ class WorkflowManager:
         with self._lock:
             if workflow.id not in self._workflows:
                 raise ValueError(f"Cannot save unknown workflow '{workflow.id}'.")
-            workflow.updated_at = datetime.utcnow().isoformat()
+            workflow.updated_at = datetime.now(UTC).isoformat()
             # Validate
             wf_valid = Workflow.model_validate(workflow.model_dump())
             self._workflows[wf_valid.id] = wf_valid
@@ -224,37 +225,34 @@ class WorkflowManager:
         and their connected edges. Returns list of workflow IDs that were modified.
         """
         modified_workflow_ids = []
-        
+
         with self._lock:
             for workflow_id, workflow in self._workflows.items():
                 # Find nodes that reference the deleted assistant
                 nodes_to_remove = [node for node in workflow.nodes if node.data.assistantId == assistant_id]
-                
+
                 if not nodes_to_remove:
                     continue  # No changes needed for this workflow
-                
+
                 # Get IDs of nodes to remove
                 node_ids_to_remove = {node.id for node in nodes_to_remove}
-                
+
                 # Remove nodes that reference the deleted assistant
                 updated_nodes = [node for node in workflow.nodes if node.data.assistantId != assistant_id]
-                
+
                 # Remove edges that connect to/from the removed nodes
-                updated_edges = [
-                    edge for edge in workflow.edges 
-                    if edge.source not in node_ids_to_remove and edge.target not in node_ids_to_remove
-                ]
-                
+                updated_edges = [edge for edge in workflow.edges if edge.source not in node_ids_to_remove and edge.target not in node_ids_to_remove]
+
                 # Update the workflow
                 workflow.nodes = updated_nodes
                 workflow.edges = updated_edges
                 workflow.updated_at = datetime.utcnow().isoformat()
-                
+
                 # Persist changes
                 self._write_workflow_file(workflow)
                 self._emit_change("updated", workflow_id, workflow)
                 modified_workflow_ids.append(workflow_id)
-        
+
         return modified_workflow_ids
 
     def _on_config_change(self, old_settings: AppSettings, new_settings: AppSettings) -> None:
@@ -263,16 +261,16 @@ class WorkflowManager:
             # Get list of assistant IDs before and after the change
             old_assistant_ids = {assistant.id for assistant in old_settings.assistants}
             new_assistant_ids = {assistant.id for assistant in new_settings.assistants}
-            
+
             # Find deleted assistants
             deleted_assistant_ids = old_assistant_ids - new_assistant_ids
-            
+
             # Clean up workflows for each deleted assistant
             for assistant_id in deleted_assistant_ids:
                 modified_workflows = self.cleanup_workflows_for_deleted_assistant(assistant_id)
                 if modified_workflows:
                     logger.info(f"Cleaned up workflows {modified_workflows} after assistant {assistant_id} deletion")
-                    
+
         except Exception as e:
             logger.error(f"Error handling config change for workflow cleanup: {e}")
 
@@ -464,7 +462,15 @@ class WorkflowManager:
 
         result: dict[str, Assistant] = {}
         for aname, aid in assistant_name_to_id.items():
-            assistant = await self.assistant_manager.get_assistant(aid)
+            try:
+                assistant = await self.assistant_manager.get_assistant(aid)
+            except ValueError as e:
+                log_with_context(
+                    "error",
+                    message="Failed to instantiate assistant for workflow: {assistant_id}",
+                    context={"assistant_id": aid, "assistant_name": aname, "error": str(e)},
+                )
+                continue
             if mutate_assistant_destinations:
                 assistant.destinations = adj.get(aname, [])
             result[aname] = assistant
