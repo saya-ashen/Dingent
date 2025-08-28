@@ -15,7 +15,7 @@ if (process.env.DINGENT_DEV === 'true') {
     runtime = new CopilotRuntime({
         agents: {
             'dingent': new LangGraphAgent({
-                deploymentUrl: process.env.DING_BACKEND_URL || 'http://127.0.0.1:8000',
+                deploymentUrl: process.env.DING_BACKEND_URL || 'http://localhost:8000',
                 graphId: 'agent',
             }),
         },
@@ -41,7 +41,7 @@ export const POST = async (req: NextRequest) => {
         runtime,
         serviceAdapter,
         endpoint: "/api/copilotkit",
-        logLevel: logLevel, // This will be "debug" in dev and undefined in prod
+        logLevel: logLevel,
     });
 
     return handleRequest(req);
