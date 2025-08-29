@@ -17,10 +17,9 @@ dependencies = [
   "copilotkit>=0.1.56",
   "fastapi>=0.115.6",
   "langchain>=0.3.23",
-  # "langchain-chroma>=0.2.3",
-  "langchain-community>=0.3.21",
+  # "langchain-community>=0.3.21",
   "fastmcp>=2.2.0",
-  "langchain-experimental>=0.3.4",
+  # "langchain-experimental>=0.3.4",
   "langchain-mcp-adapters>=0.0.11",
   "langchain-openai>=0.3.14,<1.0.0",
   "langgraph>=0.3.31,<1.0.0",
@@ -30,8 +29,8 @@ dependencies = [
   "tomlkit>=0.13.3",
   "nodejs-wheel>=22.18.0",
   "psutil>=7.0.0",
-  "diskcache>=5.6.3",
   "langgraph-checkpoint-sqlite>=2.0.11",
+  "aiosqlite>=0.21.0",
 ]
 dev = [
   "ipython>=9.4.0",
@@ -105,15 +104,12 @@ pythonPlatform = "Linux"
 typeCheckingMode = "standard"
 
 
-
 [tool.uv]
 link-mode = "symlink"
 default-groups = "all"
 
 [dependency-groups]
-dev = [
-    "ipython>=9.4.0",
-]
+dev = ["ipython>=9.4.0"]
 
 
 [project.scripts]

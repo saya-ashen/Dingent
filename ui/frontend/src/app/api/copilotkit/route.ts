@@ -4,7 +4,6 @@ import {
 } from "@copilotkit/runtime";
 import { NextRequest } from "next/server";
 import { CopilotRuntime, LangGraphAgent } from "@copilotkit/runtime";
-import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
 let runtime: CopilotRuntime;
 let logLevel: "debug" | undefined = undefined;
@@ -25,11 +24,9 @@ if (process.env.DINGENT_DEV === 'true') {
     // Production environment configuration
     console.log("DINGENT_DEV is not set to true. Running in production mode.");
     runtime = new CopilotRuntime({
-        agents: {
-            "dingent": new LangGraphHttpAgent({
-                url: process.env.DING_BACKEND_URL || "http://localhost:8000"
-            }),
-        }
+        remoteEndpoints: [
+            { url: "http://localhost:8000/copilotkit" },
+        ],
     });
 }
 

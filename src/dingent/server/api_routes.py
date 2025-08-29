@@ -21,18 +21,6 @@ from dingent.core.types import (
     WorkflowUpdate,
 )
 
-# NOTE:
-# 本文件已适配“瘦身后”的 ConfigManager / WorkflowManager / AssistantManager。
-# 主要变化：
-# - ConfigManager: 使用 get_settings(), list_assistants(), upsert_assistant(), delete_assistant(),
-#                  update_plugins_for_assistant(), update_global()
-# - WorkflowManager: 使用 list_workflows(), get_workflow(), create_workflow(), update_workflow(),
-#                    save_workflow(), delete_workflow(), set_active(), active_workflow_id
-# - AssistantManager: 使用 get_assistant(), get_all_assistants(), rebuild() 等；已支持 on_change 自动重建
-# - 不再调用旧的 add_plugin_config_to_assistant / remove_plugin_from_assistant 等。
-#
-# 如果你的项目路径与导入不同，请自行调整 import。
-
 router = APIRouter()
 app_context = get_app_context()
 config_manager = app_context.config_manager
