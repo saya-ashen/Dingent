@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -140,8 +139,8 @@ class WorkflowManager:
             if forbid_duplicate_name and any(wf.name == wf_create.name for wf in self._workflows.values()):
                 raise ValueError(f"Workflow name '{wf_create.name}' already exists.")
 
-            workflow_id = str(uuid.uuid4())
-            now = datetime.utcnow().isoformat()
+            workflow_id = wf_create.id
+            now = datetime.now(UTC).isoformat()
             wf = Workflow(
                 id=workflow_id,
                 name=wf_create.name,
@@ -175,7 +174,7 @@ class WorkflowManager:
                         raise ValueError(f"Another workflow already uses name '{patch['name']}'.")
 
             updated = existing.model_copy(update=patch)
-            updated.updated_at = datetime.utcnow().isoformat()
+            updated.updated_at = datetime.now(UTC).isoformat()
 
             # Validate by re-parsing (ensures nodes/edges still pass model validation)
             try:

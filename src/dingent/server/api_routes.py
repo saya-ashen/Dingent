@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
 from dingent.core import get_app_context
-from dingent.core.log_manager import get_log_manager
+from dingent.core.log_manager import get_log_manager, log_with_context
+from dingent.core.market_service import MarketItemCategory, MarketService
 from dingent.core.plugin_manager import PluginManifest
 from dingent.core.settings import AssistantSettings
 from dingent.core.types import (
@@ -28,6 +29,9 @@ workflow_manager = app_context.workflow_manager
 assistant_manager = app_context.assistant_manager
 plugin_manager = app_context.plugin_manager
 
+# Initialize market service
+market_service = MarketService(config_manager.project_root)
+
 
 # ---------------------------------------------------------------------------
 # Pydantic Response / Request Models (Admin)
@@ -41,6 +45,7 @@ class ToolAdminDetail(BaseModel):
 
 
 class PluginAdminDetail(PluginUserConfig):
+    name: str = Field(..., description="插件名称")
     tools: list[ToolAdminDetail] = Field(default_factory=list, description="该插件的工具列表")
     status: str = Field(..., description="运行状态 (active/inactive/error)")
     config: list[ConfigItemDetail] = Field(default_factory=list)
@@ -59,7 +64,7 @@ class AppAdminDetail(BaseModel):
 
 
 class AddPluginRequest(BaseModel):
-    plugin_name: str
+    plugin_id: str
     # 可选自定义初始配置（按 PluginUserConfig 结构）
     config: dict[str, Any] | None = None
     enabled: bool = True
@@ -108,9 +113,12 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
     status = "inactive"
     tools_details: list[ToolAdminDetail] = []
     config_items: list[ConfigItemDetail] = []
+    manifest: PluginManifest | None = plugin_manager.get_plugin_manifest(plugin_conf.plugin_id)
+    if not manifest:
+        raise ValueError(f"Plugin manifest not found for id: {plugin_conf.plugin_id}")
 
     if assistant_instance:
-        instance = assistant_instance.plugin_instances.get(plugin_conf.plugin_name or plugin_conf.name)
+        instance = assistant_instance.plugin_instances.get(plugin_conf.plugin_id)
     if instance:
         status = getattr(instance, "status", "active")
         # 获取工具
@@ -150,7 +158,6 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
             )
     else:
         # 没有实例 -> 用 manifest 填充 schema
-        manifest: PluginManifest | None = plugin_manager.get_plugin_manifest(plugin_conf.plugin_name or plugin_conf.name)
         config_dict = plugin_conf.config or {}
         if manifest and manifest.config_schema:
             for schema_item in manifest.config_schema:
@@ -173,14 +180,14 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
                 )
 
     base_dict = plugin_conf.model_dump()
-    base_dict.update(status=status, tools=tools_details, config=config_items)
+    base_dict.update(status=status, tools=tools_details, config=config_items, name=manifest.name)
     return PluginAdminDetail(**base_dict)
 
 
 async def _build_assistant_admin_detail(settings: AssistantSettings, running_map: dict[str, Any]) -> AssistantAdminDetail:
     instance = running_map.get(settings.id)
     status = "active" if instance else "inactive"
-    plugin_details: list[PluginAdminDetail] = []
+    plugin_details: tuple[PluginAdminDetail] = cast(tuple[PluginAdminDetail], ())
     # 并行构建插件
     tasks = [_build_plugin_admin_detail(p, instance) for p in settings.plugins]
     if tasks:
@@ -337,17 +344,16 @@ async def add_plugin_to_assistant(assistant_id: str, req: AddPluginRequest):
     if not assistant_settings:
         raise HTTPException(status_code=404, detail="Assistant not found")
 
-    manifest = plugin_manager.get_plugin_manifest(req.plugin_name)
+    manifest = plugin_manager.get_plugin_manifest(req.plugin_id)
     if not manifest:
         raise HTTPException(status_code=404, detail="Plugin not registered")
 
     # 防重复
-    if any(p.plugin_name == req.plugin_name or p.name == req.plugin_name for p in assistant_settings.plugins):
+    if any(p.plugin_id == req.plugin_id for p in assistant_settings.plugins):
         raise HTTPException(status_code=400, detail="Plugin already exists on assistant")
 
     new_plugin = PluginUserConfig(
-        name=req.plugin_name,
-        plugin_name=req.plugin_name,
+        plugin_id=req.plugin_id,
         enabled=req.enabled,
         tools_default_enabled=req.tools_default_enabled,
         config=req.config or {},
@@ -420,22 +426,16 @@ async def list_available_plugins():
     return list(plugin_manager.list_plugins().values())
 
 
-@router.delete("/plugins/{plugin_name}")
-async def remove_plugin_global(plugin_name: str):
-    """
-    全局移除插件（仅在 plugin_manager 中卸载或删除物理目录，实际实现视项目而定）。
-    这里简单调用 plugin_manager.remove_plugin，如果需要同步 assistants 的配置，
-    需额外遍历并删除相关 plugin config（可在此实现或外部任务）。
-    """
+@router.delete("/plugins/{plugin_id}")
+async def remove_plugin_global(plugin_id: str):
     try:
-        plugin_manager.remove_plugin(plugin_name)
+        plugin_manager.remove_plugin(plugin_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    # 可选：同步移除所有助手配置中的该插件
     assistants = config_manager.list_assistants()
     changed = False
     for a in assistants:
-        new_plugins = [p for p in a.plugins if not (p.plugin_name == plugin_name or p.name == plugin_name)]
+        new_plugins = [p for p in a.plugins if not (p.plugin_id == plugin_id)]
         if len(new_plugins) != len(a.plugins):
             config_manager.update_plugins_for_assistant(a.id, new_plugins)
             changed = True
@@ -559,3 +559,96 @@ async def instantiate_workflow(workflow_id: str):
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Market
+# ---------------------------------------------------------------------------
+
+
+class MarketDownloadRequest(BaseModel):
+    item_id: str
+    category: str  # "plugin" | "assistant" | "workflow"
+
+
+class MarketDownloadResponse(BaseModel):
+    success: bool
+    message: str
+    installed_path: str | None = None
+
+
+@router.get("/market/metadata")
+async def get_market_metadata():
+    """
+    Get market metadata including version and item counts.
+    """
+    try:
+        metadata = await market_service.get_market_metadata()
+        return metadata.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch market metadata: {e}")
+
+
+@router.get("/market/items")
+async def get_market_items(category: str):
+    """
+    Get list of available market items, optionally filtered by category.
+    """
+    try:
+        category_enum = MarketItemCategory(category)
+        installed_plugin_ids = set(plugin_manager.list_plugins().keys())
+        installed_ids = installed_plugin_ids
+        immutable_installed_ids = tuple(sorted(installed_ids))
+        items = await market_service.get_market_items(category_enum, immutable_installed_ids)
+        return [item.model_dump() for item in items]
+    except Exception as e:
+        import pdb
+
+        pdb.set_trace()
+        log_with_context("error", "Market fetch error", context={"category": category, "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Failed to fetch market items: {e}")
+
+
+@router.post("/market/download", response_model=MarketDownloadResponse)
+async def download_market_item(request: MarketDownloadRequest):
+    """
+    Download and install a market item.
+    """
+    try:
+        result = await market_service.download_item(
+            request.item_id,
+            MarketItemCategory(request.category),
+        )
+        if result["success"]:
+            if request.category == "plugin":
+                plugin_manager.reload_plugins()
+            return MarketDownloadResponse(**result)
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
+    except Exception as e:
+        log_with_context(
+            "error",
+            "Market download error",
+            context={
+                "item_id": request.item_id,
+                "category": request.category,
+                "error": str(e),
+            },
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to download {request.category} '{request.item_id}': {e}")
+
+
+@router.get("/market/items/{item_id}/readme")
+async def get_market_item_readme(item_id: str, category: str):
+    """
+    Get the README content for a specific market item.
+    """
+    try:
+        readme_content = await market_service.get_item_readme(item_id, category)
+        if readme_content is None:
+            raise HTTPException(status_code=404, detail=f"README not found for {category}/{item_id}")
+        return {"readme": readme_content}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch README for {item_id}: {e}")

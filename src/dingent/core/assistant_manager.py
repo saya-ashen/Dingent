@@ -50,7 +50,7 @@ class Assistant:
         for pconf in enabled_plugins:
             try:
                 inst = await plugin_manager.create_instance(pconf)
-                plugin_instances[pconf.plugin_name or pconf.name] = inst
+                plugin_instances[pconf.plugin_id or pconf.plugin_id] = inst
             except Exception as e:
                 logger.error(
                     "Create plugin instance failed (assistant=%s plugin=%s): %s",
@@ -66,7 +66,7 @@ class Assistant:
         """
         返回 langgraph 期望的 tool 列表（普通 Tool 对象）。
         """
-        tools: list[Tool] = []
+        tools: list = []
         async with AsyncExitStack() as stack:
             for inst in self.plugin_instances.values():
                 client = await stack.enter_async_context(inst.mcp_client)
@@ -157,13 +157,13 @@ class AssistantManager:
         if self._compare_plugins_only:
             payload = [
                 (
-                    p.plugin_name or p.name,
+                    p.plugin_id,
                     p.enabled,
                     p.tools_default_enabled,
                     sorted(p.tools or []),
                     sorted(p.config.keys()) if p.config else None,
                 )
-                for p in sorted(s.plugins, key=lambda x: (x.plugin_name or x.name))
+                for p in sorted(s.plugins, key=lambda x: (x.plugin_id or x.name))
             ]
         else:
             payload = s.model_dump(mode="json", exclude_none=True)
@@ -209,7 +209,7 @@ class AssistantManager:
             except Exception as e:
                 logger.error("Failed to recreate assistant '%s': %s", new_settings.name, e)
 
-    async def _on_config_change(self, old_settings, new_settings):
+    def _on_config_change(self, old_settings, new_settings):
         """
         ConfigManager on_change 回调（同步调用） -> 这里封装成异步处理。
         old_settings/new_settings 为 AppSettings。

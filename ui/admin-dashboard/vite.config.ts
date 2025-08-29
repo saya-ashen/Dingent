@@ -18,10 +18,10 @@ export default defineConfig({
             // '/api': 'http://localhost:8000', // Assuming your API is on port 8000
 
             // Using the options object for more control
-            '/api': {
+            '/api/v1': {
                 target: 'http://localhost:8000', // The address of your API server
                 changeOrigin: true, // Needed for virtual hosted sites
-                rewrite: (path) => path.replace(/^\/api/, ''), // Remove /api from the start of the request path
+                // rewrite: (path) => path.replace(/^\/api/, ''), // Remove /api from the start of the request path
             },
         }
     }

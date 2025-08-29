@@ -35,6 +35,7 @@ export type PluginTool = {
 };
 
 export type AssistantPlugin = {
+    id: string;
     name: string;
     status?: string;
     enabled?: boolean;
@@ -66,6 +67,7 @@ export type AppSettings = {
 };
 
 export type PluginManifest = {
+    id: string;
     name: string;
     version?: string;
     description?: string;
@@ -107,4 +109,43 @@ export type Workflow = {
     edges: WorkflowEdge[];
     created_at?: string;
     updated_at?: string;
+};
+
+// Market types
+export type MarketItem = {
+    id: string;
+    name: string;
+    description?: string;
+    version?: string;
+    author?: string;
+    category: "plugin" | "assistant" | "workflow";
+    tags?: string[];
+    license?: string;
+    readme?: string;
+    downloads?: number;
+    rating?: number;
+    created_at?: string;
+    updated_at?: string;
+    is_installed?: boolean;
+};
+
+export type MarketMetadata = {
+    version: string;
+    updated_at: string;
+    categories: {
+        plugins: number;
+        assistants: number;
+        workflows: number;
+    };
+};
+
+export type MarketDownloadRequest = {
+    item_id: string;
+    category: "plugin" | "assistant" | "workflow";
+};
+
+export type MarketDownloadResponse = {
+    success: boolean;
+    message: string;
+    installed_path?: string;
 };

@@ -14,6 +14,7 @@ export function Topbar() {
                     <NavItem to="/" end>Assistants</NavItem>
                     <NavItem to="/workflows">Workflows</NavItem>
                     <NavItem to="/plugins">Plugins</NavItem>
+                    <NavItem to="/market">Market</NavItem>
                     <NavItem to="/settings">Settings</NavItem>
                     <NavItem to="/logs">Logs</NavItem>
                 </nav>
