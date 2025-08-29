@@ -8,9 +8,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 from dingent.core import get_app_context
 from dingent.core.log_manager import get_log_manager
+from dingent.core.market_service import MarketService
 from dingent.core.plugin_manager import PluginManifest
 from dingent.core.settings import AssistantSettings
-from dingent.core.market_service import MarketService
 from dingent.core.types import (
     AssistantBase,
     AssistantCreate,
@@ -45,6 +45,7 @@ class ToolAdminDetail(BaseModel):
 
 
 class PluginAdminDetail(PluginUserConfig):
+    name: str = Field(..., description="插件名称")
     tools: list[ToolAdminDetail] = Field(default_factory=list, description="该插件的工具列表")
     status: str = Field(..., description="运行状态 (active/inactive/error)")
     config: list[ConfigItemDetail] = Field(default_factory=list)
@@ -63,7 +64,7 @@ class AppAdminDetail(BaseModel):
 
 
 class AddPluginRequest(BaseModel):
-    plugin_name: str
+    plugin_id: str
     # 可选自定义初始配置（按 PluginUserConfig 结构）
     config: dict[str, Any] | None = None
     enabled: bool = True
@@ -112,9 +113,12 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
     status = "inactive"
     tools_details: list[ToolAdminDetail] = []
     config_items: list[ConfigItemDetail] = []
+    manifest: PluginManifest | None = plugin_manager.get_plugin_manifest(plugin_conf.plugin_id)
+    if not manifest:
+        raise ValueError(f"Plugin manifest not found for id: {plugin_conf.plugin_id}")
 
     if assistant_instance:
-        instance = assistant_instance.plugin_instances.get(plugin_conf.plugin_name or plugin_conf.name)
+        instance = assistant_instance.plugin_instances.get(plugin_conf.plugin_id)
     if instance:
         status = getattr(instance, "status", "active")
         # 获取工具
@@ -154,7 +158,6 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
             )
     else:
         # 没有实例 -> 用 manifest 填充 schema
-        manifest: PluginManifest | None = plugin_manager.get_plugin_manifest(plugin_conf.plugin_name or plugin_conf.name)
         config_dict = plugin_conf.config or {}
         if manifest and manifest.config_schema:
             for schema_item in manifest.config_schema:
@@ -177,14 +180,14 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
                 )
 
     base_dict = plugin_conf.model_dump()
-    base_dict.update(status=status, tools=tools_details, config=config_items)
+    base_dict.update(status=status, tools=tools_details, config=config_items, name=manifest.name)
     return PluginAdminDetail(**base_dict)
 
 
 async def _build_assistant_admin_detail(settings: AssistantSettings, running_map: dict[str, Any]) -> AssistantAdminDetail:
     instance = running_map.get(settings.id)
     status = "active" if instance else "inactive"
-    plugin_details: list[PluginAdminDetail] = []
+    plugin_details: tuple[PluginAdminDetail] = tuple()
     # 并行构建插件
     tasks = [_build_plugin_admin_detail(p, instance) for p in settings.plugins]
     if tasks:
@@ -341,17 +344,16 @@ async def add_plugin_to_assistant(assistant_id: str, req: AddPluginRequest):
     if not assistant_settings:
         raise HTTPException(status_code=404, detail="Assistant not found")
 
-    manifest = plugin_manager.get_plugin_manifest(req.plugin_name)
+    manifest = plugin_manager.get_plugin_manifest(req.plugin_id)
     if not manifest:
         raise HTTPException(status_code=404, detail="Plugin not registered")
 
     # 防重复
-    if any(p.plugin_name == req.plugin_name or p.name == req.plugin_name for p in assistant_settings.plugins):
+    if any(p.plugin_id == req.plugin_id for p in assistant_settings.plugins):
         raise HTTPException(status_code=400, detail="Plugin already exists on assistant")
 
     new_plugin = PluginUserConfig(
-        name=req.plugin_name,
-        plugin_name=req.plugin_name,
+        plugin_id=req.plugin_id,
         enabled=req.enabled,
         tools_default_enabled=req.tools_default_enabled,
         config=req.config or {},
@@ -424,22 +426,16 @@ async def list_available_plugins():
     return list(plugin_manager.list_plugins().values())
 
 
-@router.delete("/plugins/{plugin_name}")
-async def remove_plugin_global(plugin_name: str):
-    """
-    全局移除插件（仅在 plugin_manager 中卸载或删除物理目录，实际实现视项目而定）。
-    这里简单调用 plugin_manager.remove_plugin，如果需要同步 assistants 的配置，
-    需额外遍历并删除相关 plugin config（可在此实现或外部任务）。
-    """
+@router.delete("/plugins/{plugin_id}")
+async def remove_plugin_global(plugin_id: str):
     try:
-        plugin_manager.remove_plugin(plugin_name)
+        plugin_manager.remove_plugin(plugin_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    # 可选：同步移除所有助手配置中的该插件
     assistants = config_manager.list_assistants()
     changed = False
     for a in assistants:
-        new_plugins = [p for p in a.plugins if not (p.plugin_name == plugin_name or p.name == plugin_name)]
+        new_plugins = [p for p in a.plugins if not (p.plugin_id == plugin_id)]
         if len(new_plugins) != len(a.plugins):
             config_manager.update_plugins_for_assistant(a.id, new_plugins)
             changed = True

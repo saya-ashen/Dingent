@@ -25,7 +25,8 @@ class AppContext:
         self.resource_manager = ResourceManager(self.project_root / ".dingent" / "data" / "resources.db")
         self.llm_manager = LLMManager()
 
-        self.plugin_manager = PluginManager(self.config_manager, self.resource_manager)
+        plugin_dir = self.project_root / "plugins"
+        self.plugin_manager = PluginManager(plugin_dir, self.resource_manager)
 
         self.assistant_manager = AssistantManager(self.config_manager, self.plugin_manager)
 

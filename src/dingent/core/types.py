@@ -152,8 +152,7 @@ class ToolOverrideConfig(BaseModel):
 
 
 class PluginUserConfig(BaseModel):
-    name: str
-    plugin_name: str
+    plugin_id: str
     tools_default_enabled: bool = True
     enabled: bool = True
     tools: list[ToolOverrideConfig] | None = None

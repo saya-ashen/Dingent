@@ -3,10 +3,7 @@ Market service for downloading and installing plugins, assistants, and workflows
 from the dingent-market repository.
 """
 
-import asyncio
-import json
 import logging
-import zipfile
 from pathlib import Path
 from typing import Any
 

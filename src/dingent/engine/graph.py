@@ -75,6 +75,7 @@ def create_handoff_tool(*, agent_name: str, description: str | None = None) -> B
             "name": name,
             "tool_call_id": tool_call_id,
         }
+        log_with_context("info", "Handoff to {agent_name} via tool call {tool_call_id}", context={"agent_name": agent_name, "tool_call_id": tool_call_id})
         return Command(
             goto=agent_name,
             update={"messages": [tool_message]},
@@ -308,34 +309,49 @@ async def make_graph():
     """
     config = config_manager.get_settings()
     current_workflow_id = config.current_workflow
-    assert current_workflow_id, "No current workflow is set in the configuration."
-    current_workflow = workflow_manager.get_workflow(current_workflow_id)
-    assert current_workflow, f"Workflow '{current_workflow_id}' not found."
+    if not current_workflow_id:
+        current_workflow = workflow_manager.list_workflows()[0] if workflow_manager.list_workflows() else None
+    else:
+        current_workflow = workflow_manager.get_workflow(current_workflow_id)
     model_config = config.llm.model_dump()
     llm = llm_manager.get_llm(**model_config)
+    start_node = None
+    if current_workflow:
+        start_node = next((n for n in current_workflow.nodes if n.data.isStart), None)
+    if start_node:
+        default_active_agent = _normalize_name(start_node.data.assistantName)
+        async with create_assistant_graphs(current_workflow.id, llm) as assistants:
+            swarm = create_swarm(
+                agents=list(assistants.values()),
+                state_schema=MainState,
+                default_active_agent=default_active_agent,
+                context_schema=ConfigSchema,
+            )
+            compiled_swarm = swarm.compile()
 
-    start_node = next((n for n in current_workflow.nodes if n.data.isStart), None)
-    if not start_node:
-        raise ValueError("No start node found in the current workflow.")
+            outer = StateGraph(MainState)
+            safe_swarm = get_safe_swarm(compiled_swarm)
+            outer.add_node("swarm", safe_swarm)
+            outer.add_edge(START, "swarm")
+            outer.add_edge("swarm", END)
+            async with AsyncSqliteSaver.from_conn_string(db_path.as_posix()) as checkpointer:
+                compiled_graph = outer.compile(checkpointer)
+                compiled_graph.name = "agent"
 
-    default_active_agent = _normalize_name(start_node.data.assistantName)
+                yield compiled_graph
+    else:
+        log_with_context("warning", "No workflow configured. Using basic chatbot.")
 
-    async with create_assistant_graphs(current_workflow_id, llm) as assistants:
-        swarm = create_swarm(
-            agents=list(assistants.values()),
-            state_schema=MainState,
-            default_active_agent=default_active_agent,
-            context_schema=ConfigSchema,
-        )
-        compiled_swarm = swarm.compile()
+        def basic_chatbot(state: MainState):
+            return {"messages": [llm.invoke(state["messages"])]}
 
-        outer = StateGraph(MainState)
-        safe_swarm = get_safe_swarm(compiled_swarm)
-        outer.add_node("swarm", safe_swarm)
-        outer.add_edge(START, "swarm")
-        outer.add_edge("swarm", END)
-        async with AsyncSqliteSaver.from_conn_string(db_path.as_posix()) as checkpointer:
-            compiled_graph = outer.compile(checkpointer)
-            compiled_graph.name = "agent"
+        from langgraph.checkpoint.memory import InMemorySaver
 
-            yield compiled_graph
+        checkpointer = InMemorySaver()
+
+        graph = StateGraph(MainState)
+        graph.add_node("basic_chatbot", basic_chatbot)
+        graph.add_edge(START, "basic_chatbot")
+        graph.add_edge("basic_chatbot", END)
+        compiled_graph = graph.compile(checkpointer)
+        yield compiled_graph

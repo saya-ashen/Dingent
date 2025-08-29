@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow, MarketItem, MarketMetadata, MarketDownloadRequest, MarketDownloadResponse } from "./types";
 
-const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8000") + "/api/v1";
+const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
 
 // 可选：从本地存储读取鉴权令牌
@@ -125,21 +125,21 @@ export async function deleteAssistant(assistantId: string): Promise<void> {
     }
 }
 
-export async function addPluginToAssistant(assistantId: string, pluginName: string): Promise<void> {
+export async function addPluginToAssistant(assistantId: string, pluginId: string): Promise<void> {
     try {
         // POST to the plugins sub-collection with the name in the body
-        await http.post(`/assistants/${assistantId}/plugins`, { plugin_name: pluginName });
+        await http.post(`/assistants/${assistantId}/plugins`, { plugin_id: pluginId });
     } catch (err) {
-        throw new Error(`Failed to add plugin '${pluginName}': ${extractErrorMessage(err)}`);
+        throw new Error(`Failed to add plugin '${pluginId}': ${extractErrorMessage(err)}`);
     }
 }
 
-export async function removePluginFromAssistant(assistantId: string, pluginName: string): Promise<void> {
+export async function removePluginFromAssistant(assistantId: string, pluginId: string): Promise<void> {
     try {
         // Use DELETE on the specific plugin sub-resource URL
-        await http.delete(`/assistants/${assistantId}/plugins/${pluginName}`);
+        await http.delete(`/assistants/${assistantId}/plugins/${pluginId}`);
     } catch (err) {
-        throw new Error(`Failed to remove plugin '${pluginName}': ${extractErrorMessage(err)}`);
+        throw new Error(`Failed to remove plugin '${pluginId}': ${extractErrorMessage(err)}`);
     }
 }
 
@@ -156,12 +156,12 @@ export async function getAvailablePlugins(): Promise<PluginManifest[] | null> {
     }
 }
 
-export async function deletePlugin(pluginName: string): Promise<void> {
+export async function deletePlugin(pluginId: string): Promise<void> {
     try {
         // Use DELETE on the specific plugin resource URL
-        await http.delete(`/plugins/${pluginName}`);
+        await http.delete(`/plugins/${pluginId}`);
     } catch (err) {
-        throw new Error(`Failed to delete plugin '${pluginName}': ${extractErrorMessage(err)}`);
+        throw new Error(`Failed to delete plugin '${pluginId}': ${extractErrorMessage(err)}`);
     }
 }
 

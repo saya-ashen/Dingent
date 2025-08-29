@@ -16,7 +16,7 @@ export default function PluginsPage() {
     });
 
     const delMutation = useMutation({
-        mutationFn: async (name: string) => deletePlugin(name),
+        mutationFn: async (id: string) => deletePlugin(id),
         onSuccess: async () => {
             toast.success("Plugin deleted");
             await qc.invalidateQueries({ queryKey: ["available-plugins"] });
@@ -43,7 +43,7 @@ export default function PluginsPage() {
                                 title="Confirm Delete Plugin"
                                 message={`Are you sure you want to delete plugin '${p.name}'? This may affect assistants that reference this plugin.`}
                                 confirmText="Confirm Delete"
-                                onConfirm={() => delMutation.mutate(p.name)}
+                                onConfirm={() => delMutation.mutate(p.id)}
                                 trigger={<Button variant="destructive">Delete</Button>}
                             />
                         </div>

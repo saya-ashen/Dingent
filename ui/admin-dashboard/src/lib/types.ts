@@ -35,6 +35,7 @@ export type PluginTool = {
 };
 
 export type AssistantPlugin = {
+    id: string;
     name: string;
     status?: string;
     enabled?: boolean;
@@ -66,6 +67,7 @@ export type AppSettings = {
 };
 
 export type PluginManifest = {
+    id: string;
     name: string;
     version?: string;
     description?: string;

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import shutil
 import time
 from collections.abc import Callable
@@ -401,8 +400,6 @@ class ConfigManager:
 
     def _validate(self, raw: dict) -> AppSettings:
         # 环境变量覆盖
-        if "APP_DEFAULT_ASSISTANT" in os.environ:
-            raw["default_assistant"] = os.environ["APP_DEFAULT_ASSISTANT"]
         try:
             return AppSettings.model_validate(raw)
         except ValidationError as e:
