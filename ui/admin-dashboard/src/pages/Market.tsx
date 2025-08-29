@@ -153,7 +153,7 @@ export default function MarketPage() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <Badge className={getCategoryColor(item)}>
+                                        <Badge className={getCategoryColor(item.category)}>
                                             {formatCategory(item.category)}
                                         </Badge>
                                     </div>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
@@ -187,7 +187,7 @@ async def _build_plugin_admin_detail(plugin_conf: PluginUserConfig, assistant_in
 async def _build_assistant_admin_detail(settings: AssistantSettings, running_map: dict[str, Any]) -> AssistantAdminDetail:
     instance = running_map.get(settings.id)
     status = "active" if instance else "inactive"
-    plugin_details: tuple[PluginAdminDetail] = tuple()
+    plugin_details: tuple[PluginAdminDetail] = cast(tuple[PluginAdminDetail], ())
     # 并行构建插件
     tasks = [_build_plugin_admin_detail(p, instance) for p in settings.plugins]
     if tasks:
@@ -598,7 +598,7 @@ async def get_market_items(category: str):
         category_enum = MarketItemCategory(category)
         installed_plugin_ids = set(plugin_manager.list_plugins().keys())
         installed_ids = installed_plugin_ids
-        immutable_installed_ids = tuple(sorted(list(installed_ids)))
+        immutable_installed_ids = tuple(sorted(installed_ids))
         items = await market_service.get_market_items(category_enum, immutable_installed_ids)
         return [item.model_dump() for item in items]
     except Exception as e:

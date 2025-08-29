@@ -114,7 +114,7 @@ class MarketService:
     async def get_market_items(
         self,
         category: MarketItemCategory,
-        installed_ids: tuple[str] | None = None,
+        installed_ids: tuple | None = None,
     ) -> list[MarketItem]:
         """Fetch a list of available market items concurrently."""
         if installed_ids is None:
@@ -133,7 +133,7 @@ class MarketService:
         self,
         repo_directory: str,
         category_enum: MarketItemCategory,
-        installed_ids: list[str],
+        installed_ids: tuple,
     ) -> list[MarketItem]:
         """Fetch and process all items for a specific category concurrently."""
         try:
@@ -160,7 +160,7 @@ class MarketService:
         repo_directory: str,
         category_enum: MarketItemCategory,
         item_id: str,
-        installed_ids: list[str],
+        installed_ids: tuple,
     ) -> MarketItem | None:
         """Fetch details for a specific item, merging configs if necessary."""
         try:
