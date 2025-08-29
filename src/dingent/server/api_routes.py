@@ -10,6 +10,7 @@ from dingent.core import get_app_context
 from dingent.core.log_manager import get_log_manager
 from dingent.core.plugin_manager import PluginManifest
 from dingent.core.settings import AssistantSettings
+from dingent.core.market_service import MarketService
 from dingent.core.types import (
     AssistantBase,
     AssistantCreate,
@@ -27,6 +28,9 @@ config_manager = app_context.config_manager
 workflow_manager = app_context.workflow_manager
 assistant_manager = app_context.assistant_manager
 plugin_manager = app_context.plugin_manager
+
+# Initialize market service
+market_service = MarketService(config_manager.project_root)
 
 
 # ---------------------------------------------------------------------------
@@ -566,28 +570,6 @@ async def instantiate_workflow(workflow_id: str):
 # ---------------------------------------------------------------------------
 
 
-class MarketMetadata(BaseModel):
-    version: str
-    updated_at: str
-    categories: dict[str, int]
-
-
-class MarketItem(BaseModel):
-    id: str
-    name: str
-    description: str | None = None
-    version: str | None = None
-    author: str | None = None
-    category: str  # "plugin" | "assistant" | "workflow"
-    tags: list[str] = Field(default_factory=list)
-    license: str | None = None
-    readme: str | None = None
-    downloads: int | None = None
-    rating: float | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
-
-
 class MarketDownloadRequest(BaseModel):
     item_id: str
     category: str  # "plugin" | "assistant" | "workflow"
@@ -599,83 +581,26 @@ class MarketDownloadResponse(BaseModel):
     installed_path: str | None = None
 
 
-@router.get("/market/metadata", response_model=MarketMetadata)
+@router.get("/market/metadata")
 async def get_market_metadata():
     """
     Get market metadata including version and item counts.
     """
     try:
-        # In a real implementation, this would fetch from the dingent-market repository
-        # For now, return mock data
-        return MarketMetadata(
-            version="1.0.0",
-            updated_at="2024-08-29T00:00:00Z",
-            categories={
-                "plugins": 15,
-                "assistants": 8,
-                "workflows": 5
-            }
-        )
+        metadata = await market_service.get_market_metadata()
+        return metadata.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch market metadata: {e}")
 
 
-@router.get("/market/items", response_model=list[MarketItem])
+@router.get("/market/items")
 async def get_market_items(category: str | None = None):
     """
     Get list of available market items, optionally filtered by category.
     """
     try:
-        # Mock data - in real implementation, this would fetch from GitHub API
-        items = [
-            MarketItem(
-                id="awesome-calculator",
-                name="Awesome Calculator",
-                description="A powerful calculator plugin with advanced mathematical functions",
-                version="1.2.0",
-                author="Community",
-                category="plugin",
-                tags=["math", "calculator", "utility"],
-                license="MIT",
-                downloads=1250,
-                rating=4.5,
-                created_at="2024-01-15T10:00:00Z",
-                updated_at="2024-08-15T14:30:00Z"
-            ),
-            MarketItem(
-                id="daily-report",
-                name="Daily Report Workflow",
-                description="Automated daily reporting workflow for data analysis",
-                version="2.1.0",
-                author="Community",
-                category="workflow",
-                tags=["reporting", "automation", "daily"],
-                license="MIT",
-                downloads=890,
-                rating=4.8,
-                created_at="2024-02-20T09:00:00Z",
-                updated_at="2024-08-20T11:15:00Z"
-            ),
-            MarketItem(
-                id="support-assistant",
-                name="Customer Support Assistant",
-                description="Pre-configured assistant for customer support scenarios",
-                version="1.0.0",
-                author="Community",
-                category="assistant",
-                tags=["support", "customer", "service"],
-                license="MIT",
-                downloads=567,
-                rating=4.2,
-                created_at="2024-03-10T16:00:00Z",
-                updated_at="2024-07-25T13:45:00Z"
-            )
-        ]
-        
-        if category:
-            items = [item for item in items if item.category == category]
-        
-        return items
+        items = await market_service.get_market_items(category)
+        return [item.model_dump() for item in items]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch market items: {e}")
 
@@ -686,32 +611,26 @@ async def download_market_item(request: MarketDownloadRequest):
     Download and install a market item.
     """
     try:
-        # TODO: Implement actual download logic
-        # This would:
-        # 1. Fetch the item from the dingent-market repository
-        # 2. Download the files to the appropriate directory
-        # 3. Register the item with the appropriate manager
-        
-        # For now, return a mock response
-        return MarketDownloadResponse(
-            success=True,
-            message=f"Successfully downloaded {request.category}: {request.item_id}",
-            installed_path=f"./{request.category}s/{request.item_id}"
-        )
+        result = await market_service.download_item(request.item_id, request.category)
+        if result["success"]:
+            return MarketDownloadResponse(**result)
+        else:
+            raise HTTPException(status_code=400, detail=result["message"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to download {request.category} '{request.item_id}': {e}")
 
 
-@router.get("/market/items/{item_id}/readme", response_model=dict[str, str])
-async def get_market_item_readme(item_id: str):
+@router.get("/market/items/{item_id}/readme")
+async def get_market_item_readme(item_id: str, category: str):
     """
     Get the README content for a specific market item.
     """
     try:
-        # TODO: Implement actual README fetching from GitHub
-        # For now, return mock content
-        return {
-            "readme": f"# {item_id}\n\nThis is a mock README for {item_id}.\n\n## Installation\n\nThis item has been successfully installed from the Dingent Market."
-        }
+        readme_content = await market_service.get_item_readme(item_id, category)
+        if readme_content is None:
+            raise HTTPException(status_code=404, detail=f"README not found for {category}/{item_id}")
+        return {"readme": readme_content}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch README for {item_id}: {e}")
