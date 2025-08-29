@@ -1,5 +1,4 @@
 import re
-import sqlite3
 from asyncio import Queue
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
@@ -24,7 +23,6 @@ from .simple_react_agent import build_simple_react_agent
 
 db_path = Path(".dingent/data/checkpoints.sqlite")
 db_path.parent.mkdir(parents=True, exist_ok=True)
-conn = sqlite3.connect(db_path, check_same_thread=False)
 
 
 app_context = get_app_context()

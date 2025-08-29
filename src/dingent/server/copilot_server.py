@@ -2,9 +2,8 @@ import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-from copilotkit import LangGraphAGUIAgent
-from dotenv import load_dotenv
+from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from fastapi import FastAPI
 
 from dingent.engine.graph import make_graph
@@ -12,8 +11,6 @@ from dingent.engine.graph import make_graph
 from .app_factory import app
 
 original_lifespan = app.router.lifespan_context
-
-load_dotenv()
 
 
 @asynccontextmanager
@@ -26,14 +23,36 @@ async def extended_lifespan(app: FastAPI):
         print("Runner-specific startup: Creating graph and setting up endpoint...")
 
         async with make_graph() as graph:
-            add_langgraph_fastapi_endpoint(
-                app=app, agent=LangGraphAGUIAgent(name="dingent", description="An example agent to use as a starting point for your own agent.", graph=graph), path="/"
+            sdk = CopilotKitRemoteEndpoint(
+                agents=[
+                    LangGraphAgent(
+                        name="dingent",
+                        description="An example agent to use as a starting point for your own agent.",
+                        graph=graph,
+                    )
+                ],
             )
 
+            add_fastapi_endpoint(app, sdk, "/copilotkit")
+            # add_langgraph_fastapi_endpoint(
+            #     app=app,
+            #     agent=LangGraphAGUIAgent(
+            #         name="dingent",
+            #         description="Describe your agent here, will be used for multi-agent orchestration",
+            #         graph=graph,
+            #     ),
+            #     path="/",  # the endpoint you'd like to serve your agent on
+            # )
             yield
 
 
 app.router.lifespan_context = extended_lifespan
+
+
+@app.get("/health")
+def health():
+    """Health check."""
+    return {"status": "ok"}
 
 
 def main():
@@ -43,10 +62,8 @@ def main():
         "dingent.server.copilot_server:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
     )
 
 
-# 如果你想通过 `python -m sample_agent.demo` 运行，可以加上这个
 if __name__ == "__main__":
     main()
