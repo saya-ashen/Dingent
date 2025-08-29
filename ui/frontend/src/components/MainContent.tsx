@@ -85,7 +85,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return (
         <CopilotKit
             runtimeUrl="/api/copilotkit"
-            showDevConsole={true}
+            showDevConsole={false}
             agent="dingent"
             threadId={activeThreadId}
         >
