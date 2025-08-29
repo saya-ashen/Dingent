@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow } from "./types";
+import type { AppSettings, Assistant, LogItem, LogStats, PluginManifest, Workflow, MarketItem, MarketMetadata, MarketDownloadRequest, MarketDownloadResponse } from "./types";
 
 const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "http://localhost:8000") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
@@ -277,5 +277,101 @@ export async function deleteWorkflow(workflowId: string): Promise<void> {
         // Mock delete for development
         console.warn("Backend not available, mocking workflow deletion");
         return;
+    }
+}
+
+
+// --- Market ---
+
+export async function getMarketMetadata(): Promise<MarketMetadata | null> {
+    try {
+        const { data } = await http.get<MarketMetadata>("/market/metadata");
+        return data;
+    } catch (err) {
+        console.warn("Backend not available, returning mock market metadata", err);
+        // Mock data for development
+        return {
+            version: "1.0.0",
+            updated_at: new Date().toISOString(),
+            categories: {
+                plugins: 15,
+                assistants: 8,
+                workflows: 5
+            }
+        };
+    }
+}
+
+export async function getMarketItems(category?: "plugin" | "assistant" | "workflow"): Promise<MarketItem[] | null> {
+    try {
+        const url = category ? `/market/items?category=${category}` : "/market/items";
+        const { data } = await http.get<MarketItem[]>(url);
+        return data;
+    } catch (err) {
+        console.warn("Backend not available, returning mock market items", err);
+        // Mock data for development
+        return [
+            {
+                id: "awesome-calculator",
+                name: "Awesome Calculator",
+                description: "A powerful calculator plugin with advanced mathematical functions",
+                version: "1.2.0",
+                author: "Community",
+                category: "plugin" as const,
+                tags: ["math", "calculator", "utility"],
+                license: "MIT",
+                downloads: 1250,
+                rating: 4.5,
+                created_at: "2024-01-15T10:00:00Z",
+                updated_at: "2024-08-15T14:30:00Z"
+            },
+            {
+                id: "daily-report",
+                name: "Daily Report Workflow",
+                description: "Automated daily reporting workflow for data analysis",
+                version: "2.1.0",
+                author: "Community",
+                category: "workflow" as const,
+                tags: ["reporting", "automation", "daily"],
+                license: "MIT",
+                downloads: 890,
+                rating: 4.8,
+                created_at: "2024-02-20T09:00:00Z",
+                updated_at: "2024-08-20T11:15:00Z"
+            },
+            {
+                id: "support-assistant",
+                name: "Customer Support Assistant",
+                description: "Pre-configured assistant for customer support scenarios",
+                version: "1.0.0",
+                author: "Community",
+                category: "assistant" as const,
+                tags: ["support", "customer", "service"],
+                license: "MIT",
+                downloads: 567,
+                rating: 4.2,
+                created_at: "2024-03-10T16:00:00Z",
+                updated_at: "2024-07-25T13:45:00Z"
+            }
+        ].filter(item => !category || item.category === category);
+    }
+}
+
+export async function downloadMarketItem(request: MarketDownloadRequest): Promise<MarketDownloadResponse> {
+    try {
+        const { data } = await http.post<MarketDownloadResponse>("/market/download", request);
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to download ${request.category} '${request.item_id}': ${extractErrorMessage(err)}`);
+    }
+}
+
+export async function getMarketItemReadme(itemId: string): Promise<string | null> {
+    try {
+        const { data } = await http.get<{ readme: string }>(`/market/items/${itemId}/readme`);
+        return data.readme;
+    } catch (err) {
+        console.warn("Failed to fetch readme for", itemId, err);
+        return null;
     }
 }

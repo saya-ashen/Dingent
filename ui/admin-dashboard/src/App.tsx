@@ -5,6 +5,7 @@ import PluginsPage from "@/pages/Plugins";
 import SettingsPage from "@/pages/Settings";
 import LogsPage from "@/pages/Logs";
 import WorkflowsPage from "@/pages/Workflows";
+import MarketPage from "@/pages/Market";
 
 export default function App() {
     return (
@@ -12,6 +13,7 @@ export default function App() {
             <Route element={<AppLayout variant="default" />}>
                 <Route path="/" element={<AssistantsPage />} />
                 <Route path="/plugins" element={<PluginsPage />} />
+                <Route path="/market" element={<MarketPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/logs" element={<LogsPage />} />
             </Route>
