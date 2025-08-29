@@ -33,9 +33,11 @@ export default function MarketPage() {
         onSuccess: (_, variables) => {
             toast.success(`Successfully downloaded ${variables.category}: ${variables.item_id}`);
             // Invalidate relevant queries to refresh installed status
+            qc.invalidateQueries({ queryKey: ["market-items", selectedCategory] });
             qc.invalidateQueries({ queryKey: ["available-plugins"] });
             qc.invalidateQueries({ queryKey: ["assistants"] });
             qc.invalidateQueries({ queryKey: ["workflows"] });
+            qc.invalidateQueries({ queryKey: ["available-plugins"] });
         },
         onError: (error: any) => {
             toast.error(error.message || "Download failed");
