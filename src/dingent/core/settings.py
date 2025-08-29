@@ -45,7 +45,7 @@ class LLMSettings(BaseModel):
     model: str = Field("gpt-4.1", description="LLM model name.")
     provider: str | None = Field(None, description="Provider name.")
     base_url: str | None = Field(None, description="Base URL.")
-    api_key: str | None = Field(None, description="API key.")
+    api_key: str | None = Field("sk-...", description="API key.")
 
 
 class AppSettings(BaseModel):

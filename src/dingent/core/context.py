@@ -18,8 +18,7 @@ class AppContext:
     def __init__(self, project_root: Path | None = None):
         self.project_root = project_root or find_project_root()
         if not self.project_root:
-            raise RuntimeError("Could not find project root (dingent.toml).")
-
+            return
         # Initialize in order of dependency (least dependent first)
         self.config_manager = ConfigManager(self.project_root)
         self.resource_manager = ResourceManager(self.project_root / ".dingent" / "data" / "resources.db")

@@ -66,7 +66,7 @@ port = 3000
 # --------- Utility Functions ---------
 
 
-def _ensure_project_root(cli_ctx: CliContext) -> CliContext:
+def _ensure_project_root(cli_ctx: CliContext):
     """
     Checks if the current directory is a Dingent project. If not, prompts the user to create dingent.toml.
     """
@@ -84,7 +84,7 @@ def _ensure_project_root(cli_ctx: CliContext) -> CliContext:
         else:
             print("[bold red]Operation cancelled.[/bold red]")
             raise typer.Exit()
-    return cli_ctx
+    return
 
 
 def _resolve_node_binary() -> str:
@@ -367,7 +367,7 @@ def run(
     Concurrently starts the backend and frontend services.
     """
     cli_ctx = CliContext()
-    cli_ctx = _ensure_project_root(cli_ctx)
+    _ensure_project_root(cli_ctx)
 
     try:
         node_bin = _resolve_node_binary()
@@ -420,7 +420,7 @@ def dev(
         raise typer.Exit(0)
 
     cli_ctx = CliContext()
-    cli_ctx = _ensure_project_root(cli_ctx)
+    _ensure_project_root(cli_ctx)
 
     if open_ui and not with_frontend:
         try:
