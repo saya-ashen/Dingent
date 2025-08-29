@@ -1,7 +1,6 @@
 import json
 import logging
 import shutil
-import uuid
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,7 +12,7 @@ from fastmcp.tools import Tool
 from fastmcp.tools.tool import ToolResult as FastMCPToolResult
 from loguru import logger
 from mcp.types import TextContent
-from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
 from .log_manager import log_with_context
 from .resource_manager import ResourceManager
@@ -27,7 +26,6 @@ from .types import (
 )
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
-PLUGIN_ID_NAMESPACE = uuid.UUID("f8c1b3f2-da89-44e2-9844-3b08e5a7b6e9")
 
 
 class ResourceMiddleware(Middleware):
@@ -293,35 +291,13 @@ class PluginInstance:
 
 
 class PluginManifest(PluginBase):
-    id: str = Field(default="no_id", description="插件唯一标识符")
+    id: str = Field(default="no_name_plugin", description="插件唯一标识符")
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
     execution: ExecutionModel
     dependencies: list[str] | None = None
     python_version: str | None = None
     config_schema: list[PluginConfigSchema] | None = None
     _plugin_path: Path | None = PrivateAttr(default=None)
-
-    @model_validator(mode="before")
-    @classmethod
-    def _generate_id_if_missing(cls, data: Any) -> Any:
-        """
-        If the input data is missing an 'id', generate a deterministic one from the 'name'.
-        This runs before any other validation, ensuring the 'id' field is always populated.
-        """
-        if isinstance(data, dict) and not data.get("id"):
-            plugin_name = data.get("name")
-            if not plugin_name:
-                raise ValueError("Plugin manifest must have a 'name' to generate a fallback ID.")
-
-            generated_id = str(uuid.uuid5(PLUGIN_ID_NAMESPACE, plugin_name))
-            data["id"] = generated_id
-
-            logger.warning(
-                f"Plugin '{plugin_name}' is missing an 'id' in its manifest data. "
-                f"A deterministic ID '{generated_id}' has been generated from its name. "
-                "It is strongly recommended to provide a permanent 'id'."
-            )
-        return data
 
     @classmethod
     def from_toml(cls, toml_path: Path) -> "PluginManifest":
@@ -422,6 +398,6 @@ class PluginManager:
         else:
             logger.warning(f"Plugin with ID '{plugin_id}' not found in PluginManager.")
 
-    def refresh_plugins(self):
+    def reload_plugins(self):
         self.plugins.clear()
         self._scan_and_register_plugins()

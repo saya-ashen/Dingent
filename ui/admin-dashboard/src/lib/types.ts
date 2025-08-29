@@ -126,6 +126,7 @@ export type MarketItem = {
     rating?: number;
     created_at?: string;
     updated_at?: string;
+    is_installed?: boolean;
 };
 
 export type MarketMetadata = {

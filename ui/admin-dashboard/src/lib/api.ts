@@ -302,7 +302,7 @@ export async function getMarketMetadata(): Promise<MarketMetadata | null> {
     }
 }
 
-export async function getMarketItems(category?: "plugin" | "assistant" | "workflow"): Promise<MarketItem[] | null> {
+export async function getMarketItems(category: "all" | "plugin" | "assistant" | "workflow"): Promise<MarketItem[] | null> {
     try {
         const url = category ? `/market/items?category=${category}` : "/market/items";
         const { data } = await http.get<MarketItem[]>(url);

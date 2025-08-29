@@ -31,6 +31,7 @@ dependencies = [
   "psutil>=7.0.0",
   "langgraph-checkpoint-sqlite>=2.0.11",
   "aiosqlite>=0.21.0",
+  "async-lru>=2.0.5",
 ]
 dev = [
   "ipython>=9.4.0",

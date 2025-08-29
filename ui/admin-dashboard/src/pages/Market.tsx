@@ -24,7 +24,7 @@ export default function MarketPage() {
 
     const itemsQuery = useQuery({
         queryKey: ["market-items", selectedCategory],
-        queryFn: () => getMarketItems(selectedCategory === "all" ? undefined : selectedCategory),
+        queryFn: () => getMarketItems(selectedCategory),
         staleTime: 60_000 // 1 minute
     });
 
@@ -50,6 +50,9 @@ export default function MarketPage() {
     };
 
     const formatCategory = (category: string) => {
+        if (typeof category !== 'string' || category.length === 0) {
+            return 'Uncategorized'; // Return a default value
+        }
         return category.charAt(0).toUpperCase() + category.slice(1);
     };
 
@@ -64,8 +67,8 @@ export default function MarketPage() {
 
     return (
         <div className="space-y-6">
-            <PageHeader 
-                title="Market" 
+            <PageHeader
+                title="Market"
                 description="Browse and download plugins, assistants, and workflows from the community marketplace."
             />
 
@@ -78,9 +81,9 @@ export default function MarketPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
-                                {metadataQuery.data.categories.plugins + 
-                                 metadataQuery.data.categories.assistants + 
-                                 metadataQuery.data.categories.workflows}
+                                {metadataQuery.data.categories.plugins +
+                                    metadataQuery.data.categories.assistants +
+                                    metadataQuery.data.categories.workflows}
                             </div>
                         </CardContent>
                     </Card>
@@ -123,14 +126,14 @@ export default function MarketPage() {
                 <TabsContent value={selectedCategory} className="mt-6">
                     {/* Loading State */}
                     {itemsQuery.isLoading && <LoadingSkeleton lines={5} />}
-                    
+
                     {/* Error State */}
                     {itemsQuery.error && (
                         <div className="text-red-600">
                             Unable to fetch market items from the backend.
                         </div>
                     )}
-                    
+
                     {/* Empty State */}
                     {itemsQuery.data && itemsQuery.data.length === 0 && (
                         <EmptyState title="No items found" />
@@ -150,7 +153,7 @@ export default function MarketPage() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        <Badge className={getCategoryColor(item.category)}>
+                                        <Badge className={getCategoryColor(item)}>
                                             {formatCategory(item.category)}
                                         </Badge>
                                     </div>
@@ -158,7 +161,7 @@ export default function MarketPage() {
                                         {item.description}
                                     </CardDescription>
                                 </CardHeader>
-                                
+
                                 <CardContent className="flex-1">
                                     {/* Tags */}
                                     {item.tags && item.tags.length > 0 && (
@@ -185,12 +188,14 @@ export default function MarketPage() {
                                                 <span>{item.author}</span>
                                             </div>
                                         )}
-                                        {item.downloads !== undefined && (
-                                            <div className="flex items-center gap-2">
-                                                <Download className="w-4 h-4" />
-                                                <span>{item.downloads.toLocaleString()} downloads</span>
-                                            </div>
-                                        )}
+                                        {
+                                            //item.downloads !== undefined && (
+                                            //     <div className="flex items-center gap-2">
+                                            //         <Download className="w-4 h-4" />
+                                            //         <span>{item.downloads.toLocaleString()} downloads</span>
+                                            //     </div>
+                                            // )
+                                        }
                                         {item.rating && (
                                             <div className="flex items-center gap-2">
                                                 <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -207,13 +212,19 @@ export default function MarketPage() {
                                 </CardContent>
 
                                 <CardFooter>
-                                    <Button 
+                                    <Button
                                         onClick={() => handleDownload(item)}
-                                        disabled={downloadMutation.isPending}
+                                        disabled={downloadMutation.isPending || item.is_installed}
                                         className="w-full"
                                     >
                                         <Download className="w-4 h-4 mr-2" />
-                                        {downloadMutation.isPending ? "Downloading..." : "Download"}
+                                        {
+                                            item.is_installed
+                                                ? "Installed"
+                                                : downloadMutation.isPending
+                                                    ? "Downloading..."
+                                                    : "Download"
+                                        }
                                     </Button>
                                 </CardFooter>
                             </Card>
@@ -221,6 +232,6 @@ export default function MarketPage() {
                     </div>
                 </TabsContent>
             </Tabs>
-        </div>
+        </div >
     );
 }

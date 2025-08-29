@@ -7,8 +7,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, ValidationError
 
 from dingent.core import get_app_context
-from dingent.core.log_manager import get_log_manager
-from dingent.core.market_service import MarketService
+from dingent.core.log_manager import get_log_manager, log_with_context
+from dingent.core.market_service import MarketItemCategory, MarketService
 from dingent.core.plugin_manager import PluginManifest
 from dingent.core.settings import AssistantSettings
 from dingent.core.types import (
@@ -590,14 +590,22 @@ async def get_market_metadata():
 
 
 @router.get("/market/items")
-async def get_market_items(category: str | None = None):
+async def get_market_items(category: str):
     """
     Get list of available market items, optionally filtered by category.
     """
     try:
-        items = await market_service.get_market_items(category)
+        category_enum = MarketItemCategory(category)
+        installed_plugin_ids = set(plugin_manager.list_plugins().keys())
+        installed_ids = installed_plugin_ids
+        immutable_installed_ids = tuple(sorted(list(installed_ids)))
+        items = await market_service.get_market_items(category_enum, immutable_installed_ids)
         return [item.model_dump() for item in items]
     except Exception as e:
+        import pdb
+
+        pdb.set_trace()
+        log_with_context("error", "Market fetch error", context={"category": category, "error": str(e)})
         raise HTTPException(status_code=500, detail=f"Failed to fetch market items: {e}")
 
 
@@ -607,12 +615,26 @@ async def download_market_item(request: MarketDownloadRequest):
     Download and install a market item.
     """
     try:
-        result = await market_service.download_item(request.item_id, request.category)
+        result = await market_service.download_item(
+            request.item_id,
+            MarketItemCategory(request.category),
+        )
         if result["success"]:
+            if request.category == "plugin":
+                plugin_manager.reload_plugins()
             return MarketDownloadResponse(**result)
         else:
             raise HTTPException(status_code=400, detail=result["message"])
     except Exception as e:
+        log_with_context(
+            "error",
+            "Market download error",
+            context={
+                "item_id": request.item_id,
+                "category": request.category,
+                "error": str(e),
+            },
+        )
         raise HTTPException(status_code=500, detail=f"Failed to download {request.category} '{request.item_id}': {e}")
 
 
