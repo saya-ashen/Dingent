@@ -87,7 +87,7 @@ def _ensure_project_root(cli_ctx: CliContext):
     return
 
 
-def _resolve_node_binary() -> str:
+def _resolve_node_binary():
     """
     Gets the node executable path using nodejs_wheel.
     """
