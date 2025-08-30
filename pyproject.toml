@@ -25,6 +25,7 @@ dependencies = [
   "langgraph>=0.3.31,<1.0.0",
   "langgraph-cli[inmem]>=0.1.73",
   "langgraph-swarm>=0.0.12",
+   "langgraph-api>=0.0.21",
   "numpy>=2.3.0",
   "tomlkit>=0.13.3",
   "nodejs-wheel>=22.18.0",
