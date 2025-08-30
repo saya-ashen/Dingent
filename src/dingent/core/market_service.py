@@ -5,7 +5,6 @@ from the dingent-market repository.
 
 import asyncio
 import json
-import logging
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -15,11 +14,7 @@ import toml
 from async_lru import alru_cache
 from pydantic import BaseModel, model_validator
 
-from dingent.core import get_app_context
-
-plugin_manager = get_app_context().plugin_manager
-
-logger = logging.getLogger(__name__)
+from dingent.core.log_manager import LogManager
 
 # Market repository configuration
 MARKET_REPO_OWNER = "saya-ashen"
@@ -77,10 +72,11 @@ class MarketItem(BaseModel):
 class MarketService:
     """Service for interacting with the dingent-market repository."""
 
-    def __init__(self, project_root: Path):
+    def __init__(self, project_root: Path, log_manager: LogManager):
         self.project_root = project_root
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": "Dingent-Market-Client/1.0"})
+        self._log_manager = log_manager
 
     def close(self):
         """Close the HTTP session."""
@@ -94,7 +90,7 @@ class MarketService:
             response.raise_for_status()
             return response.text
         except requests.RequestException as e:
-            logger.debug(f"Failed to fetch URL {url}: {e}")
+            self._log_manager.log_with_context("warning", "Failed to fetch URL: {url}", context={"url": url, "error": str(e)})
             return None
 
     @alru_cache(maxsize=1)
@@ -106,7 +102,7 @@ class MarketService:
             try:
                 return MarketMetadata.model_validate_json(content)
             except Exception as e:
-                logger.warning(f"Failed to parse market metadata: {e}")
+                self._log_manager.log_with_context("warning", "Failed to parse market metadata", context={"error": str(e)})
 
         # Return fallback metadata on failure
         return MarketMetadata(version="0.0.0", updated_at="", categories={})
@@ -151,7 +147,7 @@ class MarketService:
             return [item for item in results if item]
 
         except Exception as e:
-            logger.warning(f"Failed to fetch {repo_directory} items: {e}")
+            self._log_manager.log_with_context("warning", "Failed to fetch category items", context={"category": category_enum.value, "error": str(e)})
             return []
 
     @alru_cache(maxsize=128)  # Cache details for many individual items
@@ -197,11 +193,13 @@ class MarketService:
                 author=final_meta.get("author"),
                 category=category_enum,
                 tags=final_meta.get("tags", []),
-                license=final_meta.get("license"),
+                license=final_meta.get("license", {}).get("text") or "License not specified",
                 is_installed=is_item_installed,
             )
         except Exception as e:
-            logger.debug(f"Could not fetch details for {item_id}, creating fallback. Reason: {e}")
+            self._log_manager.log_with_context(
+                "warning", "Failed to fetch item details, using fallback", context={"item_id": item_id, "category": category_enum.value, "error": str(e)}
+            )
             # Fallback if any step fails
             return MarketItem(
                 id=item_id,
@@ -239,7 +237,7 @@ class MarketService:
 
             return {"success": True, "message": f"Successfully downloaded {category.value}: {item_id}", "installed_path": str(target_dir.relative_to(self.project_root))}
         except Exception as e:
-            logger.error(f"Failed to download {category.value} '{item_id}': {e}")
+            self._log_manager.log_with_context("error", "Download failed", context={"item_id": item_id, "category": category.value, "error": str(e)})
             return {"success": False, "message": f"Failed to download {category.value} '{item_id}': {str(e)}", "installed_path": None}
 
     async def _download_directory(self, source_path: str, target_dir: Path):
@@ -265,7 +263,7 @@ class MarketService:
                     with open(file_path, "wb") as f:
                         f.write(file_response.content)
 
-                    logger.info(f"Downloaded {item['name']} to {file_path}")
+                    self._log_manager.log_with_context("info", "Downloaded file: {file}", context={"file": str(file_path)})
                 elif item["type"] == "dir":
                     # Recursively download subdirectories
                     subdir_path = target_dir / item["name"]
@@ -273,7 +271,7 @@ class MarketService:
                     await self._download_directory(f"{source_path}/{item['name']}", subdir_path)
 
         except Exception as e:
-            logger.error(f"Failed to download directory {source_path}: {e}")
+            self._log_manager.log_with_context("error", "Failed to download directory", context={"source_path": source_path, "error": str(e)})
             raise
 
     async def _install_item(self, item_id: str, category: MarketItemCategory, target_dir: Path):
@@ -287,24 +285,24 @@ class MarketService:
             elif category == MarketItemCategory.WORKFLOW:
                 await self._install_workflow(item_id, target_dir)
         except Exception as e:
-            logger.error(f"Failed to install {category.value} {item_id}: {e}")
+            self._log_manager.log_with_context("error", "Installation failed", context={"item_id": item_id, "category": category.value, "error": str(e)})
             raise
 
     async def _install_plugin(self, plugin_id: str, target_dir: Path):
         """Install a plugin."""
         # TODO: Register plugin with plugin manager
         # For now, just ensure it's in the right place
-        logger.info(f"Plugin {plugin_id} installed to {target_dir}")
+        self._log_manager.log_with_context("info", "Plugin installed", context={"plugin_id": plugin_id, "path": str(target_dir)})
 
     async def _install_assistant(self, assistant_id: str, target_dir: Path):
         """Install an assistant configuration."""
         # TODO: Register assistant with config manager
-        logger.info(f"Assistant {assistant_id} installed to {target_dir}")
+        self._log_manager.log_with_context("info", "Assistant installed", context={"assistant_id": assistant_id, "path": str(target_dir)})
 
     async def _install_workflow(self, workflow_id: str, target_dir: Path):
         """Install a workflow configuration."""
         # TODO: Register workflow with workflow manager
-        logger.info(f"Workflow {workflow_id} installed to {target_dir}")
+        self._log_manager.log_with_context("info", "Workflow installed", context={"workflow_id": workflow_id, "path": str(target_dir)})
 
     async def get_item_readme(self, item_id: str, category: MarketItemCategory) -> str | None:
         """Get README content for a specific item."""
@@ -318,5 +316,5 @@ class MarketService:
 
             return response.text
         except Exception as e:
-            logger.warning(f"Failed to fetch README for {category.value}/{item_id}: {e}")
+            self._log_manager.log_with_context("warning", "Failed to fetch README", context={"item_id": item_id, "category": category.value, "error": str(e)})
             return None

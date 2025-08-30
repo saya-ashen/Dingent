@@ -6,7 +6,7 @@ import threading
 from collections import deque
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any
 
 from loguru import logger
 
@@ -149,12 +149,6 @@ class LogManager:
     def log_with_context(self, level: str, message: str, context: dict[str, Any] | None = None, correlation_id: str | None = None):
         """
         Log a message with additional context for structured logging.
-
-        Args:
-            level: Log level (debug, info, warning, error, critical)
-            message: Log message
-            context: Additional context data
-            correlation_id: Correlation ID for tracking related operations
         """
         extra = {}
         if context:
@@ -162,23 +156,7 @@ class LogManager:
         if correlation_id:
             extra["correlation_id"] = correlation_id
 
-        logger_method = getattr(logger, level.lower())
-        logger_method(message, **extra) if extra else logger_method(message)
-
-
-# Global log manager instance
-_log_manager: LogManager | None = None
-
-
-def get_log_manager() -> LogManager:
-    """Get the global log manager instance."""
-    global _log_manager
-    if _log_manager is None:
-        _log_manager = LogManager()
-        logger.info("Enhanced log manager initialized for dashboard display")
-    return _log_manager
-
-
-def log_with_context(level: Literal["error", "info", "warning"], message: str, context: dict[str, Any] | None = None, correlation_id: str | None = None):
-    """Convenience function for structured logging."""
-    get_log_manager().log_with_context(level, message, context, correlation_id)
+        # Use bind().context() for cleaner loguru integration
+        log = logger.opt(depth=1).bind(**extra)
+        logger_method = getattr(log, level.lower())
+        logger_method(message)

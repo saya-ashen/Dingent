@@ -3,9 +3,8 @@ import sqlite3
 import uuid
 from pathlib import Path
 
-from loguru import logger
+from dingent.core.log_manager import LogManager
 
-from .log_manager import log_with_context
 from .types import ToolResult
 
 
@@ -15,7 +14,8 @@ class ResourceManager:
     当达到最大容量时，会根据时间戳移除最旧的资源 (FIFO)。
     """
 
-    def __init__(self, store_path: str | Path, max_size: int = 100):
+    def __init__(self, log_manager: LogManager, store_path: str | Path, max_size: int = 100):
+        self._log_manager = log_manager
         if not isinstance(max_size, int) or max_size <= 0:
             raise ValueError("max_size must be a positive integer.")
 
@@ -29,7 +29,11 @@ class ResourceManager:
         # applications like web servers (e.g., FastAPI).
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self._initialize_db()
-        logger.info(f"SqliteResourceManager initialized with DB at '{self.db_path}' and a maximum capacity of {self.max_size} resources.")
+        self._log_manager.log_with_context(
+            "info",
+            "SqliteResourceManager initialized with DB at '{db_path}' and a maximum capacity of {max_size} resources.",
+            context={"db_path": self.db_path, "max_size": self.max_size},
+        )
 
     def _initialize_db(self):
         """Create the resources table if it doesn't exist."""
@@ -57,7 +61,7 @@ class ResourceManager:
                     oldest_id = oldest_id_tuple[0]
                     # Delete the oldest resource
                     cursor.execute("DELETE FROM resources WHERE id = ?", (oldest_id,))
-                    logger.warning(f"Capacity reached. Removing oldest resource with ID: {oldest_id}")
+                    self._log_manager.log_with_context("warning", "Capacity reached. Removed oldest resource.", context={"removed_resource_id": oldest_id})
 
         # 2. Serialize the resource object and insert it
         new_id = str(uuid.uuid4())
@@ -67,7 +71,7 @@ class ResourceManager:
             self._conn.execute("INSERT INTO resources (id, data) VALUES (?, ?)", (new_id, serialized_resource))
 
         current_size = len(self)
-        log_with_context(
+        self._log_manager.log_with_context(
             "info",
             "ToolResult registered to SQLite",
             context={
@@ -88,7 +92,7 @@ class ResourceManager:
         row = cursor.fetchone()
 
         if not row:
-            logger.warning(f"Resource with ID '{resource_id}' not found in the database.")
+            self._log_manager.log_with_context("warning", "Resource not found in SQLite database.", context={"resource_id": resource_id})
             return None
 
         # Deserialize the object from BLOB data using pickle
@@ -103,12 +107,12 @@ class ResourceManager:
         """从数据库中删除所有资源。"""
         with self._conn:
             self._conn.execute("DELETE FROM resources")
-        logger.info("All resources have been cleared from the SQLite database.")
+        self._log_manager.log_with_context("info", "All resources cleared from SQLite database.")
 
     def close(self) -> None:
         """关闭数据库连接。"""
         self._conn.close()
-        logger.info("SQLiteResourceManager database connection closed.")
+        self._log_manager.log_with_context("info", "SQLiteResourceManager database connection closed.")
 
     def __len__(self) -> int:
         """返回数据库中当前存储的资源数量。"""

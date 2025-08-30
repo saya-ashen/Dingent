@@ -7,11 +7,10 @@ from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING
 
-from loguru import logger
 from pydantic import ValidationError
 
 from dingent.core.config_manager import ConfigManager
-from dingent.core.log_manager import log_with_context
+from dingent.core.log_manager import LogManager
 from dingent.core.settings import AppSettings
 from dingent.core.types import (
     Workflow,
@@ -20,36 +19,12 @@ from dingent.core.types import (
 )
 
 if TYPE_CHECKING:
-    # Adapt these imports to your actual project structure
     from dingent.core.assistant_manager import AssistantManager
 
-    from .assistant_manager import Assistant  # runtime Assistant instance (if different path adjust)
-
-
-# ---------------------------------------------------------------------------
-# Design Notes
-# ---------------------------------------------------------------------------
-# 1. ConfigManager (新版本) 不再持久化 workflows 列表；WorkflowManager 完全接管
-#    workflows 的文件读取、校验、写入、删除。
-# 2. ConfigManager 只需要维护 current_workflow (id)。当 active workflow 改变时，
-#    WorkflowManager 会调用 config_manager.update_global({"current_workflow": id})
-# 3. Workflow 文件存储位置：{project_root}/config/workflows/{workflow_id}.json
-# 4. Runtime 相关逻辑（instantiate_workflow_assistants）仍然保留，但建议未来拆分到
-#    WorkflowRuntimeOrchestrator / GraphBuilder，以避免 Manager 过胖。
-# 5. 提供订阅机制 (on_change) 用于通知外部（如 UI / 监控）Workflow 的 CRUD 与 active 变化。
-# 6. 提供原子写入、防止并发冲突 (RLock)。
-# 7. 提供图导出 (build_adjacency) 便于调试或可视化。
-# 8. 提供批量导入/导出 snapshot。
-#
-# 可进一步增强（暂未实现）：
-# - 文件变更监听 (watchdog) -> 自动 reload
-# - 版本迁移（如 Workflow schema 升级）
-# - 校验拓扑循环、孤立节点等
-# ---------------------------------------------------------------------------
+    from .assistant_manager import Assistant
 
 
 WorkflowChangeCallback = Callable[[str, str, Workflow | None], None]
-# event types: "created", "updated", "deleted", "activated", "deactivated", "reloaded"
 
 
 class WorkflowManager:
@@ -67,12 +42,14 @@ class WorkflowManager:
     def __init__(
         self,
         config_manager: ConfigManager,
+        log_manager: LogManager,
         assistant_manager: AssistantManager | None = None,
         workflows_dir: Path | None = None,
         auto_set_active_if_missing: bool = True,
     ):
         self.config_manager = config_manager
         self.assistant_manager = assistant_manager  # may be None if only doing CRUD
+        self.log_manager = log_manager
         self._dir = workflows_dir or (config_manager.project_root / "config" / "workflows")
         self._lock = RLock()
 
@@ -94,13 +71,10 @@ class WorkflowManager:
         # Register callback to handle assistant deletions
         self.config_manager.register_on_change(self._on_config_change)
 
-        logger.info(
-            "WorkflowManager initialized",
-            extra={
-                "count": len(self._workflows),
-                "active": self._active_workflow_id,
-                "dir": str(self._dir),
-            },
+        self.log_manager.log_with_context(
+            "info",
+            "WorkflowManager initialized.",
+            context={"workflow_count": len(self._workflows), "active_workflow_id": self._active_workflow_id, "workflows_dir": str(self._dir)},
         )
 
     # -----------------------------------------------------------------------
@@ -268,10 +242,12 @@ class WorkflowManager:
             for assistant_id in deleted_assistant_ids:
                 modified_workflows = self.cleanup_workflows_for_deleted_assistant(assistant_id)
                 if modified_workflows:
-                    logger.info(f"Cleaned up workflows {modified_workflows} after assistant {assistant_id} deletion")
+                    self.log_manager.log_with_context(
+                        "info", "Cleaned up workflows after assistant deletion", context={"deleted_assistant_id": assistant_id, "modified_workflow_ids": modified_workflows}
+                    )
 
         except Exception as e:
-            logger.error(f"Error handling config change for workflow cleanup: {e}")
+            self.log_manager.log_with_context("error", "Error handling config change for workflow cleanup", context={"error": str(e)})
 
     # -----------------------------------------------------------------------
     # Active Workflow
@@ -301,7 +277,7 @@ class WorkflowManager:
         try:
             self.config_manager.update_global({"current_workflow": workflow_id})
         except Exception as e:
-            logger.error(f"Failed to persist current_workflow in ConfigManager: {e}")
+            self.log_manager.log_with_context("error", "Failed to persist current_workflow in ConfigManager", context={"error": str(e)})
 
     # -----------------------------------------------------------------------
     # Bulk / Snapshot
@@ -329,7 +305,7 @@ class WorkflowManager:
                     wf = Workflow.model_validate(entry)
                     loaded[wf.id] = wf
                 except ValidationError as e:
-                    logger.error(f"Skip invalid workflow in snapshot: {e}")
+                    self.log_manager.log_with_context("error", "Skip invalid workflow in snapshot", context={"error": str(e), "entry": entry})
 
             if overwrite:
                 # clear all existing
@@ -464,7 +440,7 @@ class WorkflowManager:
             try:
                 assistant = await self.assistant_manager.get_assistant(aid)
             except ValueError as e:
-                log_with_context(
+                self.log_manager.log_with_context(
                     "error",
                     message="Failed to instantiate assistant for workflow: {assistant_id}",
                     context={"assistant_id": aid, "assistant_name": aname, "error": str(e)},
@@ -505,7 +481,7 @@ class WorkflowManager:
                 if wf:
                     self._workflows[wf.id] = wf
             except Exception as e:
-                logger.error(f"Failed loading workflow file {file}: {e}")
+                self.log_manager.log_with_context("error", "Failed loading workflow file", context={"file": str(file), "error": str(e)})
 
     def _load_single_file(self, path: Path) -> Workflow | None:
         with path.open("r", encoding="utf-8") as f:
@@ -514,7 +490,7 @@ class WorkflowManager:
             wf = Workflow.model_validate(raw)
             return wf
         except ValidationError as e:
-            logger.error(f"Workflow file {path} invalid: {e}")
+            self.log_manager.log_with_context("error", "Invalid workflow file", context={"file": str(path), "error": str(e)})
             return None
 
     def _write_workflow_file(self, wf: Workflow) -> None:
@@ -526,7 +502,7 @@ class WorkflowManager:
             tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             tmp_path.replace(path)
         except Exception as e:
-            logger.error(f"Failed to write workflow file {path}: {e}")
+            self.log_manager.log_with_context("error", "Failed to write workflow file", context={"file": str(path), "error": str(e)})
             if tmp_path.exists():
                 try:
                     tmp_path.unlink()
@@ -540,7 +516,7 @@ class WorkflowManager:
             try:
                 path.unlink()
             except Exception as e:
-                logger.error(f"Failed to delete workflow file {workflow_id}: {e}")
+                self.log_manager.log_with_context("error", "Failed to delete workflow file", context={"file": str(path), "error": str(e)})
 
     # -----------------------------------------------------------------------
     # Internal: Events
@@ -550,4 +526,4 @@ class WorkflowManager:
             try:
                 cb(event, workflow_id, wf)
             except Exception as e:
-                logger.error(f"Workflow change callback error: {e}")
+                self.log_manager.log_with_context("error", "Workflow change callback error", context={"error": str(e), "event": event, "workflow_id": workflow_id})

@@ -299,7 +299,7 @@ class ConfigManager:
             self._replace_settings(old, new_app)
             return new_app.model_copy(deep=True)
 
-    def update_plugins_for_assistant(self, assistant_id: str, plugin_configs: list[dict | PluginUserConfig]) -> AssistantSettings:
+    def update_plugins_for_assistant(self, assistant_id: str, plugin_configs: list[PluginUserConfig]) -> AssistantSettings:
         """
         仅提供“整体替换”能力，不做增删业务细化（由外部服务组合）。
         """
