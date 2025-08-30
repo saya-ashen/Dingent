@@ -5,8 +5,7 @@ import uvicorn
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from fastapi import FastAPI
-
-from dingent.engine.graph import make_graph
+from langgraph.graph.state import CompiledStateGraph
 
 from .app_factory import app
 
@@ -16,34 +15,58 @@ original_lifespan = app.router.lifespan_context
 @asynccontextmanager
 async def extended_lifespan(app: FastAPI):
     """
-    在应用启动时，异步创建 graph 并设置 endpoint；
-    在应用关闭时，自动处理清理工作。
+    启动时预构建当前激活 workflow 的图（或 fallback），并注册 CopilotKit endpoint。
     """
     async with original_lifespan(app):
-        print("Runner-specific startup: Creating graph and setting up endpoint...")
+        ctx = app.state.app_context
+        gm = ctx.graph_manager
+        active_wid = ctx.workflow_manager.active_workflow_id
+        graph = await gm.get_graph(active_wid)
 
-        async with make_graph() as graph:
-            sdk = CopilotKitRemoteEndpoint(
-                agents=[
-                    LangGraphAgent(
-                        name="dingent",
-                        description="An example agent to use as a starting point for your own agent.",
-                        graph=graph,
-                    )
-                ],
-            )
+        async def _update_copilot_agent_callback(rebuilt_workflow_id: str, new_graph: CompiledStateGraph):
+            """
+            This function is called by the GraphManager after a rebuild.
+            It checks if the rebuilt graph belongs to the currently active workflow
+            and updates the SDK's agent if it does.
+            """
+            # Use a fresh reference to the workflow manager to get the *current* active ID
+            current_active_id = ctx.workflow_manager.active_workflow_id
 
-            add_fastapi_endpoint(app, sdk, "/copilotkit")
-            # add_langgraph_fastapi_endpoint(
-            #     app=app,
-            #     agent=LangGraphAGUIAgent(
-            #         name="dingent",
-            #         description="Describe your agent here, will be used for multi-agent orchestration",
-            #         graph=graph,
-            #     ),
-            #     path="/",  # the endpoint you'd like to serve your agent on
-            # )
+            print(f"Callback triggered for workflow '{rebuilt_workflow_id}'. Current active workflow is '{current_active_id}'.")
+
+            # Only update the agent if the rebuilt graph is for the *active* workflow
+            if rebuilt_workflow_id == current_active_id:
+                sdk_instance = app.state.copilot_sdk
+
+                new_agent = LangGraphAgent(
+                    name="dingent",
+                    description="Multi-workflow cached agent graph",
+                    graph=new_graph,
+                )
+                # This is the same hot-swap logic as before
+                sdk_instance.agents = [new_agent]
+
+                ctx.log_manager.log_with_context("info", "CopilotKit agent was automatically updated for active workflow.", context={"workflow_id": rebuilt_workflow_id})
+
+        sdk = CopilotKitRemoteEndpoint(
+            agents=[
+                LangGraphAgent(
+                    name="dingent",
+                    description="Multi-workflow cached agent graph",
+                    graph=graph,
+                )
+            ],
+        )
+        app.state.copilot_sdk = sdk
+        gm.register_rebuild_callback(_update_copilot_agent_callback)
+        add_fastapi_endpoint(app, sdk, "/copilotkit")
+
+        try:
             yield
+        finally:
+            # 保持缓存常驻；如果需要关闭所有图，可在此解除注释：
+            # await gm.close_all()
+            pass
 
 
 app.router.lifespan_context = extended_lifespan
@@ -51,12 +74,10 @@ app.router.lifespan_context = extended_lifespan
 
 @app.get("/health")
 def health():
-    """Health check."""
     return {"status": "ok"}
 
 
 def main():
-    """Run the uvicorn server."""
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
         "dingent.server.copilot_server:app",

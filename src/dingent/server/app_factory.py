@@ -5,9 +5,9 @@ from importlib.resources import files
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from dingent.core.context import get_app_context
+from dingent.core.context import initialize_app_context
 
-from .api_routes import router as admin_config_router
+from .api import api_router
 
 assistant_id = "agent"
 
@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     print(f"--- Application Startup ---\n{app.summary}")
 
     print("Plugins would be initialized here if needed.")
-    app.state.app_context = get_app_context()
+    app.state.app_context = initialize_app_context()
 
     try:
         yield
@@ -72,7 +72,7 @@ def register_admin_routes(app: FastAPI, base_path: str = "/admin") -> None:
 def build_agent_api(**kwargs) -> FastAPI:
     kwargs["lifespan"] = lifespan
     app = FastAPI(**kwargs)
-    app.include_router(admin_config_router, prefix="/api/v1")
+    app.include_router(api_router, prefix="/api/v1")
     register_admin_routes(app, "/admin")
 
     @app.get("/api/resource/{resource_id}")
@@ -98,12 +98,16 @@ app = build_agent_api()
 origins = [
     "http://localhost",
     "http://localhost:8000",
+    "http://localhost:5173",
     "http://127.0.0.1",
     "http://127.0.0.1:8000",
+    "https://smith.langchain.com",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_methods=["*"],
+    allow_origins=origins,  # 允许访问的源
+    allow_credentials=True,  # 支持 cookie
+    allow_methods=["*"],  # 允许所有方法
+    allow_headers=["*"],  # 允许所有请求头
 )

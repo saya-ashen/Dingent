@@ -39,3 +39,13 @@ export function effectiveStatusForItem(raw: string | undefined, enabled: boolean
     const text = toStr(raw) || "Unknown";
     return { level, label: `${labelMap[level]} (${text})` };
 }
+export function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+
+    return (...args: Parameters<F>): void => {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+        timeout = setTimeout(() => func(...args), waitFor);
+    };
+}

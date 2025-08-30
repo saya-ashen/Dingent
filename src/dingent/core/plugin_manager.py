@@ -1,6 +1,7 @@
 import json
 import logging
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
 
@@ -14,7 +15,8 @@ from loguru import logger
 from mcp.types import TextContent
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
-from .log_manager import log_with_context
+from dingent.core.log_manager import LogManager
+
 from .resource_manager import ResourceManager
 from .types import (
     ConfigItemDetail,
@@ -33,9 +35,10 @@ class ResourceMiddleware(Middleware):
     拦截工具调用结果，标准化为 ToolResult，并存储，仅向模型暴露最小必要文本。
     """
 
-    def __init__(self, resource_manager: ResourceManager):
+    def __init__(self, resource_manager: ResourceManager, log_method: Callable):
         super().__init__()
         self.resource_manager = resource_manager
+        self.log_with_context = log_method
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         result = await call_next(context)
@@ -169,6 +172,7 @@ class PluginInstance:
         cls,
         manifest: "PluginManifest",
         user_config: PluginUserConfig,
+        log_method: Callable,
         middleware: Middleware | None = None,
     ) -> "PluginInstance":
         if not user_config.enabled:
@@ -210,7 +214,7 @@ class PluginInstance:
             _status = "active"
         except Exception as e:
             _status = "error"
-            log_with_context(
+            log_method(
                 "error",
                 "Failed to connect to MCP server: {error_msg}",
                 context={"plugin": manifest.name, "error_msg": f"{e}"},
@@ -331,6 +335,7 @@ class PluginManifest(PluginBase):
     async def create_instance(
         self,
         user_config: PluginUserConfig,
+        log_method: Callable,
         middleware: Middleware | None = None,
     ) -> "PluginInstance":
         if self.path is None:
@@ -339,18 +344,20 @@ class PluginManifest(PluginBase):
             manifest=self,
             user_config=user_config,
             middleware=middleware,
+            log_method=log_method,
         )
 
 
 class PluginManager:
     plugins: dict[str, PluginManifest] = {}
 
-    def __init__(self, plugin_dir: Path, resource_manager: ResourceManager):
+    def __init__(self, plugin_dir: Path, resource_manager: ResourceManager, log_manager: LogManager):
         self.plugin_dir = plugin_dir
         self.plugin_dir.mkdir(parents=True, exist_ok=True)
-        log_with_context("info", "PluginManager initialized with plugin directory: {dir}", context={"dir": str(self.plugin_dir)})
+        self.log_manager = log_manager
+        self.log_manager.log_with_context("info", "PluginManager initialized with plugin directory: {dir}", context={"dir": str(self.plugin_dir)})
         self._scan_and_register_plugins()
-        self.middleware = ResourceMiddleware(resource_manager)
+        self.middleware = ResourceMiddleware(resource_manager, self.log_manager.log_with_context)
 
     def _scan_and_register_plugins(self):
         if not self.plugin_dir.is_dir():
@@ -360,17 +367,17 @@ class PluginManager:
         for plugin_path in self.plugin_dir.iterdir():
             if not plugin_path.is_dir():
                 logger.warning(f"Skipping '{plugin_path}' as it is not a directory.")
-                log_with_context("warning", "Skipping '{path}' as it is not a directory.", context={"path": str(plugin_path)})
+                self.log_manager.log_with_context("warning", "Skipping '{path}' as it is not a directory.", context={"path": str(plugin_path)})
                 continue
             toml_path = plugin_path / "plugin.toml"
             if not toml_path.is_file():
-                log_with_context("warning", "Skipping '{path}' as 'plugin.toml' is missing.", context={"path": str(plugin_path)})
+                self.log_manager.log_with_context("warning", "Skipping '{path}' as 'plugin.toml' is missing.", context={"path": str(plugin_path)})
                 continue
             try:
                 plugin_manifest = PluginManifest.from_toml(toml_path)
                 self.plugins[plugin_manifest.id] = plugin_manifest
             except Exception as e:
-                log_with_context("error", "Failed to load plugin from '{path}': {error_msg}", context={"path": str(toml_path), "error_msg": f"{e}"})
+                self.log_manager.log_with_context("error", "Failed to load plugin from '{path}': {error_msg}", context={"path": str(toml_path), "error_msg": f"{e}"})
 
     def list_plugins(self) -> dict[str, PluginManifest]:
         return self.plugins
@@ -382,6 +389,7 @@ class PluginManager:
         plugin_definition = self.plugins[plugin_id]
         return await plugin_definition.create_instance(
             instance_settings,
+            self.log_manager.log_with_context,
             self.middleware,
         )
 
@@ -393,7 +401,7 @@ class PluginManager:
             plugin = self.plugins[plugin_id]
             plugin_path = plugin.path
             shutil.rmtree(plugin_path)
-            logger.error(f"Plugin '{self.plugins[plugin_id].name}' ({plugin_id}) removed from PluginManager.")
+            logger.info(f"Plugin '{self.plugins[plugin_id].name}' ({plugin_id}) removed from PluginManager.")
             del self.plugins[plugin_id]
         else:
             logger.warning(f"Plugin with ID '{plugin_id}' not found in PluginManager.")

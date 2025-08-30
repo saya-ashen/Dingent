@@ -97,7 +97,7 @@ export async function getAssistantsConfig(): Promise<Assistant[] | null> {
     }
 }
 
-export async function saveAssistantsConfig(payload: Assistant[]): Promise<void> {
+export async function _saveAssistantsConfig(payload: Assistant[]): Promise<void> {
     try {
         // Use PUT to replace the entire collection
         await http.put("/assistants", payload);
@@ -143,6 +143,38 @@ export async function removePluginFromAssistant(assistantId: string, pluginId: s
     }
 }
 
+export async function updateAssistant(
+    assistantId: string,
+    payload: Partial<Assistant>
+): Promise<Assistant> {
+    try {
+        const transformedPayload = structuredClone(payload);
+
+        if (transformedPayload.plugins) {
+
+            transformedPayload.plugins.forEach(plugin => {
+                if (plugin.config && Array.isArray(plugin.config)) {
+                    const newConfigObject = plugin.config.reduce((acc, item) => {
+                        if (item.value !== undefined && item.value !== null) {
+                            acc[item.name] = item.value;
+                        }
+                        return acc;
+                    }, {} as Record<string, unknown>);
+                    (plugin as any).config = newConfigObject;
+                }
+            });
+        }
+
+        const { data } = await http.patch(
+            `/assistants/${assistantId}`,
+            transformedPayload
+        );
+
+        return data;
+    } catch (err) {
+        throw new Error(`Failed to update assistant: ${extractErrorMessage(err)}`);
+    }
+}
 
 // --- Plugins ---
 

@@ -35,7 +35,8 @@ export type PluginTool = {
 };
 
 export type AssistantPlugin = {
-    id: string;
+    // id: string;
+    plugin_id: string;
     name: string;
     status?: string;
     enabled?: boolean;
@@ -50,6 +51,8 @@ export type Assistant = {
     enabled?: boolean;
     status?: string;
     plugins?: AssistantPlugin[];
+    updatedAt?: string
+
 };
 
 export type AppSettings = {

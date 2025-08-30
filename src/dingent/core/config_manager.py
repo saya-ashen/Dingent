@@ -299,7 +299,7 @@ class ConfigManager:
             self._replace_settings(old, new_app)
             return new_app.model_copy(deep=True)
 
-    def update_plugins_for_assistant(self, assistant_id: str, plugin_configs: list[dict | PluginUserConfig]) -> AssistantSettings:
+    def update_plugins_for_assistant(self, assistant_id: str, plugin_configs: list[PluginUserConfig]) -> AssistantSettings:
         """
         仅提供“整体替换”能力，不做增删业务细化（由外部服务组合）。
         """
@@ -552,11 +552,11 @@ class ConfigManager:
             for p in plugin_list:
                 p_copy = dict(p)
                 p_copy["assistant_id"] = a_id
-                plugin_name = p_copy.get("plugin_name") or p_copy.get("name")
-                if not plugin_name:
-                    logger.warning(f"Plugin config for assistant {a_id} missing plugin_name.")
+                plugin_id = p_copy.get("plugin_id")
+                if not plugin_id:
+                    logger.warning(f"Plugin config for assistant {a_id} missing plugin_id.")
                     continue
-                p_dir = self._plugins_dir / plugin_name
+                p_dir = self._plugins_dir / plugin_id
                 p_dir.mkdir(parents=True, exist_ok=True)
                 pf = p_dir / f"{a_id}.yaml"
                 desired_plugin_files.add(pf)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Callable, Iterable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
@@ -10,11 +9,11 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from mcp.types import Tool
 from pydantic import BaseModel, ValidationError
 
+from dingent.core.log_manager import LogManager
+
 from .config_manager import ConfigManager
 from .plugin_manager import PluginInstance, PluginManager
 from .settings import AssistantSettings
-
-logger = logging.getLogger(__name__)
 
 
 class RunnableTool(BaseModel):
@@ -36,15 +35,17 @@ class Assistant:
         name: str,
         description: str,
         plugin_instances: dict[str, PluginInstance],
+        log_method: Callable,
     ):
         self.id = assistant_id
         self.name = name
         self.description = description
-        self.plugin_instances = plugin_instances  # key = plugin_name
+        self.plugin_instances = plugin_instances
         self.destinations: list[str] = []
+        self._log_method = log_method
 
     @classmethod
-    async def create(cls, plugin_manager: PluginManager, settings: AssistantSettings) -> Assistant:
+    async def create(cls, plugin_manager: PluginManager, settings: AssistantSettings, log_method: Callable) -> Assistant:
         plugin_instances: dict[str, PluginInstance] = {}
         enabled_plugins = [p for p in settings.plugins if p.enabled]
         for pconf in enabled_plugins:
@@ -52,14 +53,13 @@ class Assistant:
                 inst = await plugin_manager.create_instance(pconf)
                 plugin_instances[pconf.plugin_id or pconf.plugin_id] = inst
             except Exception as e:
-                logger.error(
-                    "Create plugin instance failed (assistant=%s plugin=%s): %s",
-                    settings.name,
-                    getattr(pconf, "plugin_name", pconf.name),
-                    e,
+                log_method(
+                    "error",
+                    "Create plugin instance failed (assistant={name} plugin={pid}): {e}",
+                    context={"name": settings.name, "pid": getattr(pconf, "plugin_id", pconf.plugin_id), "e": e},
                 )
                 # 可选择：继续 / 或 raise
-        return cls(settings.id, settings.name, settings.description or "", plugin_instances)
+        return cls(settings.id, settings.name, settings.description or "", plugin_instances, log_method)
 
     @asynccontextmanager
     async def load_tools_langgraph(self):
@@ -98,7 +98,7 @@ class Assistant:
             try:
                 await inst.aclose()
             except Exception as e:
-                logger.warning("Error closing plugin instance (assistant=%s): %s", self.name, e)
+                self._log_method("warning", "Error closing plugin instance (assistant={name}): {e}", context={"name": self.name, "e": e})
         self.plugin_instances.clear()
 
 
@@ -119,6 +119,7 @@ class AssistantManager:
         self,
         config_manager: ConfigManager,
         plugin_manager: PluginManager,
+        log_manager: LogManager,
         *,
         auto_recreate_on_change: bool = True,
         compare_plugins_only: bool = False,
@@ -129,6 +130,7 @@ class AssistantManager:
         """
         self._config_manager = config_manager
         self._plugin_manager = plugin_manager
+        self._log_manager = log_manager
 
         self._assistants: dict[str, Assistant] = {}
         self._settings_map: dict[str, AssistantSettings] = {}
@@ -163,7 +165,7 @@ class AssistantManager:
                     sorted(p.tools or []),
                     sorted(p.config.keys()) if p.config else None,
                 )
-                for p in sorted(s.plugins, key=lambda x: (x.plugin_id or x.name))
+                for p in sorted(s.plugins, key=lambda x: (x.plugin_id or x.plugin_id))
             ]
         else:
             payload = s.model_dump(mode="json", exclude_none=True)
@@ -174,7 +176,7 @@ class AssistantManager:
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     async def _build_assistant_instance(self, settings: AssistantSettings) -> Assistant:
-        return await Assistant.create(self._plugin_manager, settings)
+        return await Assistant.create(self._plugin_manager, settings, self._log_manager.log_with_context)
 
     async def _maybe_recreate_assistant(self, assistant_id: str, new_settings: AssistantSettings):
         """
@@ -200,14 +202,14 @@ class AssistantManager:
             try:
                 await old_instance.aclose()
             except Exception as e:
-                logger.warning("Error closing old assistant '%s' during recreate: %s", assistant_id, e)
+                self._log_manager.log_with_context("warning", "Error closing old assistant {assistant_id}: {e}", context={"assistant_id": assistant_id, "e": e})
         if new_settings.enabled:
             try:
                 new_inst = await self._build_assistant_instance(new_settings)
                 self._assistants[assistant_id] = new_inst
-                logger.info("Assistant '%s' recreated due to config change.", new_settings.name)
+                self._log_manager.log_with_context("info", "Assistant '{name}' recreated due to config change.", context={"name": new_settings.name})
             except Exception as e:
-                logger.error("Failed to recreate assistant '%s': %s", new_settings.name, e)
+                self._log_manager.log_with_context("error", "Failed to recreate assistant '{name}': {e}", context={"name": new_settings.name, "e": e})
 
     def _on_config_change(self, old_settings, new_settings):
         """
@@ -241,16 +243,16 @@ class AssistantManager:
                 if inst:
                     try:
                         await inst.aclose()
-                        logger.info("Assistant instance closed (removed) id=%s", rid)
+                        self._log_manager.log_with_context("info", "Assistant '{name}' closed (removed).", context={"name": inst.name})
                     except Exception as e:
-                        logger.warning("Error closing removed assistant %s: %s", rid, e)
+                        self._log_manager.log_with_context("warning", "Error closing removed assistant '{id}': {e}", context={"id": rid, "e": e})
 
             # 新增
             for nid in added:
                 self._settings_map[nid] = new_map[nid]
                 self._settings_hash[nid] = self._hash_settings(new_map[nid])
                 # 不立即创建实例（lazy）
-                logger.info("Assistant settings added id=%s name=%s", nid, new_map[nid].name)
+                self._log_manager.log_with_context("info", "Assistant '{name}' added.", context={"name": new_map[nid].name})
 
             # 保留 & 可能重建
             for kid in kept:
@@ -294,7 +296,7 @@ class AssistantManager:
                             inst = await self._build_assistant_instance(self._settings_map[aid])
                             self._assistants[aid] = inst
                         except Exception as e:
-                            logger.error("Preload assistant '%s' failed: %s", aid, e)
+                            self._log_manager.log_with_context("error", "Preload assistant '{name}' failed: {e}", context={"name": self._settings_map[aid].name, "e": e})
             # 仅返回已存在的 & 符合条件的
             return {aid: self._assistants[aid] for aid in target_ids if aid in self._assistants}
 
@@ -313,7 +315,74 @@ class AssistantManager:
                     try:
                         self._assistants[aid] = await self._build_assistant_instance(s)
                     except Exception as e:
-                        logger.error("Preload assistant '%s' failed: %s", aid, e)
+                        self._log_manager.log_with_context("error", "Preload assistant '{name}' failed: {e}", context={"name": s.name, "e": e})
+
+    async def reload_assistant(self, assistant_id: str) -> Assistant | None:
+        """
+        强制重新加载单个 Assistant 实例。
+
+        此方法会从 ConfigManager 重新读取该 Assistant 的最新配置。
+        - 如果实例正在运行，它将被关闭并根据新配置重建。
+        - 如果实例未运行，它将根据新配置被加载。
+        - 如果配置中该助手已被禁用或删除，将确保实例被关闭且不再提供。
+
+        Args:
+            assistant_id: 要重新加载的助手的 ID。
+
+        Returns:
+            重新加载后的 Assistant 实例。如果该助手在新配置中被禁用，则返回 None。
+
+        Raises:
+            ValueError: 如果在配置中找不到对应的 assistant_id。
+        """
+        async with self._lock:
+            # 1. 从真实来源（ConfigManager）获取最新配置
+            # 注意：这里假设您的 ConfigManager 有一个 `get_assistant(id)` 方法，
+            # 如果没有，您需要先实现它，或者用 `list_assistants` 遍历查找。
+            try:
+                # 假设 get_assistant 可以通过 id 直接查找
+                new_settings = self._config_manager.get_assistant(assistant_id)
+                if not new_settings:
+                    raise ValueError(f"Assistant '{assistant_id}' not found in configuration.")
+            except (AttributeError, NotImplementedError):
+                # 如果 ConfigManager 没有 get_assistant，则回退到遍历
+                all_settings = self._config_manager.list_assistants()
+                new_settings = next((s for s in all_settings if s.id == assistant_id), None)
+                if not new_settings:
+                    raise ValueError(f"Assistant '{assistant_id}' not found in configuration.")
+
+            # 2. 关闭当前正在运行的实例（如果存在）
+            old_instance = self._assistants.pop(assistant_id, None)
+            if old_instance:
+                self._log_manager.log_with_context("info", "Closing existing instance of assistant '{id}' for reload.", context={"id": assistant_id})
+                try:
+                    await old_instance.aclose()
+                except Exception as e:
+                    self._log_manager.log_with_context("warning", "Error closing old assistant '{id}' during reload: {e}", context={"id": assistant_id, "e": e})
+
+            # 3. 更新内部的 settings 和 hash 映射
+            self._settings_map[assistant_id] = new_settings
+            self._settings_hash[assistant_id] = self._hash_settings(new_settings)
+
+            # 4. 如果配置是启用的，则创建并返回新实例
+            if new_settings.enabled:
+                self._log_manager.log_with_context("info", "Reloading assistant '{name}' (ID: {id}).", context={"name": new_settings.name, "id": assistant_id})
+                try:
+                    new_inst = await self._build_assistant_instance(new_settings)
+                    self._assistants[assistant_id] = new_inst
+                    return new_inst
+                except Exception as e:
+                    self._log_manager.log_with_context(
+                        "error", "Failed to create new instance for assistant '{name}' during reload: {e}", context={"name": new_settings.name, "e": e}
+                    )
+                    # 抛出异常，让调用者知道重载失败
+                    raise RuntimeError(f"Failed to build reloaded assistant '{assistant_id}'") from e
+            else:
+                # 如果配置被禁用了，确保实例被移除并返回 None
+                self._log_manager.log_with_context(
+                    "info", "Assistant '{name}' (ID: {id}) is disabled and will not be reloaded.", context={"name": new_settings.name, "id": assistant_id}
+                )
+                return None
 
     async def rebuild(self):
         """
@@ -323,7 +392,7 @@ class AssistantManager:
         async with self._lock:
             await self._close_all_locked()
             self._load_settings_initial()
-            logger.info("AssistantManager rebuild completed. assistants=%d", len(self._settings_map))
+            self._log_manager.log_with_context("info", "AssistantManager rebuild completed. assistants={count}", context={"count": len(self._settings_map)})
 
     async def refresh_settings_only(self):
         """
@@ -341,13 +410,15 @@ class AssistantManager:
                     try:
                         await inst.aclose()
                     except Exception as e:
-                        logger.warning("Error closing removed assistant %s: %s", rid, e)
+                        self._log_manager.log_with_context("warning", "Error closing removed assistant '{id}': {e}", context={"id": rid, "e": e})
                 self._settings_hash.pop(rid, None)
             # 更新/新增
             for aid, aset in new_map.items():
                 self._settings_map[aid] = aset
                 self._settings_hash[aid] = self._hash_settings(aset)
-            logger.info("Assistant settings refreshed. total=%d removed=%d", len(self._settings_map), len(removed))
+            self._log_manager.log_with_context(
+                "info", "Assistant settings refreshe. total={total} removed={removed}", context={"total": len(self._settings_map), "removed": len(removed)}
+            )
 
     async def close_assistant(self, assistant_id: str) -> bool:
         """
@@ -360,7 +431,7 @@ class AssistantManager:
             try:
                 await inst.aclose()
             except Exception as e:
-                logger.warning("Error closing assistant %s: %s", assistant_id, e)
+                self._log_manager.log_with_context("warning", "Error closing assistant '{id}': {e}", context={"id": assistant_id, "e": e})
             return True
 
     async def aclose(self):
@@ -372,7 +443,7 @@ class AssistantManager:
             try:
                 await inst.aclose()
             except Exception as e:
-                logger.warning("Error closing assistant %s: %s", inst.name, e)
+                self._log_manager.log_with_context("warning", "Error closing assistant '{name}': {e}", context={"name": inst.name, "e": e})
         self._assistants.clear()
 
     # ------------------------------------------------------------------ #

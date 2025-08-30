@@ -8,7 +8,7 @@ import {
     getAssistantsConfig,
     getAvailablePlugins,
     removePluginFromAssistant,
-    saveAssistantsConfig,
+    updateAssistant,
     deleteAssistant,
     addAssistant,
 } from "@/lib/api";
@@ -45,6 +45,7 @@ export default function AssistantsPage() {
     });
 
     const [editable, setEditable] = useState<Assistant[]>([]);
+    const [dirtyAssistantIds, setDirtyAssistantIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         if (assistantsQ.data) {
@@ -87,23 +88,29 @@ export default function AssistantsPage() {
     });
 
     const saveMutation = useMutation({
-        mutationFn: async (payload: Assistant[]) => {
-            payload.forEach(a => {
-                a.enabled = safeBool(a.enabled, false);
-                a.plugins?.forEach(p => {
-                    p.enabled = safeBool(p.enabled, false);
-                    p.tools?.forEach(t => (t.enabled = safeBool(t.enabled, false)));
-                });
-            });
-            await saveAssistantsConfig(payload);
+        mutationFn: async () => {
+            const changedAssistants = editable.filter(a => dirtyAssistantIds.has(a.id));
+
+            if (changedAssistants.length === 0) {
+                toast.info("No changes to save.");
+                return;
+            }
+
+            const updatePromises = changedAssistants.map(assistant =>
+                updateAssistant(assistant.id, assistant)
+            );
+
+            await Promise.all(updatePromises);
         },
         onSuccess: async () => {
-            toast.success("All configuration saved and refreshed successfully!");
-            setSaveDialogOpen(false); // ✨ Close dialog on success
+            toast.success("All changes have been saved successfully!");
             await qc.invalidateQueries({ queryKey: ["assistants"] });
+            setSaveDialogOpen(false); // Close the dialog
+            // The useEffect will then clear the dirty set automatically
         },
-        onError: (e: any) => toast.error(e.message || "Save failed")
+        onError: (e: any) => toast.error(e.message || "Failed to save some changes.")
     });
+
     const deleteAssistantMutation = useMutation({
         mutationFn: async (assistantId: string) => deleteAssistant(assistantId),
         onSuccess: async () => {
@@ -176,8 +183,8 @@ export default function AssistantsPage() {
                 {/* --- Save Configuration Dialog --- */}
                 <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
                     <DialogTrigger asChild>
-                        {/* ✨ Added icon and adjusted text */}
-                        <Button>
+                        <Button disabled={dirtyAssistantIds.size === 0}
+                        >
                             <Save className="mr-2 h-4 w-4" />
                             Save Changes
                         </Button>
@@ -193,20 +200,18 @@ export default function AssistantsPage() {
                         <DialogFooter className="gap-2 sm:justify-end">
                             <DialogClose asChild>
                                 <Button type="button" variant="outline">
-                                    {/* ✨ Added icon to Cancel button */}
                                     <X className="mr-2 h-4 w-4" />
                                     Cancel
                                 </Button>
                             </DialogClose>
                             <Button
                                 type="button"
-                                onClick={() => saveMutation.mutate(editable)}
+                                onClick={() => saveMutation.mutate()}
                                 disabled={saveMutation.isPending}
                             >
                                 {saveMutation.isPending ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
-                                    // ✨ Added icon for consistency
                                     <Save className="mr-2 h-4 w-4" />
                                 )}
                                 {saveMutation.isPending ? "Saving..." : "Confirm & Save"}
@@ -261,18 +266,20 @@ export default function AssistantsPage() {
                                 </div>
                                 <AssistantEditor
                                     assistant={assistant}
-                                    onChange={a => {
-                                        const next = [...editable];
-                                        next[i] = a;
-                                        setEditable(next);
+                                    onChange={updatedAssistant => {
+                                        const nextState = [...editable];
+                                        nextState[i] = updatedAssistant;
+                                        setEditable(nextState);
+                                        setDirtyAssistantIds(prev => new Set(prev).add(updatedAssistant.id));
                                     }}
                                     availablePlugins={pluginsQ.data || []}
                                     onAddPlugin={pluginId => addPluginMutation.mutate({ assistantId: assistant.id, pluginId: pluginId })}
-                                    onRemovePlugin={pluginId => removePluginMutation.mutate({ assistantId: assistant.id, pluginId })}
 
-                                    // ✨ Add these two new props
                                     isAddingPlugin={addPluginMutation.isPending}
                                     addingPluginDetails={addPluginMutation.variables!}
+                                    onRemovePlugin={pluginId => removePluginMutation.mutate({ assistantId: assistant.id, pluginId })}
+                                    isRemovingPlugin={removePluginMutation.isPending}
+                                    removingPluginDetails={removePluginMutation.variables || null}
                                 />
                             </AccordionContent>
                         </AccordionItem>
@@ -284,27 +291,19 @@ export default function AssistantsPage() {
 }
 
 function PluginEditor({
-
     plugin,
-
     onChange,
-
-    onRemove
-
+    onRemove,
+    isRemoving,
 }: {
-
     plugin: AssistantPlugin;
-
     onChange: (p: AssistantPlugin) => void;
-
     onRemove: () => void;
-
+    isRemoving?: boolean;
 }) {
 
     const enabled = safeBool(plugin.enabled, false);
-
     const { level, label } = effectiveStatusForItem(plugin.status, enabled);
-
 
     return (
 
@@ -332,21 +331,21 @@ function PluginEditor({
 
 
                     <ConfirmDialog
-
                         title="Confirm Remove Plugin"
-
                         message={`Are you sure you want to remove plugin '${plugin.name}'?`}
-
                         confirmText="Confirm Remove"
-
                         onConfirm={onRemove}
-
                         trigger={
-
-                            <Button variant="destructive" size="icon">
-
-                                🗑️
-
+                            <Button
+                                variant="destructive"
+                                size="icon"
+                                disabled={isRemoving} // Disable the button while loading
+                            >
+                                {isRemoving ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    '🗑️'
+                                )}
                             </Button>
 
                         }
@@ -366,7 +365,7 @@ function PluginEditor({
 
                     {plugin.config!.map((item, idx) => {
 
-                        const id = `cfg_${plugin.id}_${idx}`;
+                        const id = `cfg_${plugin.plugin_id}_${idx}`;
 
                         const label = `${item.name}${item.required ? " (Required)" : ""}`;
 
@@ -518,7 +517,9 @@ function AssistantEditor({
     onAddPlugin,
     isAddingPlugin,
     addingPluginDetails,
-    onRemovePlugin
+    onRemovePlugin,
+    isRemovingPlugin,
+    removingPluginDetails,
 }: {
     assistant: Assistant;
     onChange: (a: Assistant) => void;
@@ -527,11 +528,13 @@ function AssistantEditor({
     isAddingPlugin: boolean;
     addingPluginDetails: { assistantId: string; pluginId: string } | null;
     onRemovePlugin: (pluginId: string) => void;
+    isRemovingPlugin: boolean;
+    removingPluginDetails: { assistantId: string; pluginId: string } | null;
 }) {
     const enabled = safeBool(assistant.enabled, false);
 
     // 1. Track currently used plugins by their ID for robustness
-    const currentIds = new Set((assistant.plugins || []).map(p => p.id));
+    const currentIds = new Set((assistant.plugins || []).map(p => p.plugin_id));
 
     // 2. Filter available plugins by ID and map them for the select component
     //    value = id (for logic), label = name (for display)
@@ -541,6 +544,7 @@ function AssistantEditor({
             .map(p => ({ value: p.id, label: p.name })),
         [availablePlugins, currentIds]
     );
+    console.log("addable plugins:", addable);
 
     // 3. State now holds the ID of the plugin to be added
     const [selectedPluginIdToAdd, setSelectedPluginIdToAdd] = useState<string>("");
@@ -593,22 +597,30 @@ function AssistantEditor({
 
             {!assistant.plugins?.length && <div className="mt-2 text-sm text-muted-foreground">No plugins configured.</div>}
 
-            <div className="space-y-4"> {/* Adjusted space-y for plugins */}
-                {(assistant.plugins || []).map((p, j) => (
-                    <PluginEditor
-                        // 5. Use the unique plugin ID as the key
-                        key={p.id}
-                        plugin={p}
-                        onChange={np => {
-                            const next = structuredClone(assistant) as Assistant;
-                            next.plugins = next.plugins || [];
-                            next.plugins[j] = np;
-                            onChange(next);
-                        }}
-                        // 6. Pass the plugin ID to the remove handler
-                        onRemove={() => onRemovePlugin(p.id)}
-                    />
-                ))}
+            <div className="space-y-4">
+                {(assistant.plugins || []).map((p, j) => {
+                    // --- Logic to check if THIS plugin is the one being removed ---
+                    const isCurrentlyRemoving =
+                        isRemovingPlugin &&
+                        removingPluginDetails?.assistantId === assistant.id &&
+                        removingPluginDetails?.pluginId === p.plugin_id;
+
+                    return (
+                        <PluginEditor
+                            key={p.plugin_id}
+                            plugin={p}
+                            onChange={np => {
+                                const next = structuredClone(assistant) as Assistant;
+                                next.plugins = next.plugins || [];
+                                next.plugins[j] = np;
+                                onChange(next);
+                            }}
+                            onRemove={() => onRemovePlugin(p.plugin_id)}
+                            // --- Pass the calculated boolean down ---
+                            isRemoving={isCurrentlyRemoving}
+                        />
+                    );
+                })}
             </div>
         </div >
     );

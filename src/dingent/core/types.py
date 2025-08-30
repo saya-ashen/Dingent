@@ -113,37 +113,25 @@ class ToolResult(BaseModel):
                 metadata=metadata,
             )
 
-        # 其他类型直接转字符串
         return cls(
             model_text=str(obj),
             display=[MarkdownPayload(content=str(obj))],
         )
 
 
-# ---------------------------
-# 下面保留原有其余业务模型 (除去旧的 ToolOutput / MarkdownPayload 定义)
-# ---------------------------
-
-
-class ConfigItemDetail(BaseModel):
-    """Represents a single configuration item with its schema and value."""
-
+class PluginConfigSchema(BaseModel):
     name: str = Field(..., description="配置项的名称 (环境变量名)")
-    type: str = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+    type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
     required: bool = Field(..., description="是否为必需项")
     secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
     description: str | None = Field(None, description="该配置项的描述")
     default: Any | None = Field(None, description="默认值 (如果存在)")
+
+
+class ConfigItemDetail(PluginConfigSchema):
+    """Represents a single configuration item with its schema and value."""
+
     value: Any | None = Field(None, description="用户设置的当前值")
-
-
-class PluginConfigSchema(BaseModel):
-    name: str
-    type: Literal["string", "float", "integer", "bool"]
-    required: bool = True
-    secret: bool = False
-    default: str | int | float | None = None
-    description: str | None = None
 
 
 class ToolOverrideConfig(BaseModel):
