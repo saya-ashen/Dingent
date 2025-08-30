@@ -393,7 +393,7 @@ class PluginManager:
             plugin = self.plugins[plugin_id]
             plugin_path = plugin.path
             shutil.rmtree(plugin_path)
-            logger.error(f"Plugin '{self.plugins[plugin_id].name}' ({plugin_id}) removed from PluginManager.")
+            logger.info(f"Plugin '{self.plugins[plugin_id].name}' ({plugin_id}) removed from PluginManager.")
             del self.plugins[plugin_id]
         else:
             logger.warning(f"Plugin with ID '{plugin_id}' not found in PluginManager.")
