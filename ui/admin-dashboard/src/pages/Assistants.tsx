@@ -279,7 +279,7 @@ export default function AssistantsPage() {
                                     addingPluginDetails={addPluginMutation.variables!}
                                     onRemovePlugin={pluginId => removePluginMutation.mutate({ assistantId: assistant.id, pluginId })}
                                     isRemovingPlugin={removePluginMutation.isPending}
-                                    removingPluginDetails={removePluginMutation.variables}
+                                    removingPluginDetails={removePluginMutation.variables || null}
                                 />
                             </AccordionContent>
                         </AccordionItem>

@@ -51,7 +51,7 @@ export type Assistant = {
     enabled?: boolean;
     status?: string;
     plugins?: AssistantPlugin[];
-    updatedAt: string
+    updatedAt?: string
 
 };
 
