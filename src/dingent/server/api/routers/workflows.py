@@ -9,14 +9,14 @@ from dingent.server.api.dependencies import (
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
 
-@router.get("/", response_model=list[Workflow])
+@router.get("", response_model=list[Workflow])
 async def list_workflows(
     workflow_manager: WorkflowManager = Depends(get_workflow_manager),
 ):
     return workflow_manager.list_workflows()
 
 
-@router.post("/", response_model=Workflow)
+@router.post("", response_model=Workflow)
 async def create_workflow(
     wf_create: WorkflowCreate,
     make_active: bool = False,

@@ -29,10 +29,9 @@ class CliContext:
         return self.config_manager.get_settings()
 
     @property
-    def project_root(self) -> Path:
+    def project_root(self) -> Path | None:
         """This property now depends on the lazy config_manager."""
         project_root = find_project_root()
-        assert project_root is not None, "Project root could not be determined."
         return project_root
 
     @property

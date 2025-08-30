@@ -10,7 +10,7 @@ from dingent.server.api.dependencies import (
 router = APIRouter(prefix="/plugins", tags=["Plugins"])
 
 
-@router.get("/", response_model=list[PluginManifest])
+@router.get("", response_model=list[PluginManifest])
 async def list_available_plugins(
     plugin_manager: PluginManager = Depends(get_plugin_manager),
 ):

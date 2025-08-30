@@ -21,10 +21,11 @@ async def lifespan(app: FastAPI):
     """
     print(f"--- Application Startup ---\n{app.summary}")
 
-    print("Plugins would be initialized here if needed.")
+    print("--- Registered Routes ---")
     app.state.app_context = initialize_app_context()
 
     try:
+        print("Plugins would be initialized here if needed.")
         yield
     finally:
         print("--- Application Shutdown ---")

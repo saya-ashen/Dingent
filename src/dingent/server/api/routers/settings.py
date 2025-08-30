@@ -13,7 +13,7 @@ from dingent.server.api.schemas import AppAdminDetail
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
-@router.get("/", response_model=AppAdminDetail)
+@router.get("", response_model=AppAdminDetail)
 async def get_app_settings(
     config_manager: ConfigManager = Depends(get_config_manager),
     workflow_manager: WorkflowManager = Depends(get_workflow_manager),
@@ -28,7 +28,7 @@ async def get_app_settings(
     return AppAdminDetail(**data)
 
 
-@router.patch("/")
+@router.patch("")
 async def update_app_settings(
     payload: dict,
     config_manager: ConfigManager = Depends(get_config_manager),

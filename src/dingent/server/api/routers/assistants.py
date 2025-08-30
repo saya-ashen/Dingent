@@ -134,7 +134,7 @@ def _sanitize_frontend_assistant_payload(raw: dict) -> dict:
     return raw
 
 
-@router.get("/", response_model=list[AssistantAdminDetail])
+@router.get("", response_model=list[AssistantAdminDetail])
 async def list_assistants(
     config_manager: ConfigManager = Depends(get_config_manager),
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
@@ -147,7 +147,7 @@ async def list_assistants(
     return response_data
 
 
-@router.post("/", response_model=AssistantAdminDetail)
+@router.post("", response_model=AssistantAdminDetail)
 async def create_assistant(
     req: AssistantCreateRequest,
     config_manager: ConfigManager = Depends(get_config_manager),
