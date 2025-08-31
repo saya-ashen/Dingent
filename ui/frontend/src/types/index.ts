@@ -19,6 +19,7 @@ export interface ThreadContextType {
 export interface MarkdownPayload {
     type: "markdown";
     content: string;
+    title?: string;
     [k: string]: unknown;
 }
 
@@ -26,6 +27,7 @@ export interface TablePayload {
     type: "table";
     columns: string[];
     rows: unknown;
+    title?: string;
     [k: string]: unknown;
 }
 

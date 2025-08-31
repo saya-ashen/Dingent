@@ -2,7 +2,6 @@
 
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
 import React, { useState } from "react";
-import "./style.css";
 import { ChatHistorySidebar } from "@/components/ChatHistorySidebar";
 import { MainContent } from "@/components/MainContent";
 import { useWidgets } from "@/hooks/useWidgets";

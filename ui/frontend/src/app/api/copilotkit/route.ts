@@ -25,7 +25,7 @@ if (process.env.DINGENT_DEV === 'true') {
     console.log("DINGENT_DEV is not set to true. Running in production mode.");
     runtime = new CopilotRuntime({
         remoteEndpoints: [
-            { url: "http://localhost:8000/copilotkit" },
+            { url: process.env.DING_BACKEND_URL || "http://localhost:8000/copilotkit" },
         ],
     });
 }
