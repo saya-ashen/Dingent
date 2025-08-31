@@ -1,7 +1,8 @@
 from typing import Any
 
-from langchain.chat_models import init_chat_model
 from langchain.chat_models.base import BaseChatModel
+from langchain_litellm import ChatLiteLLM
+from pydantic import SecretStr
 
 from dingent.core.log_manager import LogManager
 
@@ -34,7 +35,12 @@ class LLMManager:
         if "model_provider" not in kwargs and "provider" in kwargs:
             kwargs["model_provider"] = kwargs.pop("provider")
 
-        model_instance = init_chat_model(**kwargs)
+        model = kwargs.get("model", "gpt-3.5-turbo")
+        api_key: str | SecretStr = kwargs.get("api_key", "sk-xxxxxx")
+        api_base = kwargs.get("api_base", None) or kwargs.get("base_url", None)
+        if isinstance(api_key, SecretStr):
+            api_key = api_key.get_secret_value()
+        model_instance = ChatLiteLLM(model=model, api_key=api_key, api_base=api_base)
         self._llms[cache_key] = model_instance
         self._log_manager.log_with_context("info", "LLM instance created and cached.", context={"params": kwargs_hidden})
 

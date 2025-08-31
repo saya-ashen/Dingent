@@ -4,7 +4,7 @@ from typing import Any
 
 import tomlkit
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
@@ -45,7 +45,7 @@ class LLMSettings(BaseModel):
     model: str = Field("gpt-4.1", description="LLM model name.")
     provider: str | None = Field(None, description="Provider name.")
     base_url: str | None = Field(None, description="Base URL.")
-    api_key: str | None = Field("sk-...", description="API key.")
+    api_key: SecretStr | None = Field(None, description="API key for authentication.")
 
 
 class AppSettings(BaseModel):

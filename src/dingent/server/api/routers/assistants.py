@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from dingent.core.assistant_manager import AssistantManager
 from dingent.core.config_manager import ConfigManager
-from dingent.core.plugin_manager import PluginManager, PluginManifest
+from dingent.core.plugin_manager import PluginManager, PluginManifest, _create_dynamic_config_model
 from dingent.core.settings import AssistantSettings
 from dingent.core.types import (
     AssistantCreate,
@@ -172,6 +172,15 @@ async def update_assistant(
     plugin_manager: PluginManager = Depends(get_plugin_manager),
 ):
     # Ensure id matches
+    plugins = req.plugins
+    for plugin in plugins or []:
+        plugin_id = plugin.plugin_id
+        plugin_manifest = plugin_manager.get_plugin_manifest(plugin_id)
+        plugin_config_schemas = (plugin_manifest.config_schema if plugin_manifest else []) or []
+        if not plugin_manifest or not plugin_config_schemas or not plugin_manifest.config_schema:
+            continue
+        DynamicConfigModel = _create_dynamic_config_model(plugin_manifest.name, plugin_manifest.config_schema)
+        plugin.config = DynamicConfigModel.model_validate(plugin.config)
     data = req.model_dump(exclude_unset=True)
     data["id"] = assistant_id
     try:
