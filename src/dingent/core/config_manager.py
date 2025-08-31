@@ -301,8 +301,9 @@ class ConfigManager:
         with self._lock:
             old = self._settings
             base = old.model_dump(exclude_none=True)
+            patch = _clean_patch(new_settings) or {}
+            merged = deep_merge(base, patch)
             # 只保留原 assistants / 不覆盖
-            merged = new_settings.copy()
             merged["assistants"] = base["assistants"]
             try:
                 new_app = AppSettings.model_validate(merged)
