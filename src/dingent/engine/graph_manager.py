@@ -26,15 +26,10 @@ from .graph import (
 )
 
 CHECKPOINT_ROOT = Path(".dingent/data/checkpoints")
-CHECKPOINT_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def _slug(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.-]+", "_", s)[:80]
-
-
-def _checkpoint_path(workflow_id: str) -> Path:
-    return CHECKPOINT_ROOT / f"{_slug(workflow_id)}.sqlite"
 
 
 @dataclass
@@ -74,6 +69,10 @@ class GraphManager:
         self.log_manager = self._app_ctx.log_manager
 
     # ---------------- Public API ----------------
+    def _checkpoint_path(self, workflow_id: str) -> Path:
+        project_root = self._app_ctx.project_root
+        assert project_root is not None, "Project root must be set in AppContext."
+        return project_root / CHECKPOINT_ROOT / f"{_slug(workflow_id)}.sqlite"
 
     async def get_graph(self, workflow_id: str | None = None) -> CompiledStateGraph:
         wid = workflow_id or self._resolve_active_workflow_id() or "__basic__"
@@ -232,7 +231,7 @@ class GraphManager:
             outer.add_edge(START, "swarm")
             outer.add_edge("swarm", END)
 
-            cp_path = _checkpoint_path(workflow_id)
+            cp_path = self._checkpoint_path(workflow_id)
             cp_path.parent.mkdir(parents=True, exist_ok=True)
             checkpointer = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(cp_path.as_posix()))
             compiled_graph = outer.compile(checkpointer)

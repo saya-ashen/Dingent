@@ -2,13 +2,10 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCoAgent } from "@copilotkit/react-core";
 import { Widget } from "@/types";
 
-/**
- * 你的 Agent state：artifact_ids 可能不存在
- */
 type AgentState = { artifact_ids?: string[] };
 
 /**
- * 后端新格式（不再兼容旧 payloads）
+ * 后端格式
  * 示例：
  * {
  *   "version": "1.0",
@@ -29,12 +26,13 @@ interface DisplayItem {
     title?: string;
     columns?: string[];
     rows?: unknown[];
+    content?: string;
     [k: string]: unknown;
 }
 
 interface ResourceResponse {
     version?: string;
-    display: DisplayItem[];             // 现在强制要求后端给这个
+    display: DisplayItem[];
     data?: unknown;
     metadata?: unknown;
     [k: string]: unknown;
@@ -54,6 +52,40 @@ interface UseResourceWidgetsResult {
     hasFetched: boolean;
 }
 
+const widgetFactory = {
+    createWidget: (item: DisplayItem, resourceId: string, index: number): Widget => {
+        const widgetId = `${resourceId}::${index}`;
+        const baseProps = {
+            id: widgetId,
+            metadata: item.metadata,
+        };
+
+        switch (item.type) {
+            case 'table':
+                return {
+                    ...baseProps,
+                    type: 'table',
+                    payload: {
+                        type: 'table',
+                        title: item.title,
+                        columns: Array.isArray(item.columns) ? item.columns : [],
+                        rows: Array.isArray(item.rows) ? item.rows : [],
+                    },
+                };
+            // 在这里可以增加其他类型的 widget
+            default:
+                return {
+                    ...baseProps,
+                    type: 'markdown',
+                    payload: {
+                        type: 'markdown',
+                        content: item.content || '',
+                        title: "" + (item.title || 'Display'),
+                    },
+                };
+        }
+    }
+};
 /**
  * 内部 Hook：支持 ids 为 undefined（表示“这次调用不想改变已有 ids”）
  */
@@ -95,38 +127,7 @@ export function useResourceWidgets(
             if (!Array.isArray(resource.display)) {
                 throw new Error("Invalid response: 'display' must be an array");
             }
-
-            return resource.display.map((item, index) => {
-                const type = (typeof item.type === "string" && item.type) || "unknown";
-                const widgetId = `${resourceId}::${index}`;
-
-                if (type === "table") {
-                    return {
-                        id: widgetId,
-                        type: "table",
-                        payload: {
-                            type: "table",
-                            title: item.title,
-                            columns: Array.isArray(item.columns) ? item.columns : [],
-                            rows: Array.isArray(item.rows) ? item.rows : [],
-                            raw: item, // 可选：调试用
-                        },
-                        metadata: resource.metadata,
-                    } as Widget;
-                }
-
-                // 其它类型：通用透传
-                return {
-                    id: widgetId,
-                    type,
-                    payload: {
-                        type,
-                        title: item.title,
-                        ...item,
-                    },
-                    metadata: resource.metadata,
-                } as Widget;
-            });
+            return resource.display.map((item, index) => widgetFactory.createWidget(item, resourceId, index));
         },
         []
     );
