@@ -9,9 +9,57 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Star, Calendar, User, Tag } from "lucide-react";
 import type { MarketItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { Download, Star, Calendar, User, Tag, ArrowUpCircle, CheckCircle } from "lucide-react";
 
+
+function MarketItemActionButton({ item, mutation }: { item: MarketItem, mutation: any }) {
+    const isMutatingThisItem = mutation.isPending && mutation.variables?.item_id === item.id;
+    const handleAction = () => {
+        mutation.mutate({
+            item_id: item.id,
+            category: item.category,
+            isUpdate: item.update_available
+        });
+    };
+
+    // Case 1: 有可用更新
+    if (item.update_available) {
+        return (
+            <Button
+                onClick={handleAction}
+                disabled={isMutatingThisItem}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 text-black"
+            >
+                <ArrowUpCircle className="w-4 h-4 mr-2" />
+                {isMutatingThisItem ? "Updating..." : "Update"}
+            </Button>
+        );
+    }
+
+    // Case 2: 已经安装且是最新版
+    if (item.is_installed) {
+        return (
+            <Button disabled className="w-full">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Installed
+            </Button>
+        );
+    }
+
+    // Case 3: 未安装，提供下载
+    return (
+        <Button
+            onClick={handleAction}
+            disabled={isMutatingThisItem}
+            className="w-full"
+        >
+            <Download className="w-4 h-4 mr-2" />
+            {isMutatingThisItem ? "Downloading..." : "Download"}
+        </Button>
+    );
+}
 export default function MarketPage() {
     const [selectedCategory, setSelectedCategory] = useState<"all" | "plugin" | "assistant" | "workflow">("all");
     const qc = useQueryClient();
@@ -31,25 +79,19 @@ export default function MarketPage() {
     const downloadMutation = useMutation({
         mutationFn: downloadMarketItem,
         onSuccess: (_, variables) => {
-            toast.success(`Successfully downloaded ${variables.category}: ${variables.item_id}`);
+            const action = variables.isUpdate ? "updated" : "downloaded";
+            toast.success(`Successfully ${action} ${variables.category}: ${variables.item_id}`);
+
             // Invalidate relevant queries to refresh installed status
-            qc.invalidateQueries({ queryKey: ["market-items", selectedCategory] });
+            qc.invalidateQueries({ queryKey: ["market-items"] });
             qc.invalidateQueries({ queryKey: ["available-plugins"] });
             qc.invalidateQueries({ queryKey: ["assistants"] });
             qc.invalidateQueries({ queryKey: ["workflows"] });
-            qc.invalidateQueries({ queryKey: ["available-plugins"] });
         },
         onError: (error: any) => {
             toast.error(error.message || "Download failed");
         }
     });
-
-    const handleDownload = (item: MarketItem) => {
-        downloadMutation.mutate({
-            item_id: item.id,
-            category: item.category
-        });
-    };
 
     const formatCategory = (category: string) => {
         if (typeof category !== 'string' || category.length === 0) {
@@ -150,8 +192,16 @@ export default function MarketPage() {
                                         <div className="flex-1">
                                             <CardTitle className="text-lg">{item.name}</CardTitle>
                                             {item.version && (
-                                                <Badge variant="outline" className="mt-1">
-                                                    v{item.version}
+                                                <Badge
+                                                    variant="outline"
+                                                    className={cn("mt-1", {
+                                                        "border-yellow-500 text-yellow-600": item.update_available,
+                                                    })}
+                                                >
+                                                    {item.update_available
+                                                        ? `v${item.installed_version} → v${item.version}`
+                                                        : `v${item.version}`
+                                                    }
                                                 </Badge>
                                             )}
                                         </div>
@@ -191,10 +241,10 @@ export default function MarketPage() {
                                             </div>
                                         )}
                                         {
-                                            //item.downloads !== undefined && (
+                                            // item?.downloads !== undefined && (
                                             //     <div className="flex items-center gap-2">
                                             //         <Download className="w-4 h-4" />
-                                            //         <span>{item.downloads.toLocaleString()} downloads</span>
+                                            //         <span>{item?.downloads?.toLocaleString()} downloads</span>
                                             //     </div>
                                             // )
                                         }
@@ -214,20 +264,7 @@ export default function MarketPage() {
                                 </CardContent>
 
                                 <CardFooter>
-                                    <Button
-                                        onClick={() => handleDownload(item)}
-                                        disabled={downloadMutation.isPending || item.is_installed}
-                                        className="w-full"
-                                    >
-                                        <Download className="w-4 h-4 mr-2" />
-                                        {
-                                            item.is_installed
-                                                ? "Installed"
-                                                : downloadMutation.isPending
-                                                    ? "Downloading..."
-                                                    : "Download"
-                                        }
-                                    </Button>
+                                    <MarketItemActionButton item={item} mutation={downloadMutation} />
                                 </CardFooter>
                             </Card>
                         ))}

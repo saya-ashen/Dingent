@@ -39,10 +39,8 @@ async def get_market_items(
     """
     try:
         category_enum = MarketItemCategory(category)
-        installed_plugin_ids = set(plugin_manager.list_plugins().keys())
-        installed_ids = installed_plugin_ids
-        immutable_installed_ids = tuple(sorted(installed_ids))
-        items = await market_service.get_market_items(category_enum, immutable_installed_ids)
+        local_plugin_versions = plugin_manager.get_installed_versions()
+        items = await market_service.get_market_items(category_enum, installed_items={"plugins": local_plugin_versions})
         return [item.model_dump() for item in items]
     except Exception as e:
         log_manager.log_with_context("error", "Market fetch error", context={"category": category, "error": str(e)})
