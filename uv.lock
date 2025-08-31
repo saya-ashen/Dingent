@@ -447,7 +447,6 @@ dependencies = [
     { name = "langchain" },
     { name = "langchain-litellm" },
     { name = "langchain-mcp-adapters" },
-    { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "langgraph-api" },
     { name = "langgraph-checkpoint-sqlite" },
@@ -480,7 +479,6 @@ requires-dist = [
     { name = "langchain", specifier = ">=0.3.23" },
     { name = "langchain-litellm", specifier = ">=0.2.2" },
     { name = "langchain-mcp-adapters", specifier = ">=0.0.11" },
-    { name = "langchain-openai", specifier = ">=0.3.14,<1.0.0" },
     { name = "langgraph", specifier = ">=0.3.31,<1.0.0" },
     { name = "langgraph", specifier = ">=0.6.3" },
     { name = "langgraph-api", specifier = ">=0.0.21" },
@@ -1139,20 +1137,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b9/74/e36003a43136f9095a5f968c730fbfe894f94284ebe6d2b50bb17d41b8b5/langchain_mcp_adapters-0.1.9.tar.gz", hash = "sha256:0018cf7b5f7bc4c044e05ec20fcb9ebe345311c8d1060c61d411188001ab3aab", size = 22101, upload-time = "2025-07-09T15:56:14.455Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/eb/9e98822d3db22beff44449a8f61fca208d4f59d592a7ce67ce4c400b8f8f/langchain_mcp_adapters-0.1.9-py3-none-any.whl", hash = "sha256:fd131009c60c9e5a864f96576bbe757fc1809abd604891cb2e5d6e8aebd6975c", size = 15300, upload-time = "2025-07-09T15:56:13.316Z" },
-]
-
-[[package]]
-name = "langchain-openai"
-version = "0.3.28"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "langchain-core" },
-    { name = "openai" },
-    { name = "tiktoken" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/1d/90cd764c62d5eb822113d3debc3abe10c8807d2c0af90917bfe09acd6f86/langchain_openai-0.3.28.tar.gz", hash = "sha256:6c669548dbdea325c034ae5ef699710e2abd054c7354fdb3ef7bf909dc739d9e", size = 753951, upload-time = "2025-07-14T10:50:44.076Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/91/56/75f3d84b69b8bdae521a537697375e1241377627c32b78edcae337093502/langchain_openai-0.3.28-py3-none-any.whl", hash = "sha256:4cd6d80a5b2ae471a168017bc01b2e0f01548328d83532400a001623624ede67", size = 70571, upload-time = "2025-07-14T10:50:42.492Z" },
 ]
 
 [[package]]
