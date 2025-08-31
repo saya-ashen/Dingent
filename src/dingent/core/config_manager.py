@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from copy import deepcopy
+from enum import Enum, auto
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -12,66 +13,31 @@ from typing import Any
 import tomlkit
 import yaml
 from loguru import logger
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
+
+from dingent.core.secret_manager import SecretManager
 
 from .settings import AppSettings, AssistantSettings
 from .types import AssistantCreate, AssistantUpdate, PluginUserConfig
 
-
-# =========================================================
-# 深度合并（保留原逻辑）
-# =========================================================
-def _find_key_value_for_item(item: dict, keys: list[str]) -> tuple[str, Any]:
-    for key in keys:
-        if key in item:
-            return key, item[key]
-    raise ValueError(f"Could not find any of the required merge keys {keys} in list item: {item}")
+KEYRING_SERVICE_NAME = "dingent-framework"
+KEYRING_PLACEHOLDER_PREFIX = "keyring:"
 
 
-def deep_merge(base: dict[str, Any], patch: dict[str, Any], list_merge_keys: list[str]) -> dict[str, Any]:
+def deep_merge(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    """
+    Recursively merges a patch dictionary into a base dictionary.
+    - Dictionaries are merged recursively.
+    - Lists in the patch completely replace lists in the base.
+    - Other values in the patch overwrite values in the base.
+    """
     result = base.copy()
-    for k, v in patch.items():
-        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
-            result[k] = deep_merge(result[k], v, list_merge_keys)
-        elif k in result and isinstance(result[k], list) and isinstance(v, list):
-            merged_list = result[k][:]
-            base_map: dict[Any, dict] = {}
-            for item in merged_list:
-                if isinstance(item, dict):
-                    try:
-                        _, key_value = _find_key_value_for_item(item, list_merge_keys)
-                        base_map[key_value] = item
-                    except ValueError as e:
-                        raise ValueError(f"Error in base list under key '{k}': {e}") from e
-
-            for patch_item in v:
-                if not isinstance(patch_item, dict):
-                    if patch_item not in merged_list:
-                        merged_list.append(patch_item)
-                    continue
-                try:
-                    _, key_value = _find_key_value_for_item(patch_item, list_merge_keys)
-                except ValueError as e:
-                    raise ValueError(f"Error in patch list under key '{k}': {e}") from e
-
-                if key_value in base_map:
-                    base_item = base_map[key_value]
-                    merged_item = deep_merge(base_item, patch_item, list_merge_keys)
-                    for i, original_item in enumerate(merged_list):
-                        if isinstance(original_item, dict):
-                            try:
-                                _, original_key_value = _find_key_value_for_item(original_item, list_merge_keys)
-                                if original_key_value == key_value:
-                                    merged_list[i] = merged_item
-                                    base_map[key_value] = merged_item
-                                    break
-                            except ValueError:
-                                continue
-                else:
-                    merged_list.append(patch_item)
-            result[k] = merged_list
+    for key, value in patch.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = deep_merge(result[key], value)
+        # If the value is a list, or any other type, just replace it.
         else:
-            result[k] = v
+            result[key] = value
     return result
 
 
@@ -99,6 +65,52 @@ def _clean_patch(patch: dict) -> dict:
         else:
             cleaned_dict[key] = value
     return cleaned_dict
+
+
+class SecretAction(Enum):
+    SAVE = auto()  # Substitute SecretStr with placeholders
+    LOAD = auto()  # Resolve placeholders into secret values
+
+
+def _process_secrets_recursively(
+    data: Any,
+    path: list[str],
+    secret_manager: SecretManager,
+    action: SecretAction,
+) -> Any:
+    """
+    Recursively traverses a dict/list structure to process secrets.
+
+    - If action is SAVE: Replaces SecretStr instances with keyring placeholders.
+    - If action is LOAD: Replaces keyring placeholders with the actual secret values.
+    """
+    # --- Action-specific base cases ---
+
+    # SAVE action: Find SecretStr objects and replace them.
+    if action == SecretAction.SAVE and isinstance(data, SecretStr):
+        key_path = ".".join(path)
+        secret_value = data.get_secret_value()
+
+        if secret_value:
+            secret_manager.set_secret(key_path, secret_value)
+            return f"{KEYRING_PLACEHOLDER_PREFIX}{key_path}"
+        return None  # Return None for empty secrets
+
+    # LOAD action: Find placeholder strings and resolve them.
+    if action == SecretAction.LOAD and isinstance(data, str) and data.startswith(KEYRING_PLACEHOLDER_PREFIX):
+        key_path = data[len(KEYRING_PLACEHOLDER_PREFIX) :]
+        return secret_manager.get_secret(key_path)
+
+    # --- Recursive steps for containers (same for both actions) ---
+
+    if isinstance(data, dict):
+        return {key: _process_secrets_recursively(value, path + [key], secret_manager, action) for key, value in data.items()}
+
+    if isinstance(data, list):
+        return [_process_secrets_recursively(item, path + [str(i)], secret_manager, action) for i, item in enumerate(data)]
+
+    # Other types (int, bool, non-placeholder str, etc.) are returned as-is.
+    return data
 
 
 OnChangeCallback = Callable[[AppSettings, AppSettings], None]
@@ -193,6 +205,7 @@ class ConfigManager:
         target_config_version: int = 1,  # 你可以根据需要调整或从常量处读取
     ):
         self.project_root = Path(project_root)
+        self.secret_manager = SecretManager(self.project_root)
         self._global_config_path = self.project_root / GLOBAL_CONFIG_FILE
         self._config_root = self.project_root / "config"
         self._assistants_dir = self._config_root / ASSISTANTS_DIR_NAME
@@ -249,7 +262,7 @@ class ConfigManager:
 
             if a_id and a_id in assistants_map:
                 base = assistants_map[a_id].model_dump()
-                merged = deep_merge(base, patch, ["id", "name"])
+                merged = deep_merge(base, patch)
                 new_assistant = AssistantSettings.model_validate(merged)
                 # replace
                 new_list = []
@@ -286,10 +299,10 @@ class ConfigManager:
         """
         with self._lock:
             old = self._settings
-            base = old.model_dump()
+            base = old.model_dump(exclude_none=True)
             if clean:
                 patch = _clean_patch(patch) or {}
-            merged = deep_merge(base, patch, ["id", "name"])
+            merged = deep_merge(base, patch)
             # 只保留原 assistants / 不覆盖
             merged["assistants"] = base["assistants"]
             try:
@@ -357,7 +370,7 @@ class ConfigManager:
         """
         with self._lock:
             base = self._settings.model_dump() if not overwrite else {}
-            merged = deep_merge(base, data, ["id", "name"]) if not overwrite else data
+            merged = deep_merge(base, data) if not overwrite else data
             new_app = self._validate(merged)
             old = self._settings
             self._replace_settings(old, new_app)
@@ -369,7 +382,7 @@ class ConfigManager:
         """
         with self._lock:
             base = self._settings.model_dump()
-            merged = deep_merge(base, patch, ["id", "name"])
+            merged = deep_merge(base, patch)
             try:
                 AppSettings.model_validate(merged)
                 return True, None
@@ -406,7 +419,6 @@ class ConfigManager:
             logger.error(f"Configuration validation failed: {e}")
             raise
 
-    # ---------- 内部：文件加载 ----------
     def _load_all(self) -> dict:
         global_part = self._load_global()
         assistants_raw = self._load_assistants()
@@ -418,11 +430,10 @@ class ConfigManager:
             copy_data["plugins"] = plugin_map.get(a_id, [])
             assistants.append(copy_data)
 
-        # workflows 字段：如果你希望仍保留（不深度解析），则可读取 global_part 里或留空
         if "workflows" not in global_part:
-            global_part["workflows"] = []  # 仅占位
+            global_part["workflows"] = []
         global_part["assistants"] = assistants
-        return global_part
+        return _process_secrets_recursively(global_part, [], self.secret_manager, action=SecretAction.LOAD)
 
     def _load_global(self) -> dict:
         if not self._global_config_path.is_file():
@@ -502,13 +513,14 @@ class ConfigManager:
                 lock_cm.release()
 
     def _persist(self) -> None:
-        # 先写入备份
         self._write_backup()
-        data = self._settings.model_dump(mode="json", exclude_none=True)
-        assistants = data.pop("assistants", [])
 
-        # workflows: 不主动写拆分文件（保持兼容），仅留在 global toml 中（若字段很大可单独剥离）
-        self._write_global(data)
+        settings_dict = self._settings.model_dump(exclude_none=True)
+        persistable_data = _process_secrets_recursively(settings_dict, [], self.secret_manager, action=SecretAction.SAVE)
+
+        assistants = persistable_data.pop("assistants", [])
+
+        self._write_global(persistable_data)
         self._write_assistants_and_plugins(assistants)
 
     def _write_global(self, global_part: dict[str, Any]) -> None:

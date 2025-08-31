@@ -58,7 +58,7 @@ class Assistant:
                     "Create plugin instance failed (assistant={name} plugin={pid}): {e}",
                     context={"name": settings.name, "pid": getattr(pconf, "plugin_id", pconf.plugin_id), "e": e},
                 )
-                # 可选择：继续 / 或 raise
+                continue
         return cls(settings.id, settings.name, settings.description or "", plugin_instances, log_method)
 
     @asynccontextmanager

@@ -113,7 +113,7 @@ def _create_dynamic_config_model(
     for item in config_schema:
         field_name = item.name
         field_type = type_map.get(item.type, str)
-        if getattr(item, "secret", False):
+        if item.secret:
             field_type = SecretStr
         if item.required:
             field_info = Field(..., description=item.description)
