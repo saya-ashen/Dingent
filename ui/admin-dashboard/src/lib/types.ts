@@ -130,6 +130,8 @@ export type MarketItem = {
     created_at?: string;
     updated_at?: string;
     is_installed?: boolean;
+    installed_version?: string;
+    update_available?: boolean;
 };
 
 export type MarketMetadata = {
@@ -145,6 +147,7 @@ export type MarketMetadata = {
 export type MarketDownloadRequest = {
     item_id: string;
     category: "plugin" | "assistant" | "workflow";
+    isUpdate: boolean;
 };
 
 export type MarketDownloadResponse = {

@@ -409,3 +409,17 @@ class PluginManager:
     def reload_plugins(self):
         self.plugins.clear()
         self._scan_and_register_plugins()
+
+    def get_installed_versions(self) -> dict[str, str]:
+        """
+        Scans registered plugins and returns a dictionary of their IDs and versions.
+
+        Returns:
+            A dictionary mapping plugin_id to its version string.
+            Example: {"my-cool-plugin": "1.2.0", "another-plugin": "0.9.1"}
+        """
+        if not self.plugins:
+            return {}
+
+        # Use a dictionary comprehension for a clean and efficient implementation
+        return {plugin_id: str(manifest.version) for plugin_id, manifest in self.plugins.items() if manifest.version is not None}
