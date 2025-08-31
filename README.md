@@ -20,7 +20,7 @@
 
 | Chat View 1 | Chat View 2 |
 | :---: | :---: |
-| ![chat1](./assets/Chat1.png) | ![chat2](./assets/Chat2.png) |
+| ![chat1](./assets/Chart1.png) | ![chat2](./assets/Chart2.png) |
 
 ### Admin Dashboard Overview
 
@@ -78,16 +78,16 @@ mkdir my-awesome-agent
 cd my-awesome-agent
 
 # Run the development server
-uvx dingent dev
+uvx dingent dev # or uvx dingent run
 ```
 
 The first time you run this command, Dingent will ask if you want to create a `dingent.toml` configuration file, officially turning the directory into a Dingent project root.
 
 The `dev` command will start all necessary services:
 
-  * **Frontend Chat**: Accessible at [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000)
-  * **Backend API**: Running at [http://localhost:8000](https://www.google.com/search?q=http://localhost:8000)
-  * **Admin Dashboard**: Accessible at [http://localhost:8000/admin](https://www.google.com/search?q=http://localhost:8000/admin)
+  * **Frontend Chat**: Accessible at [http://localhost:3000](http://localhost:3000)
+  * **Backend API**: Running at [http://localhost:8000](http://localhost:8000)
+  * **Admin Dashboard**: Accessible at [http://localhost:8000/admin](http://localhost:8000/admin)
 
 Your project is now live\! You can now:
 
@@ -117,28 +117,28 @@ my-awesome-agent/
 
   - **✅ 1. Documentation & Tutorials**
 
-      - `[x]` **Basic Docs:** Installation and configuration guides.
-      - `[ ]` **Core Concepts:** In-depth explanations of key features and design.
-      - `[ ]` **Plugin Dev Guide:** How to build your own plugins.
-      - `[ ]` **End-to-End Tutorials:** Complete, step-by-step project examples.
+      - [x] **Basic Docs:** Installation and configuration guides.
+      - [ ] **Core Concepts:** In-depth explanations of key features and design.
+      - [ ] **Plugin Dev Guide:** How to build your own plugins.
+      - [ ] **End-to-End Tutorials:** Complete, step-by-step project examples.
 
   - **⏳ 2. Admin Dashboard**
 
-      - `[x]` **Core UI**: Fully functional dashboard for managing assistants, workflows, and settings.
-      - `[ ]` **Plugin Management**: Add/remove plugins directly from the UI.
-      - `[ ]` **Advanced Workflow Editor**: More powerful tools for building complex agent behaviors.
+      - [x] **Core UI**: Fully functional dashboard for managing assistants, workflows, and settings.
+      - [x] **Plugin Management**: Add/remove plugins directly from the UI.
+      - [x] **Advanced Workflow Editor**: More powerful tools for building complex agent behaviors.
 
   - **💡 3. Plugin System**
 
-      - `[x]` **Auto-Discovery**: Automatically loads plugins from the `plugins/` directory.
-      - `[ ]` ~~**Plugin CLI:** Install and manage plugins via the command line.~~
+      - [x] **Auto-Discovery**: Automatically loads plugins from the `plugins/` directory.
+      - [ ] ~~**Plugin CLI:** Install and manage plugins via the command line.~~
        (Superseded by UI management in the Admin Dashboard)
-      - `[ ]` **Plugin Marketplace:** Discover, search, and download community plugins.
+      - [x] **Plugin Marketplace:** Discover, search, and download community plugins.
 
   - **📦 4. Core Plugins**
 
-      - `[x]` **Database Plugin:** Connect to mainstream databases.
-      - `[ ]` **Knowledge Base Q\&A Plugin:** Quickly build a Q\&A application on your documents.
+      - [x] **Database Plugin:** Connect to mainstream databases.
+      - [ ] **Knowledge Base Q\&A Plugin:** Quickly build a Q\&A application on your documents.
 
 ## 🤝 How to Contribute
 
@@ -158,4 +158,4 @@ We believe that through our collective efforts, Dingent can become a truly power
 
 ## 📄 License
 
-This project is licensed under the [MIT License](https://www.google.com/search?q=./LICENSE).
+This project is licensed under the [MIT License](./LICENSE).
