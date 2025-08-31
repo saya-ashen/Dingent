@@ -46,7 +46,7 @@ def _clean_patch(patch: dict) -> dict:
         return patch
     cleaned_dict = {}
     for key, value in patch.items():
-        if value is None or not str(value).strip("*"):
+        if not str(value).strip("*"):
             continue
         if isinstance(value, dict):
             cleaned_value = _clean_patch(value)
@@ -59,7 +59,7 @@ def _clean_patch(patch: dict) -> dict:
                     cleaned_item = _clean_patch(item)
                     if cleaned_item:
                         cleaned_list.append(cleaned_item)
-                elif item is not None and item != "********":
+                elif item != "********":
                     cleaned_list.append(item)
             cleaned_dict[key] = cleaned_list
         else:
@@ -293,17 +293,16 @@ class ConfigManager:
             self._delete_assistant_files(assistant_id)
             return True
 
-    def update_global(self, patch: dict[str, Any], clean: bool = True) -> AppSettings:
+    def update_global(self, new_settings: dict[str, Any]) -> AppSettings:
         """
         更新全局顶层字段（包含 default_assistant, llm 等），不会对 assistants 做任何修改。
+        只支持全量更新
         """
         with self._lock:
             old = self._settings
             base = old.model_dump(exclude_none=True)
-            if clean:
-                patch = _clean_patch(patch) or {}
-            merged = deep_merge(base, patch)
             # 只保留原 assistants / 不覆盖
+            merged = new_settings.copy()
             merged["assistants"] = base["assistants"]
             try:
                 new_app = AppSettings.model_validate(merged)
