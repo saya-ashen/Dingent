@@ -360,12 +360,11 @@ class PluginManager:
 
     def _scan_and_register_plugins(self):
         if not self.plugin_dir.is_dir():
-            logger.warning(f"Warning: Plugin directory '{self.plugin_dir}' not found.")
+            self.log_manager.log_with_context("warning", "Plugin directory '{dir}' not found.", context={"dir": str(self.plugin_dir)})
             return
 
         for plugin_path in self.plugin_dir.iterdir():
             if not plugin_path.is_dir():
-                logger.warning(f"Skipping '{plugin_path}' as it is not a directory.")
                 self.log_manager.log_with_context("warning", "Skipping '{path}' as it is not a directory.", context={"path": str(plugin_path)})
                 continue
             toml_path = plugin_path / "plugin.toml"
@@ -400,10 +399,10 @@ class PluginManager:
             plugin = self.plugins[plugin_id]
             plugin_path = plugin.path
             shutil.rmtree(plugin_path)
-            logger.info(f"Plugin '{self.plugins[plugin_id].name}' ({plugin_id}) removed from PluginManager.")
+            self.log_manager.log_with_context("info", "Plugin '{plugin}' ({id}) removed.", context={"plugin": plugin.name, "id": plugin_id})
             del self.plugins[plugin_id]
         else:
-            logger.warning(f"Plugin with ID '{plugin_id}' not found in PluginManager.")
+            self.log_manager.log_with_context("warning", "Plugin with ID '{id}' not found in PluginManager.", context={"id": plugin_id})
 
     def reload_plugins(self):
         self.plugins.clear()

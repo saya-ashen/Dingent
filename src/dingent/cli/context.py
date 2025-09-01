@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from dingent.core.config_manager import ConfigManager
+from dingent.core.log_manager import LogManager
 from dingent.core.utils import find_project_root
 
 if TYPE_CHECKING:
@@ -20,7 +21,8 @@ class CliContext:
     @cached_property
     def config_manager(self) -> "ConfigManager":
         """Lazily gets the config_manager from the app_context."""
-        config_manager = ConfigManager(self.project_root)
+        log_manager = LogManager()
+        config_manager = ConfigManager(self.project_root, log_manager)
         return config_manager
 
     @cached_property

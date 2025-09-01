@@ -47,7 +47,7 @@ The `dingent` command-line tool is the primary way to create, manage, and run yo
 
 This approach ensures you are always using the most up-to-date version of the framework when starting a new project.
 
-## Verifying the Installation 
+## Verifying the Installation
 
 To confirm that everything is set up correctly, run the following command in your terminal:
 
@@ -58,10 +58,10 @@ uvx dingent --help
 If the installation was successful, you should see the Dingent help message, like this:
 
 ```
- Usage: dingent [OPTIONS] COMMAND [ARGS]...                                                                                    
-                                                                                                                               
- Dingent Agent Framework CLI                                                                                                   
-                                                                                                                               
+ Usage: dingent [OPTIONS] COMMAND [ARGS]...
+
+ Dingent Agent Framework CLI
+
 ╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --install-completion          Install completion for the current shell.                                                     │
 │ --show-completion             Show completion for the current shell, to copy it or customize the installation.              │
@@ -84,4 +84,3 @@ Congratulations, you have successfully installed Dingent\!
 You are now ready to create your first agent project. Let's move on to the next guide to learn about the project structure and how to get your agent running.
 
 ➡️ **Next: [Project Structure](/project-structure.md)**
-

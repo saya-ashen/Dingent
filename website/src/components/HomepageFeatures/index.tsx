@@ -15,8 +15,8 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Best practices for backend (LangGraph), data interfaces (Plugin System), 
-        chat UI (CopilotKit), and a full-featured admin dashboard are all packaged together. 
+        Best practices for backend (LangGraph), data interfaces (Plugin System),
+        chat UI (CopilotKit), and a full-featured admin dashboard are all packaged together.
         Skip the boilerplate and build your business logic right away.
       </>
     ),
@@ -26,7 +26,7 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Manage assistants, workflows, and settings through an integrated admin 
+        Manage assistants, workflows, and settings through an integrated admin
         dashboard—no more manual config file editing or tedious setup.
       </>
     ),
@@ -37,8 +37,8 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        With a modular architecture and a powerful plugin system, Dingent grows with 
-        your needs. Build anything from simple task automators to complex, multi-agent 
+        With a modular architecture and a powerful plugin system, Dingent grows with
+        your needs. Build anything from simple task automators to complex, multi-agent
         systems, all on one solid foundation.
       </>
     ),

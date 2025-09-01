@@ -69,8 +69,7 @@ For developers who wish to create their own tools, this directory can also be us
 
 ## Next Steps
 
-Now that you understand the basic structure of a Dingent project, it's time to start configuring your agent. 
+Now that you understand the basic structure of a Dingent project, it's time to start configuring your agent.
 In the next section, we'll guide you through using the Admin Dashboard to handle all the core setup.
 
 ➡️ **Next: [Admin Dashboard Guide](./admin-dashboard-guide/overview.md)**
-

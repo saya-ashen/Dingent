@@ -25,7 +25,7 @@ class AppContext:
             return
         # Initialize in order of dependency (least dependent first)
         self.log_manager = LogManager()
-        self.config_manager = ConfigManager(self.project_root)
+        self.config_manager = ConfigManager(self.project_root, self.log_manager)
         self.resource_manager = ResourceManager(self.log_manager, self.project_root / ".dingent" / "data" / "resources.db")
         self.llm_manager = LLMManager(self.log_manager)
 

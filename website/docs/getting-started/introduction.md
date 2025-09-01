@@ -75,7 +75,7 @@ Now that we have a tool, we need to create an Assistant that knows how to use it
 2.  Fill in the form:
       - **Name**: `Tech Trends Assistant`
       - **Instructions**: `You are an expert on software development trends. When asked about popular or trending repositories, use the GitHub Trending tool to find the latest information.`
-      - Click **Save**. 
+      - Click **Save**.
 
 ![Adding a New Assistant Screenshot](../assets/create-your-first-assistant.png)
 

@@ -14,8 +14,8 @@ In its simplest form, a workflow links a single assistant to the chat interface.
 2.  Give your workflow a descriptive **Name** (e.g., "Main Chat Workflow").
 3.  You will see a visual editor. From the dropdown menu, select the assistant you want to use (e.g., "Tech Trends Assistant"). This will add the assistant as a node on your canvas.
 4.  The very first node you add is automatically designated as the **Start node** and will be highlighted in green. This is the entry point for all user requests.
-5.  Click and drag from one node's handle to another to create a connection. 
-In Dingent's Swarm architecture, a connection represents a *potential route* that the model can choose to take. 
+5.  Click and drag from one node's handle to another to create a connection.
+In Dingent's Swarm architecture, a connection represents a *potential route* that the model can choose to take.
 The model itself decides whether to route the task from the current node to the next based on the context. You can even create bidirectional links, allowing for complex, non-linear conversations.
 6.  For this simple setup, connect the `Start` node to your other assistant node.
 7.  Click **Save**.

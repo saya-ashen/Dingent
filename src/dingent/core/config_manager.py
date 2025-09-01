@@ -12,7 +12,6 @@ from typing import Any
 
 import tomlkit
 import yaml
-from loguru import logger
 from pydantic import SecretStr, ValidationError
 
 from dingent.core.secret_manager import SecretManager
@@ -199,6 +198,7 @@ class ConfigManager:
     def __init__(
         self,
         project_root: Path,
+        log_manager,
         backup_dir_name: str = ".config_backups",
         max_backups: int = 5,
         auto_migrate: bool = True,
@@ -206,6 +206,7 @@ class ConfigManager:
     ):
         self.project_root = Path(project_root)
         self.secret_manager = SecretManager(self.project_root)
+        self.log_manager = log_manager
         self._global_config_path = self.project_root / GLOBAL_CONFIG_FILE
         self._config_root = self.project_root / "config"
         self._assistants_dir = self._config_root / ASSISTANTS_DIR_NAME
@@ -224,13 +225,7 @@ class ConfigManager:
             raw_data = self._maybe_migrate(raw_data, target_config_version)
         self._settings = self._validate(raw_data)
 
-        logger.info(
-            "ConfigManager initialized",
-            extra={
-                "assistants": len(self._settings.assistants),
-                "has_current_workflow": bool(self._settings.current_workflow),
-            },
-        )
+        self.log_manager.log_with_context("info", "ConfigManager initialized with {count} assistants.", context={"count": len(self._settings.assistants)})
 
     # ---------- 对外基础接口 ----------
     def get_settings(self) -> AppSettings:
@@ -405,7 +400,7 @@ class ConfigManager:
         current_version = int(raw.get("config_version") or 1)
         if current_version >= target_version:
             return raw
-        logger.info(f"Migrating config {current_version} -> {target_version}")
+        self.log_manager.log_with_context("info", "Migrating config {from_v} -> {to_v}.", context={"from_v": current_version, "to_v": target_version})
         migrated = migration_registry.migrate(raw, current_version, target_version)
         if "config_version" not in migrated:
             migrated["config_version"] = target_version
@@ -416,7 +411,7 @@ class ConfigManager:
         try:
             return AppSettings.model_validate(raw)
         except ValidationError as e:
-            logger.error(f"Configuration validation failed: {e}")
+            self.log_manager.log_with_context("error", "Configuration validation failed: {error}", context={"error": str(e)})
             raise
 
     def _load_all(self) -> dict:
@@ -437,14 +432,14 @@ class ConfigManager:
 
     def _load_global(self) -> dict:
         if not self._global_config_path.is_file():
-            logger.warning("Global config file missing, using defaults.")
+            self.log_manager.log_with_context("warning", "Global config file missing at {path}, using defaults.", context={"path": str(self._global_config_path)})
             return {}
         try:
             text = self._global_config_path.read_text("utf-8")
             doc = tomlkit.parse(text).unwrap()
             return doc
         except Exception as e:
-            logger.error(f"Failed to read global config: {e}")
+            self.log_manager.log_with_context("error", "Failed to read global config: {error}", context={"error": str(e)})
             return {}
 
     def _load_assistants(self) -> dict[str, dict]:
@@ -455,16 +450,16 @@ class ConfigManager:
             try:
                 data = yaml.safe_load(f.read_text("utf-8")) or {}
                 if not isinstance(data, dict):
-                    logger.warning(f"Assistant file {f} top-level not dict. Skip.")
+                    self.log_manager.log_with_context("warning", "Assistant file {file} top-level not dict. Skip.", context={"file": str(f)})
                     continue
                 aid = data.get("id")
                 if not aid:
-                    logger.warning(f"Assistant file {f} missing id. Skip.")
+                    self.log_manager.log_with_context("warning", "Assistant file {file} missing id. Skip.", context={"file": str(f)})
                     continue
                 data.pop("plugins", None)  # 强制移除，实际以拆分插件为准
                 result[aid] = data
             except Exception as e:
-                logger.error(f"Read assistant file {f} failed: {e}")
+                self.log_manager.log_with_context("error", "Read assistant file {file} failed: {error}", context={"file": str(f), "error": str(e)})
         return result
 
     def _load_plugin_instances(self) -> dict[str, list[dict]]:
@@ -482,7 +477,7 @@ class ConfigManager:
                         continue
                     aid = pdata.get("assistant_id")
                     if not aid:
-                        logger.warning(f"Plugin instance {cfg} missing assistant_id. Skip.")
+                        self.log_manager.log_with_context("warning", "Plugin instance {file} missing assistant_id. Skip.", context={"file": str(cfg)})
                         continue
                     if pdata.get("plugin_name") != plugin_name:
                         pdata["plugin_name"] = plugin_name
@@ -490,7 +485,7 @@ class ConfigManager:
                         pdata["name"] = plugin_name
                     mapping.setdefault(aid, []).append(pdata)
                 except Exception as e:
-                    logger.error(f"Failed reading plugin file {cfg}: {e}")
+                    self.log_manager.log_with_context("error", "Read plugin instance file {file} failed: {error}", context={"file": str(cfg), "error": str(e)})
         return mapping
 
     # ---------- 内部：写入 ----------
@@ -548,7 +543,7 @@ class ConfigManager:
         for a in assistants:
             a_id = a.get("id")
             if not a_id:
-                logger.warning("Assistant without id discarded during save.")
+                self.log_manager.log_with_context("warning", "Assistant without id discarded during save.")
                 continue
             desired_assistant_ids.add(a_id)
             a_copy = dict(a)
@@ -566,7 +561,7 @@ class ConfigManager:
                 p_copy["assistant_id"] = a_id
                 plugin_id = p_copy.get("plugin_id")
                 if not plugin_id:
-                    logger.warning(f"Plugin config for assistant {a_id} missing plugin_id.")
+                    self.log_manager.log_with_context("warning", "Plugin config for assistant {aid} missing plugin_id. Discarded.", context={"aid": a_id})
                     continue
                 p_dir = self._plugins_dir / plugin_id
                 p_dir.mkdir(parents=True, exist_ok=True)
@@ -583,7 +578,7 @@ class ConfigManager:
                 try:
                     old_file.unlink()
                 except Exception as e:
-                    logger.error(f"Remove stale assistant file {old_file} failed: {e}")
+                    self.log_manager.log_with_context("error", "Remove stale assistant file {file} failed: {error}", context={"file": str(old_file), "error": str(e)})
 
         # 清理多余插件实例
         for pdir in self._plugins_dir.iterdir():
@@ -594,7 +589,7 @@ class ConfigManager:
                     try:
                         cfg.unlink()
                     except Exception as e:
-                        logger.error(f"Remove stale plugin instance {cfg} failed: {e}")
+                        self.log_manager.log_with_context("error", "Remove stale plugin instance {file} failed: {error}", context={"file": str(cfg), "error": str(e)})
             # 删除空目录
             try:
                 if not any(pdir.iterdir()):
@@ -609,7 +604,7 @@ class ConfigManager:
             try:
                 f.unlink()
             except Exception as e:
-                logger.error(f"Failed to remove assistant file {f}: {e}")
+                self.log_manager.log_with_context("error", "Remove assistant file {file} failed: {error}", context={"file": str(f), "error": str(e)})
         # 删除该 assistant 的所有插件实例
         if self._plugins_dir.is_dir():
             for pdir in self._plugins_dir.iterdir():
@@ -620,7 +615,7 @@ class ConfigManager:
                     try:
                         inst.unlink()
                     except Exception as e:
-                        logger.error(f"Failed remove plugin instance {inst}: {e}")
+                        self.log_manager.log_with_context("error", "Remove plugin instance {file} failed: {error}", context={"file": str(inst), "error": str(e)})
                 try:
                     if not any(pdir.iterdir()):
                         pdir.rmdir()
@@ -648,7 +643,7 @@ class ConfigManager:
                 if old.is_dir():
                     shutil.rmtree(old, ignore_errors=True)
         except Exception as e:
-            logger.warning(f"Write backup failed (ignored): {e}")
+            self.log_manager.log_with_context("warning", "Write config backup failed: {error}", context={"error": str(e)})
 
     def _emit_change(self, old: AppSettings, new: AppSettings) -> None:
         if old is new:
@@ -658,4 +653,4 @@ class ConfigManager:
             try:
                 cb(old, new)
             except Exception as e:
-                logger.error(f"on_change callback error: {e}")
+                self.log_manager.log_with_context("error", "on_change callback error: {error}", context={"error": str(e)})
