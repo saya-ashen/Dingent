@@ -8,7 +8,7 @@ from dingent.server.api.dependencies import (
 router = APIRouter(prefix="/logs", tags=["Logs"])
 
 
-@router.get("/")
+@router.get("")
 async def logs(
     level: str | None = None,
     module: str | None = None,

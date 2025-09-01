@@ -51,8 +51,8 @@ IS_DEV_MODE = os.getenv("DINGENT_DEV")
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
 DEFAULT_DINGENT_TOML = """
-backend_port = 3000
-frontend_port = 8080
+backend_port = 8000
+frontend_port = 3000 
 """
 
 # --------- Utility Functions ---------
