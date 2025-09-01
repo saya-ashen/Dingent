@@ -11,7 +11,6 @@ from fastmcp.client import SSETransport, StreamableHttpTransport, UvStdioTranspo
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import Tool
 from fastmcp.tools.tool import ToolResult as FastMCPToolResult
-from loguru import logger
 from mcp.types import TextContent
 from pydantic import BaseModel, Field, PrivateAttr, SecretStr, ValidationError, create_model
 
@@ -69,7 +68,7 @@ class ResourceMiddleware(Middleware):
         try:
             tool_result = ToolResult.from_any(parsed_obj)
         except Exception as e:
-            logger.warning(f"Normalize tool output failed: {e}. Fallback to raw text.")
+            self.log_with_context("warning", "Failed to parse tool result: {error_msg}", context={"error_msg": f"{e}"})
             tool_result = ToolResult.from_any(raw_text)
 
         # 4. 注册资源
@@ -187,7 +186,7 @@ class PluginInstance:
                 validated_config_dict = validated_model.model_dump(mode="json")
                 env = _prepare_environment(validated_model)
             except ValidationError as e:
-                logger.error(f"Validation error for plugin '{manifest.name}': {e}")
+                log_method("warning", "Configuration validation error for plugin '{plugin}': {error_msg}", context={"plugin": manifest.name, "error_msg": f"{e}"})
 
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None
@@ -237,7 +236,7 @@ class PluginInstance:
             base_tool = base_tools_dict.get(tool.name)
             if not base_tool:
                 continue
-            logger.info(f"Translating tool {tool.name} to user config")
+            log_method("info", "Translating tool '{tool}' to user config", context={"tool": tool.name})
             trans_tool = Tool.from_tool(base_tool, name=tool.name, description=tool.description, enabled=tool.enabled)
             mcp.add_tool(trans_tool)
             if tool.name != base_tool.name:

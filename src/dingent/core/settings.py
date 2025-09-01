@@ -52,7 +52,7 @@ class AppSettings(BaseModel):
     model_config = ConfigDict(env_prefix="DINGENT_", populate_by_name=True, extra="ignore")
     assistants: list[AssistantSettings] = []
     llm: LLMSettings = LLMSettings()
-    backend_port: int = 8000
+    backend_port: int = 3000
     frontend_port: int = 8080
     workflows: list[Workflow] = Field(default_factory=list, description="All workflows cached in settings")
     current_workflow: str | None = Field(None, description="ID of the current workflow")

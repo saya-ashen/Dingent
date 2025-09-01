@@ -51,16 +51,8 @@ IS_DEV_MODE = os.getenv("DINGENT_DEV")
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
 
 DEFAULT_DINGENT_TOML = """
-[project]
-[backend]
-port = 8000
-plugins.directory = "plugins"
-
-[dashboard]
-port = 8501
-
-[frontend]
-port = 3000
+backend_port = 3000
+frontend_port = 8080
 """
 
 # --------- Utility Functions ---------
@@ -383,7 +375,7 @@ def run(
         "--port",
         str(cli_ctx.backend_port),
     ]
-    frontend_cmd = [node_bin, "server.js", "--port", str(cli_ctx.frontend_port)]
+    frontend_cmd = [node_bin, "server.js"]
 
     services = [
         Service(
@@ -397,7 +389,10 @@ def run(
             command=frontend_cmd,
             cwd=cli_ctx.frontend_path,
             color="cyan",
-            env={"DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}"},
+            env={
+                "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
+                "PORT": str(cli_ctx.frontend_port or 3000),
+            },
             open_browser_hint=True,
         ),
     ]
