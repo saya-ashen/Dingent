@@ -28,7 +28,6 @@ class LLMManager:
         cache_key = tuple(sorted(kwargs.items()))
         kwargs_hidden = {k: ("***" if k == "api_key" else v) for k, v in kwargs.items()}
         if cache_key in self._llms:
-            print(f"Returning cached LLM instance with params: {kwargs_hidden}")
             self._log_manager.log_with_context("info", "Returning cached LLM instance.", context={"params": kwargs_hidden})
             return self._llms[cache_key]
 
