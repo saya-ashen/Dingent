@@ -87,7 +87,7 @@ const config: Config = {
                     items: [
                         {
                             label: 'Tutorial',
-                            to: '/docs/intro',
+                            to: '/docs/getting-started/introduction',
                         },
                     ],
                 },
@@ -115,7 +115,7 @@ const config: Config = {
         prism: {
             theme: prismThemes.github,
             darkTheme: prismThemes.dracula,
-            additionalLanguages: ['powershell','toml','bash'],
+            additionalLanguages: ['powershell', 'toml', 'bash'],
         },
     } satisfies Preset.ThemeConfig,
 };

@@ -83,4 +83,4 @@ Congratulations, you have successfully installed Dingent\!
 
 You are now ready to create your first agent project. Let's move on to the next guide to learn about the project structure and how to get your agent running.
 
-➡️ **Next: [Project Structure](/project-structure.md)**
+➡️ **Next: [Project Structure](./project-structure.md)**
