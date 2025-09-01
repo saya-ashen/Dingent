@@ -2,7 +2,7 @@
 
 # Dingent
 
-**A lightweight, user-friendly LLM Agent framework focused on simplifying data retrieval application development.**
+**A powerful, yet user-friendly LLM Agent framework designed to streamline the entire development lifecycle of intelligent applications.**
 
 **English** · [简体中文](./README.zh-CN.md)
 
@@ -14,7 +14,7 @@
 
 </div>
 
-**Dingent** is a lightweight, user-friendly agent framework whose core goal is to simplify the process of creating data-driven applications powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit, with a standout feature of automatic database connectivity. This allows you to quickly link your database with an LLM to build applications capable of intelligent Q\&A, data extraction, and analysis. For other data sources like APIs and local documents, Dingent offers a flexible framework that developers can easily extend by writing custom code.
+**Dingent** is an agent framework whose core goal is to simplify the process of creating any application powered by Large Language Models (LLMs). We provide a concise yet powerful toolkit... to build applications capable of automating complex workflows, interacting with various services, and performing intelligent analysis. For any custom logic or integration, Dingent offers a flexible framework that developers can easily extend by writing custom code.
 
 ### Chat Interface
 
@@ -32,15 +32,15 @@
 
 ## 🎯 Why Choose Dingent?
 
-When building LLM data applications, developers often spend a significant amount of time on "glue code": connecting to databases, wrapping APIs, setting up frontend-backend communication... These tasks are tedious and repetitive.
+When building LLM applications, developers often spend a significant amount of time on "glue code": creating backend services, wrapping APIs, setting up frontend-backend communication... These tasks are tedious and repetitive.
 
 **Dingent's core value lies in:**
 
   - **No More Repetition**: We package the best practices for backend services (LangGraph), data interfaces (**Plugin System**), a chat interface (CopilotKit), and a **full-featured admin dashboard** into a single command. You no longer need to build everything from scratch and can start writing your core business logic immediately.
   * **Configuration via UI**: Forget manually editing complex configuration files. With Dingent's integrated admin dashboard, you can manage assistants, build workflows, and configure settings through an intuitive graphical interface.
+  * **Extensible and Versatile**: While Dingent began with a focus on data retrieval, it has evolved into a powerful general-purpose framework. Its modular architecture and robust plugin system allow you to build any type of agent—from simple task automation bots to complex multi-agent systems. Dingent provides the solid foundation, you bring the vision.
   * **Core Features Built-In**: We believe a simple and easy-to-use agent shouldn't require users to spend a lot of time maintaining plugins. Therefore, we are committed to integrating features the community deems important directly into the framework. If you think a feature is crucial, we encourage you to open an Issue or PR. This directly reflects our core mission of "making Agents simpler for users."
-  * **Focused, Not Comprehensive**: Unlike other general-purpose Agent frameworks, Dingent specializes in data retrieval and Q\&A scenarios, offering a more lightweight and focused solution.
-  - **Smooth Learning Curve**: You only need a basic understanding of Python to build powerful applications, without needing to be an expert in LangGraph or FastAPI. At the same time, we retain the flexibility to expand functionalities, ensuring the framework can fully support custom development when needed.
+  - **Smooth Learning Curve**: You only need a basic understanding of Python to build powerful, general-purpose agents, without needing to be an expert in LangGraph or FastAPI. At the same time, we retain the flexibility to expand functionalities, ensuring the framework can fully support custom development when needed.
 
 ## ✨ Features
 

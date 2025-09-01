@@ -10,33 +10,39 @@ type FeatureItem = {
 };
 
 const FeatureList: FeatureItem[] = [
-    {
-        title: 'Rapid Development',
-        Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
-        description: (
-            <>
-                Get started with a single command and immediately focus on your core business logic, no deep framework expertise required.
-            </>
-        ),
-    },
-    {
-        title: 'Core Features Built-In',
-        Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
-        description: (
-            <>
-                Comes with essential features out-of-the-box, simplifying development and eliminating the hassle of plugin maintenance.
-            </>
-        ),
-    },
-    {
-        title: 'Focused & Lightweight',
-        Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
-        description: (
-            <>
-                Purpose-built for data retrieval and Q&A, offering a more optimized and efficient solution than general-purpose frameworks.
-            </>
-        ),
-    },
+  {
+    title: 'No More Repetition',
+    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    description: (
+      <>
+        Best practices for backend (LangGraph), data interfaces (Plugin System), 
+        chat UI (CopilotKit), and a full-featured admin dashboard are all packaged together. 
+        Skip the boilerplate and build your business logic right away.
+      </>
+    ),
+  },
+  {
+    title: 'Visual Configuration',
+    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    description: (
+      <>
+        Manage assistants, workflows, and settings through an integrated admin 
+        dashboard—no more manual config file editing or tedious setup.
+      </>
+    ),
+  },
+  {
+    // --- THIS IS THE UPDATED FEATURE ---
+    title: 'Extensible & Versatile',
+    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
+    description: (
+      <>
+        With a modular architecture and a powerful plugin system, Dingent grows with 
+        your needs. Build anything from simple task automators to complex, multi-agent 
+        systems, all on one solid foundation.
+      </>
+    ),
+  },
 ];
 
 function Feature({ title, Svg, description }: FeatureItem) {

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 description: How to install Dingent locally, and start an agent project in no time.
 ---
 
@@ -7,60 +7,81 @@ description: How to install Dingent locally, and start an agent project in no ti
 
 :::tip
 
-Use the **[Fast Track](intro.md#fast-track)** to understand Docusaurus in **5 minutes ⏱**!
+Use the **[Fast Track](./introduction.md#fast-track)** to understand Docusaurus in **5 minutes ⏱**!
 
 :::
 
-## Requirements
-- [**uv**](https://docs.astral.sh/uv/getting-started/installation/): A very fast Python package installer and resolver.
-    - UV is used to install the Dingent CLI and manage Python dependencies.
-- [**Node.js**](https://nodejs.org/en/download/) version 18.0 or above (which can be checked by running node -v). You can use [nvm](https://github.com/nvm-sh/nvm) to manage multiple Node.js versions on a single machine.
-- [**bun**](https://bun.com/docs/installation): An all-in-one toolkit for JavaScript and TypeScript applications.
-    - Bun is used to manage frontend dependencies and run the development server.
-## Scaffold Project
-The easyest way to get started is to use the Dingent CLI to scaffold a new project. This will create a fully functional agent project with all the necessary dependencies and configurations.
+
+# Installation
+
+This guide will walk you through installing the Dingent framework and its command-line interface (CLI). With just a few commands, you'll have everything you need to start building your first agent.
+
+## Prerequisites
+
+Before installing Dingent, please ensure your development environment meets the following requirements:
+
+
+### 1. uv
+
+We use `uv`, a high-performance Python package installer, to create projects and manage dependencies. It simplifies the setup process significantly.
+
+Install `uv` by running the command for your operating system:
+
+**On macOS and Linux:**
 
 ```bash
-uvx dingent init basic
+curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
 ```
-This will prompt you for a project name, author, etc., and then automatically create the project directory and install all frontend and backend dependencies.
-Then you can navigate to the project directory and start the agent.
 
-## Project Structure
-If you chose the `basic` template and named your project `my-awesome-agent`, the project structure will look like this:
+**On Windows:**
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm [https://astral.sh/uv/install.ps1](https://astral.sh/uv/install.ps1) | iex"
 ```
-├── 📄 README.md
-├── 🖥️ frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   └── components/
-│   └── package.json
-├── ⚙️ backend/
-│   ├── main.py
-│   ├── config.toml
-│   └── langgraph.json
-└── 🛠️ mcp/
-    ├── main.py
-    ├── config.toml
-    ├── data/
-    ├── custom_tools/
-    └── schemas/
-```
-### Overview of Each Part
-- frontend: This is the part you see and interact with in your browser.
 
-- backend: This is the project's brain, a Python service.
+After installation, close and reopen your terminal to ensure `uv` is in your system's PATH.
 
-- assistants:
+## Installing the Dingent CLI
 
-## Running the development server
-To run the development server, you need to set the `OPENAI_API_KEY` environment variable and then run the `dingent run` command.
+The `dingent` command-line tool is the primary way to create, manage, and run your projects. The recommended way to use it is with `uvx`, which automatically downloads and runs the latest version without requiring a permanent installation.
+
+This approach ensures you are always using the most up-to-date version of the framework when starting a new project.
+
+## Verifying the Installation 
+
+To confirm that everything is set up correctly, run the following command in your terminal:
 
 ```bash
-# On macOS and Linux
-export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxx # Replace with your OpenAI API Key
-
-# On Windows (PowerShell)
-$env:OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxx" # Replace with your OpenAI API Key
-uvx dingent run # Must be run in the project directory
+uvx dingent --help
 ```
+
+If the installation was successful, you should see the Dingent help message, like this:
+
+```
+ Usage: dingent [OPTIONS] COMMAND [ARGS]...                                                                                    
+                                                                                                                               
+ Dingent Agent Framework CLI                                                                                                   
+                                                                                                                               
+╭─ Options ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.                                                     │
+│ --show-completion             Show completion for the current shell, to copy it or customize the installation.              │
+│ --help                        Show this message and exit.                                                                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ run       Concurrently starts the backend and frontend services.                                                            │
+│ dev       Starts the development server, primarily for debugging the backend Graph and API.                                 │
+│ init      Create a new Agent project from a template.                                                                       │
+│ version   Show the Dingent version                                                                                          │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+If you see an error, please double-check that `uv` was installed correctly in the prerequisite step.
+
+## Next Steps (下一步)
+
+Congratulations, you have successfully installed Dingent\!
+
+You are now ready to create your first agent project. Let's move on to the next guide to learn about the project structure and how to get your agent running.
+
+➡️ **Next: [Project Structure](/project-structure.md)**
+
