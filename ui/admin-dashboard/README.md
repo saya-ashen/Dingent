@@ -1,69 +1,117 @@
-# React + TypeScript + Vite
+# Shadcn Admin Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Admin Dashboard UI crafted with Shadcn and Vite. Built with responsiveness and accessibility in mind.
 
-Currently, two official plugins are available:
+![alt text](public/images/shadcn-admin.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+I've been creating dashboard UIs at work and for my personal projects. I always wanted to make a reusable collection of dashboard UI for future projects; and here it is now. While I've created a few custom components, some of the code is directly adapted from ShadcnUI examples.
 
-## Expanding the ESLint configuration
+> This is not a starter project (template) though. I'll probably make one in the future.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Features
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Light/dark mode
+- Responsive
+- Accessible
+- With built-in Sidebar component
+- Global search command
+- 10+ pages
+- Extra custom components
+- RTL support
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+<details>
+<summary>Customized Components (click to expand)</summary>
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+This project uses Shadcn UI components, but some have been slightly modified for better RTL (Right-to-Left) support and other improvements. These customized components differ from the original Shadcn UI versions.
+
+If you want to update components using the Shadcn CLI (e.g., `npx shadcn@latest add <component>`), it's generally safe for non-customized components. For the listed customized ones, you may need to manually merge changes to preserve the project's modifications and avoid overwriting RTL support or other updates.
+
+> If you don't require RTL support, you can safely update the 'RTL Updated Components' via the Shadcn CLI, as these changes are primarily for RTL compatibility. The 'Modified Components' may have other customizations to consider.
+
+### Modified Components
+
+- scroll-area
+- sonner
+- separator
+
+### RTL Updated Components
+
+- alert-dialog
+- calendar
+- command
+- dialog
+- dropdown-menu
+- select
+- table
+- sheet
+- sidebar
+- switch
+
+**Notes:**
+
+- **Modified Components**: These have general updates, potentially including RTL adjustments.
+- **RTL Updated Components**: These have specific changes for RTL language support (e.g., layout, positioning).
+- For implementation details, check the source files in `src/components/ui/`.
+- All other Shadcn UI components in the project are standard and can be safely updated via the CLI.
+
+</details>
+
+## Tech Stack
+
+**UI:** [ShadcnUI](https://ui.shadcn.com) (TailwindCSS + RadixUI)
+
+**Build Tool:** [Vite](https://vitejs.dev/)
+
+**Routing:** [TanStack Router](https://tanstack.com/router/latest)
+
+**Type Checking:** [TypeScript](https://www.typescriptlang.org/)
+
+**Linting/Formatting:** [Eslint](https://eslint.org/) & [Prettier](https://prettier.io/)
+
+**Icons:** [Lucide Icons](https://lucide.dev/icons/), [Tabler Icons](https://tabler.io/icons) (Brand icons only)
+
+**Auth (partial):** [Clerk](https://go.clerk.com/GttUAaK)
+
+## Run Locally
+
+Clone the project
+
+```bash
+  git clone https://github.com/satnaing/shadcn-admin.git
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Go to the project directory
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+  cd shadcn-admin
 ```
+
+Install dependencies
+
+```bash
+  pnpm install
+```
+
+Start the server
+
+```bash
+  pnpm run dev
+```
+
+## Sponsoring this project ❤️
+
+If you find this project helpful or use this in your own work, consider [sponsoring me](https://github.com/sponsors/satnaing) to support development and maintenance. You can [buy me a coffee](https://buymeacoffee.com/satnaing) as well. Don’t worry, every penny helps. Thank you! 🙏
+
+For questions or sponsorship inquiries, feel free to reach out at [contact@satnaing.dev](mailto:contact@satnaing.dev).
+
+### Current Sponsor
+
+- [Clerk](https://go.clerk.com/GttUAaK) - for backing the implementation of Clerk in this project
+
+## Author
+
+Crafted with 🤍 by [@satnaing](https://github.com/satnaing)
+
+## License
+
+Licensed under the [MIT License](https://choosealicense.com/licenses/mit/)
