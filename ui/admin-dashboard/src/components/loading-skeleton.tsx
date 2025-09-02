@@ -7,4 +7,3 @@ export function LoadingSkeleton({ lines = 3 }: { lines?: number }) {
         </div>
     );
 }
-

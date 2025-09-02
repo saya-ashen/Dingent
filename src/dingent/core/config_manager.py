@@ -248,7 +248,7 @@ class ConfigManager:
         - 更新时：使用 _clean_patch 过滤掉全为 '*'（例如 '********'）的字段或结构，不覆盖原值。
         - 创建时：同样会清理；若清理后缺少必填字段将触发校验错误。
         """
-        if isinstance(data, (AssistantCreate, AssistantUpdate)):
+        if isinstance(data, AssistantCreate | AssistantUpdate):
             raw_patch = data.model_dump(exclude_unset=True)
         else:
             raw_patch = dict(data)

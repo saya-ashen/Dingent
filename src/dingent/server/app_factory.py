@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
         print("All plugin subprocesses have been shut down.")
 
 
-def register_admin_routes(app: FastAPI, base_path: str = "/admin") -> None:
+def register_admin_routes(app: FastAPI) -> None:
     static_root = files("dingent").joinpath("static", "admin_dashboard")
     app.mount("/admin", StaticFiles(directory=str(static_root), html=True), name="admin")
 
@@ -45,7 +45,7 @@ def build_agent_api(**kwargs) -> FastAPI:
     kwargs["lifespan"] = lifespan
     app = FastAPI(**kwargs)
     app.include_router(api_router, prefix="/api/v1")
-    register_admin_routes(app, "/admin")
+    register_admin_routes(app)
 
     @app.get("/api/resource/{resource_id}")
     async def get_resource(resource_id: str, request: Request, with_model_text=False):
