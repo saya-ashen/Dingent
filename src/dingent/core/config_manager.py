@@ -89,6 +89,8 @@ def _process_secrets_recursively(
     if action == SecretAction.SAVE and isinstance(data, SecretStr):
         key_path = ".".join(path)
         secret_value = data.get_secret_value()
+        if secret_value.strip("*") == "":
+            return secret_manager.get_secret(key_path)  # Return existing secret for empty/masked values
 
         if secret_value:
             secret_manager.set_secret(key_path, secret_value)
@@ -243,31 +245,42 @@ class ConfigManager:
     def upsert_assistant(self, data: AssistantCreate | AssistantUpdate | dict) -> AssistantSettings:
         """
         如果 id 存在则更新；如果不存在则创建。
-        AssistantUpdate 若缺 id 则报错。
+        - 更新时：使用 _clean_patch 过滤掉全为 '*'（例如 '********'）的字段或结构，不覆盖原值。
+        - 创建时：同样会清理；若清理后缺少必填字段将触发校验错误。
         """
         if isinstance(data, AssistantCreate | AssistantUpdate):
-            patch = data.model_dump(exclude_unset=True)
+            raw_patch = data.model_dump(exclude_unset=True)
         else:
-            patch = dict(data)
+            raw_patch = dict(data)
+
+        # 清理（去掉值为全 * 的字段 / 结构）
+        patch = _process_secrets_recursively(raw_patch, path=[], secret_manager=self.secret_manager, action=SecretAction.SAVE)
 
         with self._lock:
             old_settings = self._settings
             assistants_map = {a.id: a for a in old_settings.assistants}
-            a_id = patch.get("id")
 
+            # id 优先从原始 patch 拿，避免被清理掉（理论上 id 不会是掩码，但更稳健）
+            a_id = raw_patch.get("id") or patch.get("id")
+
+            # ---------- 更新逻辑 ----------
             if a_id and a_id in assistants_map:
+                # 如果清理后没有任何有效字段，视为无变更，直接返回旧副本
+                if not patch or (set(patch.keys()) == {"id"} and len(patch) == 1):
+                    return assistants_map[a_id].model_copy(deep=True)
+
                 base = assistants_map[a_id].model_dump()
                 merged = deep_merge(base, patch)
                 new_assistant = AssistantSettings.model_validate(merged)
-                # replace
+
                 new_list = []
                 for a in old_settings.assistants:
-                    if a.id == a_id:
-                        new_list.append(new_assistant)
-                    else:
-                        new_list.append(a)
+                    new_list.append(new_assistant if a.id == a_id else a)
+
+            # ---------- 创建逻辑 ----------
             else:
-                # create new
+                if "id" not in patch:
+                    raise ValueError("Creating a new assistant requires an 'id'.")
                 create_obj = AssistantCreate.model_validate(patch)
                 new_assistant = AssistantSettings.model_validate(create_obj.model_dump())
                 new_list = list(old_settings.assistants) + [new_assistant]

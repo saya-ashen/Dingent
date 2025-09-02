@@ -187,6 +187,7 @@ class PluginInstance:
                 env = _prepare_environment(validated_model)
             except ValidationError as e:
                 log_method("warning", "Configuration validation error for plugin '{plugin}': {error_msg}", context={"plugin": manifest.name, "error_msg": f"{e}"})
+                validated_config_dict = user_config.config or {}
 
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None

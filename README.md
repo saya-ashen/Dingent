@@ -22,13 +22,15 @@
 | :---: | :---: |
 | ![chat1](./assets/Chart1.png) | ![chat2](./assets/Chart2.png) |
 
-### Admin Dashboard Overview
+### Admin Dashboard
 
-| Dashboard - Assistants | Dashboard - Workflows |
+| Dashboard - Overview | Dashboard - Workflows |
 | :---: | :---: |
-| ![assistants](./assets/admin-assistants.png) | ![workflows](./assets/admin-workflows.png) |
+| ![overview](./assets/admin-overview.png) | ![workflows](./assets/admin-workflows.png) |
 | **Dashboard - Settings** | **Dashboard - Logs** |
 | ![settings](./assets/admin-settings.png) | ![logs](./assets/admin-logs.png) |
+| **Dashboard - Assistants** | **Dashboard - Market** |
+| ![assistants](./assets/admin-assistants.png) | ![market](./assets/admin-market.png) |
 
 ## 🎯 Why Choose Dingent?
 

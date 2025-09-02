@@ -1,9 +1,9 @@
-import mimetypes
 from contextlib import asynccontextmanager
 from importlib.resources import files
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from dingent.core.context import initialize_app_context
 
@@ -36,45 +36,16 @@ async def lifespan(app: FastAPI):
         print("All plugin subprocesses have been shut down.")
 
 
-def register_admin_routes(app: FastAPI, base_path: str = "/admin") -> None:
+def register_admin_routes(app: FastAPI) -> None:
     static_root = files("dingent").joinpath("static", "admin_dashboard")
-
-    def _read_file_bytes(rel_path: str) -> tuple[bytes, str]:
-        # 安全处理路径，禁止路径穿越
-        rel_path = rel_path.lstrip("/")
-        # 先尝试具体文件
-        resource = static_root.joinpath(rel_path)
-        if getattr(resource, "is_file", lambda: False)():
-            data = resource.read_bytes()
-            media = mimetypes.guess_type(resource.name)[0] or "application/octet-stream"
-            return data, media
-        # 回退到 index.html（SPA 兜底）
-        index_res = static_root.joinpath("index.html")
-        if not getattr(index_res, "is_file", lambda: False)():
-            raise FileNotFoundError("index.html not found in admin_dashboard")
-        data = index_res.read_bytes()
-        return data, "text/html; charset=utf-8"
-
-    @app.get(f"{base_path}", include_in_schema=False)
-    @app.get(f"{base_path}/", include_in_schema=False)
-    async def admin_index():
-        data, media = _read_file_bytes("index.html")
-        return Response(content=data, media_type=media)
-
-    @app.get(f"{base_path}" + "/{path:path}", include_in_schema=False)
-    async def admin_assets(path: str):
-        try:
-            data, media = _read_file_bytes(path)
-            return Response(content=data, media_type=media, headers={"Cache-Control": "public, max-age=3600"})
-        except FileNotFoundError:
-            raise HTTPException(404, detail="Not found")
+    app.mount("/admin", StaticFiles(directory=str(static_root), html=True), name="admin")
 
 
 def build_agent_api(**kwargs) -> FastAPI:
     kwargs["lifespan"] = lifespan
     app = FastAPI(**kwargs)
     app.include_router(api_router, prefix="/api/v1")
-    register_admin_routes(app, "/admin")
+    register_admin_routes(app)
 
     @app.get("/api/resource/{resource_id}")
     async def get_resource(resource_id: str, request: Request, with_model_text=False):

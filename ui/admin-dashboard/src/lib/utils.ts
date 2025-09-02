@@ -108,4 +108,3 @@ export function debounce<F extends (...args: any[]) => any>(func: F, waitFor: nu
         timeout = setTimeout(() => func(...args), waitFor);
     };
 }
-

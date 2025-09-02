@@ -72,6 +72,7 @@ const queryClient = new QueryClient({
 // Create a new router instance
 const router = createRouter({
   routeTree,
+  basepath: '/admin',
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
