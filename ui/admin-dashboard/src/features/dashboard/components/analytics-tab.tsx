@@ -42,7 +42,7 @@ function useAnalytics() {
 }
 
 export function AnalyticsTab() {
-  const { data, loading, error } = useAnalytics()
+  const { data, loading } = useAnalytics()
 
   const budgetUsage = useMemo(() => {
     if (!data || !data.admin.total_budget) return 0
