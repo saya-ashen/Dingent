@@ -2,7 +2,7 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends
-from fastapi.exceptions import HTTPException 
+from fastapi.exceptions import HTTPException
 
 from dingent.core.analytics_manager import AnalyticsManager
 from dingent.core.assistant_manager import AssistantManager
