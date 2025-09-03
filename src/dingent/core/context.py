@@ -6,6 +6,7 @@ from pathlib import Path
 from dingent.core.market_service import MarketService
 from dingent.engine.graph_manager import GraphManager
 
+from .analytics_manager import AnalyticsManager
 from .assistant_manager import AssistantManager
 from .config_manager import ConfigManager
 from .llm_manager import LLMManager
@@ -28,6 +29,9 @@ class AppContext:
         self.config_manager = ConfigManager(self.project_root, self.log_manager)
         self.resource_manager = ResourceManager(self.log_manager, self.project_root / ".dingent" / "data" / "resources.db")
         self.llm_manager = LLMManager(self.log_manager)
+
+        self.analytics_manager = AnalyticsManager("test_project")
+        self.analytics_manager.register()
 
         plugin_dir = self.project_root / "plugins"
         self.plugin_manager = PluginManager(plugin_dir, self.resource_manager, self.log_manager)

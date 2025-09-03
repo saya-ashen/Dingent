@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
+from dingent.core.analytics_manager import AnalyticsManager
 from dingent.core.assistant_manager import AssistantManager
 from dingent.core.config_manager import ConfigManager
 from dingent.core.log_manager import LogManager
@@ -10,6 +11,7 @@ from dingent.core.market_service import MarketItemCategory, MarketService
 from dingent.core.plugin_manager import PluginManager
 from dingent.core.workflow_manager import WorkflowManager
 from dingent.server.api.dependencies import (
+    get_analytics_manager,
     get_assistant_manager,
     get_config_manager,
     get_log_manager,
@@ -178,3 +180,11 @@ async def get_overview(
         "market": market_section,
         "llm": llm_section,
     }
+
+
+@router.get("/budget")
+async def get_budget(
+    # log_manager: LogManager = Depends(get_log_manager),
+    analytics_manager: AnalyticsManager = Depends(get_analytics_manager),
+):
+    return analytics_manager.budget_manager.user_dict

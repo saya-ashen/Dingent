@@ -18,6 +18,7 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
+import { AnalyticsTab } from './components/analytics-tab'
 import { AssistantsTable } from './components/assistants-table'
 import { LLMInfo } from './components/llm-info'
 import { PluginsMiniList } from './components/plugins-minilist'
@@ -94,9 +95,7 @@ export function Dashboard() {
           <div className='w-full overflow-x-auto pb-2'>
             <TabsList>
               <TabsTrigger value='overview'>Overview</TabsTrigger>
-              <TabsTrigger value='analytics' disabled>
-                Analytics
-              </TabsTrigger>
+              <TabsTrigger value='analytics'>Analytics</TabsTrigger>
               <TabsTrigger value='reports' disabled>
                 Reports
               </TabsTrigger>
@@ -161,7 +160,7 @@ export function Dashboard() {
                   <CardContent>
                     {error && (
                       <div className='text-destructive mb-2 text-sm'>
-                        加载失败：{error}
+                        Failed to load: {error}
                       </div>
                     )}
                     <AssistantsTable
@@ -211,7 +210,9 @@ export function Dashboard() {
                 <Card>
                   <CardHeader>
                     <CardTitle>LLM Configuration</CardTitle>
-                    <CardDescription>当前全局模型配置概览</CardDescription>
+                    <CardDescription>
+                      Overview of the current global model configuration
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <LLMInfo llm={llm || {}} loading={loading} />
@@ -233,14 +234,14 @@ export function Dashboard() {
                     ) : market ? (
                       <>
                         <div>
-                          插件更新：
+                          Plugin Updates:{' '}
                           {market.plugin_updates > 0 ? (
                             <span className='font-medium text-amber-600 dark:text-amber-400'>
-                              {market.plugin_updates} 可用
+                              {market.plugin_updates} available
                             </span>
                           ) : (
                             <span className='text-muted-foreground'>
-                              无更新
+                              No updates
                             </span>
                           )}
                         </div>
@@ -252,13 +253,16 @@ export function Dashboard() {
                       </>
                     ) : (
                       <div className='text-muted-foreground'>
-                        无法获取市场数据
+                        Could not retrieve market data
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
             </div>
+          </TabsContent>
+          <TabsContent value='analytics' className='space-y-4'>
+            <AnalyticsTab />
           </TabsContent>
         </Tabs>
       </Main>
