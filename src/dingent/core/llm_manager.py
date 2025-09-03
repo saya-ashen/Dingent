@@ -41,6 +41,7 @@ class LLMManager:
         if isinstance(api_key, SecretStr):
             api_key = api_key.get_secret_value()
         model_instance = ChatLiteLLM(model=model, api_key=api_key, api_base=api_base)
+
         self._llms[cache_key] = model_instance
         self._log_manager.log_with_context("info", "LLM instance created and cached.", context={"params": kwargs_hidden})
 

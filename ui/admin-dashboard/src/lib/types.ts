@@ -207,3 +207,13 @@ export interface OverviewData {
   }
   llm: Record<string, any>
 }
+type ModelCost = {
+  [modelName: string]: number
+}
+export type AdminAnalyticsData = {
+  admin: {
+    total_budget: number
+    current_cost: number
+    model_cost: ModelCost
+  }
+}

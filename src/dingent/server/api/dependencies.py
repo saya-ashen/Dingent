@@ -1,5 +1,6 @@
 from fastapi import Depends, Request
 
+from dingent.core.analytics_manager import AnalyticsManager
 from dingent.core.assistant_manager import AssistantManager
 from dingent.core.config_manager import ConfigManager
 from dingent.core.context import AppContext
@@ -49,6 +50,13 @@ def get_log_manager(context: AppContext = Depends(get_app_context)) -> LogManage
     Dependency to get the LogManager
     """
     return context.log_manager
+
+
+def get_analytics_manager(context: AppContext = Depends(get_app_context)) -> AnalyticsManager:
+    """
+    Dependency to get the analyticsManager
+    """
+    return context.analytics_manager
 
 
 def get_market_service(context: AppContext = Depends(get_app_context)) -> MarketService:

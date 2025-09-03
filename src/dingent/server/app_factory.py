@@ -3,6 +3,7 @@ from importlib.resources import files
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from dingent.core.context import initialize_app_context
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
 
     try:
         print("Plugins would be initialized here if needed.")
+        print([(r.path, r.name, type(r).__name__) for r in app.router.routes])
         yield
     finally:
         print("--- Application Shutdown ---")
@@ -39,6 +41,10 @@ async def lifespan(app: FastAPI):
 def register_admin_routes(app: FastAPI) -> None:
     static_root = files("dingent").joinpath("static", "admin_dashboard")
     app.mount("/admin", StaticFiles(directory=str(static_root), html=True), name="admin")
+
+    @app.get("/admin", include_in_schema=False)
+    async def admin_redirect():
+        return RedirectResponse("/admin/")
 
 
 def build_agent_api(**kwargs) -> FastAPI:
