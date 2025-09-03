@@ -1,7 +1,7 @@
 // src/routes/dashboard/components/analytics-tab.tsx
 import { useState, useEffect, useMemo } from 'react'
 import { getBudget } from '@/lib/api'
-import { AdminAnalyticsData } from '@/lib/types'
+import { AnalyticsData } from '@/lib/types'
 import {
   Card,
   CardContent,
@@ -14,7 +14,7 @@ import { StatCard } from './stat-card'
 
 function useAnalytics() {
   // The type here should match what your API function returns.
-  const [data, setData] = useState<AdminAnalyticsData | null>(null)
+  const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,13 +45,13 @@ export function AnalyticsTab() {
   const { data, loading } = useAnalytics()
 
   const budgetUsage = useMemo(() => {
-    if (!data || !data.admin.total_budget) return 0
-    return (data.admin.current_cost / data.admin.total_budget) * 100
+    if (!data || !data.total_budget) return 0
+    return (data.current_cost / data.total_budget) * 100
   }, [data])
 
   const modelCostEntries = useMemo(() => {
     if (!data) return []
-    return Object.entries(data.admin.model_cost)
+    return Object.entries(data.model_cost)
   }, [data])
 
   return (
@@ -60,8 +60,8 @@ export function AnalyticsTab() {
       <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard
           title='Current Cost'
-          value={data ? `$${data.admin.current_cost.toFixed(5)}` : '--'}
-          sub={`Total Budget: $${data?.admin.total_budget.toFixed(2) || 'N/A'}`}
+          value={data ? `$${data.current_cost.toFixed(5)}` : '--'}
+          sub={`Total Budget: $${data?.total_budget.toFixed(2) || 'N/A'}`}
           loading={loading}
         />
         <StatCard

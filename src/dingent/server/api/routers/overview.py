@@ -2,6 +2,7 @@ import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from fastapi.exceptions import HTTPException 
 
 from dingent.core.analytics_manager import AnalyticsManager
 from dingent.core.assistant_manager import AssistantManager
@@ -187,4 +188,7 @@ async def get_budget(
     # log_manager: LogManager = Depends(get_log_manager),
     analytics_manager: AnalyticsManager = Depends(get_analytics_manager),
 ):
-    return analytics_manager.budget_manager.user_dict
+    budget = analytics_manager.get_user_cost("admin")
+    if not budget:
+        raise HTTPException(status_code=404, detail="No budget data found")
+    return budget

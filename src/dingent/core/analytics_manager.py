@@ -1,4 +1,3 @@
-import asyncio
 
 import litellm
 from litellm.budget_manager import BudgetManager
@@ -84,45 +83,4 @@ class AnalyticsManager:
         Returns:
             dict: A dictionary containing the user's spending information.
         """
-        return self.budget_manager.get_spend_for_user(user)
-
-
-# --- Example Usage ---
-async def main():
-    # 1. Initialize the manager for your project
-    analytics_manager = AnalyticsManager(project_name="my_langgraph_project")
-
-    # 2. Register the callback to start tracking
-    analytics_manager.register()
-
-    # 3. Define users and set up their budgets
-    user_admin = "admin"
-    user_guest = "guest-1234"
-
-    analytics_manager.get_or_create_user_budget(user=user_admin, total_budget=100.0)
-    analytics_manager.get_or_create_user_budget(user=user_guest, total_budget=5.0)
-
-    # 4. Make an LLM call, passing the 'user_id' in metadata
-    # This is how the callback knows whose budget to update.
-    print(f"\nMaking a call for user: {user_admin}...")
-    await litellm.acompletion(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": "Hello, how are you?"}],
-        metadata={"user_id": user_admin},  # Pass user_id here!
-    )
-
-    # 5. Check the user's cost
-    admin_cost = analytics_manager.get_user_cost(user_admin)
-    print(f"Current cost for '{user_admin}': ${admin_cost['total_spend']:.6f}")
-
-    guest_cost = analytics_manager.get_user_cost(user_guest)
-    print(f"Current cost for '{user_guest}': ${guest_cost['total_spend']:.6f}")
-
-
-if __name__ == "__main__":
-    # In a real application, you would set your API keys
-    # import os
-    # os.environ["OPENAI_API_KEY"] = "your-key-here"
-
-    # Run the async main function
-    asyncio.run(main())
+        return self.budget_manager.user_dict.get("user", {})

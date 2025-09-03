@@ -11,7 +11,7 @@ import type {
   MarketDownloadRequest,
   MarketDownloadResponse,
   OverviewData,
-  AdminAnalyticsData,
+  AnalyticsData,
 } from './types'
 
 const BASE_URL = (import.meta.env.VITE_BACKEND_URL || '') + '/api/v1'
@@ -60,9 +60,9 @@ export async function getOverview(): Promise<OverviewData> {
   }
 }
 
-export async function getBudget(): Promise<AdminAnalyticsData> {
+export async function getBudget(): Promise<AnalyticsData> {
   try {
-    const { data } = await http.get<AdminAnalyticsData>('/overview/budget')
+    const { data } = await http.get<AnalyticsData>('/overview/budget')
     return data
   } catch (err) {
     throw new Error(`Failed to fetch budget: ${extractErrorMessage(err)}`)

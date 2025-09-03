@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -18,6 +18,18 @@ import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
 import { SearchableSelect } from '@/components/searchable-select'
 import { ThemeSwitch } from '@/components/theme-switch'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+// FIX 2: Import missing icons
+import { X, Save, Loader2 } from 'lucide-react'
 
 const schema = z.object({
   llm: z.object({
@@ -42,6 +54,8 @@ export function AgentSettings() {
     staleTime: 5_000,
   })
 
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+
   const workflows = settingsQ.data?.workflows || []
   const {
     register,
@@ -64,12 +78,14 @@ export function AgentSettings() {
     }
   }, [settingsQ.data, setValue])
 
-  const saveMut = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (form: FormValues) =>
       saveAppSettings(form as AppSettings),
     onSuccess: async () => {
       toast.success('Settings saved')
       await qc.invalidateQueries({ queryKey: ['app-settings'] })
+      // FIX 5: Close the dialog on successful save
+      setSaveDialogOpen(false)
     },
     onError: (e: any) => toast.error(e.message || 'Save failed'),
   })
@@ -103,13 +119,50 @@ export function AgentSettings() {
         </div>
       </Header>
       <FloatingActionButtons>
-        <Button
-          type='submit'
-          disabled={isSubmitting || saveMut.isPending || !isDirty}
-        >
-          {saveMut.isPending ? 'Saving...' : 'Save Changes'}
-        </Button>
+        <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              // FIX 1: Corrected `saveMut` to `saveMutation`
+              disabled={isSubmitting || saveMutation.isPending || !isDirty}
+            >
+              <Save className='mr-2 h-4 w-4' />
+              Save Changes
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Your Changes</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to save all changes? This will update the
+                configuration for all assistants and reload them.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className='gap-2 sm:justify-end'>
+              <DialogClose asChild>
+                <Button type='button' variant='outline'>
+                  <X className='mr-2 h-4 w-4' />
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                type='button'
+                // FIX 4: Use handleSubmit here. It validates the form and
+                // passes the data to your mutation function.
+                onClick={handleSubmit((data) => saveMutation.mutate(data))}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                ) : (
+                  <Save className='mr-2 h-4 w-4' />
+                )}
+                {saveMutation.isPending ? 'Saving...' : 'Confirm & Save'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </FloatingActionButtons>
+      {/* FIX 3: Removed the second, empty FloatingActionButtons component */}
       <Main>
         <div>
           <h1 className='text-2xl font-bold tracking-tight'>Agent Settings</h1>
@@ -117,9 +170,17 @@ export function AgentSettings() {
             Configure LLM provider and general defaults.
           </p>
         </div>
+        {/*
+          NOTE: The `onSubmit` here is now optional, as the dialog's
+          "Confirm & Save" button programmatically triggers the submission.
+          It's kept here for accessibility (e.g., allows pressing Enter to submit).
+        */}
         <form
           className='space-y-4 pt-3'
-          onSubmit={handleSubmit((data) => saveMut.mutate(data))}
+          onSubmit={(e) => {
+            e.preventDefault() // Prevent default browser submission
+            setSaveDialogOpen(true) // Open dialog on form submit
+          }}
         >
           <div className='space-y-3 rounded-lg border p-4'>
             <h2 className='text-lg font-semibold'>LLM Provider Settings</h2>
@@ -162,7 +223,7 @@ export function AgentSettings() {
                       value: wf.id,
                     }))}
                     value={field.value}
-                    onChange={field.onChange} // Use onChange from the controller
+                    onChange={field.onChange}
                     placeholder='Select a workflow'
                     className='min-w-[160px] sm:min-w-[220px]'
                   />
