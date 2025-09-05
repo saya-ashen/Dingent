@@ -10,7 +10,7 @@ import {
   updateAssistant,
   deleteAssistant,
   addAssistant,
-} from '@/lib/api'
+} from '@/dingent/api-client/'
 import type { Assistant } from '@/lib/types'
 import { safeBool, effectiveStatusForItem } from '@/lib/utils'
 import {
@@ -18,8 +18,8 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from '@/components/ui/accordion'
-import { Button } from '@/components/ui/button'
+} from '@/dingent/components/ui/accordion'
+import { Button } from '@/dingent/components/ui/button'
 import {
   Dialog,
   DialogContent,

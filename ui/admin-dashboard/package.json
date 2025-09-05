@@ -1,8 +1,10 @@
 {
-  "name": "shadcn-admin",
-  "private": false,
-  "version": "2.1.0",
-  "type": "module",
+  "name": "dingent-ui",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/packages/*"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
