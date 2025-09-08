@@ -24,7 +24,9 @@ class _AnalyticsCallbackHandler(CustomLogger):
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
         """Async version of the callback."""
         # Extract user from metadata passed in the litellm call
-        user = kwargs.get("litellm_params", {}).get("metadata", {}).get("user_id")
+        if not kwargs:
+            return
+        user = ((kwargs.get("litellm_params", {}).get("metadata")) or {}).get("user_id")
         if user:
             self.budget_manager.update_cost(user, response_obj)
 

@@ -1,11 +1,13 @@
 import os
 from contextlib import asynccontextmanager
-from typing import cast
+from typing import Any, cast
 
 import uvicorn
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from fastapi import APIRouter, Depends, FastAPI
+from copilotkit.langgraph import langchain_messages_to_copilotkit
+from copilotkit.langgraph_agent import ensure_config
+from fastapi import FastAPI
 from langgraph.graph.state import CompiledStateGraph
 
 from dingent.core.security.auth import dynamic_authorizer
@@ -13,6 +15,34 @@ from dingent.core.security.auth import dynamic_authorizer
 from .app_factory import app
 
 original_lifespan = app.router.lifespan_context
+
+
+# HACK:
+class FixedLangGraphAgent(LangGraphAgent):
+    async def get_state(
+        self,
+        *,
+        thread_id: str,
+    ):
+        if not thread_id:
+            return {"threadId": "", "threadExists": False, "state": {}, "messages": []}
+
+        config = ensure_config(cast(Any, self.langgraph_config.copy()) if self.langgraph_config else {})  # pylint: disable=line-too-long
+        config["configurable"] = config.get("configurable", {})
+        config["configurable"]["thread_id"] = thread_id
+
+        if not self.thread_state.get(thread_id, None):
+            self.thread_state[thread_id] = {**(await self.graph.aget_state(config)).values}
+
+        state = self.thread_state[thread_id]
+        if state == {}:
+            return {"threadId": thread_id or "", "threadExists": False, "state": {}, "messages": []}
+
+        messages = langchain_messages_to_copilotkit(state.get("messages", []))
+        state_copy = state.copy()
+        state_copy.pop("messages", None)
+
+        return {"threadId": thread_id, "threadExists": True, "state": state_copy, "messages": messages}
 
 
 @asynccontextmanager
@@ -41,7 +71,7 @@ async def extended_lifespan(app: FastAPI):
             if rebuilt_workflow_id == current_active_id:
                 sdk_instance = app.state.copilot_sdk
 
-                new_agent = LangGraphAgent(
+                new_agent = FixedLangGraphAgent(
                     name="dingent",
                     description="Multi-workflow cached agent graph",
                     graph=new_graph,
@@ -52,8 +82,8 @@ async def extended_lifespan(app: FastAPI):
                 ctx.log_manager.log_with_context("info", "CopilotKit agent was automatically updated for active workflow.", context={"workflow_id": rebuilt_workflow_id})
 
         sdk = CopilotKitRemoteEndpoint(
-            agents=lambda context: [
-                LangGraphAgent(
+            agents=[
+                FixedLangGraphAgent(
                     name="dingent",
                     description="Multi-workflow cached agent graph",
                     graph=graph,
