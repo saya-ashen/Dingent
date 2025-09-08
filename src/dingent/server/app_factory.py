@@ -27,7 +27,6 @@ async def lifespan(app: FastAPI):
 
     try:
         print("Plugins would be initialized here if needed.")
-        print([(r.path, r.name, type(r).__name__) for r in app.router.routes])
         yield
     finally:
         print("--- Application Shutdown ---")

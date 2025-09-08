@@ -233,7 +233,10 @@ class GraphManager:
 
             cp_path = self._checkpoint_path(workflow_id)
             cp_path.parent.mkdir(parents=True, exist_ok=True)
-            checkpointer = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(cp_path.as_posix()))
+            # checkpointer = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(cp_path.as_posix()))
+            checkpointer = await stack.enter_async_context(
+                AsyncSqliteSaver.from_conn_string((self._app_ctx.project_root / ".dingent/data/checkpoints/checkpoint.sqlite").as_posix())
+            )
             compiled_graph = outer.compile(checkpointer)
             compiled_graph.name = "agent"
 
