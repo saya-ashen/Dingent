@@ -1,0 +1,10 @@
+
+backend_port = 8000
+frontend_port = 3000
+workflows = []
+
+[llm]
+model = "gpt-4.1"
+provider = "openai"
+base_url = "https://www.dmxapi.cn/v1"
+api_key = "keyring:llm.api_key"

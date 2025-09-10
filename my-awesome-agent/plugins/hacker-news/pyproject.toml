@@ -1,0 +1,15 @@
+[project]
+name = "mcp-hn"
+version = "0.1.0"
+description = "MCP Server for Hacker News"
+readme = "README.md"
+authors = [{ name = "Ricky", email = "ricky.ediga@gmail.com" }]
+requires-python = ">=3.12"
+dependencies = ["mcp>=1.1.2", "requests>=2.32.3"]
+
+[build-system]
+requires = ["hatchling==1.26.3"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+mcp-hn = "mcp_hn:main"
