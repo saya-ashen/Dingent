@@ -52,7 +52,7 @@ interface ExpandedRowContentProps<TData> {
 
 function ExpandedRowContent<TData>({ row }: ExpandedRowContentProps<TData>) {
     return (
-        <div className="p-4 bg-muted/40 rounded-md animate-in fade-in  w-[80vw] max-w-6xl ">
+        <div className="p-4 bg-muted/40 rounded-md animate-in fade-in w-[80vw] max-w-6xl">
             <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Details</h4>
             <div className="grid gap-3 md:grid-cols-2">
                 {row.getVisibleCells().map((cell) => {
