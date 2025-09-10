@@ -25,6 +25,7 @@ import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authen
 import { Route as AuthenticatedWorkflowsIndexRouteImport } from './routes/_authenticated/workflows/index'
 import { Route as AuthenticatedSystemLogsIndexRouteImport } from './routes/_authenticated/system-logs/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedPluginsIndexRouteImport } from './routes/_authenticated/plugins/index'
 import { Route as AuthenticatedMarketIndexRouteImport } from './routes/_authenticated/market/index'
 import { Route as AuthenticatedAssistantsIndexRouteImport } from './routes/_authenticated/assistants/index'
 import { Route as AuthenticatedAgentSettingsIndexRouteImport } from './routes/_authenticated/agent-settings/index'
@@ -117,6 +118,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedPluginsIndexRoute =
+  AuthenticatedPluginsIndexRouteImport.update({
+    id: '/plugins/',
+    path: '/plugins/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMarketIndexRoute =
   AuthenticatedMarketIndexRouteImport.update({
     id: '/market/',
@@ -187,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/agent-settings': typeof AuthenticatedAgentSettingsIndexRoute
   '/assistants': typeof AuthenticatedAssistantsIndexRoute
   '/market': typeof AuthenticatedMarketIndexRoute
+  '/plugins': typeof AuthenticatedPluginsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/system-logs': typeof AuthenticatedSystemLogsIndexRoute
   '/workflows': typeof AuthenticatedWorkflowsIndexRoute
@@ -211,6 +219,7 @@ export interface FileRoutesByTo {
   '/agent-settings': typeof AuthenticatedAgentSettingsIndexRoute
   '/assistants': typeof AuthenticatedAssistantsIndexRoute
   '/market': typeof AuthenticatedMarketIndexRoute
+  '/plugins': typeof AuthenticatedPluginsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/system-logs': typeof AuthenticatedSystemLogsIndexRoute
   '/workflows': typeof AuthenticatedWorkflowsIndexRoute
@@ -238,6 +247,7 @@ export interface FileRoutesById {
   '/_authenticated/agent-settings/': typeof AuthenticatedAgentSettingsIndexRoute
   '/_authenticated/assistants/': typeof AuthenticatedAssistantsIndexRoute
   '/_authenticated/market/': typeof AuthenticatedMarketIndexRoute
+  '/_authenticated/plugins/': typeof AuthenticatedPluginsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/system-logs/': typeof AuthenticatedSystemLogsIndexRoute
   '/_authenticated/workflows/': typeof AuthenticatedWorkflowsIndexRoute
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/agent-settings'
     | '/assistants'
     | '/market'
+    | '/plugins'
     | '/settings/'
     | '/system-logs'
     | '/workflows'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/agent-settings'
     | '/assistants'
     | '/market'
+    | '/plugins'
     | '/settings'
     | '/system-logs'
     | '/workflows'
@@ -315,6 +327,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agent-settings/'
     | '/_authenticated/assistants/'
     | '/_authenticated/market/'
+    | '/_authenticated/plugins/'
     | '/_authenticated/settings/'
     | '/_authenticated/system-logs/'
     | '/_authenticated/workflows/'
@@ -448,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/plugins/': {
+      id: '/_authenticated/plugins/'
+      path: '/plugins'
+      fullPath: '/plugins'
+      preLoaderRoute: typeof AuthenticatedPluginsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/market/': {
       id: '/_authenticated/market/'
       path: '/market'
@@ -537,6 +557,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentSettingsIndexRoute: typeof AuthenticatedAgentSettingsIndexRoute
   AuthenticatedAssistantsIndexRoute: typeof AuthenticatedAssistantsIndexRoute
   AuthenticatedMarketIndexRoute: typeof AuthenticatedMarketIndexRoute
+  AuthenticatedPluginsIndexRoute: typeof AuthenticatedPluginsIndexRoute
   AuthenticatedSystemLogsIndexRoute: typeof AuthenticatedSystemLogsIndexRoute
   AuthenticatedWorkflowsIndexRoute: typeof AuthenticatedWorkflowsIndexRoute
 }
@@ -548,6 +569,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentSettingsIndexRoute: AuthenticatedAgentSettingsIndexRoute,
   AuthenticatedAssistantsIndexRoute: AuthenticatedAssistantsIndexRoute,
   AuthenticatedMarketIndexRoute: AuthenticatedMarketIndexRoute,
+  AuthenticatedPluginsIndexRoute: AuthenticatedPluginsIndexRoute,
   AuthenticatedSystemLogsIndexRoute: AuthenticatedSystemLogsIndexRoute,
   AuthenticatedWorkflowsIndexRoute: AuthenticatedWorkflowsIndexRoute,
 }
