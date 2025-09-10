@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useDeferredValue } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Pluggable } from "unified";
-import { WidgetCard } from '../WidgetCard';
+import { WidgetCard } from "../WidgetCard";
 import {
     ColumnDef,
     ColumnFiltersState,
@@ -18,25 +18,35 @@ import {
     Table as TanstackTable,
 } from "@tanstack/react-table";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TablePayload } from "@/types";
 
-// ------------------------------------
-// Configurable Constants / Utilities
-// ------------------------------------
-const DEFAULT_PAGE_SIZE = 12;
+const DEFAULT_PAGE_SIZE = 8;
+const DEFAULT_COLUMN_WIDTH = 140;
 
 function SortIndicator({ sorted }: { sorted: false | "asc" | "desc" }) {
-    if (!sorted) return <span className="ml-1 text-muted-foreground opacity-40">↕</span>;
+    if (!sorted)
+        return <span className="ml-1 text-muted-foreground opacity-40">↕</span>;
     return (
         <span className="ml-1">
             {sorted === "asc" ? (
-                <span aria-label="Ascending" className="text-primary">▲</span>
+                <span aria-label="Ascending" className="text-primary">
+                    ▲
+                </span>
             ) : (
-                <span aria-label="Descending" className="text-primary">▼</span>
+                <span aria-label="Descending" className="text-primary">
+                    ▼
+                </span>
             )}
         </span>
     );
@@ -44,25 +54,21 @@ function SortIndicator({ sorted }: { sorted: false | "asc" | "desc" }) {
 
 interface ExpandedRowContentProps<TData> {
     row: Row<TData>;
-    markdown?: boolean;
-    renderers?: {
-        _extend?: string;
-    };
 }
 
 function ExpandedRowContent<TData>({ row }: ExpandedRowContentProps<TData>) {
     return (
         <div className="p-4 bg-muted/40 rounded-md animate-in fade-in">
-            <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Details</h4>
+            <h4 className="text-sm font-semibold mb-3 text-muted-foreground">
+                Details
+            </h4>
             <div className="grid gap-3 md:grid-cols-2">
                 {row.getVisibleCells().map((cell) => {
                     const headerDef = cell.column.columnDef.header;
-
                     const headerText =
                         typeof headerDef === "function"
                             ? cell.column.id
                             : String(headerDef ?? "");
-
                     return (
                         <div
                             key={`${cell.id}-expanded`}
@@ -92,15 +98,24 @@ interface DataTableWidgetProps<TData> {
     enableExpand?: boolean;
     enableZebra?: boolean;
     tableContainerClassName?: string;
+    enableHorizontalScroll?: boolean;
+    columnWidth?: number;
+    columnWidths?: Record<string, number>;
+    rowHeight?: number;
 }
 
-function DataTablePagination<TData>({ table }: { table: TanstackTable<TData> }) {
+function DataTablePagination<TData>({
+    table,
+}: {
+    table: TanstackTable<TData>;
+}) {
     const pageIndex = table.getState().pagination.pageIndex;
     const pageCount = table.getPageCount() || 1;
     return (
         <div className="flex flex-wrap items-center justify-end gap-3 py-4">
             <div className="flex-1 text-xs sm:text-sm text-muted-foreground">
-                Page {pageIndex + 1} of {pageCount} ({table.getFilteredRowModel().rows.length} rows total)
+                Page {pageIndex + 1} of {pageCount} ({table.getFilteredRowModel().rows.length} rows
+                total)
             </div>
             <div className="flex gap-2">
                 <Button
@@ -150,19 +165,21 @@ function DataTableWidget<TData>({
     enableExpand = true,
     enableZebra = true,
     tableContainerClassName = "",
+    enableHorizontalScroll = true,
+    columnWidth = DEFAULT_COLUMN_WIDTH,
+    columnWidths,
+    rowHeight = 44, // px
 }: DataTableWidgetProps<TData>) {
     const [sorting, setSorting] = useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [expanded, setExpanded] = useState<ExpandedState>({});
 
-    // Single column filter value (only if filterColumnId exists)
     const rawFilterValue =
         (filterColumnId &&
             (columnFilters.find((f) => f.id === filterColumnId)?.value as string)) ||
         "";
     const deferredFilterValue = useDeferredValue(rawFilterValue);
 
-    // Update table state with the deferred value (to avoid excessive re-renders)
     React.useEffect(() => {
         if (!filterColumnId) return;
         setColumnFilters((prev) => {
@@ -186,7 +203,6 @@ function DataTableWidget<TData>({
         onExpandedChange: setExpanded,
         initialState: { pagination: { pageSize } },
         state: { sorting, columnFilters, expanded },
-        // Optional: Manual mode support (server-side pagination, etc.) can be extended here
     });
 
     const onFilterInputChange = useCallback(
@@ -206,7 +222,7 @@ function DataTableWidget<TData>({
 
     const renderSkeletonBody = () =>
         Array.from({ length: loadingRowsCount }).map((_, i) => (
-            <TableRow key={`skeleton-row-${i}`}>
+            <TableRow key={`skeleton-row-${i}`} style={{ height: rowHeight }}>
                 {columns.map((_, j) => (
                     <TableCell key={`skeleton-cell-${i}-${j}`}>
                         <Skeleton className="h-5 w-full" />
@@ -216,10 +232,10 @@ function DataTableWidget<TData>({
         ));
 
     const renderEmpty = () => (
-        <TableRow>
+        <TableRow style={{ height: rowHeight }}>
             <TableCell
                 colSpan={columns.length}
-                className="h-28 text-center text-sm text-muted-foreground"
+                className="text-center text-sm text-muted-foreground"
             >
                 No results found.
             </TableCell>
@@ -229,7 +245,6 @@ function DataTableWidget<TData>({
     const handleRowToggle = (row: Row<TData>) => {
         if (!enableExpand) return;
         const isAlreadyExpanded = (expanded as Record<string, boolean>)[row.id];
-
         setExpanded(isAlreadyExpanded ? {} : { [row.id]: true });
     };
 
@@ -244,8 +259,12 @@ function DataTableWidget<TData>({
     const rows = table.getRowModel().rows;
     const { pageSize: tablePageSize } = table.getState().pagination;
     const pageRows = table.getRowModel().rows;
+    const emptyRowsCount =
+        pageRows.length < tablePageSize ? tablePageSize - pageRows.length : 0;
 
-    const emptyRowsCount = pageRows.length < tablePageSize ? tablePageSize - pageRows.length : 0;
+    // 统一宽度逻辑
+    const getWidth = (colId: string) =>
+        (columnWidths && columnWidths[colId]) || columnWidth;
 
     return (
         <div className="space-y-4">
@@ -268,46 +287,64 @@ function DataTableWidget<TData>({
 
             <div
                 className={
-                    "overflow-hidden rounded-lg border bg-white/80 backdrop-blur-sm shadow-sm " +
+                    (enableHorizontalScroll ? "overflow-x-auto " : "overflow-hidden ") +
+                    "rounded-lg border bg-white/80 backdrop-blur-sm shadow-sm " +
                     tableContainerClassName
                 }
             >
-                <Table className="w-full table-fixed">
+                {/* 通过 min-w-max 保证列宽不被压缩 */}
+                <Table className="min-w-max">
                     <TableHeader className="bg-muted/40">
                         {table.getHeaderGroups().map((hg) => (
-                            <TableRow key={hg.id}>
+                            <TableRow key={hg.id} style={{ height: rowHeight }}>
                                 {hg.headers.map((header) => {
-                                    if (header.isPlaceholder) return <TableHead key={header.id} />;
+                                    if (header.isPlaceholder)
+                                        return <TableHead key={header.id} />;
                                     const sorted = header.column.getIsSorted();
                                     const canSort = header.column.getCanSort();
+                                    const widthPx = getWidth(header.column.id);
 
                                     return (
                                         <TableHead
                                             key={header.id}
-                                            className="whitespace-nowrap"
+                                            className="whitespace-nowrap align-middle px-2 py-1 text-xs font-medium text-muted-foreground"
+                                            style={{
+                                                width: widthPx,
+                                                minWidth: widthPx,
+                                                maxWidth: widthPx,
+                                            }}
+                                            title={
+                                                typeof header.column.columnDef.header === "string"
+                                                    ? header.column.columnDef.header
+                                                    : header.column.id
+                                            }
                                         >
                                             {canSort ? (
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="-ml-2 px-2 hover:bg-transparent data-[state=open]:bg-transparent"
+                                                    className="-ml-2 px-2 hover:bg-transparent data-[state=open]:bg-transparent h-auto"
                                                     onClick={() =>
                                                         header.column.toggleSorting(
                                                             header.column.getIsSorted() === "asc"
                                                         )
                                                     }
                                                 >
+                                                    <span className="truncate max-w-full">
+                                                        {flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext()
+                                                        )}
+                                                    </span>
+                                                    <SortIndicator sorted={sorted} />
+                                                </Button>
+                                            ) : (
+                                                <span className="truncate block max-w-full">
                                                     {flexRender(
                                                         header.column.columnDef.header,
                                                         header.getContext()
                                                     )}
-                                                    <SortIndicator sorted={sorted} />
-                                                </Button>
-                                            ) : (
-                                                flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )
+                                                </span>
                                             )}
                                         </TableHead>
                                     );
@@ -331,27 +368,44 @@ function DataTableWidget<TData>({
                                             <TableRow
                                                 data-state={row.getIsSelected() && "selected"}
                                                 tabIndex={enableExpand ? 0 : -1}
-                                                aria-expanded={enableExpand ? row.getIsExpanded() : undefined}
+                                                aria-expanded={
+                                                    enableExpand ? row.getIsExpanded() : undefined
+                                                }
                                                 onClick={() => handleRowToggle(row)}
                                                 onKeyDown={(e) => onRowKeyDown(e, row)}
                                                 className={`cursor-pointer select-none transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ${zebra}`}
+                                                style={{ height: rowHeight }}
                                             >
-                                                {row.getVisibleCells().map((cell) => (
-                                                    <TableCell
-                                                        key={cell.id}
-                                                        className="max-w-[280px] truncate align-middle"
-                                                        title={String(cell.getValue() ?? "")}
-                                                    >
-                                                        {flexRender(
-                                                            cell.column.columnDef.cell,
-                                                            cell.getContext()
-                                                        )}
-                                                    </TableCell>
-                                                ))}
+                                                {row.getVisibleCells().map((cell) => {
+                                                    const widthPx = getWidth(cell.column.id);
+                                                    return (
+                                                        <TableCell
+                                                            key={cell.id}
+                                                            className="px-2 py-1 text-sm align-middle"
+                                                            style={{
+                                                                width: widthPx,
+                                                                minWidth: widthPx,
+                                                                maxWidth: widthPx,
+                                                            }}
+                                                            title={String(cell.getValue() ?? "")}
+                                                        >
+                                                            {/* 包一层实现单行省略 */}
+                                                            <div className="truncate w-full">
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    );
+                                                })}
                                             </TableRow>
                                             {enableExpand && row.getIsExpanded() && (
                                                 <TableRow className="bg-background/70">
-                                                    <TableCell colSpan={columns.length} className="p-4">
+                                                    <TableCell
+                                                        colSpan={columns.length}
+                                                        className="p-4"
+                                                    >
                                                         <ExpandedRowContent row={row} />
                                                     </TableCell>
                                                 </TableRow>
@@ -359,15 +413,22 @@ function DataTableWidget<TData>({
                                         </React.Fragment>
                                     );
                                 })}
-                        {!isLoading && emptyRowsCount > 0 && (
+                        {!isLoading &&
+                            emptyRowsCount > 0 &&
                             Array.from({ length: emptyRowsCount }).map((_, index) => (
-                                <TableRow key={`empty-${index}`} className="hover:bg-transparent pointer-events-none">
-                                    <TableCell colSpan={columns.length} style={{ padding: 0, border: 'none' }}>
-                                        <div style={{ height: '36px' }}>&nbsp;</div>
+                                <TableRow
+                                    key={`empty-${index}`}
+                                    className="hover:bg-transparent pointer-events-none"
+                                    style={{ height: rowHeight }}
+                                >
+                                    <TableCell
+                                        colSpan={columns.length}
+                                        style={{ padding: 0, border: "none" }}
+                                    >
+                                        <div style={{ height: rowHeight }}>&nbsp;</div>
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        )}
+                            ))}
                     </TableBody>
                 </Table>
             </div>
@@ -376,7 +437,6 @@ function DataTableWidget<TData>({
         </div>
     );
 }
-
 
 // -----------------------------
 // Public Component: TableWidget
@@ -392,6 +452,11 @@ interface TableWidgetProps {
     tableContainerClassName?: string;
     remarkPlugins?: Pluggable[];
     rehypePlugins?: Pluggable[];
+    enableHorizontalScroll?: boolean;
+    columnWidth?: number;
+    columnWidths?: Record<string, number>;
+    rowHeight?: number;
+    truncateChars?: number; // 软限制：提前裁剪文本长度再加 …
 }
 
 export function TableWidget({
@@ -404,12 +469,16 @@ export function TableWidget({
     tableContainerClassName = "",
     remarkPlugins,
     rehypePlugins,
+    enableHorizontalScroll = true,
+    columnWidth = DEFAULT_COLUMN_WIDTH,
+    columnWidths,
+    rowHeight,
+    truncateChars,
 }: TableWidgetProps) {
     const isDataValid =
         data && Array.isArray(data.columns) && Array.isArray(data.rows);
     const title = data?.title || "";
 
-    // Generate columns: memoize to avoid re-generation on every render (depends on data.columns)
     const columns: ColumnDef<Record<string, unknown>>[] = useMemo(() => {
         if (!isDataValid) return [];
         return data.columns.map((header) => {
@@ -417,36 +486,67 @@ export function TableWidget({
                 accessorKey: header,
                 header,
                 enableSorting: true,
+                meta: {
+                    width:
+                        (columnWidths && columnWidths[header]) !== undefined
+                            ? columnWidths![header]
+                            : columnWidth,
+                },
                 cell: ({ getValue }) => {
                     const raw = getValue();
-                    const text = raw == null ? "" : String(raw);
-                    if (!enableMarkdown) {
-                        return <span className="block truncate">{text}</span>;
+                    let text = raw == null ? "" : String(raw);
+
+                    if (truncateChars && text.length > truncateChars) {
+                        text = text.slice(0, truncateChars) + "…";
                     }
+
+                    if (!enableMarkdown) {
+                        return <span className="block">{text}</span>;
+                    }
+
+                    // 仍使用 markdown，但用单行省略容器包裹
                     return (
-                        <ReactMarkdown
-                            remarkPlugins={remarkPlugins}
-                            rehypePlugins={rehypePlugins}
-                            // Add components to simplify tags
-                            components={{
-                                p: (props) => <p {...props} className="m-0 leading-snug" />,
-                                a: (props) => (
-                                    <a
-                                        {...props}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline"
-                                    />
-                                ),
-                            }}
-                        >
-                            {text}
-                        </ReactMarkdown>
+                        <div className="truncate">
+                            <ReactMarkdown
+                                remarkPlugins={remarkPlugins}
+                                rehypePlugins={rehypePlugins}
+                                components={{
+                                    p: (props) => (
+                                        <span {...props} className="m-0 leading-snug" />
+                                    ),
+                                    a: (props) => (
+                                        <a
+                                            {...props}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 hover:underline"
+                                        />
+                                    ),
+                                    code: (props) => (
+                                        <code
+                                            {...props}
+                                            className="rounded bg-muted px-1 py-0.5 text-xs"
+                                        />
+                                    ),
+                                }}
+                            >
+                                {text}
+                            </ReactMarkdown>
+                        </div>
                     );
                 },
             };
         });
-    }, [data, enableMarkdown, isDataValid, remarkPlugins, rehypePlugins]);
+    }, [
+        data,
+        enableMarkdown,
+        isDataValid,
+        remarkPlugins,
+        rehypePlugins,
+        truncateChars,
+        columnWidth,
+        columnWidths,
+    ]);
 
     const tableData = useMemo(
         () => (isDataValid ? (data.rows as Record<string, unknown>[]) : []),
@@ -467,6 +567,10 @@ export function TableWidget({
                 enableExpand={enableExpand}
                 enableZebra={enableZebra}
                 tableContainerClassName={tableContainerClassName}
+                enableHorizontalScroll={enableHorizontalScroll}
+                columnWidth={columnWidth}
+                columnWidths={columnWidths}
+                rowHeight={rowHeight}
             />
         </WidgetCard>
     );

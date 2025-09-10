@@ -41,6 +41,11 @@ export const sidebarData: SidebarData = {
           icon: Workflow,
         },
         {
+          title: 'Plugins',
+          url: '/plugins',
+          icon: Store,
+        },
+        {
           title: 'Market',
           url: '/market',
           icon: Store,
