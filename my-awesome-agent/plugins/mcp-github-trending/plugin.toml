@@ -1,7 +1,0 @@
-[plugin]
-name = "GitHub trending"
-id = "mcp-github-trending"
-version = "1.2.0"
-spec_version = 2.0
-execution.mode = "local"
-execution.script_path="src/mcp_server_github_trending/__main__.py"

@@ -111,6 +111,11 @@ typeCheckingMode = "standard"
 link-mode = "symlink"
 default-groups = "all"
 
+[tool.uv.workspace]
+members = [
+    "my-awesome-agent",
+]
+
 [dependency-groups]
 dev = ["ipython>=9.4.0"]
 

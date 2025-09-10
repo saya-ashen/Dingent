@@ -1,0 +1,39 @@
+<changelist name="在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1" date="1757470720906" recycled="true" deleted="true">
+  <option name="PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/shelved.patch" />
+  <option name="DESCRIPTION" value="在进行签出之前于 2025/9/10 10:17 取消提交了更改 [更改]" />
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_ops.pckl" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_ops.pckl" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/.langgraph_ops.pckl" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.dingent/data/checkpoints/checkpoint.sqlite-wal" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.dingent/data/checkpoints/checkpoint.sqlite-wal" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/checkpoint.sqlite-wal" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.dingent/data/resources.db" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.dingent/data/resources.db" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/resources.db" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_checkpoint.2.pckl" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_checkpoint.2.pckl" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/.langgraph_checkpoint.2.pckl" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_retry_counter.pckl" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_retry_counter.pckl" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/.langgraph_retry_counter.pckl" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_checkpoint.3.pckl" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.langgraph_api/.langgraph_checkpoint.3.pckl" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/.langgraph_checkpoint.3.pckl" />
+  </binary>
+  <binary>
+    <option name="BEFORE_PATH" value="my-awesome-agent/.dingent/data/checkpoints/checkpoint.sqlite-shm" />
+    <option name="AFTER_PATH" value="my-awesome-agent/.dingent/data/checkpoints/checkpoint.sqlite-shm" />
+    <option name="SHELVED_PATH" value="$PROJECT_DIR$/.idea/shelf/在进行签出之前于_2025_9_10_10_17_取消提交了更改_[更改]1/checkpoint.sqlite-shm" />
+  </binary>
+</changelist>
