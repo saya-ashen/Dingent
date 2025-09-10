@@ -68,7 +68,7 @@ export default function Plugins() {
                 </div>
                 <ConfirmDialog
                   title='Confirm Delete Plugin'
-                  message={`Are you sure you want to delete plugin '${p.name}'? This may affect assistants that reference this plugin.`}
+                  description={`Are you sure you want to delete plugin '${p.name}'? This may affect assistants that reference this plugin.`}
                   confirmText='Confirm Delete'
                   onConfirm={() => delMutation.mutate(p.id)}
                   trigger={<Button variant='destructive'>Delete</Button>}
