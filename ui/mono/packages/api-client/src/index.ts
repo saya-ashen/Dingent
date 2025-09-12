@@ -1,3 +1,4 @@
+"use client";
 import axios from "axios";
 import type {
   AppSettings,
@@ -12,9 +13,9 @@ import type {
   MarketDownloadResponse,
   OverviewData,
   AnalyticsData,
-} from "./types";
+} from "./types.ts";
 
-const BASE_URL = (import.meta.env.VITE_BACKEND_URL || "") + "/api/v1";
+const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1";
 const HTTP_TIMEOUT = 120_000;
 
 // 可选：从本地存储读取鉴权令牌
@@ -420,12 +421,4 @@ export async function getMarketItemReadme(
   }
 }
 
-export type {
-  OverviewData,
-  Assistant,
-  LogItem,
-  PluginManifest,
-  Workflow,
-  MarketItem,
-  AppSettings,
-} from "./types";
+export type * from "./types.ts";

@@ -1,16 +1,12 @@
 {
   "name": "@repo/lib",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "exports": {
-    "./types/": {
-      "types": "./src/types.ts",
-      "default": "./dist/types.js"
-    }
+    "./*": "./src/*.ts"
   },
   "dependencies": {
-    "axios": "^1.11.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",

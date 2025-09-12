@@ -7,7 +7,7 @@ from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 from copilotkit.langgraph_agent import ensure_config
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from langgraph.graph.state import CompiledStateGraph
 
 from dingent.core.security.auth import dynamic_authorizer

@@ -1,12 +1,12 @@
-import type { OverviewData } from "@/lib/types";
+import type { OverviewData } from "@repo/api-client";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { AssistantsTable } from "./assistants-table";
+} from "../components/ui/card";
+import { AssistantsTable } from "./components/assistants-table";
 
 interface AssistantsCardProps {
   assistants: OverviewData["assistants"];

@@ -1,11 +1,11 @@
-import type { OverviewData } from "@/lib/types";
+import type { OverviewData } from "@repo/api-client";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "../components";
 import { PluginsMiniList } from "./components/plugins-minilist";
 
 interface PluginsCardProps {

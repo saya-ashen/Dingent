@@ -1,12 +1,12 @@
-import type { OverviewData } from "@/lib/types";
+import type { OverviewData } from "@repo/api-client";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+  Skeleton,
+} from "../components";
 
 interface MarketCardProps {
   market: OverviewData["market"];

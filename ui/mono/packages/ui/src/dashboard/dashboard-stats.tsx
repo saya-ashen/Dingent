@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { OverviewData } from "@/lib/types";
+import type { OverviewData } from "@repo/api-client";
 import { StatCard } from "./stat-card";
 
 interface DashboardStatsProps {
