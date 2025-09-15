@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { getCookie, setCookie } from "@repo/lib/cookies";
 
 export type Collapsible = "offcanvas" | "icon" | "none";
@@ -34,15 +34,22 @@ type LayoutProviderProps = {
 };
 
 export function LayoutProvider({ children }: LayoutProviderProps) {
-  const [collapsible, _setCollapsible] = useState<Collapsible>(() => {
-    const saved = getCookie(LAYOUT_COLLAPSIBLE_COOKIE_NAME);
-    return (saved as Collapsible) || DEFAULT_COLLAPSIBLE;
-  });
+  // 2. Initialize state with server-safe default values.
+  const [collapsible, _setCollapsible] = useState<Collapsible>(DEFAULT_COLLAPSIBLE);
+  const [variant, _setVariant] = useState<Variant>(DEFAULT_VARIANT);
 
-  const [variant, _setVariant] = useState<Variant>(() => {
-    const saved = getCookie(LAYOUT_VARIANT_COOKIE_NAME);
-    return (saved as Variant) || DEFAULT_VARIANT;
-  });
+  // 3. Use useEffect to safely update state from cookies on the client side.
+  useEffect(() => {
+    const savedCollapsible = getCookie(LAYOUT_COLLAPSIBLE_COOKIE_NAME);
+    if (savedCollapsible) {
+      _setCollapsible(savedCollapsible as Collapsible);
+    }
+
+    const savedVariant = getCookie(LAYOUT_VARIANT_COOKIE_NAME);
+    if (savedVariant) {
+      _setVariant(savedVariant as Variant);
+    }
+  }, []); // The empty array [] ensures this runs only once after the component mounts on the client.
 
   const setCollapsible = (newCollapsible: Collapsible) => {
     _setCollapsible(newCollapsible);
@@ -73,7 +80,7 @@ export function LayoutProvider({ children }: LayoutProviderProps) {
     setVariant,
   };
 
-  return <LayoutContext value={contextValue}>{children}</LayoutContext>;
+  return <LayoutContext.Provider value={contextValue}>{children}</LayoutContext.Provider>;
 }
 
 // Define the hook for the provider

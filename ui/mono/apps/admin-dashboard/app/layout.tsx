@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@repo/ui/styles.css";
-import "./globals.css";
 import { Providers } from "./providers"; // Import the new client component
 
 const geistSans = Geist({
@@ -34,3 +33,5 @@ export default function RootLayout({
     </html>
   );
 }
+import "./globals.css";
+

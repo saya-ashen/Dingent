@@ -13,7 +13,7 @@
     ],
     "./components": "./src/components/index.ts",
     "./providers": "./src/providers/index.ts",
-    "./dashboard": "./src/dashboard/index.tsx",
+    "./dashboard": "./src/dashboard/index.ts",
     "./styles.css": "./dist/index.css"
   },
   "scripts": {
@@ -22,6 +22,7 @@
     "check-types": "tsc --noEmit",
     "ui": "bunx shadcn@latest",
     "gen:components": "barrelsby --directory  ./src/components/ --output ./src/components/index.ts --delete",
+    "gen:dashboard": "barrelsby --directory  ./src/dashboard/ --output ./src/dashboard/index.ts --delete",
     "build:styles": "tailwindcss -i ./src/styles.css -o ./dist/index.css",
     "build:components": "tsc",
     "dev:styles": "tailwindcss -i ./src/styles.css -o ./dist/index.css --watch",

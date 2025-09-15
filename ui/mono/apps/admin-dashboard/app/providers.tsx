@@ -7,7 +7,6 @@ import {
   FontProvider,
   DirectionProvider,
 } from "@repo/ui/providers";
-import { AuthenticatedLayout } from "@repo/ui/components";
 import { createQueryClient } from "@repo/lib/query-client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -15,13 +14,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthenticatedLayout>
         <ThemeProvider>
           <FontProvider>
             <DirectionProvider>{children}</DirectionProvider>
           </FontProvider>
         </ThemeProvider>
-      </AuthenticatedLayout>
     </QueryClientProvider>
   );
 }

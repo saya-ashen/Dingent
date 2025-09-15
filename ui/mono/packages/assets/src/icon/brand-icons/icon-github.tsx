@@ -1,5 +1,5 @@
 import { type SVGProps } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@repo/lib/utils'
 
 export function IconGithub({ className, ...props }: SVGProps<SVGSVGElement>) {
   return (
