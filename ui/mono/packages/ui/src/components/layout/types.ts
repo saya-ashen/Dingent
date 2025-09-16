@@ -1,4 +1,4 @@
-import { type LinkProps } from "@tanstack/react-router";
+import { type LinkProps } from "../router-stubs";
 
 type User = {
   name: string;

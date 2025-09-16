@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "../router-stubs";
 import { Menu } from "lucide-react";
 import { cn } from "@repo/lib/utils";
 import {

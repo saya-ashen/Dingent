@@ -1,4 +1,4 @@
-import { Outlet } from "@tanstack/react-router";
+import { Outlet } from "../router-stubs";
 import { getCookie } from "@repo/lib/cookies";
 import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";

@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  transpilePackages: ["@repo/ui", "@repo/config", "@repo/assets", "@repo/hooks", "@repo/lib"],
 };
 
 export default nextConfig;

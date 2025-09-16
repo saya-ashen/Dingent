@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "./router-stubs";
 import { useDialogState } from "@repo/hooks";
 import {
   Avatar,

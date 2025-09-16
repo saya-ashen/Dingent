@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from "lucide-react";
 import { useSearch, useTheme } from "@repo/ui/providers";
 import {
@@ -15,9 +14,15 @@ import { sidebarData } from "./layout/data/sidebar-data";
 import { ScrollArea } from "./ui/scroll-area";
 
 export function CommandMenu() {
-  const navigate = useNavigate();
   const { setTheme } = useTheme();
   const { open, setOpen } = useSearch();
+
+  // Temporary navigation function - to be replaced with proper Next.js navigation
+  const navigate = (url: string) => {
+    if (typeof window !== 'undefined') {
+      window.location.href = url;
+    }
+  };
 
   const runCommand = React.useCallback(
     (command: () => unknown) => {
@@ -42,7 +47,7 @@ export function CommandMenu() {
                       key={`${navItem.url}-${i}`}
                       value={navItem.title}
                       onSelect={() => {
-                        runCommand(() => navigate({ to: navItem.url }));
+                        runCommand(() => navigate(navItem.url));
                       }}
                     >
                       <div className="flex size-4 items-center justify-center">
@@ -57,7 +62,7 @@ export function CommandMenu() {
                     key={`${navItem.title}-${subItem.url}-${i}`}
                     value={`${navItem.title}-${subItem.url}`}
                     onSelect={() => {
-                      runCommand(() => navigate({ to: subItem.url }));
+                      runCommand(() => navigate(subItem.url));
                     }}
                   >
                     <div className="flex size-4 items-center justify-center">
