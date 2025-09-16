@@ -1,4 +1,5 @@
-import { type LinkProps } from "@tanstack/react-router";
+import type { LinkProps } from "next/link";
+import type { ElementType } from "react";
 
 type User = {
   name: string;
@@ -8,7 +9,7 @@ type User = {
 
 type Team = {
   name: string;
-  logo: React.ElementType;
+  logo: ElementType;
   plan: string;
 };
 
@@ -19,12 +20,12 @@ type BaseNavItem = {
 };
 
 type NavLink = BaseNavItem & {
-  url: LinkProps["to"] | (string & {});
+  url: LinkProps["href"] | (string & {});
   items?: never;
 };
 
 type NavCollapsible = BaseNavItem & {
-  items: (BaseNavItem & { url: LinkProps["to"] | (string & {}) })[];
+  items: (BaseNavItem & { url: LinkProps["href"] | (string & {}) })[];
   url?: never;
 };
 

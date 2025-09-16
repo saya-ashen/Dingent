@@ -167,7 +167,7 @@ function SidebarMenuCollapsedDropdown({
           {item.items.map((sub) => (
             <DropdownMenuItem key={`${sub.title}-${sub.url}`} asChild>
               <Link
-                to={sub.url}
+                href={sub.url}
                 className={`${checkIsActive(href, sub) ? "bg-secondary" : ""}`}
               >
                 {sub.icon && <sub.icon />}
@@ -185,12 +185,13 @@ function SidebarMenuCollapsedDropdown({
 }
 
 function checkIsActive(href: string, item: NavItem, mainNav = false) {
+  const itemPathname =
+    typeof item?.url === "string" ? item.url : item?.url?.pathname;
+  const isMatch = href.split("/")[1] === itemPathname?.split("/")[1];
   return (
     href === item.url || // /endpint?search=param
     href.split("?")[0] === item.url || // endpoint
     !!item?.items?.filter((i) => i.url === href).length || // if child nav is active
-    (mainNav &&
-      href.split("/")[1] !== "" &&
-      href.split("/")[1] === item?.url?.split("/")[1])
+    (mainNav && href.split("/")[1] !== "" && isMatch)
   );
 }

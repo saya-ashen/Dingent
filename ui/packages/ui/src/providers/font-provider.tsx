@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { fonts } from "@repo/config/fonts";
+import { fontOptions } from "@repo/config/fonts";
 import { getCookie, setCookie, removeCookie } from "@repo/lib/cookies";
 
-type Font = (typeof fonts)[number];
+type Font = (typeof fontOptions)[number];
 
 const FONT_COOKIE_NAME = "font";
 const FONT_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
@@ -20,7 +20,9 @@ const FontContext = createContext<FontContextType | null>(null);
 export function FontProvider({ children }: { children: React.ReactNode }) {
   const [font, _setFont] = useState<Font>(() => {
     const savedFont = getCookie(FONT_COOKIE_NAME);
-    return fonts.includes(savedFont as Font) ? (savedFont as Font) : fonts[0];
+    return fontOptions.includes(savedFont as Font)
+      ? (savedFont as Font)
+      : fontOptions[0];
   });
 
   useEffect(() => {
@@ -42,7 +44,7 @@ export function FontProvider({ children }: { children: React.ReactNode }) {
 
   const resetFont = () => {
     removeCookie(FONT_COOKIE_NAME);
-    _setFont(fonts[0]);
+    _setFont(fontOptions[0]);
   };
 
   return (

@@ -38,6 +38,7 @@ import {
 
 // Icons
 import { X, Save, Loader2 } from "lucide-react";
+import { getErrorMessage } from "@repo/lib/utils";
 
 // Define the validation schema for the form
 const schema = z.object({
@@ -99,7 +100,8 @@ export default function AgentSettings() {
       await queryClient.invalidateQueries({ queryKey: ["app-settings"] });
       setSaveDialogOpen(false);
     },
-    onError: (e: any) => toast.error(e.message || "Failed to save settings."),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e, "Failed to save settings.")),
   });
 
   if (isLoading) {

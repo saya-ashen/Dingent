@@ -1,4 +1,3 @@
-import { Outlet } from "@tanstack/react-router";
 import { getCookie } from "@repo/lib/cookies";
 import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";
@@ -35,7 +34,7 @@ export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
               "peer-data-[variant=inset]:has-[[data-layout=fixed]]:h-[calc(100svh-(var(--spacing)*4))]",
             )}
           >
-            {children ?? <Outlet />}
+            {children}
           </SidebarInset>
         </SidebarProvider>
       </LayoutProvider>

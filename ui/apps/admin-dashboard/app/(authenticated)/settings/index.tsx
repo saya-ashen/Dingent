@@ -1,12 +1,13 @@
-import { Outlet } from "@tanstack/react-router";
 import { Monitor, Bell, Palette, Wrench, UserCog } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
-import { ConfigDrawer } from "@/components/config-drawer";
-import { Header } from "@/components/layout/header";
-import { Main } from "@/components/layout/main";
-import { ProfileDropdown } from "@/components/profile-dropdown";
-import { Search } from "@/components/search";
-import { ThemeSwitch } from "@/components/theme-switch";
+import {
+  Separator,
+  ThemeSwitch,
+  Search,
+  ProfileDropdown,
+  Main,
+  Header,
+  ConfigDrawer,
+} from "@repo/ui/components";
 import { SidebarNav } from "./components/sidebar-nav";
 
 const sidebarNavItems = [
@@ -37,7 +38,10 @@ const sidebarNavItems = [
   },
 ];
 
-export function Settings() {
+type SettingsProps = {
+  children: React.JSX.Element;
+};
+export function Settings({ children }: SettingsProps) {
   return (
     <>
       {/* ===== Top Heading ===== */}
@@ -64,9 +68,7 @@ export function Settings() {
           <aside className="top-0 lg:sticky lg:w-1/5">
             <SidebarNav items={sidebarNavItems} />
           </aside>
-          <div className="flex w-full overflow-y-hidden p-1">
-            <Outlet />
-          </div>
+          <div className="flex w-full overflow-y-hidden p-1">{children}</div>
         </div>
       </Main>
     </>

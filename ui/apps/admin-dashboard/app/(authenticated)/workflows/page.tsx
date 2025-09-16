@@ -68,7 +68,7 @@ export default function WorkflowsPages() {
     if (selectedWorkflow) {
       const rawNodes = structuredClone(selectedWorkflow.nodes ?? []);
       let hasStart = false;
-      const normalized = rawNodes.map((n: any) => {
+      const normalized = rawNodes.map((n: WorkflowNode) => {
         if (n.type === "start" || n.data?.isStart) {
           hasStart = true;
           return {
@@ -90,7 +90,7 @@ export default function WorkflowsPages() {
         };
       });
       if (!hasStart && normalized.length > 0) {
-        normalized[0].data.isStart = true;
+        normalized[0]!.data.isStart = true;
       }
       setNodes(normalized);
       setEdges(structuredClone(selectedWorkflow.edges ?? []));
@@ -160,7 +160,7 @@ export default function WorkflowsPages() {
   }, []);
 
   const onNodeContextMenu = useCallback(
-    (event: React.MouseEvent, node: any) => {
+    (event: React.MouseEvent, node: { id: string }) => {
       event.preventDefault();
       setMenu({
         id: node.id,

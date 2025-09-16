@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import { cn } from "@repo/lib/utils";
 import {
@@ -30,11 +30,14 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent side="bottom" align="start">
             {links.map(({ title, href, isActive, disabled }) => (
-              <DropdownMenuItem key={`${title}-${href}`} asChild>
+              <DropdownMenuItem
+                key={`${title}-${href}`}
+                asChild
+                disabled={disabled}
+              >
                 <Link
-                  to={href}
+                  href={href}
                   className={!isActive ? "text-muted-foreground" : ""}
-                  disabled={disabled}
                 >
                   {title}
                 </Link>
@@ -51,16 +54,28 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
         )}
         {...props}
       >
-        {links.map(({ title, href, isActive, disabled }) => (
-          <Link
-            key={`${title}-${href}`}
-            to={href}
-            disabled={disabled}
-            className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? "" : "text-muted-foreground"}`}
-          >
-            {title}
-          </Link>
-        ))}
+        {links.map(({ title, href, isActive, disabled }) =>
+          disabled ? (
+            <span
+              key={`${title}-${href}`}
+              aria-disabled="true"
+              className="text-sm font-medium text-muted-foreground cursor-not-allowed"
+            >
+              {title}
+            </span>
+          ) : (
+            <Link
+              key={`${title}-${href}`}
+              href={href}
+              className={cn(
+                "hover:text-primary text-sm font-medium transition-colors",
+                isActive ? "" : "text-muted-foreground",
+              )}
+            >
+              {title}
+            </Link>
+          ),
+        )}
       </nav>
     </>
   );

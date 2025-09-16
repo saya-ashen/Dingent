@@ -13,7 +13,11 @@ import {
   addAssistant,
   type Assistant,
 } from "@repo/api-client/";
-import { safeBool, effectiveStatusForItem } from "@repo/lib/utils";
+import {
+  safeBool,
+  effectiveStatusForItem,
+  getErrorMessage,
+} from "@repo/lib/utils";
 import {
   Accordion,
   AccordionContent,
@@ -78,7 +82,8 @@ export default function AssistantsPage() {
       toast.success("Plugin added");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
     },
-    onError: (e: any) => toast.error(e.message || "Add plugin failed"),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e, "Add plugin failed")),
   });
 
   const removePluginMutation = useMutation({
@@ -88,7 +93,8 @@ export default function AssistantsPage() {
       toast.success("Plugin removed");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
     },
-    onError: (e: any) => toast.error(e.message || "Remove plugin failed"),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e || "Remove plugin failed")),
   });
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -112,7 +118,8 @@ export default function AssistantsPage() {
       setAddDialogOpen(false); // ✨ Close dialog on success
       setNewAssistant({ name: "", description: "" }); // ✨ Reset form
     },
-    onError: (e: any) => toast.error(e.message || "Add assistant failed"),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e, "Add assistant failed")),
   });
 
   const saveMutation = useMutation({
@@ -138,8 +145,8 @@ export default function AssistantsPage() {
       setSaveDialogOpen(false); // Close the dialog
       // The useEffect will then clear the dirty set automatically
     },
-    onError: (e: any) =>
-      toast.error(e.message || "Failed to save some changes."),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e, "Failed to save some changes.")),
   });
 
   const deleteAssistantMutation = useMutation({
@@ -148,7 +155,8 @@ export default function AssistantsPage() {
       toast.success("Assistant deleted");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
     },
-    onError: (e: any) => toast.error(e.message || "Delete assistant failed"),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e, "Delete assistant failed")),
   });
 
   return (

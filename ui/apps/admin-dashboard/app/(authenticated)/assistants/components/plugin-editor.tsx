@@ -87,7 +87,7 @@ function PluginEditor({
 
             const desc = item.description || `Set ${item.name}`;
 
-            const value = (item.value ?? item.default) as any;
+            const value = item.value ?? item.default;
 
             if (item.type === "integer") {
               const iv = Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -105,8 +105,10 @@ function PluginEditor({
                     value={iv}
                     onChange={(e) => {
                       const next = structuredClone(plugin);
-
-                      next.config![idx].value = Number(e.target.value);
+                      const config = next.config;
+                      if (config && config.length > idx) {
+                        config[idx]!.value = Number(e.target.value);
+                      }
 
                       onChange(next);
                     }}
@@ -129,8 +131,10 @@ function PluginEditor({
                   value={toStr(value)}
                   onChange={(e) => {
                     const next = structuredClone(plugin);
-
-                    next.config![idx].value = e.target.value;
+                    const config = next.config;
+                    if (config && config.length > idx) {
+                      config[idx]!.value = Number(e.target.value);
+                    }
 
                     onChange(next);
                   }}
@@ -171,9 +175,10 @@ function PluginEditor({
                     checked={safeBool(tool.enabled, false)}
                     onCheckedChange={(v) => {
                       const next = structuredClone(plugin);
-
-                      next.tools![k].enabled = v;
-
+                      const tools = next.tools;
+                      if (tools && tools.length > k) {
+                        tools[k]!.enabled = v;
+                      }
                       onChange(next);
                     }}
                   />

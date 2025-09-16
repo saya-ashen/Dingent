@@ -1,11 +1,11 @@
-import { z } from "zod";
 import { useFieldArray, useForm } from "react-hook-form";
+import { z } from "zod";
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "@tanstack/react-router";
-import { showSubmittedData } from "@/lib/show-submitted-data";
+import { showSubmittedData } from "@repo/lib/show-submitted-data";
 import { cn } from "@repo/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
+  Button,
   Form,
   FormControl,
   FormDescription,
@@ -13,16 +13,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+  Input,
+  Textarea,
+} from "@repo/ui/components";
 
 const profileFormSchema = z.object({
   username: z
@@ -111,7 +109,7 @@ export function ProfileForm() {
               </Select>
               <FormDescription>
                 You can manage verified email addresses in your{" "}
-                <Link to="/">email settings</Link>.
+                <Link href="/">email settings</Link>.
               </FormDescription>
               <FormMessage />
             </FormItem>

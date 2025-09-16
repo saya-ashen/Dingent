@@ -16,6 +16,7 @@ import {
   Header,
   Main,
 } from "@repo/ui/components";
+import { getErrorMessage } from "@repo/lib/utils";
 
 export default function PluginsPage() {
   const queryClient = useQueryClient();
@@ -37,8 +38,8 @@ export default function PluginsPage() {
       // Invalidate the query to refetch the updated list
       await queryClient.invalidateQueries({ queryKey: ["available-plugins"] });
     },
-    onError: (e: any) =>
-      toast.error(e.message || "Failed to delete the plugin"),
+    onError: (e: unknown) =>
+      toast.error(getErrorMessage(e, "Failed to delete the plugin")),
   });
 
   return (
@@ -117,11 +118,11 @@ export default function PluginsPage() {
                 </div>
               </div>
 
-              {p.dependencies?.length > 0 && (
+              {(p.dependencies ?? []).length > 0 && (
                 <div>
                   <div className="text-sm font-medium">Dependencies</div>
                   <pre className="bg-muted mt-1 rounded p-2 text-sm">
-                    {p.dependencies.join("\n")}
+                    {p.dependencies?.join("\n")}
                   </pre>
                 </div>
               )}
