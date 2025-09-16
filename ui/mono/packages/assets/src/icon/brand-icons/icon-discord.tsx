@@ -17,7 +17,6 @@ export function IconDiscord({ className, ...props }: SVGProps<SVGSVGElement>) {
       strokeLinejoin='round'
       {...props}
     >
-    >
       <title>Discord</title>
       <path strokeWidth='0' d='M0 0h24v24H0z' fill='none' />
       <path d='M8 12a1 1 0 1 0 2 0a1 1 0 0 0 -2 0' />
