@@ -5,12 +5,13 @@ from typing import Any, cast
 import uvicorn
 from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 from copilotkit.langgraph_agent import ensure_config
 from fastapi import APIRouter, Depends, FastAPI
 from langgraph.graph.state import CompiledStateGraph
 
-from dingent.core.security.auth import dynamic_authorizer
+from .security.security import dynamic_authorizer
 
 from .app_factory import app
 

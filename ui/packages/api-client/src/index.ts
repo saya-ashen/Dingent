@@ -16,6 +16,7 @@ import type {
 } from "./types.ts";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1";
+console.log(BASE_URL);
 const HTTP_TIMEOUT = 120_000;
 
 // 可选：从本地存储读取鉴权令牌
@@ -418,6 +419,23 @@ export async function getMarketItemReadme(
   } catch (err) {
     console.warn("Failed to fetch readme for", itemId, err);
     return null;
+  }
+}
+export async function login(credentials: LoginRequest): Promise<LoginResponse> {
+  try {
+    const params = new URLSearchParams();
+    params.append("username", credentials.email); // 将 email 映射到 username
+    params.append("password", credentials.password);
+
+    const { data } = await http.post<LoginResponse>("/auth/token", params, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+    });
+
+    return data;
+  } catch (err) {
+    throw new Error(`登录失败: ${extractErrorMessage(err)}`);
   }
 }
 

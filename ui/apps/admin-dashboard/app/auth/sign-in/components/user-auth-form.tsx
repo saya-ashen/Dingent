@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { IconFacebook, IconGithub } from "@repo/assets/icon";
 import { useAuthStore } from "@repo/store";
 import { sleep, cn } from "@repo/lib/utils";
+import { login } from "@repo/api-client";
 import {
   Button,
   Form,
@@ -55,30 +56,40 @@ export function UserAuthForm({
   function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true);
 
-    // Mock successful authentication
-    const mockUser = {
-      accountNo: "ACC001",
+    const loginPromise = login({
       email: data.email,
-      role: ["user"],
-      exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
-    };
+      password: data.password,
+    });
 
-    toast.promise(sleep(2000), {
-      loading: "Signing in...",
-      success: () => {
-        setIsLoading(false);
+    toast.promise(loginPromise, {
+      loading: "正在登录...",
+      success: (responseData) => {
+        // 'responseData' 就是 api-client 返回的 { access_token, user } 对象
 
-        // Set user and access token
-        auth.setUser(mockUser);
-        auth.setAccessToken("mock-access-token");
+        console.log("登录成功，收到的数据:", responseData);
 
-        // Redirect to the stored location or default to dashboard
-        const targetPath = redirectTo || "/";
+        // 直接从 responseData 中解构出需要的数据
+        const { access_token, user } = responseData;
+
+        // 1. 关键：将 token 存入 localStorage
+        localStorage.setItem("DASHBOARD_TOKEN", access_token);
+
+        // 2. 更新全局状态
+        auth.setUser(user);
+        auth.setAccessToken(access_token);
+
+        // 3. 跳转页面
+        const targetPath = redirectTo || "/dashboard";
         router.push(targetPath);
 
-        return `Welcome back, ${data.email}!`;
+        setIsLoading(false);
+        return `欢迎回来, ${user.full_name || user.email}!`;
       },
-      error: "Error",
+      error: (err) => {
+        // login 函数已经处理了错误信息的提取，这里直接显示
+        setIsLoading(false);
+        return err.message || "登录时发生未知错误";
+      },
     });
   }
 

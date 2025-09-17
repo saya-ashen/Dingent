@@ -12,7 +12,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 def fake_decode_token(token):
-    return User(username=token + "fakedecoded", email="john@example.com", full_name="John Doe", id=str(uuid()))
+    return User(username="admin_456", email="john@example.com", full_name="John Doe", id=str(uuid()))
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
@@ -87,7 +87,6 @@ class Authorizer:
 
 async def dynamic_authorizer(request: Request, user: User = Depends(get_current_user)):
     # HACK:
-    return user
     # 从路径参数中获取子路径，这和原始 handler 的逻辑一致
     path = request.path_params.get("path", "")
 

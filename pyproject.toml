@@ -99,7 +99,6 @@ local_scheme = "no-local-version"
 [tool.basedpyright]
 include = ["src/"]
 exclude = ["**/__pycache__"]
-# defineConstant = { DEBUG = true }
 reportMissingImports = "error"
 reportMissingTypeStubs = false
 pythonVersion = "3.13"
