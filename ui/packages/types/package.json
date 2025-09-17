@@ -3,12 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {    
+  "scripts": {
 },
   "exports": {
     ".": "./src/index.ts"
   },
-  "peerDependencies":{    
+  "peerDependencies":{
   },
   "dependencies": {
   },

@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "gen:icon": "barrelsby --directory  ./src/icon/ --output ./src/icon/index.ts --delete"
   },
-  "peerDependencies":{    
+  "peerDependencies":{
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

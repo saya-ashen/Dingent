@@ -10,7 +10,7 @@
     "check-types": "turbo run check-types",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
-  "peerDependencies":{    
+  "peerDependencies":{
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

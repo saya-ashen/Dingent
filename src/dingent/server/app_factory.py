@@ -1,11 +1,10 @@
+import os
 from contextlib import asynccontextmanager
 from importlib.resources import files
-import os
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 
 from dingent.core.context import initialize_app_context
 
@@ -49,7 +48,7 @@ def register_admin_routes(app: FastAPI) -> None:
 
     # 2. 核心：智能的 SPA 路由处理器
     @app.get("/admin/{path:path}")
-    async def serve_admin_spa(request: Request, path: str):
+    async def serve_admin_spa(path: str):
         # 确定根 index.html 的路径，作为最终的备用方案
         root_index_path = os.path.join(static_root_str, "index.html")
 
