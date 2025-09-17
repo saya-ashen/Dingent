@@ -1,10 +1,9 @@
 from typing import Annotated
 
+from dingent.engine.backend.types import TablePayload
 from fastmcp import FastMCP
 from langchain.chat_models import init_chat_model
 from pydantic import Field
-
-from dingent.engine.backend.types import TablePayload
 
 from .database import Database
 from .graph import Text2SqlAgent
