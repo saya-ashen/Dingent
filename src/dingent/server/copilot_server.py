@@ -7,8 +7,10 @@ from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 from copilotkit.langgraph_agent import ensure_config
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from langgraph.graph.state import CompiledStateGraph
+
+from dingent.core.security.auth import dynamic_authorizer
 
 from .app_factory import app
 
@@ -90,7 +92,9 @@ async def extended_lifespan(app: FastAPI):
         )
         app.state.copilot_sdk = sdk
         gm.register_rebuild_callback(_update_copilot_agent_callback)
-        add_fastapi_endpoint(app, sdk, "/copilotkit")
+        secure_router = APIRouter(dependencies=[Depends(dynamic_authorizer)])
+        add_fastapi_endpoint(cast(FastAPI, secure_router), sdk, "/copilotkit")
+        app.include_router(secure_router)
 
         try:
             yield

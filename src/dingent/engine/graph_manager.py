@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -174,6 +173,9 @@ class GraphManager:
 
             stack = AsyncExitStack()
 
+            cp_path = self._checkpoint_path(workflow_id)
+            cp_path.parent.mkdir(parents=True, exist_ok=True)
+            checkpointer = await stack.enter_async_context(AsyncSqliteSaver.from_conn_string(cp_path.as_posix()))
             # 基础 fallback
             if workflow_id == "__basic__":
                 llm = self._app_ctx.llm_manager.get_llm(**self._app_ctx.config_manager.get_settings().llm.model_dump())
@@ -185,14 +187,13 @@ class GraphManager:
                 graph.add_node("basic_chatbot", basic_chatbot)
                 graph.add_edge(START, "basic_chatbot")
                 graph.add_edge("basic_chatbot", END)
-                saver = InMemorySaver()
-                compiled = graph.compile(saver)
+                compiled = graph.compile(checkpointer)
                 compiled.name = "agent"
                 new_entry = GraphCacheEntry(
                     workflow_id=workflow_id,
                     graph=compiled,
                     stack=stack,
-                    checkpointer=saver,
+                    checkpointer=checkpointer,
                     default_active_agent=None,
                     dirty=False,
                     epoch=self._global_epoch,

@@ -1,10 +1,10 @@
+import os
 from contextlib import asynccontextmanager
 from importlib.resources import files
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, RedirectResponse
 
 from dingent.core.context import initialize_app_context
 
@@ -39,11 +39,39 @@ async def lifespan(app: FastAPI):
 
 def register_admin_routes(app: FastAPI) -> None:
     static_root = files("dingent").joinpath("static", "admin_dashboard")
-    app.mount("/admin", StaticFiles(directory=str(static_root), html=True), name="admin")
+    static_root_str = str(static_root)
 
+    # 1. (推荐) /admin -> /admin/ 的重定向
     @app.get("/admin", include_in_schema=False)
     async def admin_redirect():
         return RedirectResponse("/admin/")
+
+    # 2. 核心：智能的 SPA 路由处理器
+    @app.get("/admin/{path:path}")
+    async def serve_admin_spa(path: str):
+        # 确定根 index.html 的路径，作为最终的备用方案
+        root_index_path = os.path.join(static_root_str, "index.html")
+
+        # --- 新的、更智能的逻辑 ---
+
+        # Case 1: 检查请求是否直接对应一个文件 (例如: /_next/static/app.js)
+        potential_file_path = os.path.join(static_root_str, path)
+        if os.path.isfile(potential_file_path):
+            return FileResponse(potential_file_path)
+
+        # Case 2: 检查请求是否对应一个页面路由 (例如: /workflows -> workflows.html)
+        potential_html_path = os.path.join(static_root_str, f"{path}.html")
+        if os.path.isfile(potential_html_path):
+            return FileResponse(potential_html_path)
+
+        # Case 3: 检查请求是否是根目录 (path 为空字符串时) 或应该回退到 index.html
+        # 对于 /admin/ 的请求, path 会是 ""
+        if path == "" or not os.path.splitext(path)[1]:  # 如果路径没有文件扩展名
+            return FileResponse(root_index_path)
+
+        # Final Fallback: 如果以上都不匹配，也返回主 index.html
+        # 这可以处理带有虚拟子路径的客户端路由，例如 /workflows/123
+        return FileResponse(root_index_path)
 
 
 def build_agent_api(**kwargs) -> FastAPI:
@@ -74,6 +102,7 @@ app = build_agent_api()
 
 origins = [
     "http://localhost",
+    "http://localhost:3001",
     "http://localhost:8000",
     "http://localhost:5173",
     "http://127.0.0.1",

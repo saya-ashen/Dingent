@@ -375,7 +375,7 @@ def run(
         "--port",
         str(cli_ctx.backend_port),
     ]
-    frontend_cmd = [node_bin, "server.js"]
+    frontend_cmd = [node_bin, "apps/frontend/server.js"]
 
     services = [
         Service(
@@ -457,7 +457,7 @@ def dev(
             print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
             raise typer.Exit(1)
 
-        frontend_cmd = [node_bin, "server.js", "--port", str(cli_ctx.frontend_port)]
+        frontend_cmd = [node_bin, "apps/frontend/server.js", "--port", str(cli_ctx.frontend_port)]
         services.append(
             Service(
                 name="frontend",

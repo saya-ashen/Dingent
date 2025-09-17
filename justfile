@@ -14,18 +14,22 @@ STRIP_READMES     := "0"               # 1=删除 README/CHANGELOG（小空间�
 STRIP_LICENSES    := "0"               # 1=删除 LICENSE*（注意合规风险）
 VERBOSE           := "0"               # 1=更多输出
 
+install:
+    @echo "Installing all monorepo dependencies from the root..."
+    @bun install
+
 # =====================
 # 内部：裁剪函数配方（可单独运行： just prune-next）
 # =====================
 prune-next:
 	@echo "[prune] Start pruning Next.js standalone..."
-	@if [ ! -d ui/frontend/.next/standalone/node_modules/next/dist/compiled ]; then \
+	@if [ ! -d ui/apps/frontend/.next/standalone/apps/frontend/node_modules/next/dist/compiled ]; then \
 	  echo "[prune] compiled directory not found, maybe build failed or not standalone build"; \
 	  exit 0; \
 	fi
 	# 1. 裁剪 swc 平台二进制
 	@echo "[prune] Keep swc platform pattern: $${SWC_PLATFORM}"
-	@cd ui/frontend/.next/standalone/node_modules/next/dist/compiled; \
+	@cd ui/apps/frontend/.next/standalone/apps/frontend/node_modules/next/dist/compiled; \
 	for d in @next/swc-*; do \
 	  if echo "$d" | grep -q "$$SWC_PLATFORM"; then \
 	    if [ "$VERBOSE" = "1" ]; then echo "  keep $$d"; fi; \
@@ -36,10 +40,10 @@ prune-next:
 	#  删除 @img
 	@if [ "$STRIP_IMG" = "1" ]; then \
 	  echo "[prune] Removing @img (image optimizer binaries)"; \
-	  rm -rf ui/frontend/.next/standalone/node_modules/@img || true; \
+	  rm -rf ui/apps/frontend/.next/standalone/node_modules/@img || true; \
 	fi
 	@echo "[prune] Size after prune:"
-	@du -sh ui/frontend/.next/standalone || true
+	@du -sh ui/apps/frontend/.next/standalone || true
 	@echo "[prune] Done."
 
 # =====================
@@ -47,12 +51,12 @@ prune-next:
 # =====================
 build-admin:
 	@echo "Building admin dashboard..."
-	@(cd ui/admin-dashboard && bun install && bun run build)
+	@(cd ui/ && bun install && bun run build --filter=admin-dashboard)
 
 	@echo "Copying admin dashboard artifacts..."
 	@rm -rf src/dingent/static/admin_dashboard
 	@mkdir -p src/dingent/static/admin_dashboard
-	@cp -r ui/admin-dashboard/dist/. src/dingent/static/admin_dashboard/
+	@cp -r ui/apps/admin-dashboard/out/. src/dingent/static/admin_dashboard/
 
 	@echo "✅ Admin dashboard built and copied successfully."
 
@@ -61,7 +65,7 @@ build-admin:
 # =====================
 build-frontend:
 	@echo "Building user frontend (Next.js standalone)..."
-	@(cd ui/frontend && bun install && bun run build)
+	@(cd ui/ && bun install && bun run build --filter=frontend)
 
 	@echo "Pruning standalone output..."
 	@just prune-next
@@ -69,13 +73,13 @@ build-frontend:
 	@echo "Copying pruned Next.js standalone artifacts to 'src/dingent/static/frontend'..."
 	@rm -rf src/dingent/static/frontend
 	@mkdir -p src/dingent/static/frontend
-	@cp -r ui/frontend/.next/standalone/. src/dingent/static/frontend/
+	@cp -r ui/apps/frontend/.next/standalone/. src/dingent/static/frontend/
 
 	@echo "Copying .next/static (client assets)..."
-	@cp -r ui/frontend/.next/static src/dingent/static/frontend/.next/
+	@cp -r ui/apps/frontend/.next/static src/dingent/static/frontend/apps/frontend/.next/
 
 	@echo "Copying public/ assets..."
-	@cp -r ui/frontend/public src/dingent/static/frontend/ 2>/dev/null || true
+	@cp -r ui/apps/frontend/public src/dingent/static/frontend/apps/frontend/ 2>/dev/null || true
 
 	@echo "Final size (human readable):"
 	@du -sh src/dingent/static/frontend || true
