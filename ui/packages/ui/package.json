@@ -22,7 +22,6 @@
     "check-types": "tsc --noEmit",
     "ui": "bunx shadcn@latest",
     "gen:components": "barrelsby --directory  ./src/components/ --output ./src/components/index.ts --delete",
-    "gen:dashboard": "barrelsby --directory  ./src/dashboard/ --output ./src/dashboard/index.ts --delete",
     "dev:styles": "tailwindcss -i ./src/styles.css -o ./dist/index.css --watch",
     "build:styles": "tailwindcss -i ./src/styles.css -o ./dist/index.css",
     "dev:components": "tsc --watch",

@@ -24,7 +24,7 @@ import {
   MarketCard,
   PluginsCard,
   RecentLogsCard,
-} from "@repo/ui/dashboard";
+} from "@repo/ui/components";
 
 export default function DashboardPage() {
   const { data, loading, error, reload } = useOverview();

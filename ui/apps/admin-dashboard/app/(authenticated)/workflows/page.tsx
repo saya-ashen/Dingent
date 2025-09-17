@@ -37,7 +37,7 @@ import {
   NewWorkflowDialog,
   WorkflowEditor,
   WorkflowList,
-} from "@repo/ui/dashboard";
+} from "@repo/ui/components";
 export default function WorkflowsPages() {
   const qc = useQueryClient();
 

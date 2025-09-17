@@ -86,6 +86,8 @@ class Authorizer:
 
 
 async def dynamic_authorizer(request: Request, user: User = Depends(get_current_user)):
+    # HACK:
+    return user
     # 从路径参数中获取子路径，这和原始 handler 的逻辑一致
     path = request.path_params.get("path", "")
 

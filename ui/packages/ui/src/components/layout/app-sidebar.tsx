@@ -11,7 +11,6 @@ import { NavGroup } from "./nav-group";
 import { NavUser } from "./nav-user";
 
 export function AppSidebar() {
-  const { collapsible, variant } = useLayout();
   return (
     <Sidebar collapsible="icon" variant="inset">
       <AppTitle />

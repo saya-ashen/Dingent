@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { CommandMenu } from "../components/command-menu";
+import { CommandMenu } from "../components/";
 
 type SearchContextType = {
   open: boolean;

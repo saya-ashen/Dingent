@@ -194,9 +194,6 @@ class ConfigSchema(TypedDict):
 
 def get_safe_swarm(compiled_swarm: CompiledStateGraph, log_method: Callable):
     async def run_swarm_safely(state: MainState, config):
-        import pdb
-
-        pdb.set_trace()
         try:
             return await compiled_swarm.ainvoke(state, config=config)
         except Exception as e:

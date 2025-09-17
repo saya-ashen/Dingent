@@ -11,97 +11,97 @@ import {
   Bot,
   Workflow,
   Store,
-} from 'lucide-react'
-import { type SidebarData } from '../types'
+} from "lucide-react";
+import { type SidebarData } from "../types";
 
 export const sidebarData: SidebarData = {
   user: {
-    name: 'admin',
-    email: 'admin@admin.com',
-    avatar: '/avatars/shadcn.jpg',
+    name: "admin",
+    email: "admin@admin.com",
+    avatar: "/avatars/shadcn.jpg",
   },
   teams: [],
   navGroups: [
     {
-      title: 'General',
+      title: "General",
       items: [
         {
-          title: 'Dashboard',
-          url: '/',
+          title: "Dashboard",
+          url: "/dashboard",
           icon: LayoutDashboard,
         },
         {
-          title: 'Assistants',
-          url: '/assistants',
+          title: "Assistants",
+          url: "/assistants",
           icon: Bot,
         },
         {
-          title: 'Workflows',
-          url: '/workflows',
+          title: "Workflows",
+          url: "/workflows",
           icon: Workflow,
         },
         {
-          title: 'Plugins',
-          url: '/plugins',
+          title: "Plugins",
+          url: "/plugins",
           icon: Store,
         },
         {
-          title: 'Market',
-          url: '/market',
+          title: "Market",
+          url: "/market",
           icon: Store,
         },
         {
-          title: 'Agent Settings',
-          url: '/agent-settings',
+          title: "Agent Settings",
+          url: "/agent-settings",
           icon: Settings,
         },
         {
-          title: 'Logs',
-          url: '/system-logs',
+          title: "Logs",
+          url: "/system-logs",
           icon: FileText,
         },
       ],
     },
     {
-      title: 'Under Construction Pages',
+      title: "Under Construction Pages",
       items: [
         {
-          title: 'Settings',
+          title: "Settings",
           icon: Settings,
           items: [
             {
-              title: 'Profile',
-              url: '/settings',
+              title: "Profile",
+              url: "/settings",
               icon: UserCog,
             },
             {
-              title: 'Account',
-              url: '/settings/account',
+              title: "Account",
+              url: "/settings/account",
               icon: Wrench,
             },
             {
-              title: 'Appearance',
-              url: '/settings/appearance',
+              title: "Appearance",
+              url: "/settings/appearance",
               icon: Palette,
             },
             {
-              title: 'Notifications',
-              url: '/settings/notifications',
+              title: "Notifications",
+              url: "/settings/notifications",
               icon: Bell,
             },
             {
-              title: 'Display',
-              url: '/settings/display',
+              title: "Display",
+              url: "/settings/display",
               icon: Monitor,
             },
           ],
         },
         {
-          title: 'Help Center',
-          url: '/help-center',
+          title: "Help Center",
+          url: "/help-center",
           icon: HelpCircle,
         },
       ],
     },
   ],
-}
+};
