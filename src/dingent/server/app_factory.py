@@ -1,8 +1,10 @@
+import json
 import os
 from contextlib import asynccontextmanager
 from importlib.resources import files
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 
@@ -110,6 +112,49 @@ origins = [
     "https://smith.langchain.com",
 ]
 
+
+class DebugRequestMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # -- Your inspection logic goes here --
+
+        print("--- Intercepted Request ---")
+        print(f"Method: {request.method}")
+        print(f"URL: {request.url}")
+
+        # To inspect headers, you can treat them like a dictionary
+        print("Headers:")
+        for name, value in request.headers.items():
+            print(f"  {name}: {value}")
+
+        # To inspect the body, you must 'await' it.
+        # This is crucial because the body is a stream.
+        body_bytes = await request.body()
+        if body_bytes:
+            try:
+                # Try to decode as JSON for pretty printing
+                body_json = json.loads(body_bytes)
+                print("Body (JSON):")
+                print(json.dumps(body_json, indent=2))
+            except json.JSONDecodeError:
+                # If not JSON, print as raw text
+                print("Body (Raw Text):")
+                print(body_bytes.decode(errors="ignore"))
+        else:
+            print("Body: (Empty)")
+
+        print("--------------------------")
+
+        # --- THIS IS WHERE YOU SET THE BREAKPOINT ---
+        # When the code executes, it will pause here and open a debugger in your terminal.
+        # breakpoint()
+
+        # After you're done debugging, the request is passed to the next middleware
+        # (e.g., your authentication middleware) or the endpoint itself.
+        response = await call_next(request)
+        return response
+
+
+# app.add_middleware(DebugRequestMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # 允许访问的源

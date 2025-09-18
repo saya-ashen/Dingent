@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useDialogState } from "@repo/hooks";
+import { useDialogState } from "../../hooks";
 import {
   Avatar,
   AvatarFallback,

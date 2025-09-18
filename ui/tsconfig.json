@@ -10,7 +10,6 @@
       "@repo/ui/*": ["./packages/ui/src/*"],
       "@repo/config/*": ["./packages/config/src/*"],
       "@repo/lib/*": ["./packages/lib/src/*"],
-      "@repo/hooks/*": ["./packages/hooks/src/*"],
       "@repo/assets/*": ["./packages/assets/src/*"],
       "@repo/store/*": ["./packages/store/src/*"],
       "@repo/api-client/*": ["./packages/api-client/src/*"]

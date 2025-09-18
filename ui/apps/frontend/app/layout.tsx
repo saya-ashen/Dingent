@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import "./globals.css";
 import "@copilotkit/react-ui/styles.css";
 import { Providers } from "@/components/MainContent";
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={"antialiased"}>
         <Providers>{children}</Providers>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

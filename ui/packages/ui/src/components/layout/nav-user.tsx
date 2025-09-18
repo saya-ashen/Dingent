@@ -6,7 +6,7 @@ import {
   CreditCard,
   LogOut,
 } from "lucide-react";
-import { useDialogState } from "@repo/hooks";
+import { useDialogState } from "../../hooks";
 import {
   DropdownMenu,
   DropdownMenuContent,

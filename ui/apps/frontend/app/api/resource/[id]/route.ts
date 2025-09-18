@@ -25,7 +25,6 @@ export async function GET(
       headers: forwardHeaders,
     });
 
-    // 直接返回下游响应（克隆 headers，避免某些只读/不可复用问题）
     const headers = new Headers(response.headers);
     return new Response(response.body, {
       status: response.status,

@@ -156,22 +156,6 @@
         "typescript-eslint": "^8.40.0",
       },
     },
-    "packages/hooks": {
-      "name": "@repo/hooks",
-      "version": "0.0.0",
-      "devDependencies": {
-        "@repo/eslint-config": "workspace:*",
-        "@repo/typescript-config": "workspace:*",
-        "@types/react": "^19.1.0",
-        "@types/react-dom": "^19.1.0",
-        "eslint": "^8.57.0",
-        "typescript": "^5.3.3",
-      },
-      "peerDependencies": {
-        "react": "^19.1.0",
-        "react-dom": "^19.1.0",
-      },
-    },
     "packages/lib": {
       "name": "@repo/lib",
       "version": "0.0.0",
@@ -239,7 +223,6 @@
         "@radix-ui/themes": "^3.2.1",
         "@repo/assets": "workspace:*",
         "@repo/config": "workspace:*",
-        "@repo/hooks": "workspace:*",
         "@xyflow/react": "^12.8.4",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -849,8 +832,6 @@
     "@repo/config": ["@repo/config@workspace:packages/config"],
 
     "@repo/eslint-config": ["@repo/eslint-config@workspace:packages/eslint-config"],
-
-    "@repo/hooks": ["@repo/hooks@workspace:packages/hooks"],
 
     "@repo/lib": ["@repo/lib@workspace:packages/lib"],
 

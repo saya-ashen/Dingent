@@ -21,6 +21,7 @@ export * from "./common/sign-out-dialog";
 export * from "./common/skip-to-main";
 export * from "./common/status-badge";
 export * from "./common/theme-switch";
+export * from "./common/user-auth-form";
 export * from "./dashboard/analytics-tab";
 export * from "./dashboard/assistants-card";
 export * from "./dashboard/dashboard-stats";

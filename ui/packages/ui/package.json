@@ -8,10 +8,10 @@
     "./tailwind.config": "./tailwind.config.ts",
     "./lib/*": "./src/lib/*.ts",
     "./hooks/*": [
-      "./src/hooks/*.ts",
-      "./src/hooks/*.tsx"
+      "./src/hooks/index.ts"
     ],
     "./components": "./src/components/index.ts",
+    "./pages": "./src/pages/index.ts",
     "./providers": "./src/providers/index.ts",
     "./dashboard": "./src/dashboard/index.ts",
     "./styles.css": "./dist/index.css"
@@ -59,7 +59,6 @@
     "@radix-ui/themes": "^3.2.1",
     "@repo/assets": "workspace:*",
     "@repo/config": "workspace:*",
-    "@repo/hooks": "workspace:*",
     "@xyflow/react": "^12.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

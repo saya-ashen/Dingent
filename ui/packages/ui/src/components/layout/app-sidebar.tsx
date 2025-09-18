@@ -1,4 +1,3 @@
-import { useLayout } from "@repo/ui/providers";
 import {
   Sidebar,
   SidebarContent,

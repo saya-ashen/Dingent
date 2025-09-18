@@ -6,6 +6,8 @@ import { TableWidget } from "@repo/ui/components";
 import { useMemo, useState } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { ThreadContext, useThreadManager } from "@/contexts/ThreadProvider";
+import { useAuthStore } from "@repo/store";
+
 
 export function MainContent({ widgets }: { widgets: Widget[] }) {
   return (
@@ -90,6 +92,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
     getInitialThreadId,
   );
+  const accessToken = useAuthStore((state) => state.auth.accessToken);
 
   const initialThreadContextValue = useMemo(
     () => ({
@@ -97,11 +100,20 @@ export function Providers({ children }: { children: React.ReactNode }) {
       setActiveThreadId,
       threads: [],
       isLoading: true,
-      updateThreadTitle: () => {},
-      deleteAllThreads: () => {},
+      updateThreadTitle: () => { },
+      deleteAllThreads: () => { },
     }),
     [activeThreadId],
   );
+  const headers = useMemo(() => {
+    // Only add the Authorization header if the token exists
+    if (accessToken) {
+      return {
+        Authorization: `Bearer ${accessToken}`,
+      };
+    }
+    return { Authorization: `Bearer None`, };
+  }, [accessToken]);
 
   return (
     <CopilotKit
@@ -109,10 +121,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       showDevConsole={false}
       agent="dingent"
       threadId={activeThreadId}
+      headers={headers}
     >
       <ThreadContext.Provider value={initialThreadContextValue}>
         <AppWithThreads>{children}</AppWithThreads>
       </ThreadContext.Provider>
-    </CopilotKit>
+    </CopilotKit >
   );
 }
