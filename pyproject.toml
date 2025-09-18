@@ -15,7 +15,6 @@ dependencies = [
   "langgraph>=0.6.3",
   "typer>=0.16.0",
   "copilotkit>=0.1.56",
-  "fastapi>=0.115.6",
   "langchain>=0.3.23",
   "fastmcp>=2.2.0",
   "langchain-mcp-adapters>=0.0.11",
@@ -34,6 +33,7 @@ dependencies = [
   "keyring>=25.6.0",
   "litellm>=1.76.1",
   "google-genai>=1.32.0",
+  "fastapi>=0.115.14",
 ]
 dev = [
   "ipython>=9.4.0",
@@ -96,19 +96,21 @@ version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
 
 
-[tool.basedpyright]
-include = ["src/"]
-exclude = ["**/__pycache__"]
-reportMissingImports = "error"
-reportMissingTypeStubs = false
-pythonVersion = "3.13"
-pythonPlatform = "Linux"
-typeCheckingMode = "standard"
+# [tool.basedpyright]
+# # include = ["src/"]
+# exclude = ["**/__pycache__"]
+# reportMissingImports = "error"
+# reportMissingTypeStubs = false
+# pythonVersion = "3.13"
+# pythonPlatform = "Linux"
+# typeCheckingMode = "standard"
+# useLibraryCodeForTypes = true
+[tool.pyright]
+useLibraryCodeForTypes = true
 
-
-[tool.uv]
-link-mode = "symlink"
-default-groups = "all"
+# [tool.uv]
+# link-mode = "symlink"
+# default-groups = "all"
 
 [dependency-groups]
 dev = ["ipython>=9.4.0"]

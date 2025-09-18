@@ -1,23 +1,11 @@
 import json
 import re
 from typing import Annotated
-from uuid import uuid4 as uuid
 
 from fastapi import Depends, HTTPException, Request
-from fastapi.security import OAuth2PasswordBearer
+from ..api.dependencies import get_current_user
 
 from .models import User
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-
-def fake_decode_token(token):
-    return User(username="admin_456", email="john@example.com", full_name="John Doe", id=str(uuid()))
-
-
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    user = fake_decode_token(token)
-    return user
 
 
 FAKE_USERS_DB = {
@@ -42,37 +30,24 @@ class Authorizer:
         self.required_permissions = set(required_permissions)
 
     async def __call__(self, request: Request, user: User = Depends(get_current_user)):
-        # --- 1. 基于角色的权限检查 ---
-        # 匿名用户只能读取
         if "agent:read" in self.required_permissions:
-            # 任何用户（包括匿名）都有读取权限
             pass  # 允许继续
 
-        # 执行权限需要非匿名用户
         if "agent:execute" in self.required_permissions:
             if user.role == "guest":
                 raise HTTPException(status_code=403, detail="Anonymous users are not allowed to execute agents.")
 
-        # --- 2. 基于资源所有权的权限检查 ---
         if "thread:owner" in self.required_permissions:
             if user.role == "guest":
                 raise HTTPException(status_code=403, detail="You must be logged in to perform this action.")
 
-            # 从请求体中安全地获取 threadId
             try:
-                # 注意：直接在依赖项中读取 request.json() 可能会消耗掉请求体，
-                # 导致后续的路径操作函数无法再次读取。
-                # 但在你提供的代码中，所有逻辑都在一个 handler 里，
-                # 我们可以在这里读取并传递。
                 body = await request.json()
                 thread_id = body.get("threadId")
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Invalid JSON body")
 
             if not thread_id:
-                # 如果是需要验证所有权但客户端没提供 threadId，则可能是个坏请求
-                # 或者是一个新线程，取决于你的业务逻辑
-                # 这里我们假设它必须提供
                 raise HTTPException(status_code=400, detail="threadId is required for this operation.")
 
             thread_info = FAKE_THREADS_DB.get(thread_id)
@@ -82,23 +57,15 @@ class Authorizer:
                     detail=f"Thread '{thread_id}' not found or you do not have permission to access it.",
                 )
 
-        # 所有检查通过
-
 
 async def dynamic_authorizer(request: Request, user: User = Depends(get_current_user)):
     # HACK:
     # 从路径参数中获取子路径，这和原始 handler 的逻辑一致
     path = request.path_params.get("path", "")
 
-    # --- 在这里镜像 handler 函数的路由逻辑 ---
-
-    # 规则1: 匹配 /agent/{name}/state (获取状态)
     if re.match(r"agent/([a-zA-Z0-9_-]+)/state", path):
-        # 权限要求: 允许匿名读取
-        # 这里我们什么都不做，直接通过
         pass
 
-    # 规则2: 匹配 /agent/{name} (执行)
     elif re.match(r"agent/([a-zA-Z0-9_-]+)", path):
         # 权限要求: 必须是登录用户，且是线程所有者
         if user.role == "anonymous":

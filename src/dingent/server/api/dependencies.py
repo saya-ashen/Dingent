@@ -1,3 +1,6 @@
+from typing import Annotated
+from fastapi.security import OAuth2PasswordBearer
+from uuid import uuid4 as uuid
 from fastapi import Depends, Request
 
 from dingent.core.analytics_manager import AnalyticsManager
@@ -8,6 +11,7 @@ from dingent.core.log_manager import LogManager
 from dingent.core.market_service import MarketService
 from dingent.core.plugin_manager import PluginManager
 from dingent.core.workflow_manager import WorkflowManager
+from dingent.server.security.models import User
 
 
 def get_app_context(request: Request) -> AppContext:
@@ -73,3 +77,15 @@ def get_market_service(context: AppContext = Depends(get_app_context)) -> Market
         return context.market_service
     # Fallback to initialize it on the fly if not in context
     return MarketService(context.config_manager.project_root)
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+def fake_decode_token(token):
+    return User(username="admin_456", email="john@example.com", full_name="John Doe", id=str(uuid()))
+
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    user = fake_decode_token(token)
+    return user

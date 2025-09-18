@@ -484,7 +484,7 @@ requires-dist = [
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "cookiecutter", specifier = ">=2.6.0" },
     { name = "copilotkit", specifier = ">=0.1.56" },
-    { name = "fastapi", specifier = ">=0.115.6" },
+    { name = "fastapi", specifier = ">=0.115.14" },
     { name = "fastmcp", specifier = ">=2.2.0" },
     { name = "google-genai", specifier = ">=1.32.0" },
     { name = "keyring", specifier = ">=25.6.0" },
