@@ -18,9 +18,9 @@ from dingent.core.types import (
 from dingent.server.api.dependencies import (
     get_assistant_manager,
     get_config_manager,
-    get_current_user,
     get_plugin_manager,
 )
+from dingent.server.auth.dependencies import get_current_user
 from dingent.server.api.schemas import (
     AddPluginRequest,
     AssistantAdminDetail,

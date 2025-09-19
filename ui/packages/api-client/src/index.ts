@@ -15,7 +15,7 @@ import type {
   AnalyticsData,
 } from "./types.ts";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1";
+const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1/dashboard";
 console.log(BASE_URL);
 const HTTP_TIMEOUT = 120_000;
 

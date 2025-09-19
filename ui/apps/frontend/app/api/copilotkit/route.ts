@@ -30,7 +30,7 @@ if (process.env.DINGENT_DEV === 'true') {
   runtime = new CopilotRuntime({
     remoteEndpoints: [
       {
-        url: (process.env.DING_BACKEND_URL || "http://localhost:8000") + "/copilotkit",
+        url: (process.env.DING_BACKEND_URL || "http://localhost:8000") + "/api/v1/frontend/copilotkit",
         onBeforeRequest: ({ ctx }) => {
           return {
             headers: {
