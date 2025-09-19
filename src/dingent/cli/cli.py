@@ -369,7 +369,7 @@ def run(
 
     backend_cmd = [
         "uvicorn",
-        "dingent.server.copilot_server:app",
+        "dingent.server.main:app",
         "--host",
         "localhost",
         "--port",

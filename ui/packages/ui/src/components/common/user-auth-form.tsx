@@ -82,7 +82,6 @@ export function UserAuthForm({
         if (onLoginFail) {
           onLoginFail(err);
         }
-        console.error("err.message", err.message)
         return err.message || "登录时发生未知错误";
       },
     });

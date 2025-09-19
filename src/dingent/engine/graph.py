@@ -20,13 +20,13 @@ class MainState(CopilotKitState, SwarmState):
     artifact_ids: list[str]
 
 
-def create_handoff_tool(*, agent_name: str, description: str | None, log_method: Callable) -> BaseTool:
+def create_handoff_tool(*, agent_name: str, description: str | None, log_method) -> BaseTool:
     name = f"transfer_to_{agent_name}"
 
     @tool(name, description=description)
     async def handoff_tool(
         tool_call_id: Annotated[str, InjectedToolCallId],
-    ) -> Command:
+    ):
         tool_message = {
             "role": "tool",
             "content": f"Successfully transferred to {agent_name}",

@@ -1,5 +1,5 @@
 import asyncio
-from dingent.server.security.models import User
+from dingent.server.users.models import User
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException

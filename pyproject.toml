@@ -33,13 +33,14 @@ dependencies = [
   "keyring>=25.6.0",
   "litellm>=1.76.1",
   "google-genai>=1.32.0",
-  "fastapi>=0.115.14",
+  "fastapi[all]>=0.115.14",
+  "passlib[bcrypt]>=1.7.4",
+  "python-jose[cryptography]>=3.5.0",
 ]
 dev = [
   "ipython>=9.4.0",
   "pytest-mock>=3.14.1",
   "aiobotocore>=2.22.0",
-  "basedpyright>=1.28",
   "coverage<8.0.0,>=7.4.3",
   "pre-commit<4.0.0,>=3.6.2",
   "pytest<9.0.0,>=8.4.1",
@@ -96,17 +97,16 @@ version_scheme = "no-guess-dev"
 local_scheme = "no-local-version"
 
 
-# [tool.basedpyright]
-# # include = ["src/"]
-# exclude = ["**/__pycache__"]
-# reportMissingImports = "error"
-# reportMissingTypeStubs = false
-# pythonVersion = "3.13"
-# pythonPlatform = "Linux"
-# typeCheckingMode = "standard"
-# useLibraryCodeForTypes = true
-[tool.pyright]
+[tool.basedpyright]
+# include = ["src/"]
+exclude = ["**/__pycache__"]
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+pythonVersion = "3.13"
+pythonPlatform = "Linux"
+typeCheckingMode = "standard"
 useLibraryCodeForTypes = true
+reportInvalidCast = "none"
 
 # [tool.uv]
 # link-mode = "symlink"
