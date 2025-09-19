@@ -9,7 +9,7 @@ from copilotkit.langgraph_agent import ensure_config
 from fastapi import APIRouter, Depends, FastAPI
 from langgraph.graph.state import CompiledStateGraph
 
-from dingent.server.api.dependencies import dynamic_authorizer
+from dingent.server.auth.authorization import dynamic_authorizer
 
 
 # HACK:

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session  # Import Session for dependency
 
-from ...core import security
+from ...auth import security
 from ...db import crud, database  # Import your CRUD functions and get_db
 from ...schemas.token import Token  # Import the Token schema
 

@@ -3,48 +3,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Annotated, Any
-from ..security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, verify_password
+from .security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, verify_password
+from .dependencies import get_user, PROD_FAKE_USERS_DB
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-# (这个函数可以放在您的 user 模型文件或 service 文件中)
-# 暂时我们还是用 FAKE_USERS_DB，但这次会包含哈希后的密码
-
-# 假设这是您运行 get_password_hash("some_password") 后的结果
-HASHED_PASSWORD_USER = "$2b$12$DmYECapSrA2wOyBn2xK1sOW4Iqi1T5PtEOZHAyCCE/NmfqvAHTAeG"
-HASHED_PASSWORD_ADMIN = "$2b$12$DmYECapSrA2wOyBn2xK1sOW4Iqi1T5PtEOZHAyCCE/NmfqvAHTAeG"
-
-# 更新您的 FAKE_USERS_DB 来存储哈希密码
-PROD_FAKE_USERS_DB = {
-    "user@example.com": {
-        "id": "user_123",
-        "email": "user@example.com",
-        "hashed_password": HASHED_PASSWORD_USER,
-        "role": "user",
-        "full_name": "John Doe",
-        "username": "saya",
-    },
-    "admin@example.com": {
-        "id": "admin_456",
-        "email": "admin@example.com",
-        "hashed_password": HASHED_PASSWORD_ADMIN,
-        "role": "admin",
-        "full_name": "Admin Smith",
-        "username": "saya",
-    },
-}
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
     user: dict[str, Any]  # 返回一些用户信息给前端
-
-
-def get_user(db, username: str):
-    """根据用户名（这里是 email）查找用户"""
-    if username in db:
-        return db[username]
-    return None
 
 
 def authenticate_user(username: str, password: str):
