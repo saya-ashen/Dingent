@@ -9,12 +9,12 @@ static_root = files("dingent").joinpath("static", "admin_dashboard")
 static_root_str = str(static_root)
 
 
-@router.get("/admin", include_in_schema=False)
+@router.get("/dashboard", include_in_schema=False)
 async def admin_redirect():
-    return RedirectResponse("/admin/")
+    return RedirectResponse("/dashboard/")
 
 
-@router.get("/admin/{path:path}", include_in_schema=False)
+@router.get("/dashboard/{path:path}", include_in_schema=False)
 async def serve_admin_spa(path: str):
     root_index_path = os.path.join(static_root_str, "index.html")
     potential_file_path = os.path.join(static_root_str, path)

@@ -11,9 +11,12 @@ if not IS_DEV_MODE:
     print("--- RUN MODE DETECTED: Applying CopilotKit extensions. ---")
     # Import and apply CopilotKit extensions
     from .copilot.lifespan import create_extended_lifespan
-    
+
     extended_lifespan = create_extended_lifespan(base_lifespan)
     app.router.lifespan_context = extended_lifespan
+    from .core.middleware import DebugRequestMiddleware
+
+    app.add_middleware(DebugRequestMiddleware)
 
     def start():
         """Launches the Uvicorn server."""
@@ -27,5 +30,5 @@ if not IS_DEV_MODE:
 elif IS_DEV_MODE:
     print("--- DEV MODE DETECTED: Running base application. ---")
     from .core.middleware import DebugRequestMiddleware
-    
+
     app.add_middleware(DebugRequestMiddleware)

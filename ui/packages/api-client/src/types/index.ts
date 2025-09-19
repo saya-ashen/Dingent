@@ -1,13 +1,9 @@
 import type { Edge, Node } from "@xyflow/react";
+import { components } from "./api.d.js";
 
-export interface LoginResponse {
-  access_token: string;
-  token_type: string;
-  user: {
-    email: string;
-    full_name: string;
-  };
-}
+export type AuthUser = components["schemas"]["UserPublic"]
+export type LoginResponse = components["schemas"]["LoginResponse"]
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -227,3 +223,4 @@ export type AnalyticsData = {
   current_cost: number;
   model_cost: ModelCost;
 };
+

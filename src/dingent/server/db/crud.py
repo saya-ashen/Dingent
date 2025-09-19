@@ -6,8 +6,9 @@ PROD_FAKE_USERS_DB = {
         "email": "user@example.com",
         "username": "user_123",
         "full_name": "Regular User",
+        # testpassword123
         "hashed_password": "$2b$12$DmYECapSrA2wOyBn2xK1sOW4Iqi1T5PtEOZHAyCCE/NmfqvAHTAeG",
-        "role": "user",
+        "role": ["user"],
     },
     "admin@example.com": {
         "id": "admin_456",
@@ -15,7 +16,7 @@ PROD_FAKE_USERS_DB = {
         "username": "admin_456",
         "full_name": "Admin User",
         "hashed_password": "$2b$12$DmYECapSrA2wOyBn2xK1sOW4Iqi1T5PtEOZHAyCCE/NmfqvAHTAeG",
-        "role": "admin",
+        "role": ["admin"],
     },
 }
 

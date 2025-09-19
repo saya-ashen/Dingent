@@ -1,14 +1,8 @@
 import { create } from "zustand";
 import { getCookie, setCookie, removeCookie } from "@repo/lib/cookies";
+import { AuthUser } from "@repo/api-client"
 
 const ACCESS_TOKEN = "thisisjustarandomstring";
-
-interface AuthUser {
-  accountNo: string;
-  email: string;
-  role: string[];
-  exp: number;
-}
 
 interface AuthState {
   auth: {

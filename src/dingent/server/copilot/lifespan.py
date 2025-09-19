@@ -1,13 +1,10 @@
 from contextlib import asynccontextmanager
-from typing import Any, cast
 
-from copilotkit import CopilotKitRemoteEndpoint
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
 from fastapi import FastAPI
 from langgraph.graph.state import CompiledStateGraph
-from ..api.routers.frontend.threads import setup_copilot_router
 
-from .agents import FixedLangGraphAgent
+from dingent.server.copilot.agents import FixedLangGraphAgent
+from ..api.routers.frontend.threads import setup_copilot_router
 
 
 def create_extended_lifespan(original_lifespan):
@@ -48,17 +45,7 @@ def create_extended_lifespan(original_lifespan):
                     ctx.log_manager.log_with_context("info", "CopilotKit agent was automatically updated for active workflow.", context={"workflow_id": rebuilt_workflow_id})
 
             # Create CopilotKit SDK with the initial agent
-            sdk = CopilotKitRemoteEndpoint(
-                agents=[
-                    FixedLangGraphAgent(
-                        name="dingent",
-                        description="Multi-workflow cached agent graph",
-                        graph=graph,
-                    )
-                ],
-            )
-            app.state.copilot_sdk = sdk
-            setup_copilot_router(app, sdk)
+            setup_copilot_router(app, graph)
 
             gm.register_rebuild_callback(_update_copilot_agent_callback)
 

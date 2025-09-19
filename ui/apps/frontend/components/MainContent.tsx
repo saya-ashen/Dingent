@@ -93,6 +93,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     getInitialThreadId,
   );
   const accessToken = useAuthStore((state) => state.auth.accessToken);
+  const auth = useAuthStore()
 
   const initialThreadContextValue = useMemo(
     () => ({
@@ -107,6 +108,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
   const headers = useMemo(() => {
     // Only add the Authorization header if the token exists
+    console.log("accessToken", auth)
     if (accessToken) {
       return {
         Authorization: `Bearer ${accessToken}`,

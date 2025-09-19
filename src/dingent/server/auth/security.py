@@ -3,8 +3,6 @@ import re
 from typing import Any
 
 
-from ..users.models import User
-
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt

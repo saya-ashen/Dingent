@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { IconFacebook, IconGithub } from "@repo/assets/icon";
 import { useAuthStore } from "@repo/store";
 import { sleep, cn } from "@repo/lib/utils";
-import { login } from "@repo/api-client";
+import { api } from "@repo/api-client";
 import {
   Button,
   Form,
@@ -58,7 +58,7 @@ export function UserAuthForm({
   function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true);
 
-    const loginPromise = login({
+    const loginPromise = api.login({
       email: data.email,
       password: data.password,
     });

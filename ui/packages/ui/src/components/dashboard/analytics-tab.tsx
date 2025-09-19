@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { getBudget, AnalyticsData } from "@repo/api-client";
+import { dashboardApi, AnalyticsData } from "@repo/api-client";
 import {
   Card,
   CardContent,
@@ -21,7 +21,7 @@ function useAnalytics() {
     setLoading(true);
     setError(null);
 
-    getBudget()
+    dashboardApi.getBudget()
       .then((apiData) => {
         // 1. Set the data on success
         console.log("data", apiData);

@@ -1,5 +1,4 @@
 "use client";
-import axios from "axios";
 import type {
   AppSettings,
   Assistant,
@@ -13,108 +12,14 @@ import type {
   MarketDownloadResponse,
   OverviewData,
   AnalyticsData,
-} from "./types.ts";
+  LoginRequest,
+  LoginResponse,
+} from "./types/index.ts";
+import { createHttpInstance, extractErrorMessage } from "./http";
+import { createDashboardApi } from "./dashboard";
+import { createAuthApi } from "./auth";
 
 const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1/dashboard";
-console.log(BASE_URL);
-const HTTP_TIMEOUT = 120_000;
-
-// 可选：从本地存储读取鉴权令牌
-function getAuthToken(): string | null {
-  return localStorage.getItem("DASHBOARD_TOKEN");
-}
-
-export const http = axios.create({
-  baseURL: BASE_URL,
-  timeout: HTTP_TIMEOUT,
-});
-
-// 附加 Authorization（如果存在）
-http.interceptors.request.use((config) => {
-  const token = getAuthToken();
-  if (token) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// 统一错误信息提取（与后端 detail 字段对齐）
-function extractErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const resp = err.response;
-    if (resp?.data && typeof resp.data === "object" && "detail" in resp.data) {
-      return String((resp.data as any).detail);
-    }
-    if (typeof resp?.data === "string") return resp.data;
-    if (resp?.status) return `HTTP ${resp.status}`;
-    return err.message || "Network error";
-  }
-  return String(err);
-}
-
-export async function getOverview(): Promise<OverviewData> {
-  try {
-    const { data } = await http.get<OverviewData>("/overview");
-    return data;
-  } catch (err) {
-    throw new Error(`Failed to fetch overview: ${extractErrorMessage(err)}`);
-  }
-}
-
-export async function getBudget(): Promise<AnalyticsData> {
-  try {
-    const { data } = await http.get<AnalyticsData>("/overview/budget");
-    return data;
-  } catch (err) {
-    throw new Error(`Failed to fetch budget: ${extractErrorMessage(err)}`);
-  }
-}
-// --- Settings ---
-
-export async function getAppSettings(): Promise<AppSettings | null> {
-  try {
-    const { data } = await http.get<AppSettings>("/settings");
-    return data;
-  } catch (err) {
-    throw new Error(
-      `Failed to fetch app settings: ${extractErrorMessage(err)}`,
-    );
-  }
-}
-
-export async function saveAppSettings(payload: AppSettings): Promise<void> {
-  try {
-    // Use PATCH for partial updates
-    await http.patch("/settings", payload);
-  } catch (err) {
-    throw new Error(`Failed to save app settings: ${extractErrorMessage(err)}`);
-  }
-}
-
-// --- Assistants ---
-
-export async function getAssistantsConfig(): Promise<Assistant[] | null> {
-  try {
-    const { data } = await http.get<Assistant[]>("/assistants");
-    return data;
-  } catch (err) {
-    return [];
-  }
-}
-
-export async function _saveAssistantsConfig(
-  payload: Assistant[],
-): Promise<void> {
-  try {
-    // Use PUT to replace the entire collection
-    await http.put("/assistants", payload);
-  } catch (err) {
-    throw new Error(
-      `Failed to save assistants configuration: ${extractErrorMessage(err)}`,
-    );
-  }
-}
 
 export async function addAssistant(
   name: string,
@@ -421,22 +326,25 @@ export async function getMarketItemReadme(
     return null;
   }
 }
-export async function login(credentials: LoginRequest): Promise<LoginResponse> {
-  try {
-    const params = new URLSearchParams();
-    params.append("username", credentials.email); // 将 email 映射到 username
-    params.append("password", credentials.password);
 
-    const { data } = await http.post<LoginResponse>("/auth/token", params, {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-    });
+const AUTH_TOKEN_KEY = "APP_AUTH_TOKEN";
 
-    return data;
-  } catch (err) {
-    throw new Error(`登录失败: ${extractErrorMessage(err)}`);
-  }
-}
+// Base URL for general API calls (like auth)
+const API_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1";
 
-export type * from "./types.ts";
+// Base URL for dashboard-specific calls
+const DASHBOARD_API_BASE_URL = API_BASE_URL + "/dashboard";
+
+// --- Client Instances ---
+
+// A general HTTP client for shared endpoints
+const http = createHttpInstance(API_BASE_URL, AUTH_TOKEN_KEY);
+const dashboardHttp = createHttpInstance(DASHBOARD_API_BASE_URL, AUTH_TOKEN_KEY);
+
+export const dashboardApi = {
+  ...createDashboardApi(dashboardHttp),
+};
+export const api = {
+  ...createAuthApi(http),
+};
+export type * from "./types/index.js";

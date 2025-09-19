@@ -1,5 +1,4 @@
 import asyncio
-from dingent.server.users.models import User
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +30,7 @@ from dingent.server.api.schemas import (
     ToolAdminDetail,
     UpdatePluginConfigRequest,
 )
+from dingent.server.auth.schemas import UserPublic
 
 router = APIRouter(prefix="/assistants", tags=["Assistants"])
 
@@ -141,7 +141,7 @@ async def list_assistants(
     config_manager: ConfigManager = Depends(get_config_manager),
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     settings_list = config_manager.list_assistants()
     running = await assistant_manager.get_all_assistants(preload=True)
@@ -156,7 +156,7 @@ async def create_assistant(
     config_manager: ConfigManager = Depends(get_config_manager),
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     try:
         new = config_manager.upsert_assistant(req)
@@ -174,7 +174,7 @@ async def update_assistant(
     config_manager: ConfigManager = Depends(get_config_manager),
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     # Ensure id matches
     plugins = req.plugins
@@ -200,7 +200,7 @@ async def update_assistant(
 async def bulk_replace_assistants(
     req: AssistantsBulkReplaceRequest,
     config_manager: ConfigManager = Depends(get_config_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     """
     完整替换 assistants 列表。
@@ -235,7 +235,7 @@ async def bulk_replace_assistants(
 async def delete_assistant(
     assistant_id: str,
     config_manager: ConfigManager = Depends(get_config_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     ok = config_manager.delete_assistant(assistant_id)
     if not ok:
@@ -250,7 +250,7 @@ async def add_plugin_to_assistant(
     config_manager: ConfigManager = Depends(get_config_manager),
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     assistant_settings = config_manager.get_assistant(assistant_id)
     if not assistant_settings:
@@ -287,7 +287,7 @@ async def update_plugin_on_assistant(
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
     config_manager: ConfigManager = Depends(get_config_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     settings = config_manager.get_assistant(assistant_id)
     if not settings:
@@ -327,7 +327,7 @@ async def remove_plugin_from_assistant(
     config_manager: ConfigManager = Depends(get_config_manager),
     assistant_manager: AssistantManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user: UserPublic = Depends(get_current_user),
 ):
     settings = config_manager.get_assistant(assistant_id)
     if not settings:
