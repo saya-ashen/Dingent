@@ -7,12 +7,12 @@ export function createSettingsApi(http: AxiosInstance, agentSettingsBase: string
   return {
 
     async getAppSettings(): Promise<AppSettings | null> {
-      const { data } = await http.get<AppSettings>(url("/settings"));
+      const { data } = await http.get<AppSettings>(url("/"));
       return data;
     },
 
     async saveAppSettings(payload: AppSettings): Promise<void> {
-      await http.patch(url("/settings"), payload);
+      await http.patch(url("/"), payload);
     },
   };
 }

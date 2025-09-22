@@ -6,12 +6,12 @@ export function createOverviewApi(http: AxiosInstance, base: string) {
 
   return {
     async getOverview(): Promise<OverviewData> {
-      const { data } = await http.get<OverviewData>(url("/overview"));
+      const { data } = await http.get<OverviewData>(url("/"));
       return data;
     },
 
     async getBudget(): Promise<AnalyticsData> {
-      const { data } = await http.get<AnalyticsData>(url("/overview/budget"));
+      const { data } = await http.get<AnalyticsData>(url("/budget"));
       return data;
     },
   };

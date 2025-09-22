@@ -19,7 +19,7 @@ export function createApiClient(cfg: ApiClientConfig) {
 
   return {
     auth: createAuthApi(http, { authPath: "/auth", tokenStore: tokenStore }),
-    dashboard: createDashboardApi(http, "/api/v1/dashboard"),
+    dashboard: createDashboardApi(http, "/dashboard"),
   };
 }
 

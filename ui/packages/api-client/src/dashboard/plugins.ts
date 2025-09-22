@@ -6,12 +6,12 @@ export function createPluginsApi(http: AxiosInstance, pluginsBase: string) {
 
   return {
     async getAvailablePlugins(): Promise<PluginManifest[] | null> {
-      const { data } = await http.get<PluginManifest[]>(url("/plugins"));
+      const { data } = await http.get<PluginManifest[]>(url("/"));
       return data;
     },
 
     async deletePlugin(pluginId: string): Promise<void> {
-      await http.delete(url(`/plugins/${pluginId}`));
+      await http.delete(url(`/${pluginId}`));
     }
   };
 }
