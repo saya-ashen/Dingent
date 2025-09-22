@@ -49,5 +49,5 @@ class CliContext:
     @property
     def frontend_path(self) -> Path:
         """This property does not depend on app_context and remains unchanged."""
-        frontend_dir = resources.files("dingent").joinpath("static", "frontend")
+        frontend_dir = resources.files("dingent").joinpath("static")
         return cast(Path, frontend_dir)

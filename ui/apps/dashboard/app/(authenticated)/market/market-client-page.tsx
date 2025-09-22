@@ -25,9 +25,7 @@ import { toast } from "sonner";
 
 // API and types
 import {
-  getMarketItems,
-  getMarketMetadata,
-  downloadMarketItem,
+  api,
   MarketItem,
   MarketDownloadResponse,
   MarketDownloadRequest,
@@ -151,18 +149,18 @@ export function MarketPageContent() {
   // React Query 的数据获取逻辑保持不变
   const metadataQuery = useQuery({
     queryKey: ["market-metadata"],
-    queryFn: getMarketMetadata,
+    queryFn: api.dashboard.market.getMetadata,
     staleTime: 300_000,
   });
 
   const itemsQuery = useQuery({
     queryKey: ["market-items", category],
-    queryFn: () => getMarketItems(category),
+    queryFn: () => api.dashboard.market.list(category),
     staleTime: 60_000,
   });
 
   const downloadMutation = useMutation({
-    mutationFn: downloadMarketItem,
+    mutationFn: api.dashboard.market.download,
     onSuccess: (_data, variables) => {
       const action = variables.isUpdate ? "updated" : "downloaded";
       toast.success(
@@ -238,10 +236,10 @@ export function MarketPageContent() {
     .filter((item) =>
       searchTerm
         ? item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.tags?.some((t) =>
-            t.toLowerCase().includes(searchTerm.toLowerCase()),
-          )
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.tags?.some((t) =>
+          t.toLowerCase().includes(searchTerm.toLowerCase()),
+        )
         : true,
     )
     .sort((a, b) =>

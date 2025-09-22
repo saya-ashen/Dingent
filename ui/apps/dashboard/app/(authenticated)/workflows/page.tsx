@@ -13,10 +13,6 @@ import {
 import { toast } from "sonner";
 import {
   api,
-  getWorkflows,
-  createWorkflow,
-  saveWorkflow,
-  deleteWorkflow,
   Workflow,
   WorkflowNode,
   WorkflowEdge,
@@ -54,11 +50,11 @@ export default function WorkflowsPages() {
 
   const workflowsQ = useQuery({
     queryKey: ["workflows"],
-    queryFn: async () => (await getWorkflows()) ?? [],
+    queryFn: async () => (await api.dashboard.workflows.list()) ?? [],
   });
   const assistantsQ = useQuery({
     queryKey: ["assistants"],
-    queryFn: async () => (await api.getAssistantsConfig()) ?? [],
+    queryFn: async () => (await api.dashboard.assistants.getAssistantsConfig()) ?? [],
   });
 
   const workflows = workflowsQ.data || [];
@@ -107,7 +103,7 @@ export default function WorkflowsPages() {
     }: {
       name: string;
       description?: string;
-    }) => createWorkflow(name, description),
+    }) => api.dashboard.workflows.create(name, description),
     onSuccess: (newWorkflow) => {
       toast.success("Workflow created");
       qc.invalidateQueries({ queryKey: ["workflows"] });
@@ -118,7 +114,7 @@ export default function WorkflowsPages() {
   });
 
   const saveWorkflowMutation = useMutation({
-    mutationFn: saveWorkflow,
+    mutationFn: api.dashboard.workflows.save,
     onSuccess: () => {
       toast.success("Workflow saved");
       qc.invalidateQueries({ queryKey: ["workflows"] });
@@ -188,7 +184,7 @@ export default function WorkflowsPages() {
   const onPaneClick = useCallback(() => setMenu(null), []);
 
   const deleteWorkflowMutation = useMutation({
-    mutationFn: deleteWorkflow,
+    mutationFn: api.dashboard.workflows.remove,
     onSuccess: () => {
       toast.success("Workflow deleted");
       qc.invalidateQueries({ queryKey: ["workflows"] });

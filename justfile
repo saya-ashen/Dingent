@@ -76,19 +76,19 @@ build-frontend:
 	@echo "Pruning standalone output..."
 	@just prune-next
 
-	@echo "Copying pruned Next.js standalone artifacts to 'src/dingent/static/frontend'..."
-	@rm -rf src/dingent/static/frontend
-	@mkdir -p src/dingent/static/frontend
-	@cp -r ui/apps/frontend/.next/standalone/. src/dingent/static/frontend/
+	@echo "Copying pruned Next.js standalone artifacts to 'src/dingent/static'..."
+	@rm -rf src/dingent/static
+	@mkdir -p src/dingent/static
+	@cp -r ui/apps/frontend/.next/standalone/. src/dingent/static
 
 	@echo "Copying .next/static (client assets)..."
-	@cp -r ui/apps/frontend/.next/static src/dingent/static/frontend/apps/frontend/.next/
+	@cp -r ui/apps/frontend/.next/static src/dingent/static/apps/frontend/.next/
 
 	@echo "Copying public/ assets..."
-	@cp -r ui/apps/frontend/public src/dingent/static/frontend/apps/frontend/ 2>/dev/null || true
+	@cp -r ui/apps/frontend/public src/dingent/static/apps/frontend/ 2>/dev/null || true
 
 	@echo "Final size (human readable):"
-	@du -sh src/dingent/static/frontend || true
+	@du -sh src/dingent/static || true
 	@echo "✅ User frontend built, pruned and copied successfully."
 
 # =====================

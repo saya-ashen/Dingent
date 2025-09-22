@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getLogStatistics, getLogs, clearAllLogs } from "@repo/api-client";
+import { api } from "@repo/api-client";
 import {
   ConfigDrawer,
   FloatingActionButtons,
@@ -31,7 +31,7 @@ export default function LogsPage() {
 
   const statsQ = useQuery({
     queryKey: ["log-stats"],
-    queryFn: getLogStatistics,
+    queryFn: api.dashboard.logs.getStats,
     refetchInterval: autoRefresh ? 10_000 : false,
   });
 
@@ -43,7 +43,7 @@ export default function LogsPage() {
   const logsQ = useQuery({
     queryKey: ["logs", level, module, search, limit],
     queryFn: () =>
-      getLogs({
+      api.dashboard.logs.getLogs({
         level: level === "All" ? null : level,
         module: module.trim() || null,
         search: search.trim() || null,
@@ -91,7 +91,7 @@ export default function LogsPage() {
         <Button
           variant="destructive"
           onClick={async () => {
-            const ok = await clearAllLogs();
+            const ok = await api.dashboard.logs.clearAll();
             if (ok) {
               toast.success("All logs cleared");
               await qc.invalidateQueries({ queryKey: ["logs"] });

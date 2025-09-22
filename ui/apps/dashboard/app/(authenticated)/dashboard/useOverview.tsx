@@ -18,7 +18,7 @@ export function useOverview() {
 
     setError(null);
 
-    api.getOverview()
+    api.dashboard.overview.getOverview()
       .then((d) => {
         setData(d);
       })

@@ -20,7 +20,7 @@ function useAnalytics() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.getBudget()
+    api.dashboard.overview.getBudget()
       .then((apiData) => {
         // 1. Set the data on success
         console.log("data", apiData);

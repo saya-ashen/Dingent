@@ -63,7 +63,7 @@ export default function AgentSettings() {
   } = useQuery<AppSettings>({
     queryKey: ["app-settings"],
     queryFn: async () =>
-      (await api.getAppSettings()) ?? { llm: {}, current_workflow: "" },
+      (await api.dashboard.agentSettings.getAppSettings()) ?? { llm: {}, current_workflow: "" },
     staleTime: 5_000,
   });
 
@@ -93,7 +93,7 @@ export default function AgentSettings() {
   }, [settings, setValue]);
 
   const saveMutation = useMutation({
-    mutationFn: (form: FormValues) => api.saveAppSettings(form as AppSettings),
+    mutationFn: (form: FormValues) => api.dashboard.agentSettings.saveAppSettings(form as AppSettings),
     onSuccess: async () => {
       toast.success("Settings saved successfully!");
       await queryClient.invalidateQueries({ queryKey: ["app-settings"] });

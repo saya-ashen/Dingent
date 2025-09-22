@@ -58,7 +58,7 @@ export function UserAuthForm({
   function onSubmit(data: z.infer<typeof formSchema>) {
     setIsLoading(true);
 
-    const loginPromise = api.login({
+    const loginPromise = api.auth.login({
       email: data.email,
       password: data.password,
     });

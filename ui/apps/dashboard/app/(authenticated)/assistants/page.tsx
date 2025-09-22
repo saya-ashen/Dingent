@@ -4,15 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, PlusCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import {
-  addPluginToAssistant,
-  getAvailablePlugins,
-  removePluginFromAssistant,
-  updateAssistant,
-  deleteAssistant,
-  addAssistant,
   api,
   type Assistant,
-} from "@repo/api-client/";
+} from "@repo/api-client";
 import {
   safeBool,
   effectiveStatusForItem,
@@ -54,13 +48,13 @@ export default function AssistantsPage() {
 
   const assistantsQ = useQuery({
     queryKey: ["assistants"],
-    queryFn: async () => (await api.getAssistantsConfig()) ?? [],
+    queryFn: async () => (await api.dashboard.assistants.getAssistantsConfig()) ?? [],
     staleTime: 5_000,
   });
 
   const pluginsQ = useQuery({
     queryKey: ["available-plugins"],
-    queryFn: async () => (await getAvailablePlugins()) ?? [],
+    queryFn: async () => (await api.dashboard.plugins.getAvailablePlugins()) ?? [],
     staleTime: 30_000,
   });
 
@@ -77,7 +71,7 @@ export default function AssistantsPage() {
 
   const addPluginMutation = useMutation({
     mutationFn: async (p: { assistantId: string; pluginId: string }) =>
-      addPluginToAssistant(p.assistantId, p.pluginId),
+      api.dashboard.assistants.addPluginToAssistant(p.assistantId, p.pluginId),
     onSuccess: async () => {
       toast.success("Plugin added");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
@@ -88,7 +82,7 @@ export default function AssistantsPage() {
 
   const removePluginMutation = useMutation({
     mutationFn: async (p: { assistantId: string; pluginId: string }) =>
-      removePluginFromAssistant(p.assistantId, p.pluginId),
+      api.dashboard.assistants.removePluginFromAssistant(p.assistantId, p.pluginId),
     onSuccess: async () => {
       toast.success("Plugin removed");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
@@ -111,7 +105,7 @@ export default function AssistantsPage() {
     }: {
       name: string;
       description: string;
-    }) => addAssistant(name, description),
+    }) => api.dashboard.assistants.addAssistant(name, description),
     onSuccess: async () => {
       toast.success("Assistant added successfully!");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
@@ -134,7 +128,7 @@ export default function AssistantsPage() {
       }
 
       const updatePromises = changedAssistants.map((assistant) =>
-        updateAssistant(assistant.id, assistant),
+        api.dashboard.assistants.updateAssistant(assistant.id, assistant),
       );
 
       await Promise.all(updatePromises);
@@ -150,7 +144,7 @@ export default function AssistantsPage() {
   });
 
   const deleteAssistantMutation = useMutation({
-    mutationFn: async (assistantId: string) => deleteAssistant(assistantId),
+    mutationFn: async (assistantId: string) => api.dashboard.assistants.deleteAssistant(assistantId),
     onSuccess: async () => {
       toast.success("Assistant deleted");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
