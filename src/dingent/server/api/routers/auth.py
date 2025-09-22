@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
+from dingent.server.auth.dependencies import get_current_user
 from dingent.server.auth.schemas import LoginResponse
 from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
 from dingent.server.db.crud import authenticate_user
@@ -33,3 +34,17 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         token_type="bearer",
         user=user,
     )
+
+
+@router.get("/verify", status_code=status.HTTP_200_OK)
+async def verify_token(
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    An endpoint to verify a token's validity.
+    Accessing this endpoint successfully (i.e., getting a 200 OK response)
+    proves the token is valid.
+    """
+    # If the Depends(get_current_user) succeeds, we know the token is valid.
+    # We can just return a success message.
+    return {"status": "ok", "message": "Token is valid"}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { getOverview } from "@repo/api-client";
+import { api } from "@repo/api-client";
 
 import type { OverviewData } from "@repo/api-client";
 
@@ -18,7 +18,7 @@ export function useOverview() {
 
     setError(null);
 
-    getOverview()
+    api.getOverview()
       .then((d) => {
         setData(d);
       })

@@ -12,8 +12,8 @@ import {
 } from "@xyflow/react";
 import { toast } from "sonner";
 import {
+  api,
   getWorkflows,
-  getAssistantsConfig,
   createWorkflow,
   saveWorkflow,
   deleteWorkflow,
@@ -58,7 +58,7 @@ export default function WorkflowsPages() {
   });
   const assistantsQ = useQuery({
     queryKey: ["assistants"],
-    queryFn: async () => (await getAssistantsConfig()) ?? [],
+    queryFn: async () => (await api.getAssistantsConfig()) ?? [],
   });
 
   const workflows = workflowsQ.data || [];

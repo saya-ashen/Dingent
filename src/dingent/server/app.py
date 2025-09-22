@@ -3,7 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dingent.core.context import initialize_app_context
 from .api import api_router
-from .core.admin_spa import router as admin_router
 
 
 @asynccontextmanager
@@ -41,6 +40,6 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(api_router, prefix="/api/v1")
-    app.include_router(admin_router)  # Admin SPA routes
+    # app.include_router(admin_router)  # Admin SPA routes
 
     return app

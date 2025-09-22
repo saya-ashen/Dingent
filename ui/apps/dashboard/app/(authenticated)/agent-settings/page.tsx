@@ -7,9 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  getAppSettings,
-  saveAppSettings,
   type AppSettings,
+  api,
 } from "@repo/api-client";
 
 // UI Components
@@ -64,7 +63,7 @@ export default function AgentSettings() {
   } = useQuery<AppSettings>({
     queryKey: ["app-settings"],
     queryFn: async () =>
-      (await getAppSettings()) ?? { llm: {}, current_workflow: "" },
+      (await api.getAppSettings()) ?? { llm: {}, current_workflow: "" },
     staleTime: 5_000,
   });
 
@@ -94,7 +93,7 @@ export default function AgentSettings() {
   }, [settings, setValue]);
 
   const saveMutation = useMutation({
-    mutationFn: (form: FormValues) => saveAppSettings(form as AppSettings),
+    mutationFn: (form: FormValues) => api.saveAppSettings(form as AppSettings),
     onSuccess: async () => {
       toast.success("Settings saved successfully!");
       await queryClient.invalidateQueries({ queryKey: ["app-settings"] });

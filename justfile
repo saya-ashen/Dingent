@@ -47,18 +47,24 @@ prune-next:
 	@echo "[prune] Done."
 
 # =====================
-# 构建 Admin
+# 构建 dashboard
 # =====================
-build-admin:
-	@echo "Building admin dashboard..."
-	@(cd ui/ && bun install && bun run build --filter=admin-dashboard)
+build-dashboard:
+	@echo "Building dashboard..."
+	@(cd ui/ && bun install && bun run build --filter=dashboard)
 
-	@echo "Copying admin dashboard artifacts..."
-	@rm -rf src/dingent/static/admin_dashboard
-	@mkdir -p src/dingent/static/admin_dashboard
-	@cp -r ui/apps/admin-dashboard/out/. src/dingent/static/admin_dashboard/
+	# @echo "Copying dashboard artifacts..."
+	# @rm -rf src/dingent/static/dashboard
+	# @mkdir -p src/dingent/static/dashboard
+	# @cp -r ui/apps/dashboard/out/. src/dingent/static/dashboard/
 
-	@echo "✅ Admin dashboard built and copied successfully."
+	@echo "Copying dashboard into frontend/public..."
+	@mkdir -p ui/apps/frontend/public/dashboard
+	@rm -rf ui/apps/frontend/public/dashboard/*
+	@cp -r ui/apps/dashboard/out/. ui/apps/frontend/public/dashboard/
+
+	@echo "Done"
+
 
 # =====================
 # 构建 Frontend (Next.js) + 裁剪
@@ -88,5 +94,5 @@ build-frontend:
 # =====================
 # 同时构建两个
 # =====================
-build-ui: build-admin build-frontend
+build-ui: build-dashboard build-frontend
 	@echo "🚀 All UI applications have been built."

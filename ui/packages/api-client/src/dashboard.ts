@@ -5,7 +5,7 @@ import type {
   Assistant,
   OverviewData,
   AnalyticsData,
-} from "./types/index.js";
+} from "./types/index";
 
 /**
  * Creates a dashboard-specific API client.
@@ -59,6 +59,5 @@ export function createDashboardApi(http: AxiosInstance) {
 
 
 
-    // ... and so on for all other functions from your original file
   };
 }

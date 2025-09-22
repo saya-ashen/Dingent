@@ -5,12 +5,12 @@ import { Loader2, PlusCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   addPluginToAssistant,
-  getAssistantsConfig,
   getAvailablePlugins,
   removePluginFromAssistant,
   updateAssistant,
   deleteAssistant,
   addAssistant,
+  api,
   type Assistant,
 } from "@repo/api-client/";
 import {
@@ -54,7 +54,7 @@ export default function AssistantsPage() {
 
   const assistantsQ = useQuery({
     queryKey: ["assistants"],
-    queryFn: async () => (await getAssistantsConfig()) ?? [],
+    queryFn: async () => (await api.getAssistantsConfig()) ?? [],
     staleTime: 5_000,
   });
 
@@ -353,7 +353,7 @@ export default function AssistantsPage() {
                           >
                             {deleteAssistantMutation.isPending &&
                               deleteAssistantMutation.variables ===
-                                assistant.id && (
+                              assistant.id && (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               )}
                             Delete Assistant

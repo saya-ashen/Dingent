@@ -19,7 +19,6 @@ import { createHttpInstance, extractErrorMessage } from "./http";
 import { createDashboardApi } from "./dashboard";
 import { createAuthApi } from "./auth";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1/dashboard";
 
 export async function addAssistant(
   name: string,
@@ -330,7 +329,7 @@ export async function getMarketItemReadme(
 const AUTH_TOKEN_KEY = "APP_AUTH_TOKEN";
 
 // Base URL for general API calls (like auth)
-const API_BASE_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "") + "/api/v1";
+const API_BASE_URL = "/api/v1";
 
 // Base URL for dashboard-specific calls
 const DASHBOARD_API_BASE_URL = API_BASE_URL + "/dashboard";
@@ -339,12 +338,9 @@ const DASHBOARD_API_BASE_URL = API_BASE_URL + "/dashboard";
 
 // A general HTTP client for shared endpoints
 const http = createHttpInstance(API_BASE_URL, AUTH_TOKEN_KEY);
-const dashboardHttp = createHttpInstance(DASHBOARD_API_BASE_URL, AUTH_TOKEN_KEY);
 
-export const dashboardApi = {
-  ...createDashboardApi(dashboardHttp),
-};
 export const api = {
   ...createAuthApi(http),
+  ...createDashboardApi(http),
 };
 export type * from "./types/index.js";
