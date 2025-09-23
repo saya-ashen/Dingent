@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { fonts } from "@repo/config/fonts";
 import { GlobalProviders } from "../../providers";
 import "@repo/ui/styles.css";
+import StoreInitializer from "../common/store-initializer";
 
 // Import shared styles here
 
@@ -19,6 +20,7 @@ interface RootLayoutProps {
 }
 
 export function RootLayout({ children, bodyClassName = "" }: RootLayoutProps) {
+  StoreInitializer()
   return (
     <html lang="en">
       <body

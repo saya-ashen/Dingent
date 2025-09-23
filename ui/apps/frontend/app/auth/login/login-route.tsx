@@ -8,7 +8,7 @@ export default function LoginRoute() {
   const searchParams = useSearchParams();
 
   const handleLoginSuccess = () => {
-    const returnTo = searchParams.get("returnTo");
+    const returnTo = searchParams.get("next");
 
     router.push(returnTo || "/");
   };

@@ -13,7 +13,6 @@ export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
 
   const handleSignOut = () => {
     reset();
-    // Preserve current location for redirect after sign-in
     router.replace("auth/login");
   };
 

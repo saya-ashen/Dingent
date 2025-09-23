@@ -2,6 +2,7 @@ import { getCookie } from "@repo/lib/cookies";
 import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";
 import { SidebarInset, SidebarProvider, SkipToMain } from "@repo/ui/components";
+import { useAuthInterceptor } from "@repo/store";
 
 type AuthenticatedLayoutProps = {
   // The specific sidebar component will be passed in from the app
@@ -11,6 +12,8 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout({ sidebar, children }: AuthenticatedLayoutProps) {
   // Logic to read cookie remains the same
+  useAuthInterceptor();
+
   const defaultOpen = getCookie("sidebar_state") !== "false";
 
   return (

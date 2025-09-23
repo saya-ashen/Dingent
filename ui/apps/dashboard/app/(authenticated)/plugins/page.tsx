@@ -18,7 +18,7 @@ import { getErrorMessage } from "@repo/lib/utils";
 
 export default function PluginsPage() {
   const queryClient = useQueryClient();
-  const { auth } = useAuthStore();
+  const auth = useAuthStore();
   const isAdmin = auth.user?.role.includes('admin');
 
   const { data: plugins, isLoading, error } = useQuery({

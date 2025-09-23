@@ -16,7 +16,6 @@ function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
   }), [accessToken]);
 
   // Call the interceptor hook here to activate it
-  useAuthInterceptor();
 
   return (
     <CopilotKit
