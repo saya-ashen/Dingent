@@ -2,6 +2,7 @@ import { createHttp } from "./http";
 import { createAuthApi } from "./auth";
 import { createDashboardApi } from "./dashboard";
 import type { ApiClientConfig } from "./config";
+import { createFrontendApi } from "./frontend";
 
 export * from "./types";
 
@@ -14,6 +15,7 @@ export function createApiClient(cfg: ApiClientConfig) {
   return {
     auth: createAuthApi(http, { authPath: "/auth" }),
     dashboard: createDashboardApi(http, "/dashboard"),
+    frontend: createFrontendApi(http, "/frontend")
   };
 }
 

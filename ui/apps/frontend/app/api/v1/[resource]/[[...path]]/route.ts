@@ -48,7 +48,6 @@ export async function OPTIONS(req: NextRequest, context: { params: Promise<Param
 
 async function proxy(req: NextRequest, params: Promise<Params>) {
   const { resource, path: rest } = await params;
-  console.log("Resource", resource, "path", rest);
   const backend = RESOURCE_TO_BACKEND[resource] ?? "";
 
   const sub = rest?.join("/") ?? "";

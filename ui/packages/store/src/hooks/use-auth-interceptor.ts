@@ -3,7 +3,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 const LOGIN_PATH = "/auth/login";
 // You can make this configurable if different apps have different endpoints
-const AUTH_GUARDED_ENDPOINTS = ["/api/copilotkit", "/api/v1/frontend/copilotkit"];
+const AUTH_GUARDED_ENDPOINTS = ["/api/copilotkit", "/api/v1/frontend/", "/api/v1/dashboard/"];
 
 export function useAuthInterceptor() {
   const pathname = usePathname();

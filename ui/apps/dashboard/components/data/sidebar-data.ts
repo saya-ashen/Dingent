@@ -12,7 +12,7 @@ import {
   Workflow,
   Store,
 } from "lucide-react";
-import { type SidebarData } from "../types";
+import { type SidebarData } from "@repo/ui/components";
 
 export const sidebarData: SidebarData = {
   user: {

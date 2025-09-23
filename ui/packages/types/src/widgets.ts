@@ -6,12 +6,12 @@ export interface ChatThread {
 }
 
 export interface ThreadContextType {
-  activeThreadId: string | undefined;
-  setActiveThreadId: Dispatch<SetStateAction<string | undefined>>;
-  isLoading?: boolean;
+  isLoading: boolean;
   threads: ChatThread[]; // Changed from threadIds: string[]
-  deleteAllThreads: () => void;
+  activeThreadId: string | undefined;
+  setActiveThreadId: Dispatch<SetStateAction<string>>;
   updateThreadTitle: (id: string, title: string) => void;
+  deleteAllThreads: () => void;
 }
 
 export interface MarkdownPayload {

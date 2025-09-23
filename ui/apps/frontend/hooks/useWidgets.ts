@@ -1,47 +1,18 @@
+
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCoAgent } from "@copilotkit/react-core";
 import { Widget } from "@repo/types";
+import { api, Artifact, DisplayItem } from "@repo/api-client";
 
 type AgentState = { artifact_ids?: string[] };
-
-interface DisplayItem {
-  type?: string;
-  title?: string;
-  columns?: string[];
-  rows?: unknown[];
-  content?: string;
-  [k: string]: unknown;
-}
-
-interface ResourceResponse {
-  version?: string;
-  display: DisplayItem[];
-  data?: unknown;
-  metadata?: unknown;
-  [k: string]: unknown;
-}
-
-interface UseResourceWidgetsOptions {
-  clearOnEmptyIds?: boolean;
-  autoFetch?: boolean;
-  keepOrphanWidgets?: boolean;
-}
-
-interface UseResourceWidgetsResult {
-  widgets: Widget[];
-  loadingIds: string[];
-  errorById: Record<string, string>;
-  refresh: (ids?: string[] | "all") => void;
-  hasFetched: boolean;
-}
 
 const widgetFactory = {
   createWidget: (
     item: DisplayItem,
-    resourceId: string,
+    artifactId: string,
     index: number,
   ): Widget => {
-    const widgetId = `${resourceId}::${index}`;
+    const widgetId = `${artifactId}::${index}`;
     const baseProps = {
       id: widgetId,
       metadata: item.metadata,
@@ -72,17 +43,28 @@ const widgetFactory = {
     }
   },
 };
+
 /**
- * 内部 Hook：支持 ids 为 undefined（表示“这次调用不想改变已有 ids”）
+ * Internal hook to fetch artifacts by their IDs and transform them into widgets.
  */
-export function useResourceWidgets(
+export function useArtifactWidgets(
   ids?: string[] | null,
   {
     clearOnEmptyIds = true,
     autoFetch = true,
     keepOrphanWidgets = false,
-  }: UseResourceWidgetsOptions = {},
-): UseResourceWidgetsResult {
+  }: {
+    clearOnEmptyIds?: boolean;
+    autoFetch?: boolean;
+    keepOrphanWidgets?: boolean;
+  } = {},
+): {
+  widgets: Widget[];
+  loadingIds: string[];
+  errorById: Record<string, string>;
+  refresh: (ids?: string[] | "all") => void;
+  hasFetched: boolean;
+} {
   const [widgetsById, setWidgetsById] = useState<Record<string, Widget[]>>({});
   const [loadingIds, setLoadingIds] = useState<string[]>([]);
   const [errorById, setErrorById] = useState<Record<string, string>>({});
@@ -90,15 +72,13 @@ export function useResourceWidgets(
   const abortControllers = useRef<Record<string, AbortController>>({});
   const hasFetchedRef = useRef(false);
 
-  // ids 为 undefined -> 不变更
   const normalizedIds = useMemo(() => {
-    if (!ids) return undefined;
+    if (ids === undefined || ids === null) return undefined;
     return Array.from(new Set(ids.filter(Boolean)));
   }, [ids]);
 
   const removeWidgetsNotInIds = useCallback(() => {
-    if (keepOrphanWidgets) return;
-    if (!normalizedIds) return;
+    if (keepOrphanWidgets || !normalizedIds) return;
     setWidgetsById((prev) => {
       const next: Record<string, Widget[]> = {};
       for (const id of normalizedIds) {
@@ -109,55 +89,45 @@ export function useResourceWidgets(
   }, [normalizedIds, keepOrphanWidgets]);
 
   const buildWidgets = useCallback(
-    (resource: ResourceResponse, resourceId: string): Widget[] => {
-      if (!Array.isArray(resource.display)) {
+    (artifact: Artifact, artifactId: string): Widget[] => {
+      if (!Array.isArray(artifact.display)) {
         throw new Error("Invalid response: 'display' must be an array");
       }
-      return resource.display.map((item, index) =>
-        widgetFactory.createWidget(item, resourceId, index),
+      return artifact.display.map((item, index) =>
+        widgetFactory.createWidget(item, artifactId, index),
       );
     },
     [],
   );
 
-  const fetchOne = useCallback(
+  const fetchArtifact = useCallback(
     async (id: string, force = false) => {
       if (!force && fetchedIdsRef.current.has(id)) return;
 
-      // 取消同 id 正在进行的请求
-      if (abortControllers.current[id]) {
-        abortControllers.current[id].abort();
-      }
+      abortControllers.current[id]?.abort();
       const controller = new AbortController();
       abortControllers.current[id] = controller;
 
-      setLoadingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+      setLoadingIds((prev) => Array.from(new Set([...prev, id])));
       setErrorById((prev) => {
         const { [id]: _omit, ...rest } = prev;
         return rest;
       });
 
       try {
-        const res = await fetch(`/api/resource/${id}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const resource = (await res.json()) as ResourceResponse;
+        // --- REFACTORED PART ---
+        // Use the API client, passing the abort signal for cancellation.
+        const artifact = await api.frontend.artifacts.get(id, { signal: controller.signal });
 
-        const widgets = buildWidgets(resource, id);
+        const widgets = buildWidgets(artifact, id);
         setWidgetsById((prev) => ({ ...prev, [id]: widgets }));
         fetchedIdsRef.current.add(id);
         hasFetchedRef.current = true;
       } catch (err: unknown) {
         if (err instanceof Error && err.name === "AbortError") {
-          return;
+          return; // Request was cancelled, so we do nothing.
         }
-        let errorMessage = "Unknown fetch error";
-        if (err instanceof Error) {
-          errorMessage = err.message;
-        }
+        const errorMessage = err instanceof Error ? err.message : "Failed to fetch artifact";
         setErrorById((prev) => ({ ...prev, [id]: errorMessage }));
       } finally {
         setLoadingIds((prev) => prev.filter((x) => x !== id));
@@ -169,32 +139,27 @@ export function useResourceWidgets(
 
   const refresh = useCallback(
     (target: string[] | "all" = "all") => {
-      if (!normalizedIds || normalizedIds.length === 0) return;
+      if (!normalizedIds) return;
       const targetIds =
         target === "all"
           ? normalizedIds
           : target.filter((id) => normalizedIds.includes(id));
-      for (const id of targetIds) {
-        fetchedIdsRef.current.delete(id);
-      }
+
       targetIds.forEach((id) => {
-        void fetchOne(id, true);
+        fetchedIdsRef.current.delete(id);
+        void fetchArtifact(id, true);
       });
     },
-    [normalizedIds, fetchOne],
+    [normalizedIds, fetchArtifact],
   );
 
-  // 自动拉取逻辑
+  // Auto-fetching logic (calls fetchArtifact)
   useEffect(() => {
-    // undefined：保持现状，不清空不加载
     if (normalizedIds === undefined) return;
 
     if (normalizedIds.length === 0) {
       if (clearOnEmptyIds) {
-        setWidgetsById((prev) => {
-          if (Object.keys(prev).length === 0) return prev;
-          return {};
-        });
+        setWidgetsById({});
         fetchedIdsRef.current.clear();
       }
       return;
@@ -202,11 +167,11 @@ export function useResourceWidgets(
 
     removeWidgetsNotInIds();
 
-    if (!autoFetch) return;
-
-    for (const id of normalizedIds) {
-      if (!fetchedIdsRef.current.has(id)) {
-        void fetchOne(id);
+    if (autoFetch) {
+      for (const id of normalizedIds) {
+        if (!fetchedIdsRef.current.has(id)) {
+          void fetchArtifact(id);
+        }
       }
     }
   }, [
@@ -214,27 +179,22 @@ export function useResourceWidgets(
     autoFetch,
     clearOnEmptyIds,
     removeWidgetsNotInIds,
-    fetchOne,
+    fetchArtifact,
   ]);
 
-  // 卸载时中止所有请求
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       Object.values(abortControllers.current).forEach((c) => c.abort());
     };
   }, []);
 
+
   const widgets = useMemo(() => {
     if (normalizedIds === undefined) {
-      // 未提供新的 ids，返回当前全部
       return Object.values(widgetsById).flat();
     }
-    const list: Widget[] = [];
-    for (const id of normalizedIds) {
-      const arr = widgetsById[id];
-      if (arr) list.push(...arr);
-    }
-    return list;
+    return normalizedIds.flatMap((id) => widgetsById[id] || []);
   }, [widgetsById, normalizedIds]);
 
   return {
@@ -247,9 +207,8 @@ export function useResourceWidgets(
 }
 
 /**
- * 对外 Hook：从 agent state 里读取 artifact_ids
- * - 没有该字段 => 传 undefined，不触发重置
- * - 字段存在 (可为空数组) => 按值传递
+ * Public hook that reads artifact_ids from the agent's state
+ * and uses useArtifactWidgets to fetch and display them.
  */
 export function useWidgets() {
   const { state } = useCoAgent<AgentState>({ name: "dingent" });
@@ -258,5 +217,6 @@ export function useWidgets() {
       ? state.artifact_ids
       : undefined;
 
-  return useResourceWidgets(ids);
+  // Hook renamed for clarity
+  return useArtifactWidgets(ids);
 }

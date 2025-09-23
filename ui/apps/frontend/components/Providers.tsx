@@ -20,7 +20,7 @@ function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl="/api/v1/frontend/copilotkit"
       showDevConsole={false}
       agent="dingent"
       threadId={activeThreadId}

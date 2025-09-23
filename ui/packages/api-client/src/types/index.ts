@@ -17,6 +17,7 @@ export type AuthUser = {
   role: string[];
 };
 
+
 export type LogItem = {
   timestamp: string;
   level: "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL" | string;
@@ -132,4 +133,20 @@ export type MarketMetadata = {
 
 export type MarketDownloadRequest = { item_id: string; category: "plugin" | "assistant" | "workflow"; isUpdate: boolean; };
 export type MarketDownloadResponse = { success: boolean; message: string; installed_path?: string; };
+export interface DisplayItem {
+  type?: string;
+  title?: string;
+  columns?: string[];
+  rows?: unknown[];
+  content?: string;
+  [k: string]: unknown;
+}
+
+export type Artifact = {
+  version?: string;
+  display: DisplayItem[];
+  data?: unknown;
+  metadata?: unknown;
+  [k: string]: unknown;
+}
 

@@ -84,3 +84,4 @@ export * from "./ui/tooltip";
 export * from "./widgets/DataTableWidget";
 export * from "./widgets/MarkdownWidget";
 export * from "./layout/root-layout";
+export * from "./layout/types";
