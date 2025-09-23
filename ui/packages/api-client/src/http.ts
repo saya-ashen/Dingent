@@ -1,21 +1,20 @@
 import axios, { type AxiosInstance } from "axios";
 import type { ApiClientConfig } from "./config";
-import type { TokenStorage } from "./storage";
+import { useAuthStore } from "@repo/store";
 import { toApiError } from "./errors";
 
-export function createHttp(config: ApiClientConfig, tokenStore: TokenStorage): AxiosInstance {
+export function createHttp(config: ApiClientConfig): AxiosInstance {
   const instance = axios.create({
     baseURL: config.baseURL,
     timeout: config.timeoutMs ?? 120_000,
   });
 
-  instance.interceptors.request.use((req) => {
-    const token = tokenStore.get();
+  instance.interceptors.request.use((config) => {
+    const token = useAuthStore.getState().accessToken;
     if (token) {
-      req.headers = req.headers ?? {};
-      (req.headers as any).Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return req;
+    return config;
   });
 
   // Optional: unwrap and normalize errors to ApiError at a single place

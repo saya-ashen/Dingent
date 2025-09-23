@@ -1,14 +1,11 @@
 import type { AxiosInstance } from "axios";
-import type { LoginRequest, LoginResponse } from "./types";
-import type { TokenStorage } from "./storage";
+import type { LoginRequest, LoginResponse, AuthUser } from "./types";
+import { setAccessToken, setUser, resetAuth } from "@repo/store";
 
-export function createAuthApi(http: AxiosInstance, opts: {
-  authPath: string; // e.g. "/auth"
-  tokenStore: TokenStorage;
-  tokenKey?: string; // informational
-}) {
+
+export function createAuthApi(http: AxiosInstance, opts: { authPath: string; }) {
   return {
-    /** POST /auth/token (x-www-form-urlencoded) */
+    /** POST /auth/token */
     async login(credentials: LoginRequest): Promise<LoginResponse> {
       const params = new URLSearchParams();
       params.append("username", credentials.email);
@@ -20,16 +17,25 @@ export function createAuthApi(http: AxiosInstance, opts: {
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
       );
 
-      // persist token if present
-      if (data && (data as any).access_token) {
-        opts.tokenStore.set((data as any).access_token);
+      if (data?.access_token) {
+        setAccessToken(data.access_token);
+        // const userProfile = await this.getMe();
+        // setUser(userProfile);
       }
       return data;
     },
 
-    /** optional helper */
+    /** Call the store's reset action */
     logout() {
-      opts.tokenStore.set(null);
+      resetAuth();
     },
+
+    /** Example function to get the current user */
+    async getMe(): Promise<AuthUser> {
+      const { data } = await http.get<AuthUser>('/users/me');
+      // Update the user in the store
+      setUser(data);
+      return data;
+    }
   };
 }

@@ -4,7 +4,6 @@
  */
 
 export * from "./common/coming-soon";
-export * from "./common/command-menu";
 export * from "./common/config-drawer";
 export * from "./common/confirm-dialog";
 export * from "./common/date-picker";
@@ -51,8 +50,6 @@ export * from "./layout/main";
 export * from "./layout/nav-group";
 export * from "./layout/nav-user";
 export * from "./layout/top-nav";
-export * from "./layout/types";
-export * from "./layout/data/sidebar-data";
 export * from "./ui/accordion";
 export * from "./ui/alert-dialog";
 export * from "./ui/alert";
@@ -86,3 +83,4 @@ export * from "./ui/textarea";
 export * from "./ui/tooltip";
 export * from "./widgets/DataTableWidget";
 export * from "./widgets/MarkdownWidget";
+export * from "./layout/root-layout";

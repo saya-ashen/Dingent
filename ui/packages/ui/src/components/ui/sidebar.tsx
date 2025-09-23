@@ -1,8 +1,4 @@
 import React, {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
   SetStateAction,
   Dispatch,
 } from "react";
@@ -27,12 +23,7 @@ import {
 } from "@repo/ui/components";
 import { useSidebarState } from "@repo/ui/hooks/use-sidebar-state";
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH_MOBILE = "18rem";
-const SIDEBAR_KEYBOARD_SHORTCUT = "b";
-const SIDEBAR_WIDTH = "16rem";
-const SIDEBAR_WIDTH_ICON = "3rem";
 
 type SidebarContextProps = {
   state: "expanded" | "collapsed";
@@ -54,130 +45,6 @@ function useSidebar() {
   }
 
   return context;
-}
-
-function OldSidebarProvider({
-  defaultOpen = true,
-  open: openProp,
-  onOpenChange: setOpenProp,
-  className,
-  style,
-  children,
-  ...props
-}: React.ComponentPropsWithoutRef<"div"> & {
-  defaultOpen?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}) {
-  const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [openMobile, setOpenMobile] = useState<boolean>(false);
-  const [_open, _setOpen] = useState(defaultOpen);
-  const open = openProp ?? _open;
-  const [isMounted, setIsMounted] = useState(false); // Add this
-
-  useEffect(() => {
-    setIsMounted(true);
-    const cookieValue = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith(`${SIDEBAR_COOKIE_NAME}=`))
-      ?.split("=")[1];
-
-    if (cookieValue) {
-      _setOpen(cookieValue === "true");
-    }
-
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768); // Example breakpoint
-    };
-
-    handleResize(); // Check once on mount
-    window.addEventListener("resize", handleResize);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
-        event.preventDefault();
-
-        toggleSidebar();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  const setOpen = useCallback(
-    (value: SetStateAction<boolean>) => {
-      const openState = typeof value === "function" ? value(open) : value;
-      if (setOpenProp) {
-        setOpenProp(openState);
-      } else {
-        _setOpen(openState);
-      }
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
-    },
-    [setOpenProp, open],
-  );
-
-  const toggleSidebar = useCallback(() => {
-    return isMobile ? setOpenMobile((o) => !o) : setOpen((o) => !o);
-  }, [isMobile, setOpen, setOpenMobile]);
-
-  const state: "expanded" | "collapsed" = open ? "expanded" : "collapsed";
-
-  const contextValue = useMemo(
-    () => ({
-      state,
-      open,
-      setOpen,
-      isMounted,
-      isMobile,
-      openMobile,
-      setOpenMobile,
-      toggleSidebar,
-    }),
-    [
-      state,
-      open,
-      setOpen,
-      isMounted,
-      isMobile,
-      openMobile,
-      setOpenMobile,
-      toggleSidebar,
-    ],
-  );
-
-  // The rest of your JSX remains the same
-  return (
-    <SidebarContext.Provider value={contextValue}>
-      <TooltipProvider delayDuration={0}>
-        <div
-          data-slot="sidebar-wrapper"
-          style={
-            {
-              "--sidebar-width": SIDEBAR_WIDTH,
-              "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
-              ...style,
-            } as React.CSSProperties
-          }
-          className={cn(
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
-            className,
-          )}
-          {...props}
-        >
-          {children}
-        </div>
-      </TooltipProvider>
-    </SidebarContext.Provider>
-  );
 }
 
 function SidebarProvider({

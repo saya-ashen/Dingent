@@ -1,5 +1,4 @@
 import { createHttp } from "./http";
-import { createBrowserTokenStorage, createMemoryTokenStorage } from "./storage";
 import { createAuthApi } from "./auth";
 import { createDashboardApi } from "./dashboard";
 import type { ApiClientConfig } from "./config";
@@ -8,17 +7,12 @@ export * from "./types";
 
 
 export function createApiClient(cfg: ApiClientConfig) {
-  const tokenKey = cfg.tokenKey ?? "APP_AUTH_TOKEN";
+  const http = createHttp(cfg);
 
-  // SSR-safe storage: browser localStorage in client, memory in server
-  const tokenStore =
-    typeof window === "undefined"
-      ? createMemoryTokenStorage()
-      : createBrowserTokenStorage(tokenKey);
-  const http = createHttp(cfg, tokenStore);
-
+  // 2. Pass the http instance to your API modules.
+  //    No more tokenStore!
   return {
-    auth: createAuthApi(http, { authPath: "/auth", tokenStore: tokenStore }),
+    auth: createAuthApi(http, { authPath: "/auth" }),
     dashboard: createDashboardApi(http, "/dashboard"),
   };
 }

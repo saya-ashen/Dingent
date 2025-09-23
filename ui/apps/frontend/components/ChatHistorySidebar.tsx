@@ -4,36 +4,22 @@ import React from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Trash2, Plus } from "lucide-react";
 import { useThreadContext } from "@/contexts/ThreadProvider";
-
+import { Button, useSidebar, AppSidebar } from "@repo/ui/components"; // 引入 AppSidebar
 import {
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarSeparator,
-  SidebarRail,
-  Button,
-  useSidebar,
-} from "@repo/ui/components";
-
-// 与管理后台保持一致的用户展示组件与数据来源
-import { NavUser } from "@repo/ui/components";
+} from "@repo/ui/components"; // 引入需要的子组件
 
 export function ChatHistorySidebar() {
-  const { threads, activeThreadId, setActiveThreadId, deleteAllThreads } =
-    useThreadContext();
-
+  const { threads, activeThreadId, setActiveThreadId, deleteAllThreads } = useThreadContext();
   const { isMobile, setOpenMobile } = useSidebar();
 
   const handleNewChat = () => {
-    const newId = uuidv4();
-    setActiveThreadId(newId);
+    setActiveThreadId(uuidv4());
     if (isMobile) setOpenMobile(false);
   };
 
@@ -43,65 +29,52 @@ export function ChatHistorySidebar() {
   };
 
   const handleDeleteAll = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete all conversations? This action cannot be undone.",
-      )
-    ) {
+    if (window.confirm("Are you sure?")) {
       deleteAllThreads();
     }
   };
-  const user = {
-    name: "User",
-    email: "user@example.com",
-    avatar: "/avatars/placeholder.jpg", // A default avatar
-  };
+
+  // 定义独有的头部内容
+  const headerContent = (
+    <Button variant="outline" size="sm" onClick={handleNewChat} className="justify-start w-full">
+      <Plus className="mr-2 h-4 w-4" />
+      New Chat
+    </Button>
+  );
+
+  // 定义独有的底部内容
+  const footerContent = (
+    <Button
+      variant="ghost"
+      className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+      onClick={handleDeleteAll}
+    >
+      <Trash2 className="mr-2 h-4 w-4" />
+      Clear All Chats
+    </Button>
+  );
 
   return (
-    <Sidebar collapsible="icon" variant="inset">
-      <SidebarHeader className="gap-2">
-        <Button variant="outline" size="sm" onClick={handleNewChat} className="justify-start">
-          <Plus className="mr-2 h-4 w-4" />
-          New Chat
-        </Button>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>History</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {threads.map((thread: { id: string; title: string }) => (
-                <SidebarMenuItem key={thread.id}>
-                  <SidebarMenuButton
-                    isActive={thread.id === activeThreadId}
-                    onClick={() => handleSelectThread(thread.id)}
-                    tooltip={thread.title}
-                  >
-                    <span className="truncate">{thread.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-
-      <SidebarSeparator />
-
-      <SidebarFooter className="gap-2">
-        <Button
-          variant="ghost"
-          className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-          onClick={handleDeleteAll}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Clear All Chats
-        </Button>
-        <NavUser user={user} />
-      </SidebarFooter>
-
-      <SidebarRail />
-    </Sidebar>
+    <AppSidebar header={headerContent} footer={footerContent}>
+      {/* 这里是 children，也就是主要内容 */}
+      <SidebarGroup>
+        <SidebarGroupLabel>History</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {threads.map((thread: { id: string; title: string }) => (
+              <SidebarMenuItem key={thread.id}>
+                <SidebarMenuButton
+                  isActive={thread.id === activeThreadId}
+                  onClick={() => handleSelectThread(thread.id)}
+                  tooltip={thread.title}
+                >
+                  <span className="truncate">{thread.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </AppSidebar>
   );
 }

@@ -44,8 +44,7 @@ export function UserAuthForm({
   ...props
 }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { auth } = useAuthStore();
+  const { setUser, setAccessToken } = useAuthStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,8 +67,8 @@ export function UserAuthForm({
       success: (responseData) => {
         const { access_token, user } = responseData;
 
-        auth.setUser(user);
-        auth.setAccessToken(access_token);
+        setUser(user);
+        setAccessToken(access_token);
 
         setIsLoading(false);
 
