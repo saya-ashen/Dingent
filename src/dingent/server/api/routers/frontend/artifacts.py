@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Response
+from dingent.core.resource_manager import ResourceManager
 
 router = APIRouter()
 
@@ -6,7 +7,7 @@ router = APIRouter()
 @router.get("/artifacts/{artifact_id}")
 async def get_artifact(artifact_id: str, request: Request, with_model_text: bool = False):
     app_context = request.app.state.app_context
-    resource_manager = app_context.resource_manager
+    resource_manager: ResourceManager = app_context.resource_manager
     resource = resource_manager.get(artifact_id)
     if not resource:
         raise HTTPException(status_code=404, detail=f"Artifact {artifact_id} not found")

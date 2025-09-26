@@ -1,124 +1,128 @@
+from __future__ import annotations
+
 import pickle
-import sqlite3
 import uuid
-from pathlib import Path
+from datetime import datetime
+from typing import TYPE_CHECKING, Optional
 
-from dingent.core.log_manager import LogManager
+from sqlmodel import Field, SQLModel, Session, select, func, delete
 
-from .types import ToolResult
+from .types import ToolResult  # Assuming ToolResult is defined here
+
+if TYPE_CHECKING:
+    from dingent.core.database_manager import DatabaseManager
+    from dingent.core.log_manager import LogManager
+
+
+class Resource(SQLModel, table=True):
+    """
+    SQLModel representation of a stored resource in the database.
+    """
+
+    __tablename__ = "resources"
+
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
+    data: bytes
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        index=True,  # Indexing for faster sorting to find the oldest entry
+        nullable=False,
+    )
 
 
 class ResourceManager:
     """
-    使用 SQLite 存储 ToolResult（工具完整输出）的持久化资源管理器。
-    当达到最大容量时，会根据时间戳移除最旧的资源 (FIFO)。
+    Uses a shared synchronous SQLite connection via SQLModel to store ToolResult objects.
     """
 
-    def __init__(self, log_manager: LogManager, store_path: str | Path, max_size: int = 100):
+    def __init__(
+        self,
+        log_manager: LogManager,
+        db_manager: DatabaseManager,
+        max_size: int = 100,
+    ):
         self._log_manager = log_manager
+        self._db_manager = db_manager  # Injected dependency
         if not isinstance(max_size, int) or max_size <= 0:
             raise ValueError("max_size must be a positive integer.")
-
-        self.db_path = Path(store_path)
         self.max_size = max_size
 
-        # Ensure the directory for the database exists
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # `check_same_thread=False` is important for use in multi-threaded
-        # applications like web servers (e.g., FastAPI).
-        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        self._initialize_db()
+    def initialize(self):
+        """
+        Ensures the 'resources' table is created via the shared DatabaseManager.
+        Call this on startup.
+        """
+        # The DatabaseManager's init_db handles SQLModel.metadata.create_all()
+        self._db_manager.init_db()
         self._log_manager.log_with_context(
             "info",
-            "SqliteResourceManager initialized with DB at '{db_path}' and a maximum capacity of {max_size} resources.",
-            context={"db_path": self.db_path, "max_size": self.max_size},
+            "ResourceManager tables ensured via SQLModel.",
+            context={"max_size": self.max_size},
         )
-
-    def _initialize_db(self):
-        """Create the resources table if it doesn't exist."""
-        with self._conn:
-            self._conn.execute("""
-                CREATE TABLE IF NOT EXISTS resources (
-                    id TEXT PRIMARY KEY,
-                    data BLOB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
 
     def register(self, resource: ToolResult) -> str:
         """
-        序列化并存储一个新的资源，如果超出容量，则删除最旧的资源。
+        Serializes and stores a new resource, enforcing capacity.
         """
-        # 1. Check current size and enforce max_size (FIFO)
-        if len(self) >= self.max_size:
-            with self._conn:
-                cursor = self._conn.cursor()
-                # Find the oldest resource ID
-                cursor.execute("SELECT id FROM resources ORDER BY created_at ASC LIMIT 1")
-                oldest_id_tuple = cursor.fetchone()
-                if oldest_id_tuple:
-                    oldest_id = oldest_id_tuple[0]
-                    # Delete the oldest resource
-                    cursor.execute("DELETE FROM resources WHERE id = ?", (oldest_id,))
-                    self._log_manager.log_with_context("warning", "Capacity reached. Removed oldest resource.", context={"removed_resource_id": oldest_id})
+        serialized_resource = resource.to_json_bytes()
+        new_id = ""
 
-        # 2. Serialize the resource object and insert it
-        new_id = str(uuid.uuid4())
-        serialized_resource = pickle.dumps(resource)  # Use pickle to serialize the object
+        with self._db_manager.get_session() as session:
+            # 1. Enforce max_size by removing the oldest entry if full
+            current_size = session.exec(select(func.count(Resource.id))).one()
 
-        with self._conn:
-            self._conn.execute("INSERT INTO resources (id, data) VALUES (?, ?)", (new_id, serialized_resource))
+            if current_size >= self.max_size:
+                oldest_resource = session.exec(select(Resource).order_by(Resource.created_at).limit(1)).first()
+                if oldest_resource:
+                    oldest_id = oldest_resource.id
+                    session.delete(oldest_resource)
+                    self._log_manager.log_with_context(
+                        "warning",
+                        "Capacity reached. Removed oldest resource.",
+                        context={"removed_resource_id": oldest_id},
+                    )
 
-        current_size = len(self)
+            # 2. Insert the new resource
+            new_resource_obj = Resource(data=serialized_resource)
+            session.add(new_resource_obj)
+            session.commit()
+            session.refresh(new_resource_obj)  # Load the generated ID
+            new_id = new_resource_obj.id
+
+        # Logging outside the session/transaction
+        final_size = len(self)
         self._log_manager.log_with_context(
             "info",
-            "ToolResult registered to SQLite",
+            "ToolResult registered via SQLModel",
             context={
                 "resource_id": new_id,
-                "payload_count": len(resource.display),
-                "has_data": resource.data is not None,
-                "total_resources": current_size,
-                "capacity_used_percent": round((current_size / self.max_size) * 100, 2),
+                "total_resources": final_size,
+                "capacity_used_percent": round((final_size / self.max_size) * 100, 2),
             },
-            correlation_id=f"toolres_{new_id[:8]}",
         )
         return new_id
 
     def get(self, resource_id: str) -> ToolResult | None:
-        """通过 ID 从数据库中检索并反序列化资源。"""
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT data FROM resources WHERE id = ?", (resource_id,))
-        row = cursor.fetchone()
+        """Retrieves and deserializes a resource by its ID."""
+        with self._db_manager.get_session() as session:
+            # session.get() is the most efficient way to fetch by primary key
+            resource_model = session.get(Resource, resource_id)
 
-        if not row:
-            self._log_manager.log_with_context("warning", "Resource not found in SQLite database.", context={"resource_id": resource_id})
+        if not resource_model:
+            self._log_manager.log_with_context("warning", "Resource not found.", context={"resource_id": resource_id})
             return None
-
-        # Deserialize the object from BLOB data using pickle
-        return pickle.loads(row[0])
-
-    def get_model_text(self, resource_id: str) -> str | None:
-        """获取资源的 model_text 字段。"""
-        resource = self.get(resource_id)
-        return resource.model_text if resource else None
+        return ToolResult.from_json_bytes(resource_model.data)
 
     def clear(self) -> None:
-        """从数据库中删除所有资源。"""
-        with self._conn:
-            self._conn.execute("DELETE FROM resources")
-        self._log_manager.log_with_context("info", "All resources cleared from SQLite database.")
-
-    def close(self) -> None:
-        """关闭数据库连接。"""
-        self._conn.close()
-        self._log_manager.log_with_context("info", "SQLiteResourceManager database connection closed.")
+        """Deletes all resources."""
+        with self._db_manager.get_session() as session:
+            statement = delete(Resource)
+            session.exec(statement)
+            session.commit()
+        self._log_manager.log_with_context("info", "All resources cleared.")
 
     def __len__(self) -> int:
-        """返回数据库中当前存储的资源数量。"""
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT COUNT(id) FROM resources")
-        return cursor.fetchone()[0]
-
-    def __repr__(self) -> str:
-        return f"<SqliteResourceManager(db='{self.db_path}', current_size={len(self)}, max_size={self.max_size})>"
+        """Returns the current number of stored resources."""
+        with self._db_manager.get_session() as session:
+            count = session.exec(select(func.count(Resource.id))).one()
+        return count

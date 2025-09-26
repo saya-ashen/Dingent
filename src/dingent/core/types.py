@@ -47,7 +47,7 @@ class ToolResult(BaseModel):
     version: str = "1.0"
     model_text: str = Field(..., description="提供给 LLM 的简洁上下文文本")
     display: list[ToolDisplayPayload] = Field(default_factory=list, description="前端展示用 payload 列表")
-    data: Any | None = Field(None, description="原始/结构化数据")
+    data: dict | str | list | None = Field(None, description="原始/结构化数据")
     metadata: dict = Field(default_factory=dict, description="元信息")
 
     @classmethod
@@ -117,6 +117,21 @@ class ToolResult(BaseModel):
             model_text=str(obj),
             display=[MarkdownPayload(content=str(obj))],
         )
+
+    def to_json_bytes(self) -> bytes:
+        """
+        Safely serializes the model to a JSON byte string using Pydantic's built-in method.
+        """
+        # model_dump_json() handles the conversion of the entire object,
+        # including nested Pydantic models, into a JSON string.
+        return self.model_dump_json().encode("utf-8")
+
+    @classmethod
+    def from_json_bytes(cls, data: bytes) -> "ToolResult":
+        """
+        Safely deserializes a JSON byte string back into a ToolResult instance.
+        """
+        return cls.model_validate_json(data.decode("utf-8"))
 
 
 class PluginConfigSchema(BaseModel):

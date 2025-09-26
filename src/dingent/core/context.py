@@ -15,6 +15,10 @@ from .plugin_manager import PluginManager
 from .resource_manager import ResourceManager
 from .utils import find_project_root
 from .workflow_manager import WorkflowManager
+from .database_manager import DatabaseManager
+
+
+UNIFIED_DB_PATH = ".dingent/data/dingent.sqlite"
 
 
 class AppContext:
@@ -24,10 +28,11 @@ class AppContext:
         self.project_root = project_root or find_project_root()
         if not self.project_root:
             return
+        self.database_manager = DatabaseManager(self.project_root / UNIFIED_DB_PATH)
         # Initialize in order of dependency (least dependent first)
         self.log_manager = LogManager()
         self.config_manager = ConfigManager(self.project_root, self.log_manager)
-        self.resource_manager = ResourceManager(self.log_manager, self.project_root / ".dingent" / "data" / "resources.db")
+        self.resource_manager = ResourceManager(self.log_manager, self.database_manager)
         self.llm_manager = LLMManager(self.log_manager)
 
         self.analytics_manager = AnalyticsManager("test_project")
@@ -46,9 +51,27 @@ class AppContext:
         self.market_service = MarketService(self.config_manager.project_root, self.log_manager)
         self.graph_manager = GraphManager(self)
 
+    async def initialize_async_components(self):
+        """
+        Asynchronously initializes all components that require I/O.
+        This should be called once at application startup.
+        """
+        self.database_manager.connect()
+        self.resource_manager.initialize()
+        self.analytics_manager.register()
+        self.log_manager.log_with_context("info", "Application context and all async components initialized successfully.")
+
+    async def close_async_components(self):
+        """
+        Gracefully close all managers that require async cleanup.
+        """
+        await self.graph_manager.close_all()
+        await self.assistant_manager.aclose()
+        self.database_manager.close()
+        self.log_manager.log_with_context("info", "All async components closed.")
+
     async def close(self):
         """Close all managers that require cleanup."""
-        self.resource_manager.close()
         await self.assistant_manager.aclose()
 
 

@@ -10,9 +10,10 @@ async def base_lifespan(app: FastAPI):
     """The original, base lifespan for the application."""
     print("--- Application Startup (Base) ---")
     app.state.app_context = initialize_app_context()
+    await app.state.app_context.initialize_async_components()
     yield
     print("--- Application Shutdown (Base) ---")
-    await app.state.app_context.close()
+    await app.state.app_context.close_async_components()
 
 
 def create_app() -> FastAPI:
