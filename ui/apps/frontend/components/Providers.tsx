@@ -3,19 +3,17 @@
 import { useMemo } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { useAuthStore } from "@repo/store";
-import { useAuthInterceptor } from "@repo/store"; // Import the new hook
+import { useAuthInterceptor } from "@repo/store";
 import { ThreadProvider, useThreadContext } from "@/contexts/ThreadProvider";
 
-// A small inner component to connect CopilotKit with the ThreadProvider state
 function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
+  useAuthInterceptor()
   const { activeThreadId } = useThreadContext();
   const accessToken = useAuthStore((state) => state.accessToken);
 
   const headers = useMemo(() => ({
     Authorization: `Bearer ${accessToken || 'None'}`,
   }), [accessToken]);
-
-  // Call the interceptor hook here to activate it
 
   return (
     <CopilotKit

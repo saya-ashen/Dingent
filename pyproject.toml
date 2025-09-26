@@ -36,6 +36,7 @@ dependencies = [
   "fastapi[all]>=0.115.14",
   "passlib[bcrypt]>=1.7.4",
   "python-jose[cryptography]>=3.5.0",
+  "sqlmodel>=0.0.25",
 ]
 dev = [
   "ipython>=9.4.0",

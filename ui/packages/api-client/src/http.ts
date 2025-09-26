@@ -13,7 +13,6 @@ export function createHttp(config: ApiClientConfig): AxiosInstance {
 
   instance.interceptors.request.use((config) => {
     const token = useAuthStore.getState().accessToken;
-    console.log("tokenxxxxx", token)
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

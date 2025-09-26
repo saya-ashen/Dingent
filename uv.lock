@@ -514,6 +514,7 @@ dependencies = [
     { name = "psutil" },
     { name = "pydantic-settings" },
     { name = "python-jose", extra = ["cryptography"] },
+    { name = "sqlmodel" },
     { name = "toml" },
     { name = "tomlkit" },
     { name = "typer" },
@@ -551,6 +552,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "pydantic-settings", specifier = ">=2.4.0,<3.0.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
+    { name = "sqlmodel", specifier = ">=0.0.25" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tomlkit", specifier = ">=0.13.3" },
     { name = "typer", specifier = ">=0.16.0" },
@@ -2720,6 +2722,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f2/48/dbb2cc4e5bad88c89c7bb296e2d0a8df58aab9edc75853728c361eefc24f/sqlite_vec-0.1.6-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7b0519d9cd96164cd2e08e8eed225197f9cd2f0be82cb04567692a0a4be02da3", size = 103704, upload-time = "2024-11-20T16:40:33.729Z" },
     { url = "https://files.pythonhosted.org/packages/80/76/97f33b1a2446f6ae55e59b33869bed4eafaf59b7f4c662c8d9491b6a714a/sqlite_vec-0.1.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux1_x86_64.whl", hash = "sha256:823b0493add80d7fe82ab0fe25df7c0703f4752941aee1c7b2b02cec9656cb24", size = 151556, upload-time = "2024-11-20T16:40:35.387Z" },
     { url = "https://files.pythonhosted.org/packages/6a/98/e8bc58b178266eae2fcf4c9c7a8303a8d41164d781b32d71097924a6bebe/sqlite_vec-0.1.6-py3-none-win_amd64.whl", hash = "sha256:c65bcfd90fa2f41f9000052bcb8bb75d38240b2dae49225389eca6c3136d3f0c", size = 281540, upload-time = "2024-11-20T16:40:37.296Z" },
+]
+
+[[package]]
+name = "sqlmodel"
+version = "0.0.25"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ea/80/d9c098a88724ee4554907939cf39590cf67e10c6683723216e228d3315f7/sqlmodel-0.0.25.tar.gz", hash = "sha256:56548c2e645975b1ed94d6c53f0d13c85593f57926a575e2bf566650b2243fa4", size = 117075, upload-time = "2025-09-17T21:44:41.219Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/cf/5d175ce8de07fe694ec4e3d4d65c2dd06cc30f6c79599b31f9d2f6dd2830/sqlmodel-0.0.25-py3-none-any.whl", hash = "sha256:c98234cda701fb77e9dcbd81688c23bb251c13bb98ce1dd8d4adc467374d45b7", size = 28893, upload-time = "2025-09-17T21:44:39.764Z" },
 ]
 
 [[package]]
