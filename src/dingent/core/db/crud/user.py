@@ -1,5 +1,3 @@
-from ..auth.security import verify_password
-
 PROD_FAKE_USERS_DB = {
     "user@example.com": {
         "id": "user_123",
@@ -21,23 +19,9 @@ PROD_FAKE_USERS_DB = {
 }
 
 
-def get_user(db, username: str):
+def get_user(username: str):
     """Get user from fake database."""
-    if username in db:
-        user_dict = db[username]
+    if username in PROD_FAKE_USERS_DB:
+        user_dict = PROD_FAKE_USERS_DB[username]
         return user_dict
     return None
-
-
-def authenticate_user(username: str, password: str):
-    """
-    生产级别的用户认证函数
-    1. 从数据库获取用户
-    2. 验证密码哈希
-    """
-    user = get_user(PROD_FAKE_USERS_DB, username)
-    if not user:
-        return False
-    if not verify_password(password, user["hashed_password"]):
-        return False
-    return user
