@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import pickle
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
-from sqlmodel import Field, SQLModel, Session, select, func, delete
+from sqlmodel import Field, SQLModel, select, func, delete
 
-from .types import ToolResult  # Assuming ToolResult is defined here
+from .types import ToolResult
 
 if TYPE_CHECKING:
     from dingent.core.database_manager import DatabaseManager

@@ -37,6 +37,7 @@ dependencies = [
   "passlib[bcrypt]>=1.7.4",
   "python-jose[cryptography]>=3.5.0",
   "sqlmodel>=0.0.25",
+  "pycasbin>=2.2.0",
 ]
 dev = [
   "ipython>=9.4.0",

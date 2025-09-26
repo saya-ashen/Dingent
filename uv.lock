@@ -512,6 +512,7 @@ dependencies = [
     { name = "numpy" },
     { name = "passlib", extra = ["bcrypt"] },
     { name = "psutil" },
+    { name = "pycasbin" },
     { name = "pydantic-settings" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "sqlmodel" },
@@ -550,6 +551,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.3.0" },
     { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
     { name = "psutil", specifier = ">=7.0.0" },
+    { name = "pycasbin", specifier = ">=2.2.0" },
     { name = "pydantic-settings", specifier = ">=2.4.0,<3.0.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
     { name = "sqlmodel", specifier = ">=0.0.25" },
@@ -2146,6 +2148,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pycasbin"
+version = "2.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "simpleeval" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/74/10/3b0dba5846934d9902af88f48932be5044991beda5650a0535e388ff1f6e/pycasbin-2.2.0.tar.gz", hash = "sha256:01df7871359926948d01f383f2697674b2d0a2c6012fcd7f8da7a95627b05525", size = 427846, upload-time = "2025-08-24T02:27:11.227Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/95/618e6b3af2056d42116fe8a45ac908c22b87965fa7de9dc6ecd2703916ce/pycasbin-2.2.0-py3-none-any.whl", hash = "sha256:5abac262e7f9e082991d61d2bb050dfb6625de453621561fa1e8df34dc45cc77", size = 476647, upload-time = "2025-08-24T02:27:09.337Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "2.23"
 source = { registry = "https://pypi.org/simple" }
@@ -2663,6 +2677,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+]
+
+[[package]]
+name = "simpleeval"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/6f/15be211749430f52f2c8f0c69158a6fc961c03aac93fa28d44d1a6f5ebc7/simpleeval-1.0.3.tar.gz", hash = "sha256:67bbf246040ac3b57c29cf048657b9cf31d4e7b9d6659684daa08ca8f1e45829", size = 24358, upload-time = "2024-11-02T10:29:46.912Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/e9/e58082fbb8cecbb6fb4133033c40cc50c248b1a331582be3a0f39138d65b/simpleeval-1.0.3-py3-none-any.whl", hash = "sha256:e3bdbb8c82c26297c9a153902d0fd1858a6c3774bf53ff4f134788c3f2035c38", size = 15762, upload-time = "2024-11-02T10:29:45.706Z" },
 ]
 
 [[package]]
