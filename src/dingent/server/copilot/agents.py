@@ -1,6 +1,7 @@
 """
 CopilotKit agent implementations and extensions.
 """
+
 from typing import Any, cast
 from copilotkit import LangGraphAgent
 from copilotkit.langgraph import langchain_messages_to_copilotkit
@@ -12,7 +13,7 @@ class FixedLangGraphAgent(LangGraphAgent):
     Extended LangGraphAgent with fixes for thread state management.
     This is a HACK to work around issues in the base LangGraphAgent class.
     """
-    
+
     async def get_state(
         self,
         *,

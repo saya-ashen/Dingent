@@ -1,134 +1,39 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterable
-from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Any
+from collections.abc import Iterable
+from uuid import UUID
 
-from langchain_mcp_adapters.tools import load_mcp_tools
-from mcp.types import Tool
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
+from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant
 from dingent.core.log_manager import LogManager
 
-from .config_manager import ConfigManager
-from .plugin_manager import PluginInstance, PluginManager
-
-
-class RunnableTool(BaseModel):
-    tool: Tool
-    run: Callable[[dict], Any]
-
-
-class AssistantRuntime:
-    """
-    运行期 Assistant。
-    destinations: 当前活动 Workflow 中（经 workflow_manager.instantiate_workflow_assistants 构建后）
-                  此 Assistant 可直接到达的下游 Assistant 名称（或 ID）列表。
-                  单一活动 Workflow 场景下，可以直接覆盖。
-    """
-
-    def __init__(
-        self,
-        assistant_id: str,
-        name: str,
-        description: str,
-        plugin_instances: dict[str, PluginInstance],
-        log_method: Callable,
-    ):
-        self.id = assistant_id
-        self.name = name
-        self.description = description
-        self.plugin_instances = plugin_instances
-        self.destinations: list[str] = []
-        self._log_method = log_method
-
-    @classmethod
-    async def create(cls, plugin_manager: PluginManager, settings: Assistant, log_method: Callable) -> AssistantRuntime:
-        plugin_instances: dict[str, PluginInstance] = {}
-        enabled_plugins = [p.plugin for p in settings.plugin_links if p.enabled]
-        for pconf in enabled_plugins:
-            try:
-                inst = await plugin_manager.create_instance(pconf)
-                plugin_instances[pconf.plugin_id or pconf.plugin_id] = inst
-            except Exception as e:
-                log_method(
-                    "error",
-                    "Create plugin instance failed (assistant={name} plugin={pid}): {e}",
-                    context={"name": settings.name, "pid": getattr(pconf, "plugin_id", pconf.id), "e": e},
-                )
-                continue
-        return cls(settings.id, settings.name, settings.description or "", plugin_instances, log_method)
-
-    @asynccontextmanager
-    async def load_tools_langgraph(self):
-        """
-        返回 langgraph 期望的 tool 列表（普通 Tool 对象）。
-        """
-        tools: list = []
-        async with AsyncExitStack() as stack:
-            for inst in self.plugin_instances.values():
-                client = await stack.enter_async_context(inst.mcp_client)
-                session = client.session
-                _tools = await load_mcp_tools(session)
-                tools.extend(_tools)
-            yield tools
-
-    @asynccontextmanager
-    async def load_tools(self):
-        """
-        返回带可直接运行 run(arguments) 的 RunnableTool 列表。
-        """
-        runnable: list[RunnableTool] = []
-        async with AsyncExitStack() as stack:
-            for inst in self.plugin_instances.values():
-                client = await stack.enter_async_context(inst.mcp_client)
-                tools = await client.list_tools()
-                for t in tools:
-
-                    async def call_tool(arguments: dict, _client=client, _t=t):
-                        return await _client.call_tool(_t.name, arguments=arguments)
-
-                    runnable.append(RunnableTool(tool=t, run=call_tool))
-            yield runnable
-
-    async def aclose(self):
-        for inst in self.plugin_instances.values():
-            try:
-                await inst.aclose()
-            except Exception as e:
-                self._log_method("warning", "Error closing plugin instance (assistant={name}): {e}", context={"name": self.name, "e": e})
-        self.plugin_instances.clear()
+from .runtime.assistant import AssistantRuntime
+from .plugin_manager import PluginManager
 
 
 class AssistantManager:
     """
-    Assistant 运行期实例管理器（与 ConfigManager 解耦，仅消费其数据）：
-
-    - 负责按需（Lazy）创建 Assistant 实例（包含插件实例）。
-    - 订阅 ConfigManager 的 on_change 事件，自动感知配置变更：
-        * 删除的助手 -> 关闭并移除实例
-        * 修改的助手（配置 hash 变化）-> 关闭并重建（可配置策略）
-        * 新增的助手 -> 不主动创建（按需）
-    - 提供 rebuild() 进行全量重建。
-    - 提供 refresh_settings() 仅刷新配置映射，不影响现有实例（除非原配置已不存在）。
+    This is the orchestrator. Its job is to build a complete, functional product (a running AssistantRuntime)
+    When asked to build an AssistantRuntime, it reads the main blueprint (Assistant and its AssistantPluginLinks) from the database.
+    It sees that the blueprint requires several specialized parts (the plugins). It then turns to the PluginManager (the specialist) and says, "Here are the instructions (AssistantPluginLink), build me one of these."
+    It collects all the running parts from the PluginManager, assembles them into the final AssistantRuntime, and keeps track of it while it's active.
+    It never writes to the database. It only reads instructions and manages the in-memory, running state.
     """
 
     def __init__(
         self,
-        config_manager: ConfigManager,
+        session: Session,
+        user_id: UUID,
         plugin_manager: PluginManager,
         log_manager: LogManager,
-        *,
-        auto_recreate_on_change: bool = True,
-        compare_plugins_only: bool = False,
     ):
         """
         auto_recreate_on_change: True 则当 assistant 配置有变化时（基于 hash 比较）自动重建实例
         compare_plugins_only: True 则仅当插件相关配置变化时才重建（忽略描述、名称变更）
         """
-        self._config_manager = config_manager
         self._plugin_manager = plugin_manager
         self._log_manager = log_manager
 
@@ -137,19 +42,10 @@ class AssistantManager:
         self._settings_hash: dict[str, str] = {}
 
         self._lock = asyncio.Lock()
-        self._auto_recreate = auto_recreate_on_change
-        self._compare_plugins_only = compare_plugins_only
-
-        self._load_settings_initial()
-        self._config_manager.register_on_change(self._on_config_change)
 
     # ------------------------------------------------------------------ #
     # Internal helpers
     # ------------------------------------------------------------------ #
-    def _load_settings_initial(self):
-        settings_list = self._config_manager.list_assistants()
-        self._settings_map = {s.id: s for s in settings_list}
-        self._settings_hash = {s.id: self._hash_settings(s) for s in settings_list}
 
     async def _build_assistant_instance(self, settings: Assistant) -> AssistantRuntime:
         return await AssistantRuntime.create(self._plugin_manager, settings, self._log_manager.log_with_context)
@@ -213,16 +109,6 @@ class AssistantManager:
                     except Exception as e:
                         self._log_manager.log_with_context("error", "Preload assistant '{name}' failed: {e}", context={"name": s.name, "e": e})
 
-    async def rebuild(self):
-        """
-        全量重建：关闭所有已加载实例，重新读取全部 settings，并保持 lazy。
-        （如果希望全部立即创建，可以 rebuild() 后再调用 preload()）
-        """
-        async with self._lock:
-            await self._close_all_locked()
-            self._load_settings_initial()
-            self._log_manager.log_with_context("info", "AssistantManager rebuild completed. assistants={count}", context={"count": len(self._settings_map)})
-
     async def close_assistant(self, assistant_id: str) -> bool:
         """
         主动关闭某个实例（不会删除配置），下次访问时会重新创建。
@@ -237,17 +123,11 @@ class AssistantManager:
                 self._log_manager.log_with_context("warning", "Error closing assistant '{id}': {e}", context={"id": assistant_id, "e": e})
             return True
 
-    async def aclose(self):
+    async def refresh_settings(self, session: Session):
+        result = session.exec(select(Assistant)).all()
         async with self._lock:
-            await self._close_all_locked()
-
-    async def _close_all_locked(self):
-        for inst in self._assistants.values():
-            try:
-                await inst.aclose()
-            except Exception as e:
-                self._log_manager.log_with_context("warning", "Error closing assistant '{name}': {e}", context={"name": inst.name, "e": e})
-        self._assistants.clear()
+            # TODO: 存储配置的hash，如果配置发生更改，就更新Assistant
+            self._settings_map = {str(a.id): a for a in result}
 
     # ------------------------------------------------------------------ #
     # Destinations Mutation (供 WorkflowManager 调用)
@@ -266,21 +146,3 @@ class AssistantManager:
                 untouched = set(self._assistants.keys()) - set(mapping.keys())
                 for aid in untouched:
                     self._assistants[aid].destinations = []
-
-    # ------------------------------------------------------------------ #
-    # Exposed Queries for UI / API
-    # ------------------------------------------------------------------ #
-    def list_assistant_settings(self, *, only_enabled: bool = False) -> list[Assistant]:
-        """
-        返回当前缓存的 settings 副本（不访问磁盘）。
-        """
-        result = []
-        for s in self._settings_map.values():
-            if only_enabled and not s.enabled:
-                continue
-            result.append(s.model_copy(deep=True))
-        return result
-
-    def get_assistant_settings(self, assistant_id: str) -> Assistant | None:
-        s = self._settings_map.get(assistant_id)
-        return s.model_copy(deep=True) if s else None

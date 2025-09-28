@@ -4,7 +4,7 @@ from pathlib import Path
 from sqlmodel import SQLModel, create_engine, Session
 
 
-class DatabaseManager:
+class _DatabaseManager:
     """
     Manages a single, shared, synchronous SQLite connection for the entire application.
     """

@@ -3,8 +3,6 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from dingent.core.config_manager import ConfigManager
-from dingent.core.log_manager import LogManager
 from dingent.core.utils import find_project_root
 
 if TYPE_CHECKING:
@@ -17,13 +15,6 @@ class CliContext:
         The __init__ method is now empty. All properties are loaded lazily
         when they are first accessed.
         """
-
-    @cached_property
-    def config_manager(self) -> "ConfigManager":
-        """Lazily gets the config_manager from the app_context."""
-        log_manager = LogManager()
-        config_manager = ConfigManager(self.project_root, log_manager)
-        return config_manager
 
     @cached_property
     def _config(self) -> "AppSettings":

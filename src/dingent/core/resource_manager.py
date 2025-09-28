@@ -1,127 +1,100 @@
 from __future__ import annotations
 
-import uuid
-from datetime import datetime
 from typing import TYPE_CHECKING
+from uuid import UUID
 
-from sqlmodel import Field, SQLModel, select, func, delete
+from sqlmodel import Session, asc, select, func, delete
 
-from .types import ToolResult
+from dingent.core.db.models import Resource
+
 
 if TYPE_CHECKING:
-    from dingent.core.database_manager import DatabaseManager
     from dingent.core.log_manager import LogManager
 
 
-class Resource(SQLModel, table=True):
-    """
-    SQLModel representation of a stored resource in the database.
-    """
-
-    __tablename__ = "resources"
-
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    data: bytes
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        index=True,  # Indexing for faster sorting to find the oldest entry
-        nullable=False,
-    )
+def get_oldest_record(session: Session, model):
+    statement = select(model).order_by(asc(model.created_at)).limit(1)
+    result = session.exec(statement).first()
+    return result
 
 
 class ResourceManager:
     """
-    Uses a shared synchronous SQLite connection via SQLModel to store ToolResult objects.
+    Manages the persistence of Resource objects in the database.
+    It handles its own database sessions via a provided session factory.
     """
 
     def __init__(
         self,
         log_manager: LogManager,
-        db_manager: DatabaseManager,
-        max_size: int = 100,
+        max_size: int = 1000,
     ):
+        """
+        Initializes the ResourceManager.
+
+        Args:
+            db_session_factory: A function that provides a database session context manager.
+            log_manager: The logger instance.
+            max_size: The maximum number of resources to store.
+        """
         self._log_manager = log_manager
-        self._db_manager = db_manager  # Injected dependency
         if not isinstance(max_size, int) or max_size <= 0:
             raise ValueError("max_size must be a positive integer.")
         self.max_size = max_size
 
-    def initialize(self):
+    def create(self, resource: Resource, session: Session) -> Resource:
         """
-        Ensures the 'resources' table is created via the shared DatabaseManager.
-        Call this on startup.
+        Saves a new Resource object to the database, enforcing capacity.
+        The incoming 'resource' object is expected to be fully populated by the business logic layer.
+
+        Args:
+            resource: The Resource object to save.
+
+        Returns:
+            The saved Resource object, now with its database-generated ID.
         """
-        # The DatabaseManager's init_db handles SQLModel.metadata.create_all()
-        self._db_manager.init_db()
+        statement = select(func.count()).select_from(Resource)
+        current_size = session.exec(statement).one()
+
+        if current_size >= self.max_size:
+            oldest_resource = get_oldest_record(session, Resource)
+            if oldest_resource:
+                self._log_manager.log_with_context(
+                    "warning",
+                    "Resource capacity reached. Removing oldest resource.",
+                    context={"removed_resource_id": oldest_resource.id},
+                )
+                session.delete(oldest_resource)
+                session.commit()  # Commit the deletion before adding the new one
+
+        session.add(resource)
+        session.commit()
+        session.refresh(resource)  # Load the generated ID and other defaults
+
         self._log_manager.log_with_context(
             "info",
-            "ResourceManager tables ensured via SQLModel.",
-            context={"max_size": self.max_size},
+            "Resource registered in DB",
+            context={"resource_id": resource.id, "user_id": resource.user_id},
         )
+        return resource
 
-    def register(self, resource: ToolResult) -> str:
+    def get_by_id(self, resource_id: UUID, session: Session) -> Resource | None:
         """
-        Serializes and stores a new resource, enforcing capacity.
+        Retrieves a resource by its ID.
+
+        Args:
+            resource_id: The UUID of the resource to retrieve.
+
+        Returns:
+            The Resource object if found, otherwise None.
         """
-        serialized_resource = resource.to_json_bytes()
-        new_id = ""
+        resource = session.get(Resource, resource_id)
+        if not resource:
+            self._log_manager.log_with_context("warning", "Resource not found in DB.", context={"resource_id": resource_id})
+        return resource
 
-        with self._db_manager.get_session() as session:
-            # 1. Enforce max_size by removing the oldest entry if full
-            current_size = session.exec(select(func.count(Resource.id))).one()
-
-            if current_size >= self.max_size:
-                oldest_resource = session.exec(select(Resource).order_by(Resource.created_at).limit(1)).first()
-                if oldest_resource:
-                    oldest_id = oldest_resource.id
-                    session.delete(oldest_resource)
-                    self._log_manager.log_with_context(
-                        "warning",
-                        "Capacity reached. Removed oldest resource.",
-                        context={"removed_resource_id": oldest_id},
-                    )
-
-            # 2. Insert the new resource
-            new_resource_obj = Resource(data=serialized_resource)
-            session.add(new_resource_obj)
-            session.commit()
-            session.refresh(new_resource_obj)  # Load the generated ID
-            new_id = new_resource_obj.id
-
-        # Logging outside the session/transaction
-        final_size = len(self)
-        self._log_manager.log_with_context(
-            "info",
-            "ToolResult registered via SQLModel",
-            context={
-                "resource_id": new_id,
-                "total_resources": final_size,
-                "capacity_used_percent": round((final_size / self.max_size) * 100, 2),
-            },
-        )
-        return new_id
-
-    def get(self, resource_id: str) -> ToolResult | None:
-        """Retrieves and deserializes a resource by its ID."""
-        with self._db_manager.get_session() as session:
-            # session.get() is the most efficient way to fetch by primary key
-            resource_model = session.get(Resource, resource_id)
-
-        if not resource_model:
-            self._log_manager.log_with_context("warning", "Resource not found.", context={"resource_id": resource_id})
-            return None
-        return ToolResult.from_json_bytes(resource_model.data)
-
-    def clear(self) -> None:
-        """Deletes all resources."""
-        with self._db_manager.get_session() as session:
-            statement = delete(Resource)
-            session.exec(statement)
-            session.commit()
-        self._log_manager.log_with_context("info", "All resources cleared.")
-
-    def __len__(self) -> int:
-        """Returns the current number of stored resources."""
-        with self._db_manager.get_session() as session:
-            count = session.exec(select(func.count(Resource.id))).one()
-        return count
+    def clear(self, session: Session) -> None:
+        """Deletes all resources from the database."""
+        session.exec(delete(Resource))
+        session.commit()
+        self._log_manager.log_with_context("info", "All resources cleared from DB.")

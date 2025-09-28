@@ -4,8 +4,21 @@ from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID, uuid4
 
+from pydantic import BaseModel
 from sqlalchemy import Column, JSON, Text
 from sqlmodel import Field, Relationship, SQLModel
+
+
+class ToolOverrideConfig(BaseModel):
+    """
+    定义存储在数据库 JSON 字段中的单个工具覆盖配置的结构。
+    这不是一个数据库表模型。
+    """
+
+    name: str = Field(..., description="要配置的工具的唯一名称")
+    enabled: bool = Field(True, description="此 Assistant 是否启用该工具")
+    description: str | None = Field(None, description="可选的、为此 Assistant 定制的工具描述")
+    # 未来可以扩展更多可覆盖的字段
 
 
 # --- 用户与所有权模型 ---
@@ -40,10 +53,14 @@ class AssistantPluginLink(SQLModel, table=True):
     plugin_id: UUID = Field(foreign_key="plugin.id", primary_key=True)
 
     enabled: bool = True
-    tools_default_enabled: bool = True
+    # tools_default_enabled: bool = True
 
-    # 更明确的 JSON 类型注解，更利于静态检查
-    tools_override: Optional[List[dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
+    # --- 针对单个工具的覆盖配置 ---
+    # 存储一个列表，每个元素都是一个符合 ToolOverrideConfig 结构的字典
+    # 例如: [{"name": "get_weather", "enabled": false}, {"name": "send_email", "description": "Send email on behalf of the user"}]
+    tool_configs: List[ToolOverrideConfig] = Field(default=None, sa_column=Column(JSON), description="用户对该插件下特定工具的覆盖配置列表")
+
+    # --- 用户为插件提供的配置值 (如 API Keys) ---
     user_config_values: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
     # 双向关系（注意 back_populates 名称需与目标模型中的属性名对应）
@@ -60,6 +77,7 @@ class Assistant(SQLModel, table=True):
     name: str
     description: Optional[str] = None
     version: str = "0.2.0"
+    spec_version: str = "3.0"
     enabled: bool = True
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -181,7 +199,7 @@ class Resource(SQLModel, table=True):
     model_text: str = Field(sa_column=Column(Text))
 
     display: Optional[List[dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
-    data: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    data: dict | str | list | None = Field(default=None, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 

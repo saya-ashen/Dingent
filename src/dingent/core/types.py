@@ -29,7 +29,6 @@ class TablePayload(ToolDisplayPayloadBase):
     title: str = ""
 
 
-# 未来可扩展: ImagePayload / CodePayload / ChartPayload 等
 ToolDisplayPayload = MarkdownPayload | TablePayload
 
 
@@ -134,35 +133,6 @@ class ToolResult(BaseModel):
         return cls.model_validate_json(data.decode("utf-8"))
 
 
-class PluginConfigSchema(BaseModel):
-    name: str = Field(..., description="配置项的名称 (环境变量名)")
-    type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
-    required: bool = Field(..., description="是否为必需项")
-    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
-    description: str | None = Field(None, description="该配置项的描述")
-    default: Any | None = Field(None, description="默认值 (如果存在)")
-
-
-class ConfigItemDetail(PluginConfigSchema):
-    """Represents a single configuration item with its schema and value."""
-
-    value: Any | None = Field(None, description="用户设置的当前值")
-
-
-class ToolOverrideConfig(BaseModel):
-    name: str
-    enabled: bool = True
-    description: str | None = None
-
-
-class PluginUserConfig(BaseModel):
-    plugin_id: str
-    tools_default_enabled: bool = True
-    enabled: bool = True
-    tools: list[ToolOverrideConfig] | None = None
-    config: dict | None = None
-
-
 class ExecutionModel(BaseModel):
     mode: Literal["local", "remote"] = Field(..., description="运行模式: 'local' 或 'remote'")
     url: str | None = None
@@ -176,82 +146,6 @@ class ExecutionModel(BaseModel):
 
 class ToolConfigModel(BaseModel):
     schema_path: FilePath = Field(..., description="指向一个包含用户配置Pydantic类的Python文件")
-
-
-class AssistantBase(BaseModel):
-    id: str = Field(..., description="The unique and permanent ID for the assistant.")
-    name: str = Field(..., description="The display name of the assistant.")
-    description: str
-    version: str | float = Field("0.2.0", description="Assistant version.")
-    spec_version: str | float = Field("2.0", description="Specification version.")
-    enabled: bool = Field(True, description="Enable or disable the assistant.")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_and_generate_id(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            # Step 1: Determine the source for the "display name".
-            # It prioritizes 'display_name' and falls back to 'name' for compatibility.
-            source_for_display_name = data.get("display_name") or data.get("name")
-
-            if source_for_display_name:
-                # The final value is assigned to the 'name' field for consistent access.
-                data["name"] = source_for_display_name
-
-            # Step 2: If an 'id' is not provided, generate a deterministic one.
-            if "id" not in data and source_for_display_name:
-                data["id"] = generate_id_from_name(source_for_display_name)
-
-        return data
-
-
-class AssistantCreate(AssistantBase):
-    pass
-
-
-class AssistantUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    plugins: list[PluginUserConfig] | None = None
-    version: str | float | None = None
-    spec_version: str | float | None = None
-    enabled: bool | None = None
-
-
-def generate_id_from_name(display_name: str) -> str:
-    """根据显示名称生成一个唯一的、机器友好的ID (Slugify)"""
-    s = display_name.lower()
-    s = re.sub(r"[^\w\s-]", "", s)
-    s = re.sub(r"[-\s]+", "-", s).strip("-")
-    return s
-
-
-class PluginBase(BaseModel):
-    id: str = Field(..., description="插件的唯一永久ID")
-
-    # 在我们的代码中，我们始终通过 .name 来访问显示名称
-    name: str = Field(..., description="插件的显示名称")
-
-    description: str = Field(..., description="插件描述")
-    version: str | float = Field("0.1.0", description="插件版本")
-
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_and_generate_id(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            # 步骤 1: 确定用于“显示名称”的源数据
-            # 优先使用新的 'display_name' 字段，如果不存在，则回退到旧的 'name' 字段
-            source_for_display_name = data.get("display_name") or data.get("name")
-
-            if source_for_display_name:
-                # 无论源是哪个，都统一赋值给模型将要解析的 'name' 字段
-                data["name"] = source_for_display_name
-
-            # 步骤 2: 如果 'id' 缺失，则根据“显示名称”的源数据生成它
-            if "id" not in data and source_for_display_name:
-                data["id"] = generate_id_from_name(source_for_display_name)
-
-        return data
 
 
 class WorkflowNodeData(BaseModel):

@@ -6,25 +6,24 @@ from datetime import UTC, datetime
 from pathlib import Path
 from threading import RLock
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from pydantic import ValidationError
+from sqlmodel import Session, select
 
-from dingent.core.config_manager import ConfigManager
+from dingent.core.db.models import Workflow
 from dingent.core.log_manager import LogManager
 from dingent.core.settings import AppSettings
 from dingent.core.types import (
-    Workflow,
     WorkflowCreate,
     WorkflowUpdate,
 )
+
 
 if TYPE_CHECKING:
     from dingent.core.assistant_manager import AssistantManager
 
     from .assistant_manager import Assistant
-
-
-WorkflowChangeCallback = Callable[[str, str, Workflow | None], None]
 
 
 class WorkflowManager:
@@ -41,48 +40,29 @@ class WorkflowManager:
 
     def __init__(
         self,
-        config_manager: ConfigManager,
+        user_id: UUID,
+        session: Session,
         log_manager: LogManager,
         assistant_manager: AssistantManager | None = None,
-        workflows_dir: Path | None = None,
-        auto_set_active_if_missing: bool = True,
     ):
-        self.config_manager = config_manager
         self.assistant_manager = assistant_manager  # may be None if only doing CRUD
         self.log_manager = log_manager
-        self._dir = workflows_dir or (config_manager.project_root / "config" / "workflows")
         self._lock = RLock()
 
-        self._workflows: dict[str, Workflow] = {}
         self._active_workflow_id: str | None = None
-        self._callbacks: list[WorkflowChangeCallback] = []
 
-        self._load_all_from_disk()
-
-        # Sync active workflow from config
-        settings = self.config_manager.get_settings()
-        if settings.current_workflow and settings.current_workflow in self._workflows:
-            self._active_workflow_id = settings.current_workflow
-        elif auto_set_active_if_missing and self._workflows:
-            first_id = next(iter(self._workflows.keys()))
-            self._active_workflow_id = first_id
-            self._persist_active_workflow_id(first_id)
-
-        # Register callback to handle assistant deletions
-        self.config_manager.register_on_change(self._on_config_change)
-
-        self.log_manager.log_with_context(
-            "info",
-            "WorkflowManager initialized.",
-            context={"workflow_count": len(self._workflows), "active_workflow_id": self._active_workflow_id, "workflows_dir": str(self._dir)},
-        )
+        # self.log_manager.log_with_context(
+        #     "info",
+        #     "WorkflowManager initialized.",
+        #     context={"workflow_count": len(self._workflows), "active_workflow_id": self._active_workflow_id, "workflows_dir": str(self._dir)},
+        # )
 
     # -----------------------------------------------------------------------
     # Public Query APIs
     # -----------------------------------------------------------------------
-    def list_workflows(self) -> list[Workflow]:
-        with self._lock:
-            return [wf.model_copy(deep=True) for wf in self._workflows.values()]
+    def list_workflows(self, user) -> list[Workflow]:
+        statement = select(Workflow).where(Workflow.user_id == self.user_id)
+        return self.session.exec(statement).all()
 
     def get_workflow(self, workflow_id: str) -> Workflow | None:
         with self._lock:
@@ -336,20 +316,6 @@ class WorkflowManager:
             self._emit_change("reloaded", "*", None)
 
     # -----------------------------------------------------------------------
-    # Reload (disk -> memory)
-    # -----------------------------------------------------------------------
-    def reload_from_disk(self) -> None:
-        with self._lock:
-            self._load_all_from_disk()
-            # Ensure active still valid
-            if self._active_workflow_id and self._active_workflow_id not in self._workflows:
-                old_id = self._active_workflow_id
-                self._active_workflow_id = None
-                self._persist_active_workflow_id(None)
-                self._emit_change("deactivated", old_id, None)
-            self._emit_change("reloaded", "*", None)
-
-    # -----------------------------------------------------------------------
     # Graph Utilities
     # -----------------------------------------------------------------------
     def build_adjacency(
@@ -454,69 +420,6 @@ class WorkflowManager:
             self.set_active(workflow_id)
 
         return result
-
-    # -----------------------------------------------------------------------
-    # Change Event Subscription
-    # -----------------------------------------------------------------------
-    def register_callback(self, cb: WorkflowChangeCallback) -> None:
-        with self._lock:
-            if cb not in self._callbacks:
-                self._callbacks.append(cb)
-
-    def unregister_callback(self, cb: WorkflowChangeCallback) -> None:
-        with self._lock:
-            if cb in self._callbacks:
-                self._callbacks.remove(cb)
-
-    # -----------------------------------------------------------------------
-    # Internal: Disk I/O
-    # -----------------------------------------------------------------------
-    def _load_all_from_disk(self) -> None:
-        self._workflows.clear()
-        if not self._dir.exists():
-            return
-        for file in self._dir.glob("*.json"):
-            try:
-                wf = self._load_single_file(file)
-                if wf:
-                    self._workflows[wf.id] = wf
-            except Exception as e:
-                self.log_manager.log_with_context("error", "Failed loading workflow file", context={"file": str(file), "error": str(e)})
-
-    def _load_single_file(self, path: Path) -> Workflow | None:
-        with path.open("r", encoding="utf-8") as f:
-            raw = json.load(f)
-        try:
-            wf = Workflow.model_validate(raw)
-            return wf
-        except ValidationError as e:
-            self.log_manager.log_with_context("error", "Invalid workflow file", context={"file": str(path), "error": str(e)})
-            return None
-
-    def _write_workflow_file(self, wf: Workflow) -> None:
-        self._dir.mkdir(parents=True, exist_ok=True)
-        path = self._dir / f"{wf.id}.json"
-        tmp_path = path.with_suffix(".json.tmp")
-        data = wf.model_dump()
-        try:
-            tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-            tmp_path.replace(path)
-        except Exception as e:
-            self.log_manager.log_with_context("error", "Failed to write workflow file", context={"file": str(path), "error": str(e)})
-            if tmp_path.exists():
-                try:
-                    tmp_path.unlink()
-                except Exception:
-                    pass
-            raise
-
-    def _delete_workflow_file(self, workflow_id: str) -> None:
-        path = self._dir / f"{workflow_id}.json"
-        if path.exists():
-            try:
-                path.unlink()
-            except Exception as e:
-                self.log_manager.log_with_context("error", "Failed to delete workflow file", context={"file": str(path), "error": str(e)})
 
     # -----------------------------------------------------------------------
     # Internal: Events

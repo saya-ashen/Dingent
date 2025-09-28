@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
 
-from .types import AssistantBase, PluginUserConfig, Workflow
+from .types import Workflow
 from .utils import find_project_root
 
 
@@ -36,11 +36,6 @@ class TomlConfigSettingsSource(PydanticBaseSettingsSource):
         return tomlkit.loads(self.toml_path.read_text()).unwrap()
 
 
-class AssistantSettings(AssistantBase):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique identifier for the assistant.")
-    plugins: list[PluginUserConfig] = []
-
-
 class LLMSettings(BaseModel):
     model: str = Field("gpt-4.1", description="LLM model name.")
     provider: str | None = Field(None, description="Provider name.")
@@ -49,9 +44,6 @@ class LLMSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
-    model_config = ConfigDict(env_prefix="DINGENT_", populate_by_name=True, extra="ignore")
-    assistants: list[AssistantSettings] = []
-    llm: LLMSettings = LLMSettings()
     backend_port: int = 8000
     frontend_port: int = 3000
     workflows: list[Workflow] = Field(default_factory=list, description="All workflows cached in settings")

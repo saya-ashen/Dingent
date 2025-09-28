@@ -15,7 +15,6 @@ from .plugin_manager import PluginManager
 from .resource_manager import ResourceManager
 from .utils import find_project_root
 from .workflow_manager import WorkflowManager
-from .database_manager import DatabaseManager
 
 
 UNIFIED_DB_PATH = ".dingent/data/dingent.sqlite"
@@ -28,11 +27,10 @@ class AppContext:
         self.project_root = project_root or find_project_root()
         if not self.project_root:
             return
-        self.database_manager = DatabaseManager(self.project_root / UNIFIED_DB_PATH)
         # Initialize in order of dependency (least dependent first)
         self.log_manager = LogManager()
         self.config_manager = ConfigManager(self.project_root, self.log_manager)
-        self.resource_manager = ResourceManager(self.log_manager, self.database_manager)
+        self.resource_manager = ResourceManager(self.log_manager)
         self.llm_manager = LLMManager(self.log_manager)
 
         self.analytics_manager = AnalyticsManager("test_project")
