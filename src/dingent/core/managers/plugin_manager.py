@@ -12,15 +12,12 @@ from mcp.types import TextContent
 from pydantic import BaseModel, Field, SecretStr, create_model
 
 from dingent.core.db.models import AssistantPluginLink, Resource
-from dingent.core.log_manager import LogManager
 from dingent.core.runtime.plugin import PluginRuntime
-from .schemas import PluginManifest
+from dingent.core.schemas import PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry
+from dingent.core.types import ToolResult
 
 from .resource_manager import ResourceManager
-from .types import (
-    ToolResult,
-)
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 
@@ -30,8 +27,10 @@ class ResourceMiddleware(Middleware):
     拦截工具调用结果，标准化为 ToolResult，并存储，仅向模型暴露最小必要文本。
     """
 
-    def __init__(self, resource_manager: ResourceManager, log_method: Callable):
+    def __init__(self, session: Session, user_id: UUID, resource_manager: ResourceManager, log_method: Callable):
         super().__init__()
+        self.user_id = user_id
+        self.session = session
         self.resource_manager = resource_manager
         self.log_with_context = log_method
 
@@ -69,13 +68,13 @@ class ResourceMiddleware(Middleware):
 
         # 4. 注册资源
         resource_to_save = Resource(
-            user_id=current_user_id,
+            user_id=self.user_id,
             model_text=tool_result.model_text,
             display=[p.model_dump() for p in tool_result.display],
             data=tool_result.data,
             version=tool_result.version,
         )
-        artifact_id = str(self.resource_manager.create(resource_to_save).id)
+        artifact_id = str(self.resource_manager.create(resource_to_save, self.session).id)
 
         # 5. 构建最小结构，喂给模型的文本直接用 model_text
         minimal_struct = {
@@ -134,16 +133,15 @@ class PluginManager:
 
     def __init__(
         self,
+        session: Session,
         user_id: UUID,
         plugin_registry: PluginRegistry,
         resource_manager: ResourceManager,
-        session: Session,
-        log_manager: LogManager,
+        log_manager,
     ):
         self.log_manager = log_manager
-        self.log_manager.log_with_context("info", "PluginManager initialized with plugin directory: {dir}", context={"dir": str(self.plugin_dir)})
         self.registry = plugin_registry
-        self.middleware = ResourceMiddleware(resource_manager, self.log_manager.log_with_context)
+        self.middleware = ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
 
     def list_visible_plugins(self) -> list[PluginManifest]:
         """
@@ -151,35 +149,27 @@ class PluginManager:
         the current user's permissions.
         """
         all_plugins = self.registry.get_all_manifests()
+        return []
 
-        # Example permission logic
-        if self.user.is_admin:
-            return all_plugins  # Admins see everything
-
-        # Regular users only see non-admin plugins
-        return [p for p in all_plugins if not p.admin_only]
-
-    async def create_instance(self, link: AssistantPluginLink):
-        plugin_id = str(link.plugin_id)
-        manifest = self.registry.find_manifest(plugin_id)
-        if not manifest:
-            raise ValueError(f"Plugin '{plugin_id}' is not registered or failed to load.")
-        return await manifest.create_instance(
-            link,
-            self.log_manager.log_with_context,
-            self.middleware,
-        )
+        # # Example permission logic
+        # if self.user.is_admin:
+        #     return all_plugins  # Admins see everything
+        #
+        # # Regular users only see non-admin plugins
+        # return [p for p in all_plugins if not p.admin_only]
 
     async def create_runtime(
         self,
-        manifest: PluginManifest,
+        plugin_id: str,
         link: AssistantPluginLink,
-        middleware: Middleware | None = None,
     ) -> PluginRuntime:
+        manifest = self.registry.find_manifest(plugin_id)
+        if not manifest:
+            raise ValueError(f"Plugin with ID '{plugin_id}' not found in registry.")
         return await PluginRuntime.from_config(
             manifest=manifest,
             link=link,
-            middleware=middleware,
+            middleware=self.middleware,
             log_method=self.log_manager.log_with_context,
         )
 
@@ -192,9 +182,9 @@ class PluginManager:
             removed = self.registry.remove_manifest_by_id(plugin_id)
             plugin_path = manifest.path
             shutil.rmtree(plugin_path)
-            self.log_manager.log_with_context("info", "Plugin '{plugin}' ({id}) removed.", context={"plugin": plugin.name, "id": plugin_id})
+            # self.log_manager.log_with_context("info", "Plugin '{plugin}' ({id}) removed.", context={"plugin": plugin.name, "id": plugin_id})
         else:
-            self.log_manager.log_with_context("warning", "Plugin with ID '{id}' not found in PluginManager.", context={"id": plugin_id})
+            # self.log_manager.log_with_context("warning", "Plugin with ID '{id}' not found in PluginManager.", context={"id": plugin_id})
             removed = False
         return removed
 
@@ -206,8 +196,9 @@ class PluginManager:
             A dictionary mapping plugin_id to its version string.
             Example: {"my-cool-plugin": "1.2.0", "another-plugin": "0.9.1"}
         """
-        if not self.plugins:
-            return {}
-
+        return {}
+        # if not self.plugins:
+        #     return {}
+        #
         # Use a dictionary comprehension for a clean and efficient implementation
-        return {plugin_id: str(manifest.version) for plugin_id, manifest in self.plugins.items() if manifest.version is not None}
+        # return {plugin_id: str(manifest.version) for plugin_id, manifest in self.plugins.items() if manifest.version is not None}

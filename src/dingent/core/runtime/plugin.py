@@ -84,6 +84,7 @@ class PluginRuntime:
         log_method: Callable,
         middleware: Middleware | None = None,
     ) -> "PluginRuntime":
+        """ """
         env = {}
         validated_config_dict = {}
 

@@ -9,7 +9,7 @@ from dingent.core.db.models import Resource
 
 
 if TYPE_CHECKING:
-    from dingent.core.log_manager import LogManager
+    from dingent.managers.core.log_manager import LogManager
 
 
 def get_oldest_record(session: Session, model):

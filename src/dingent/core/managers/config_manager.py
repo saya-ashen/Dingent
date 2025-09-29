@@ -14,10 +14,8 @@ import tomlkit
 import yaml
 from pydantic import SecretStr, ValidationError
 
-from dingent.core.secret_manager import SecretManager
+from dingent.core.managers.secret_manager import SecretManager
 
-from .settings import AppSettings, AssistantSettings
-from .types import AssistantCreate, AssistantUpdate, PluginUserConfig
 
 KEYRING_SERVICE_NAME = "dingent-framework"
 KEYRING_PLACEHOLDER_PREFIX = "keyring:"
@@ -112,9 +110,6 @@ def _process_secrets_recursively(
 
     # Other types (int, bool, non-placeholder str, etc.) are returned as-is.
     return data
-
-
-OnChangeCallback = Callable[[AppSettings, AppSettings], None]
 
 
 # =========================================================
@@ -219,213 +214,6 @@ class ConfigManager:
         self._max_backups = max_backups
 
         self._lock = RLock()
-        self._on_change_callbacks: list[OnChangeCallback] = []
-
-        # 载入+迁移
-        raw_data = self._load_all()
-        if auto_migrate:
-            raw_data = self._maybe_migrate(raw_data, target_config_version)
-        self._settings = self._validate(raw_data)
-
-        self.log_manager.log_with_context("info", "ConfigManager initialized with {count} assistants.", context={"count": len(self._settings.assistants)})
-
-    # ---------- 对外基础接口 ----------
-    def get_settings(self) -> AppSettings:
-        with self._lock:
-            return self._settings.model_copy(deep=True)
-
-    def list_assistants(self) -> list[AssistantSettings]:
-        with self._lock:
-            return [a.model_copy(deep=True) for a in self._settings.assistants]
-
-    def get_assistant(self, assistant_id: str) -> AssistantSettings | None:
-        with self._lock:
-            return next((a.model_copy(deep=True) for a in self._settings.assistants if a.id == assistant_id), None)
-
-    def upsert_assistant(self, data: AssistantCreate | AssistantUpdate | dict) -> AssistantSettings:
-        """
-        如果 id 存在则更新；如果不存在则创建。
-        - 更新时：使用 _clean_patch 过滤掉全为 '*'（例如 '********'）的字段或结构，不覆盖原值。
-        - 创建时：同样会清理；若清理后缺少必填字段将触发校验错误。
-        """
-        if isinstance(data, AssistantCreate | AssistantUpdate):
-            raw_patch = data.model_dump(exclude_unset=True)
-        else:
-            raw_patch = dict(data)
-
-        # 清理（去掉值为全 * 的字段 / 结构）
-        patch = _process_secrets_recursively(raw_patch, path=[], secret_manager=self.secret_manager, action=SecretAction.SAVE)
-
-        with self._lock:
-            old_settings = self._settings
-            assistants_map = {a.id: a for a in old_settings.assistants}
-
-            # id 优先从原始 patch 拿，避免被清理掉（理论上 id 不会是掩码，但更稳健）
-            a_id = raw_patch.get("id") or patch.get("id")
-
-            # ---------- 更新逻辑 ----------
-            if a_id and a_id in assistants_map:
-                # 如果清理后没有任何有效字段，视为无变更，直接返回旧副本
-                if not patch or (set(patch.keys()) == {"id"} and len(patch) == 1):
-                    return assistants_map[a_id].model_copy(deep=True)
-
-                base = assistants_map[a_id].model_dump()
-                merged = deep_merge(base, patch)
-                new_assistant = AssistantSettings.model_validate(merged)
-
-                new_list = []
-                for a in old_settings.assistants:
-                    new_list.append(new_assistant if a.id == a_id else a)
-
-            # ---------- 创建逻辑 ----------
-            else:
-                if "id" not in patch:
-                    raise ValueError("Creating a new assistant requires an 'id'.")
-                create_obj = AssistantCreate.model_validate(patch)
-                new_assistant = AssistantSettings.model_validate(create_obj.model_dump())
-                new_list = list(old_settings.assistants) + [new_assistant]
-
-            new_app = old_settings.model_copy(update={"assistants": new_list})
-            self._replace_settings(old_settings, new_app)
-            return new_assistant.model_copy(deep=True)
-
-    def delete_assistant(self, assistant_id: str) -> bool:
-        with self._lock:
-            old = self._settings
-            new_list = [a for a in old.assistants if a.id != assistant_id]
-            if len(new_list) == len(old.assistants):
-                return False
-            new_app = old.model_copy(update={"assistants": new_list})
-            self._replace_settings(old, new_app)
-            # 删除文件
-            self._delete_assistant_files(assistant_id)
-            return True
-
-    def update_global(self, new_settings: dict[str, Any]) -> AppSettings:
-        """
-        更新全局顶层字段（包含 default_assistant, llm 等），不会对 assistants 做任何修改。
-        只支持全量更新
-        """
-        with self._lock:
-            old = self._settings
-            base = old.model_dump(exclude_none=True)
-            patch = _clean_patch(new_settings) or {}
-            merged = deep_merge(base, patch)
-            # 只保留原 assistants / 不覆盖
-            merged["assistants"] = base["assistants"]
-            try:
-                new_app = AppSettings.model_validate(merged)
-            except ValidationError as e:
-                raise ValueError(f"Global patch invalid: {e}") from e
-            self._replace_settings(old, new_app)
-            return new_app.model_copy(deep=True)
-
-    def update_plugins_for_assistant(self, assistant_id: str, plugin_configs: list[PluginUserConfig]) -> AssistantSettings:
-        """
-        仅提供“整体替换”能力，不做增删业务细化（由外部服务组合）。
-        """
-        with self._lock:
-            old = self._settings
-            target = next((a for a in old.assistants if a.id == assistant_id), None)
-            if not target:
-                raise ValueError(f"Assistant '{assistant_id}' not found.")
-
-            new_plugins: list[PluginUserConfig] = []
-            for pc in plugin_configs:
-                if isinstance(pc, PluginUserConfig):
-                    new_plugins.append(pc)
-                else:
-                    new_plugins.append(PluginUserConfig.model_validate(pc))
-
-            new_assistant = target.model_copy(update={"plugins": new_plugins})
-            updated_assistants = []
-            for a in old.assistants:
-                updated_assistants.append(new_assistant if a.id == assistant_id else a)
-            new_app = old.model_copy(update={"assistants": updated_assistants})
-            self._replace_settings(old, new_app)
-            return new_assistant.model_copy(deep=True)
-
-    # ---------- 事务、快照与导入导出 ----------
-    @contextmanager
-    def transaction(self):
-        """
-        在上下文内多次修改 settings（使用 self._settings = ... 或暴露的 API），退出时统一保存。
-        如果中途出现异常则不写入磁盘。
-        """
-        with self._lock:
-            original = self._settings
-            working_copy = original.model_copy(deep=True)
-            self._settings = working_copy  # 临时工作副本
-            try:
-                yield working_copy
-                # 成功 -> 写入文件并触发回调
-                self._replace_settings(original, working_copy, already_locked=True)
-            except Exception:
-                # 回滚到 original
-                self._settings = original
-                raise
-
-    def export_snapshot(self) -> dict:
-        """
-        返回完整可 JSON 序列化的配置字典（含 assistants/plugins）。
-        """
-        with self._lock:
-            return self._settings.model_dump(mode="json")
-
-    def import_snapshot(self, data: dict, overwrite: bool = True) -> AppSettings:
-        """
-        从完整配置字典导入；默认覆盖（overwrite=True）。
-        """
-        with self._lock:
-            base = self._settings.model_dump() if not overwrite else {}
-            merged = deep_merge(base, data) if not overwrite else data
-            new_app = self._validate(merged)
-            old = self._settings
-            self._replace_settings(old, new_app)
-            return new_app.model_copy(deep=True)
-
-    def dry_run_merge(self, patch: dict[str, Any]) -> tuple[bool, ValidationError | None]:
-        """
-        测试一个 patch 能否成功合并并通过校验。
-        """
-        with self._lock:
-            base = self._settings.model_dump()
-            merged = deep_merge(base, patch)
-            try:
-                AppSettings.model_validate(merged)
-                return True, None
-            except ValidationError as e:
-                return False, e
-
-    # ---------- 订阅机制 ----------
-    def register_on_change(self, callback: OnChangeCallback) -> None:
-        with self._lock:
-            if callback not in self._on_change_callbacks:
-                self._on_change_callbacks.append(callback)
-
-    def unregister_on_change(self, callback: OnChangeCallback) -> None:
-        with self._lock:
-            if callback in self._on_change_callbacks:
-                self._on_change_callbacks.remove(callback)
-
-    # ---------- 内部：迁移 & 验证 ----------
-    def _maybe_migrate(self, raw: dict, target_version: int) -> dict:
-        current_version = int(raw.get("config_version") or 1)
-        if current_version >= target_version:
-            return raw
-        self.log_manager.log_with_context("info", "Migrating config {from_v} -> {to_v}.", context={"from_v": current_version, "to_v": target_version})
-        migrated = migration_registry.migrate(raw, current_version, target_version)
-        if "config_version" not in migrated:
-            migrated["config_version"] = target_version
-        return migrated
-
-    def _validate(self, raw: dict) -> AppSettings:
-        # 环境变量覆盖
-        try:
-            return AppSettings.model_validate(raw)
-        except ValidationError as e:
-            self.log_manager.log_with_context("error", "Configuration validation failed: {error}", context={"error": str(e)})
-            raise
 
     def _load_all(self) -> dict:
         global_part = self._load_global()
@@ -500,36 +288,6 @@ class ConfigManager:
                 except Exception as e:
                     self.log_manager.log_with_context("error", "Read plugin instance file {file} failed: {error}", context={"file": str(cfg), "error": str(e)})
         return mapping
-
-    # ---------- 内部：写入 ----------
-    def _replace_settings(self, old: AppSettings, new: AppSettings, already_locked: bool = False) -> None:
-        """
-        将内存配置替换并持久化到文件；触发 on_change 回调。
-        """
-        lock_cm = self._lock if not already_locked else None
-        if lock_cm:
-            lock_cm.acquire()
-        try:
-            if old is new:
-                # 同一对象引用（事务内会出现），仍执行持久化
-                pass
-            self._settings = new
-            self._persist()
-            self._emit_change(old, new)
-        finally:
-            if lock_cm:
-                lock_cm.release()
-
-    def _persist(self) -> None:
-        self._write_backup()
-
-        settings_dict = self._settings.model_dump(exclude_none=True)
-        persistable_data = _process_secrets_recursively(settings_dict, [], self.secret_manager, action=SecretAction.SAVE)
-
-        assistants = persistable_data.pop("assistants", [])
-
-        self._write_global(persistable_data)
-        self._write_assistants_and_plugins(assistants)
 
     def _write_global(self, global_part: dict[str, Any]) -> None:
         self._global_config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -657,13 +415,3 @@ class ConfigManager:
                     shutil.rmtree(old, ignore_errors=True)
         except Exception as e:
             self.log_manager.log_with_context("warning", "Write config backup failed: {error}", context={"error": str(e)})
-
-    def _emit_change(self, old: AppSettings, new: AppSettings) -> None:
-        if old is new:
-            # 事务中 old 与 new 引用不同，这里不做过多判断
-            pass
-        for cb in list(self._on_change_callbacks):
-            try:
-                cb(old, new)
-            except Exception as e:
-                self.log_manager.log_with_context("error", "on_change callback error: {error}", context={"error": str(e)})

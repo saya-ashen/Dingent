@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Response
-from dingent.core.resource_manager import ResourceManager
+
+from dingent.core.managers.resource_manager import ResourceManager
 
 router = APIRouter()
 

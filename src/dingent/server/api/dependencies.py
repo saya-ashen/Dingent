@@ -1,24 +1,61 @@
 from uuid import UUID
 from fastapi import Depends, Request, status
 from fastapi.exceptions import HTTPException
+from fastapi.security.oauth2 import OAuth2PasswordBearer
 from sqlmodel import Session
 
-from dingent.core.analytics_manager import AnalyticsManager
-from dingent.core.assistant_manager import AssistantManager
-from dingent.core.context import AppContext
+from dingent.core.db.crud.user import create_test_user, get_user
 from dingent.core.db.models import User
-from dingent.core.db.session import get_session
-from dingent.core.log_manager import LogManager
-from dingent.core.market_service import MarketService
-from dingent.core.plugin_manager import PluginManager
-from dingent.core.resource_manager import ResourceManager
-from dingent.core.workflow_manager import WorkflowManager
+from dingent.core.db.session import engine
 from dingent.core.db.crud import assistant as crud_assistant
-from ..auth.dependencies import get_current_user
+from dingent.core.managers.assistant_runtime_manager import AssistantRuntimeManager
+from dingent.core.managers.plugin_manager import PluginManager
+from dingent.core.managers.resource_manager import ResourceManager
+from dingent.core.managers.workflow_manager import WorkflowManager
+from dingent.core.managers.log_manager import LogManager
+from dingent.server.auth.security import decode_token, verify_password
+from fastapi.security.oauth2 import OAuth2PasswordRequestForm
+from sqlmodel import Session
+from fastapi import Depends
+
+from dingent.core.schemas import UserRead
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
 
 
 def get_db_session():
-    return get_session()
+    with Session(engine, expire_on_commit=False) as session:
+        try:
+            yield session
+            session.commit()  # 只有在路径函数未抛异常时提交
+        except Exception:
+            session.rollback()
+            raise
+
+
+async def get_current_user(session: Session = Depends(get_db_session), token=Depends(oauth2_scheme)):
+    """Extract and validate current user from JWT token."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    payload = decode_token(token)
+    if payload is None:
+        raise credentials_exception
+
+    email: str = payload.get("sub", "unknown")
+    if email is None:
+        raise credentials_exception
+
+    user_data = get_user(session, email)
+    if user_data is None:
+        raise credentials_exception
+
+    # Convert dictionary to Pydantic model
+    return user_data
 
 
 def get_log_manager(
@@ -49,10 +86,10 @@ def get_plugin_manager(
 
     registry = request.app.state.plugin_registry
     return PluginManager(
+        session,
         current_user.id,
         registry,
         resource_manager,
-        session,
         log_manager,
     )
 
@@ -62,11 +99,11 @@ def get_assistant_manager(
     current_user: User = Depends(get_current_user),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     log_manager: LogManager = Depends(get_log_manager),
-) -> AssistantManager:
+) -> AssistantRuntimeManager:
     """
-    Dependency to get the AssistantManager.
+    Dependency to get the AssistantRuntimeManager.
     """
-    return AssistantManager(session, current_user.id, plugin_manager, log_manager)
+    return AssistantRuntimeManager(session, current_user.id, plugin_manager, log_manager)
 
 
 def get_workflow_manager(
@@ -74,7 +111,7 @@ def get_workflow_manager(
     current_user: User = Depends(get_current_user),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     log_manager: LogManager = Depends(get_log_manager),
-    assistant_manager: AssistantManager = Depends(get_assistant_manager),
+    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
 ):
     return WorkflowManager(
         current_user.id,
@@ -84,14 +121,14 @@ def get_workflow_manager(
     )
 
 
-def get_analytics_manager(context: AppContext = Depends(get_app_context)) -> AnalyticsManager:
+def get_analytics_manager():
     """
     Dependency to get the analyticsManager
     """
-    return context.analytics_manager
+    return None
 
 
-def get_market_service(context: AppContext = Depends(get_app_context)) -> MarketService:
+def get_market_service():
     """
     Dependency to get the MarketService.
 
@@ -100,16 +137,11 @@ def get_market_service(context: AppContext = Depends(get_app_context)) -> Market
     If you add `self.market_service = MarketService(self.config_manager.project_root)`
     to your AppContext's __init__, this will work seamlessly.
     """
-    # Assuming market_service is now part of the AppContext
-    if hasattr(context, "market_service"):
-        return context.market_service
-    # Fallback to initialize it on the fly if not in context
-    return MarketService(context.config_manager.project_root, context.log_manager)
 
 
 def get_assistant_and_verify_ownership(
     assistant_id: UUID,
-    db: Session = Depends(get_session),
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -138,3 +170,25 @@ def get_assistant_and_verify_ownership(
 
     # 4. If all is good, return the object
     return assistant
+
+
+def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_db_session)) -> UserRead:
+    """
+    生产级别的用户认证函数
+    1. 从数据库获取用户
+    2. 验证密码哈希
+    """
+    create_test_user(session)
+
+    user = get_user(session, form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return UserRead(
+        id=str(user.id),
+        email=user.email,
+        username=user.username,
+    )

@@ -1,8 +1,7 @@
-from typing import Any, Optional
 from uuid import UUID
 from fastapi.exceptions import HTTPException
 from fastapi import status
-from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
@@ -22,8 +21,24 @@ def get_all_assistants(db: Session, user_id: UUID):
 def create_assistant(db: Session, assistant_in: AssistantCreate, user_id: UUID):
     new_assistant = Assistant(**assistant_in.model_dump(), user_id=user_id)
     db.add(new_assistant)
-    db.commit()
-    db.refresh(new_assistant)
+    try:
+        # 尝试提交事务，这里可能会触发 IntegrityError
+        db.commit()
+        # 成功后，刷新实例以从数据库获取最新状态（如默认值）
+        db.refresh(new_assistant)
+
+    except IntegrityError:
+        # 3. 如果发生完整性错误，必须回滚事务！
+        # 失败的 commit() 会让 session 进入一个不一致的状态，必须回滚才能继续使用。
+        db.rollback()
+
+        # 4. 抛出一个对 API 友好的异常
+        # HTTP 409 Conflict 是用于此类错误的标准化状态码
+        raise HTTPException(
+            status_code=409,
+            detail=f"Assistant with name '{assistant_in.name}' already exists.",
+        )
+
     return new_assistant
 
 
@@ -70,7 +85,7 @@ def add_plugin_to_assistant(db: Session, *, assistant: Assistant, plugin_id: UUI
     existing_link = db.exec(select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant.id, AssistantPluginLink.plugin_id == plugin_id)).first()
 
     if existing_link:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Plugin '{plugin.name}' is already added to assistant '{assistant.name}'.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Plugin '{plugin.display_name}' is already added to assistant '{assistant.name}'.")
 
     # 3. 创建链接记录
     link = AssistantPluginLink(assistant_id=assistant.id, plugin_id=plugin_id)

@@ -2,10 +2,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from dingent.core.config_manager import ConfigManager
-from dingent.core.workflow_manager import WorkflowManager
+from dingent.core.managers.workflow_manager import WorkflowManager
 from dingent.server.api.dependencies import (
-    get_config_manager,
     get_workflow_manager,
 )
 from dingent.server.api.schemas import AppAdminDetail
@@ -15,7 +13,6 @@ router = APIRouter(prefix="/settings", tags=["Settings"])
 
 @router.get("", response_model=AppAdminDetail)
 async def get_app_settings(
-    config_manager: ConfigManager = Depends(get_config_manager),
     workflow_manager: WorkflowManager = Depends(get_workflow_manager),
 ):
     settings = config_manager.get_settings()
@@ -31,7 +28,6 @@ async def get_app_settings(
 @router.patch("")
 async def update_app_settings(
     payload: dict,
-    config_manager: ConfigManager = Depends(get_config_manager),
     workflow_manager: WorkflowManager = Depends(get_workflow_manager),
 ):
     """

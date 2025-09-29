@@ -1,8 +1,9 @@
 import json
 import re
 from fastapi import Depends, HTTPException, Request
-from .schemas import UserPublic
-from .dependencies import get_current_user
+
+from dingent.core.db.models import User
+from dingent.server.api.dependencies import get_current_user
 
 
 # TODO: This should be moved to a proper database
@@ -12,7 +13,7 @@ FAKE_THREADS_DB = {
 }
 
 
-async def dynamic_authorizer(request: Request, user: UserPublic = Depends(get_current_user)):
+async def dynamic_authorizer(request: Request, user: User = Depends(get_current_user)):
     """
     Dynamic authorization based on the request path and user permissions.
     This authorizer examines the request path and enforces permissions accordingly.
@@ -69,7 +70,7 @@ class Authorizer:
         """
         self.required_permissions = set(required_permissions)
 
-    async def __call__(self, request: Request, user: UserPublic = Depends(get_current_user)):
+    async def __call__(self, request: Request, user: User = Depends(get_current_user)):
         # Check agent read permission
         if "agent:read" in self.required_permissions:
             # Any user (including anonymous) can read

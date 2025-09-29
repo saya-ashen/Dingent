@@ -1,12 +1,11 @@
-from __future__ import annotations
-
+from enum import Enum
 from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 from sqlalchemy import Column, JSON, Text
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
 
 class ToolOverrideConfig(BaseModel):
@@ -24,16 +23,37 @@ class ToolOverrideConfig(BaseModel):
 # --- 用户与所有权模型 ---
 
 
+class UserRole(str, Enum):
+    admin = "admin"
+    user = "user"
+    guest = "guest"
+
+
 class User(SQLModel, table=True):
     """
-    用户模型，其他用户创建的资源都与此模型关联。
+    用户模型：系统中的账户主体，所有用户资源都与此模型关联。
     """
 
+    # 基本标识
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    username: str = Field(unique=True, index=True)
+    username: str = Field(unique=True, index=True, description="唯一用户名（可显示/可登录）")
+    email: str = Field(unique=True, index=True, description="用户邮箱（主要用于登录和通知）")
+    role: UserRole = Field(default="user", description="用户角色，如 'user', 'admin', 'guest' 等")
     hashed_password: str
 
+    # 用户状态
+    is_active: bool = Field(default=True, description="账户是否激活")
+
+    # 个人信息
+    full_name: Optional[str] = Field(default=None, description="真实姓名或昵称")
+    avatar_url: Optional[str] = Field(default=None, description="头像地址")
+
+    # 审计字段
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<User {self.username} ({self.email})>"
 
     # 关系
     assistants: List["Assistant"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
@@ -73,8 +93,10 @@ class Assistant(SQLModel, table=True):
     Assistant 模型：属于某个用户；可关联多个 Plugin（多对多）。
     """
 
+    __table_args__ = (UniqueConstraint("user_id", "name", name="unique_user_assistant_name"),)
+
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    name: str
+    name: str = Field(index=True)
     description: Optional[str] = None
     version: str = "0.2.0"
     spec_version: str = "3.0"
@@ -107,7 +129,7 @@ class Plugin(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     plugin_slug: str = Field(unique=True, index=True)
-    name: str
+    display_name: str
     description: str
     version: str = "0.1.0"
 

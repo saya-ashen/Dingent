@@ -3,6 +3,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from langgraph.graph.state import CompiledStateGraph
 
+from dingent.core.managers.log_manager import LogManager
+from dingent.core.services.plugin_registry import PluginRegistry
+from dingent.core.utils import find_project_root
 from dingent.server.copilot.agents import FixedLangGraphAgent
 from ..api.routers.frontend.threads import setup_copilot_router
 
@@ -16,10 +19,14 @@ def create_extended_lifespan(original_lifespan):
     async def extended_lifespan_manager(app: FastAPI):
         async with original_lifespan(app):
             # Initialize CopilotKit with the application context
+            project_root = find_project_root()
+            assert project_root is not None, "Project root not found."
             ctx = app.state.app_context
-            gm = ctx.graph_manager
-            active_wid = ctx.workflow_manager.active_workflow_id
-            graph = await gm.get_graph(active_wid)
+            app.state.log_manager = LogManager()
+            app.state.plugin_registry = PluginRegistry(project_root / "plugins", app.state.log_manager)
+            # gm = ctx.graph_manager
+            # active_wid = ctx.workflow_manager.active_workflow_id
+            # graph = await gm.get_graph(active_wid)
 
             async def _update_copilot_agent_callback(rebuilt_workflow_id: str, new_graph: CompiledStateGraph):
                 """
@@ -45,9 +52,9 @@ def create_extended_lifespan(original_lifespan):
                     ctx.log_manager.log_with_context("info", "CopilotKit agent was automatically updated for active workflow.", context={"workflow_id": rebuilt_workflow_id})
 
             # Create CopilotKit SDK with the initial agent
-            setup_copilot_router(app, graph)
+            # setup_copilot_router(app, graph)
 
-            gm.register_rebuild_callback(_update_copilot_agent_callback)
+            # gm.register_rebuild_callback(_update_copilot_agent_callback)
 
             print("--- CopilotKit Extension Initialized ---")
 

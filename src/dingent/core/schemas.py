@@ -1,6 +1,7 @@
+from mcp.types import Tool
 import toml
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Callable, Literal, Optional
 from uuid import UUID
 from pydantic import Field, PrivateAttr
 from dingent.core.types import ExecutionModel
@@ -140,3 +141,16 @@ class ConfigItemDetail(PluginConfigSchema):
     """Represents a single configuration item with its schema and value."""
 
     value: Any | None = Field(None, description="用户设置的当前值")
+
+
+class RunnableTool(BaseModel):
+    tool: Tool
+    run: Callable[[dict], Any]
+
+
+class UserRead(BaseModel):
+    id: str
+    username: str
+    email: str
+    full_name: str | None = None
+    role: list[str] = Field(default_factory=lambda: ["user"])

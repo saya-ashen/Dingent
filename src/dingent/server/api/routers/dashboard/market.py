@@ -1,13 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
-
-from dingent.core.log_manager import LogManager
-from dingent.core.market_service import MarketItemCategory, MarketService
-from dingent.core.plugin_manager import PluginManager
+from dingent.core.managers.log_manager import LogManager
+from dingent.core.managers.plugin_manager import PluginManager
 from dingent.server.api.dependencies import (
     get_log_manager,
     get_market_service,
     get_plugin_manager,
 )
+from dingent.core.services.market_service import MarketService, MarketItemCategory
 from dingent.server.api.schemas import MarketDownloadRequest, MarketDownloadResponse
 
 router = APIRouter(prefix="/market", tags=["Market"])
@@ -15,7 +14,7 @@ router = APIRouter(prefix="/market", tags=["Market"])
 
 @router.get("/metadata")
 async def get_market_metadata(
-    market_service: MarketService = Depends(get_market_service),
+    market_service=Depends(get_market_service),
 ):
     """
     Get market metadata including version and item counts.
@@ -30,7 +29,7 @@ async def get_market_metadata(
 @router.get("/items")
 async def get_market_items(
     category: str,
-    market_service: MarketService = Depends(get_market_service),
+    market_service=Depends(get_market_service),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     log_manager: LogManager = Depends(get_log_manager),
 ):
@@ -64,7 +63,7 @@ async def download_market_item(
         )
         if result["success"]:
             if request.category == "plugin":
-                plugin_manager.reload_plugins()
+                plugin_manager.list_visible_plugins()
             return MarketDownloadResponse(**result)
         else:
             raise HTTPException(status_code=400, detail=result["message"])

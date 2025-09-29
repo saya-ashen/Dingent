@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from dingent.core.managers.workflow_manager import WorkflowManager
 from dingent.core.types import Workflow, WorkflowCreate, WorkflowUpdate
-from dingent.core.workflow_manager import WorkflowManager
 from dingent.server.api.dependencies import (
     get_workflow_manager,
 )

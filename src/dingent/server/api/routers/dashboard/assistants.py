@@ -3,20 +3,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status, Response
 from sqlmodel import Session
 
-from dingent.core.assistant_manager import AssistantManager
+from dingent.core.db.crud.user import create_test_user
 from dingent.core.db.models import Assistant, User
-from dingent.core.plugin_manager import PluginManager
 from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginAddRequest, PluginUpdateRequest
-from dingent.core.services.converters import get_all_assistant_details_for_api, get_assistant_details_for_api
+from dingent.core.services.assistant_service import get_all_assistant_details_for_api, get_assistant_details_for_api
 from dingent.server.api.dependencies import (
     get_assistant_and_verify_ownership,
     get_assistant_manager,
+    get_current_user,
     get_db_session,
-    get_plugin_manager,
 )
-from dingent.server.auth.dependencies import get_current_user
-from dingent.server.auth.schemas import UserPublic
 from dingent.core.db.crud import assistant as crud_assistant
+from dingent.core.managers.assistant_runtime_manager import AssistantRuntimeManager
 
 router = APIRouter(prefix="/assistants", tags=["Assistants"])
 
@@ -24,8 +22,7 @@ router = APIRouter(prefix="/assistants", tags=["Assistants"])
 @router.get("", response_model=list[AssistantRead])
 async def list_assistants(
     session: Session = Depends(get_db_session),
-    assistant_manager: AssistantManager = Depends(get_assistant_manager),
-    plugin_manager: PluginManager = Depends(get_plugin_manager),
+    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
     user: User = Depends(get_current_user),
 ) -> list[AssistantRead]:
     assistant_reads = await get_all_assistant_details_for_api(session, assistant_manager, user.id)
@@ -37,9 +34,12 @@ async def create_assistant(
     assistant_create: AssistantCreate,
     session: Session = Depends(get_db_session),
     user: User = Depends(get_current_user),
-):
+) -> AssistantRead:
     new_assistant = crud_assistant.create_assistant(session, assistant_create, user.id)
-    return new_assistant
+    assistant_read = await get_assistant_details_for_api(session, None, new_assistant.id)
+    if assistant_read is None:
+        raise Exception("Failed to retrieve assistant details after creation.")
+    return assistant_read
 
 
 @router.patch("/{assistant_id}", response_model=AssistantRead)
@@ -72,7 +72,7 @@ async def add_plugin_to_assistant(
     plugin_add_request: PluginAddRequest,
     session: Session = Depends(get_db_session),
     assistant: Assistant = Depends(get_assistant_and_verify_ownership),
-    assistant_manager: AssistantManager = Depends(get_assistant_manager),
+    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
 ):
     updated_assistant = crud_assistant.add_plugin_to_assistant(db=session, assistant=assistant, plugin_id=plugin_add_request.plugin_id)
     response_dto = await get_assistant_details_for_api(session, assistant_manager, assistant.id)
@@ -86,7 +86,7 @@ async def update_plugin_on_assistant(
     plugin_update_request: PluginUpdateRequest,
     session: Session = Depends(get_db_session),
     assistant: Assistant = Depends(get_assistant_and_verify_ownership),
-    assistant_manager: AssistantManager = Depends(get_assistant_manager),
+    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
 ):
     """
     Updates a plugin's configuration for a specific assistant (e.g., enables/disables it).

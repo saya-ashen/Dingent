@@ -6,8 +6,6 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from dingent.core.db.crud.user import get_user
-
 # 1. 密码哈希配置 (Passlib)
 #    - schemes=["bcrypt"]: 指定 bcrypt 作为主要的哈希算法。
 #    - deprecated="auto": 如果未来更换算法，旧的哈希值仍然可以被验证。
@@ -70,17 +68,3 @@ def decode_token(token: str) -> dict[str, Any] | None:
         return payload
     except JWTError:
         return None
-
-
-def authenticate_user(username: str, password: str):
-    """
-    生产级别的用户认证函数
-    1. 从数据库获取用户
-    2. 验证密码哈希
-    """
-    user = get_user(username)
-    if not user:
-        return False
-    if not verify_password(password, user["hashed_password"]):
-        return False
-    return user

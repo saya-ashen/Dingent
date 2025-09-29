@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Any
-from mcp.types import Tool
 
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -9,14 +8,10 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from pydantic import BaseModel
 
 from dingent.core.db.models import Assistant
+from dingent.core.schemas import PluginManifest, RunnableTool
 
 from .plugin import PluginRuntime
-from ..plugin_manager import PluginManager
-
-
-class RunnableTool(BaseModel):
-    tool: Tool
-    run: Callable[[dict], Any]
+from ..managers.plugin_manager import PluginManager
 
 
 class AssistantRuntime:
@@ -43,7 +38,7 @@ class AssistantRuntime:
         self._log_method = log_method
 
     @classmethod
-    async def create(
+    async def create_runtime(
         cls,
         plugin_manager: PluginManager,
         assistant: Assistant,
@@ -52,8 +47,9 @@ class AssistantRuntime:
         plugin_instances: dict[str, PluginRuntime] = {}
         enabled_plugins = [p for p in assistant.plugin_links if p.enabled]
         for link in enabled_plugins:
+            manifest = link.plugin
             try:
-                inst = await plugin_manager.create_instance(link)
+                inst = await plugin_manager.create_runtime(manifest, link)
                 plugin_instances[str(link.plugin_id)] = inst
             except Exception as e:
                 log_method(

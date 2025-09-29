@@ -8,13 +8,12 @@ from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant
-from dingent.core.log_manager import LogManager
+from dingent.core.runtime.assistant import AssistantRuntime
 
-from .runtime.assistant import AssistantRuntime
 from .plugin_manager import PluginManager
 
 
-class AssistantManager:
+class AssistantRuntimeManager:
     """
     This is the orchestrator. Its job is to build a complete, functional product (a running AssistantRuntime)
     When asked to build an AssistantRuntime, it reads the main blueprint (Assistant and its AssistantPluginLinks) from the database.
@@ -28,7 +27,7 @@ class AssistantManager:
         session: Session,
         user_id: UUID,
         plugin_manager: PluginManager,
-        log_manager: LogManager,
+        log_manager,
     ):
         """
         auto_recreate_on_change: True 则当 assistant 配置有变化时（基于 hash 比较）自动重建实例
@@ -47,8 +46,12 @@ class AssistantManager:
     # Internal helpers
     # ------------------------------------------------------------------ #
 
-    async def _build_assistant_instance(self, settings: Assistant) -> AssistantRuntime:
-        return await AssistantRuntime.create(self._plugin_manager, settings, self._log_manager.log_with_context)
+    async def _build_assistant_instance(self, assistant: Assistant) -> AssistantRuntime:
+        return await AssistantRuntime.create_runtime(
+            self._plugin_manager,
+            assistant,
+            self._log_manager.log_with_context,
+        )
 
     # ------------------------------------------------------------------ #
     # Public API

@@ -4,7 +4,7 @@ from langchain.chat_models.base import BaseChatModel
 from langchain_litellm import ChatLiteLLM
 from pydantic import SecretStr
 
-from dingent.core.log_manager import LogManager
+from dingent.core.managers.log_manager import LogManager
 
 
 class LLMManager:

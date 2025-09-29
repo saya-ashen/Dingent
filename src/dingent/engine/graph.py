@@ -11,7 +11,8 @@ from langgraph.types import Command
 from langgraph_swarm import SwarmState
 from pydantic import BaseModel, Field
 
-from dingent.core.assistant_manager import RunnableTool
+from dingent.core.schemas import RunnableTool
+
 
 from .simple_react_agent import build_simple_react_agent
 

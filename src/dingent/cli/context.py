@@ -5,8 +5,7 @@ from typing import TYPE_CHECKING, cast
 
 from dingent.core.utils import find_project_root
 
-if TYPE_CHECKING:
-    from dingent.core.settings import AppSettings
+from dingent.core.settings import AppSettings
 
 
 class CliContext:
@@ -19,7 +18,8 @@ class CliContext:
     @cached_property
     def _config(self) -> "AppSettings":
         """Lazily gets the settings from the config_manager."""
-        return self.config_manager.get_settings()
+        return AppSettings(current_workflow=None)
+        # return self.config_manager.get_settings()
 
     @property
     def project_root(self) -> Path | None:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 from pathlib import Path
-from dingent.core.log_manager import LogManager
 
 from dingent.core.schemas import PluginManifest
 
@@ -17,7 +16,7 @@ class PluginRegistry:
     - 不关心用户/请求。
     """
 
-    def __init__(self, plugin_dir: Path, log_manager: LogManager):
+    def __init__(self, plugin_dir: Path, log_manager):
         self.plugin_dir = plugin_dir
         self.log_manager = log_manager
         self._manifests: Dict[str, PluginManifest] = {}

@@ -11,7 +11,6 @@ from async_lru import alru_cache
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, model_validator
 
-from dingent.core.log_manager import LogManager
 
 # Market repository configuration
 MARKET_REPO_OWNER = "saya-ashen"
@@ -77,7 +76,7 @@ class MarketService:
         MarketItemCategory.WORKFLOW: "config/workflows",
     }
 
-    def __init__(self, project_root: Path, log_manager: LogManager):
+    def __init__(self, project_root: Path, log_manager):
         self.project_root = project_root
         self._log_manager = log_manager
         auth_token = os.getenv("GITHUB_TOKEN")  # From environment variables

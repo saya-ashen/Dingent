@@ -3,18 +3,17 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
+from dingent.core.managers.analytics_manager import AnalyticsManager
+from dingent.core.managers.assistant_runtime_manager import AssistantRuntimeManager
+from dingent.core.managers.config_manager import ConfigManager
+from dingent.core.managers.log_manager import LogManager
+from dingent.core.managers.plugin_manager import PluginManager
 
-from dingent.core.analytics_manager import AnalyticsManager
-from dingent.core.assistant_manager import AssistantManager
-from dingent.core.config_manager import ConfigManager
-from dingent.core.log_manager import LogManager
-from dingent.core.market_service import MarketItemCategory, MarketService
-from dingent.core.plugin_manager import PluginManager
-from dingent.core.workflow_manager import WorkflowManager
+from dingent.core.managers.workflow_manager import WorkflowManager
+from dingent.core.services.market_service import MarketService
 from dingent.server.api.dependencies import (
     get_analytics_manager,
     get_assistant_manager,
-    get_config_manager,
     get_log_manager,
     get_market_service,
     get_plugin_manager,
@@ -26,10 +25,10 @@ router = APIRouter(prefix="/overview", tags=["Overview"])
 
 async def _gather_assistants_section(
     config_manager: ConfigManager,
-    assistant_manager: AssistantManager,
+    assistant_manager: AssistantRuntimeManager,
 ) -> dict[str, Any]:
     settings_list = config_manager.list_assistants()
-    running_instances = await assistant_manager.get_all_assistants(preload=False)
+    running_instances = await assistant_manager.get_all_runtime_assistants(preload=False)
 
     items = []
     active = 0
@@ -57,20 +56,18 @@ async def _gather_assistants_section(
 
 
 def _gather_plugins_section(plugin_manager: PluginManager) -> dict[str, Any]:
-    manifests = plugin_manager.list_plugins()
+    manifests = plugin_manager.list_visible_plugins()
     items = []
-    for pid, manifest in manifests.items():
+    for manifest in manifests:
         tools = []
         try:
-            # 尝试静态工具枚举（若插件支持 list_tools 需实例化，这里只统计 manifest 中可见信息）
-            # 如果 manifest 没有工具信息，可留空
             tools = getattr(manifest, "tools", []) or []
         except Exception:
             pass
         items.append(
             {
-                "id": pid,
-                "name": manifest.name,
+                "id": manifest.id,
+                "display_name": manifest.display_name,
                 "version": manifest.version,
                 "tool_count": len(tools),
             }
@@ -143,8 +140,7 @@ def _gather_llm_section(config_manager: ConfigManager) -> dict[str, Any]:
 
 @router.get("")
 async def get_overview(
-    config_manager: ConfigManager = Depends(get_config_manager),
-    assistant_manager: AssistantManager = Depends(get_assistant_manager),
+    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     log_manager: LogManager = Depends(get_log_manager),
     market_service: MarketService = Depends(get_market_service),
@@ -162,24 +158,17 @@ async def get_overview(
       "llm": {...}
     }
     """
-    assistants_task = asyncio.create_task(_gather_assistants_section(config_manager, assistant_manager))
     market_task = asyncio.create_task(_gather_market_section(market_service, plugin_manager))
 
     # 同步部分
     plugins_section = _gather_plugins_section(plugin_manager)
     workflows_section = _gather_workflows_section(workflow_manager)
     logs_section = _gather_logs_section(log_manager)
-    llm_section = _gather_llm_section(config_manager)
-
-    assistants_section, market_section = await asyncio.gather(assistants_task, market_task)
 
     return {
-        "assistants": assistants_section,
         "plugins": plugins_section,
         "workflows": workflows_section,
         "logs": logs_section,
-        "market": market_section,
-        "llm": llm_section,
     }
 
 

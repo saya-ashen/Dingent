@@ -2,9 +2,10 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlmodel import SQLModel, Session
 from collections.abc import Generator
+from .models import *
 
 # --- 1. Configuration ---
-DB_PATH = Path("./data/dingent.db").resolve()
+DB_PATH = Path(".dingent/data/dingent.db").resolve()
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
@@ -29,11 +30,7 @@ event.listen(engine, "connect", _set_sqlite_pragmas)
 
 # --- 3. Database Initialization Function ---
 def create_db_and_tables():
-    # 确保先导入所有包含 SQLModel 的模块/模型
     SQLModel.metadata.create_all(engine)
 
 
-# --- 4. Session Dependency ---
-def get_session() -> Generator[Session, None, None]:
-    with Session(engine) as session:
-        yield session
+create_db_and_tables()
