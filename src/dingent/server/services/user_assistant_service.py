@@ -3,7 +3,7 @@ from uuid import UUID
 from dingent.core.db.models import Assistant
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.runtime.assistant import AssistantRuntime
-from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginRead, PluginUpdate
+from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginUpdateOnAssistant
 from sqlmodel import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
@@ -221,7 +221,7 @@ class UserAssistantService:
         assert assistant_dto is not None
         return assistant_dto
 
-    async def update_plugin_on_assistant(self, assistant_id: UUID, plugin_id: UUID, plugin_update: PluginUpdate) -> AssistantRead:
+    async def update_plugin_on_assistant(self, assistant_id: UUID, plugin_id: UUID, plugin_update: PluginUpdateOnAssistant) -> AssistantRead:
         crud_assistant.update_plugin_on_assistant(
             db=self.session,
             assistant_id=assistant_id,

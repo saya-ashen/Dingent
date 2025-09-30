@@ -2,21 +2,22 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from dingent.core.db.models import User
 from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.schemas import PluginManifest
+from dingent.core.schemas import PluginManifest, PluginRead
 from dingent.server.api.dependencies import (
     get_current_user,
     get_plugin_manager,
+    get_user_plugin_service,
 )
+from dingent.server.services.user_plugin_service import UserPluginService
 
 router = APIRouter(prefix="/plugins", tags=["Plugins"])
 
 
-@router.get("", response_model=list[PluginManifest])
+@router.get("", response_model=list[PluginRead])
 async def list_available_plugins(
-    plugin_manager: PluginManager = Depends(get_plugin_manager),
-    user: User = Depends(get_current_user),
+    user_plugin_service: UserPluginService = Depends(get_user_plugin_service),
 ):
-    return plugin_manager.list_visible_plugins(user_id=user.id)
+    return user_plugin_service.get_visible_plugins()
 
 
 # admin only
@@ -26,6 +27,7 @@ async def remove_plugin_global(
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     user: User = Depends(get_current_user),
 ):
+    raise HTTPException(status_code=403, detail="Not authorized")  # TODO: admin check
     try:
         plugin_manager.delete_plugin(plugin_id=plugin_id)
     except Exception as e:

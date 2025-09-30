@@ -1,14 +1,9 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status, Response
-from sqlmodel import Session
 
-from dingent.core.db.models import Assistant, User
-from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginAdd, PluginUpdate
+from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginAddToAssistant, PluginUpdateOnAssistant
 from dingent.server.api.dependencies import (
-    get_assistant_and_verify_ownership,
-    get_current_user,
-    get_db_session,
     get_user_assistant_service,
 )
 from dingent.server.services.user_assistant_service import UserAssistantService
@@ -58,7 +53,7 @@ async def delete_assistant(
 async def add_plugin_to_assistant(
     *,
     assistant_id: UUID,
-    plugin_add: PluginAdd,
+    plugin_add: PluginAddToAssistant,
     user_assistant_service: UserAssistantService = Depends(get_user_assistant_service),
 ):
     updated_assistant = await user_assistant_service.add_plugin_to_assistant(assistant_id, plugin_add.id)
@@ -70,7 +65,7 @@ async def update_plugin_on_assistant(
     *,
     assistant_id: UUID,
     plugin_id: UUID,
-    plugin_update: PluginUpdate,
+    plugin_update: PluginUpdateOnAssistant,
     user_assistant_service: UserAssistantService = Depends(get_user_assistant_service),
 ):
     """

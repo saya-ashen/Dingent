@@ -130,7 +130,7 @@ class PluginManager:
         # user_id -> ResourceMiddleware
         self.middlewares: dict[str, ResourceMiddleware] = {}  # ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
 
-    def list_visible_plugins(self, *, user_id: UUID) -> list[PluginManifest]:
+    def list_visible_plugins(self) -> list[PluginManifest]:
         """
         Gets all manifests from the registry and filters them based on
         the current user's permissions.

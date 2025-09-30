@@ -32,8 +32,6 @@ class AssistantBase(SQLModel):
 
 
 class PluginBase(SQLModel):
-    id: str = Field(..., description="插件的唯一永久ID")
-
     display_name: str = Field(..., description="插件的显示名称")
     description: str = Field(..., description="插件描述")
     version: str | float = Field("0.1.0", description="插件版本")
@@ -90,10 +88,15 @@ class ToolOverrideConfig(SQLModel):
 
 
 class PluginRead(PluginBase):
+    id: str = Field(..., description="插件的唯一永久ID")
     enabled: bool = True
     tools: list[ToolOverrideConfig] | None = None
     config: dict | None = None
     status: str
+
+
+class PluginCreate(PluginBase):
+    spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
 
 
 class AssistantRead(AssistantBase):
@@ -110,7 +113,7 @@ class AssistantUpdate(AssistantBase):
     plugins: list[PluginRead] | None = None
 
 
-class PluginAdd(SQLModel):
+class PluginAddToAssistant(SQLModel):
     """
     Schema for the request body when adding a plugin to an assistant.
     """
@@ -118,7 +121,7 @@ class PluginAdd(SQLModel):
     id: UUID
 
 
-class PluginUpdate(SQLModel):
+class PluginUpdateOnAssistant(SQLModel):
     """
     Schema for updating a plugin's configuration within an assistant.
     All fields are optional for PATCH functionality.

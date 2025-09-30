@@ -2,7 +2,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from langgraph.graph.state import CompiledStateGraph
+from sqlmodel import Session
 
+from dingent.core.db.session import engine
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
@@ -10,6 +12,7 @@ from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.utils import find_project_root
 from dingent.server.copilot.agents import FixedLangGraphAgent
+from dingent.server.services.plugin_sync_service import PluginSyncService
 from ..api.routers.frontend.threads import setup_copilot_router
 
 
@@ -26,7 +29,13 @@ def create_extended_lifespan(original_lifespan):
             assert project_root is not None, "Project root not found."
             ctx = app.state.app_context
             app.state.log_manager = LogManager()
-            app.state.plugin_registry = PluginRegistry(project_root / "plugins", app.state.log_manager)
+            plugin_registry = PluginRegistry(project_root / "plugins", app.state.log_manager)
+            plugin_registry.reload_plugins()
+            with Session(engine, expire_on_commit=False) as session:
+                sync_service = PluginSyncService(db_session=session, registry=plugin_registry)
+                sync_service.sync()
+
+            app.state.plugin_registry = plugin_registry
             app.state.resource_manager = ResourceManager(app.state.log_manager, max_size=1000)
             app.state.plugin_manager = PluginManager(
                 app.state.plugin_registry,

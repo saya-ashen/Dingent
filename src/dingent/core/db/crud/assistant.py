@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
-from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdate
+from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
 
 
 def get_assistant_by_id(*, db: Session, id: UUID):
@@ -121,7 +121,7 @@ def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID)
     return assistant
 
 
-def update_plugin_on_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID, plugin_update: PluginUpdate) -> Assistant:
+def update_plugin_on_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID, plugin_update: PluginUpdateOnAssistant) -> Assistant:
     """
     Updates the configuration of a plugin for a specific assistant.
     """

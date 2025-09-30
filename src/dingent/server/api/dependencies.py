@@ -20,6 +20,7 @@ from dingent.core.config import settings
 
 from dingent.core.schemas import UserRead
 from dingent.server.services.user_assistant_service import UserAssistantService
+from dingent.server.services.user_plugin_service import UserPluginService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
@@ -93,6 +94,19 @@ def get_user_assistant_service(
     """
     assistant_factory = request.app.state.assistant_factory
     return UserAssistantService(user.id, session, assistant_factory)
+
+
+def get_user_plugin_service(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+):
+    return UserPluginService(
+        user.id,
+        session,
+        request.app.state.plugin_registry,
+        request.app.state.resource_manager,
+    )
 
 
 def get_workflow_manager(

@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field as PydField
 from sqlalchemy import Column, JSON, Text
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
+from dingent.core.schemas import PluginConfigSchema
+
 
 class ToolOverrideConfig(BaseModel):
     """
@@ -137,7 +139,7 @@ class Plugin(SQLModel, table=True):
     description: str
     version: str = "0.1.0"
 
-    config_schema: Optional[List[dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
+    config_schema: list[dict] | None = Field(default=None, sa_column=Column(JSON))
 
     # 多对多
     assistants: List["Assistant"] = Relationship(
