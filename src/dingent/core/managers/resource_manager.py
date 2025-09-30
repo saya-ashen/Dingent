@@ -1,27 +1,23 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlmodel import Session, asc, select, func, delete
 
 from dingent.core.db.models import Resource
+from dingent.core.managers.log_manager import LogManager
 
 
-if TYPE_CHECKING:
-    from dingent.managers.core.log_manager import LogManager
-
-
-def get_oldest_record(session: Session, model):
-    statement = select(model).order_by(asc(model.created_at)).limit(1)
+def get_oldest_resource_for_user(session: Session, user_id: UUID) -> Resource | None:
+    """Helper function to get the oldest resource for a specific user."""
+    statement = select(Resource).where(Resource.user_id == user_id).order_by(asc(Resource.created_at)).limit(1)
     result = session.exec(statement).first()
     return result
 
 
 class ResourceManager:
     """
-    Manages the persistence of Resource objects in the database.
-    It handles its own database sessions via a provided session factory.
+    Manages the persistence of Resource objects in the database in a multi-tenant fashion.
     """
 
     def __init__(
@@ -33,43 +29,50 @@ class ResourceManager:
         Initializes the ResourceManager.
 
         Args:
-            db_session_factory: A function that provides a database session context manager.
             log_manager: The logger instance.
-            max_size: The maximum number of resources to store.
+            max_size: The maximum number of resources to store per user.
         """
         self._log_manager = log_manager
         if not isinstance(max_size, int) or max_size <= 0:
             raise ValueError("max_size must be a positive integer.")
         self.max_size = max_size
 
-    def create(self, resource: Resource, session: Session) -> Resource:
+    def create_resource(self, resource: Resource, session: Session) -> Resource:
         """
-        Saves a new Resource object to the database, enforcing capacity.
-        The incoming 'resource' object is expected to be fully populated by the business logic layer.
+        Saves a new Resource object to the database, enforcing per-user capacity.
+        The incoming 'resource' object must have the user_id populated.
 
         Args:
             resource: The Resource object to save.
+            session: The database session.
 
         Returns:
-            The saved Resource object, now with its database-generated ID.
+            The saved Resource object.
         """
-        statement = select(func.count()).select_from(Resource)
+        if not resource.user_id:
+            raise ValueError("Resource must have a user_id for multi-tenant creation.")
+
+        # Check current size for the specific user
+        statement = select(func.count()).where(Resource.user_id == resource.user_id)
         current_size = session.exec(statement).one()
 
         if current_size >= self.max_size:
-            oldest_resource = get_oldest_record(session, Resource)
+            oldest_resource = get_oldest_resource_for_user(session, resource.user_id)
             if oldest_resource:
                 self._log_manager.log_with_context(
                     "warning",
-                    "Resource capacity reached. Removing oldest resource.",
-                    context={"removed_resource_id": oldest_resource.id},
+                    "Resource capacity reached for user. Removing oldest resource.",
+                    context={
+                        "user_id": resource.user_id,
+                        "removed_resource_id": oldest_resource.id,
+                    },
                 )
                 session.delete(oldest_resource)
-                session.commit()  # Commit the deletion before adding the new one
+                session.commit()  # Commit deletion before adding the new one
 
         session.add(resource)
         session.commit()
-        session.refresh(resource)  # Load the generated ID and other defaults
+        session.refresh(resource)
 
         self._log_manager.log_with_context(
             "info",
@@ -78,23 +81,56 @@ class ResourceManager:
         )
         return resource
 
-    def get_by_id(self, resource_id: UUID, session: Session) -> Resource | None:
+    def get_resource(self, resource_id: UUID, user_id: UUID, session: Session) -> Resource | None:
         """
-        Retrieves a resource by its ID.
+        Retrieves a resource by its ID, ensuring it belongs to the specified user.
 
         Args:
             resource_id: The UUID of the resource to retrieve.
+            user_id: The UUID of the user who owns the resource.
+            session: The database session.
 
         Returns:
-            The Resource object if found, otherwise None.
+            The Resource object if found and owned by the user, otherwise None.
         """
-        resource = session.get(Resource, resource_id)
+        statement = select(Resource).where(Resource.id == resource_id, Resource.user_id == user_id)
+        resource = session.exec(statement).first()
+
         if not resource:
-            self._log_manager.log_with_context("warning", "Resource not found in DB.", context={"resource_id": resource_id})
+            self._log_manager.log_with_context(
+                "warning",
+                "Resource not found in DB or access denied.",
+                context={"resource_id": resource_id, "user_id": user_id},
+            )
         return resource
 
-    def clear(self, session: Session) -> None:
-        """Deletes all resources from the database."""
-        session.exec(delete(Resource))
+    def list_resources_by_user(self, user_id: UUID, session: Session):
+        """
+        Lists all resources for a specific user.
+
+        Args:
+            user_id: The UUID of the user.
+            session: The database session.
+
+        Returns:
+            A list of Resource objects.
+        """
+        statement = select(Resource).where(Resource.user_id == user_id)
+        return session.exec(statement).all()
+
+    def delete_all_by_user(self, user_id: UUID, session: Session) -> None:
+        """
+        Deletes all resources for a specific user from the database.
+
+        Args:
+            user_id: The UUID of the user whose resources should be cleared.
+            session: The database session.
+        """
+        statement = delete(Resource).where(Resource.user_id == user_id)  # type: ignore
+        session.exec(statement)
         session.commit()
-        self._log_manager.log_with_context("info", "All resources cleared from DB.")
+        self._log_manager.log_with_context(
+            "info",
+            "All resources cleared from DB for user.",
+            context={"user_id": user_id},
+        )

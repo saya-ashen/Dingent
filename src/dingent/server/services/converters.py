@@ -1,10 +1,9 @@
 from typing import Optional
 
+from dingent.core.db.models import Assistant, AssistantPluginLink
+from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.runtime.plugin import PluginRuntime
 from dingent.core.schemas import AssistantRead, PluginRead
-
-from ..db.models import Assistant, AssistantPluginLink
-from ..runtime.assistant import AssistantRuntime
 
 
 def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: Optional[PluginRuntime]) -> PluginRead:

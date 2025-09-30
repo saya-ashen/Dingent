@@ -98,19 +98,6 @@ class ResourceMiddleware(Middleware):
         return result
 
 
-def _prepare_environment(validated_config: BaseModel) -> dict[str, str]:
-    env_vars = {}
-    for field_name, value in validated_config.model_dump().items():
-        if value is None:
-            continue
-        if isinstance(getattr(validated_config, field_name), SecretStr):
-            secret_value = getattr(validated_config, field_name).get_secret_value()
-            env_vars[field_name] = secret_value
-        else:
-            env_vars[field_name] = str(value)
-    return env_vars
-
-
 class PluginManager:
     """
     Manages the discovery, database synchronization, and runtime lifecycle of plugins.
@@ -133,50 +120,52 @@ class PluginManager:
 
     def __init__(
         self,
-        session: Session,
-        user_id: UUID,
         plugin_registry: PluginRegistry,
         resource_manager: ResourceManager,
         log_manager,
     ):
         self.log_manager = log_manager
         self.registry = plugin_registry
-        self.middleware = ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
+        self.resource_manager = resource_manager
+        # user_id -> ResourceMiddleware
+        self.middlewares: dict[str, ResourceMiddleware] = {}  # ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
 
-    def list_visible_plugins(self) -> list[PluginManifest]:
+    def list_visible_plugins(self, *, user_id: UUID) -> list[PluginManifest]:
         """
         Gets all manifests from the registry and filters them based on
         the current user's permissions.
+        (Permission logic is a placeholder for now.)
         """
-        all_plugins = self.registry.get_all_manifests()
-        return []
+        manifests = self.registry.get_all_manifests()
+        # TODO: apply permission filter by user_id if needed
+        return manifests
 
-        # # Example permission logic
-        # if self.user.is_admin:
-        #     return all_plugins  # Admins see everything
-        #
-        # # Regular users only see non-admin plugins
-        # return [p for p in all_plugins if not p.admin_only]
-
-    async def create_runtime(
+    async def get_runtime_plugin(
         self,
+        *,
+        user_id: UUID,
+        session: Session,
         plugin_id: str,
         link: AssistantPluginLink,
     ) -> PluginRuntime:
         manifest = self.registry.find_manifest(plugin_id)
         if not manifest:
             raise ValueError(f"Plugin with ID '{plugin_id}' not found in registry.")
+        middleware = self.middlewares.get(str(user_id))
+        if not middleware:
+            middleware = ResourceMiddleware(session, user_id, self.resource_manager, self.log_manager.log_with_context)
+            self.middlewares[str(user_id)] = middleware
         return await PluginRuntime.from_config(
             manifest=manifest,
             link=link,
-            middleware=self.middleware,
+            middleware=middleware,
             log_method=self.log_manager.log_with_context,
         )
 
-    def get_plugin_manifest(self, plugin_id: str) -> PluginManifest | None:
+    def get_manifest_plugin(self, *, plugin_id: str) -> PluginManifest | None:
         return self.registry.find_manifest(plugin_id)
 
-    def remove_plugin(self, plugin_id: str):
+    def delete_plugin(self, *, plugin_id: str):
         manifest = self.registry.find_manifest(plugin_id)
         if manifest:
             removed = self.registry.remove_manifest_by_id(plugin_id)

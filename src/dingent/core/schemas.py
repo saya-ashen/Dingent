@@ -1,16 +1,18 @@
 from mcp.types import Tool
+from uuid import UUID
+from datetime import datetime
+from typing import List, Optional, Dict
 import toml
 from pathlib import Path
 from typing import Callable, Literal, Optional
 from uuid import UUID
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr
 from dingent.core.types import ExecutionModel
 
 
 import re
 from typing import Any
-from pydantic import BaseModel, Field
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, Field
 
 
 def generate_id_from_name(display_name: str) -> str:
@@ -29,7 +31,7 @@ class AssistantBase(SQLModel):
     enabled: bool = Field(True, description="Enable or disable the assistant.")
 
 
-class PluginBase(BaseModel):
+class PluginBase(SQLModel):
     id: str = Field(..., description="插件的唯一永久ID")
 
     display_name: str = Field(..., description="插件的显示名称")
@@ -81,7 +83,7 @@ class PluginManifest(PluginBase):
         return self._plugin_path
 
 
-class ToolOverrideConfig(BaseModel):
+class ToolOverrideConfig(SQLModel):
     name: str
     enabled: bool = True
     description: str | None = None
@@ -108,15 +110,15 @@ class AssistantUpdate(AssistantBase):
     plugins: list[PluginRead] | None = None
 
 
-class PluginAddRequest(BaseModel):
+class PluginAdd(SQLModel):
     """
     Schema for the request body when adding a plugin to an assistant.
     """
 
-    plugin_id: UUID
+    id: UUID
 
 
-class PluginUpdateRequest(BaseModel):
+class PluginUpdate(SQLModel):
     """
     Schema for updating a plugin's configuration within an assistant.
     All fields are optional for PATCH functionality.
@@ -128,7 +130,7 @@ class PluginUpdateRequest(BaseModel):
     user_config_values: Optional[dict[str, Any]] = None
 
 
-class PluginConfigSchema(BaseModel):
+class PluginConfigSchema(SQLModel):
     name: str = Field(..., description="配置项的名称 (环境变量名)")
     type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
     required: bool = Field(..., description="是否为必需项")
@@ -143,14 +145,153 @@ class ConfigItemDetail(PluginConfigSchema):
     value: Any | None = Field(None, description="用户设置的当前值")
 
 
-class RunnableTool(BaseModel):
+class RunnableTool(SQLModel):
     tool: Tool
     run: Callable[[dict], Any]
 
 
-class UserRead(BaseModel):
+class UserRead(SQLModel):
     id: str
     username: str
     email: str
     full_name: str | None = None
     role: list[str] = Field(default_factory=lambda: ["user"])
+
+
+# ==============================================================================
+# WorkflowNode Models
+# ==============================================================================
+
+
+class WorkflowNodeBase(SQLModel):
+    """节点的基础共享字段"""
+
+    assistant_id: UUID
+    position: Dict[str, float]
+    is_start_node: bool = False
+    type: str = "assistant"
+
+
+class WorkflowNodeCreate(WorkflowNodeBase):
+    """
+    用于创建节点。
+    前端在 POST /workflows/{workflow_id}/nodes 时发送此模型。
+    workflow_id 从 URL 中获取，不需要在 body 中提供。
+    """
+
+    pass
+
+
+class WorkflowNodeUpdate(SQLModel):
+    """
+    用于更新节点。
+    前端在 PATCH /workflows/{workflow_id}/nodes/{node_id} 时发送此模型。
+    通常只允许更新位置等 UI 相关属性。
+    """
+
+    position: Optional[Dict[str, float]] = None
+    is_start_node: Optional[bool] = None
+
+
+class WorkflowNodeRead(WorkflowNodeBase):
+    """用于从 API 读取节点数据。"""
+
+    id: UUID
+    workflow_id: UUID
+
+
+# ==============================================================================
+# WorkflowEdge Models
+# ==============================================================================
+
+
+class WorkflowEdgeBase(SQLModel):
+    """边的基础共享字段"""
+
+    source_node_id: UUID
+    target_node_id: UUID
+    source_handle: Optional[str] = None
+    target_handle: Optional[str] = None
+    type: str = "default"
+
+
+class WorkflowEdgeCreate(WorkflowEdgeBase):
+    """
+    用于创建边。
+    前端在 POST /workflows/{workflow_id}/edges 时发送此模型。
+    """
+
+    pass
+
+
+class WorkflowEdgeUpdate(SQLModel):
+    """
+    用于更新边。
+    通常边很少被更新，一般是删除后重建。但可以预留接口。
+    """
+
+    source_handle: Optional[str] = None
+    target_handle: Optional[str] = None
+    type: Optional[str] = None
+
+
+class WorkflowEdgeRead(WorkflowEdgeBase):
+    """用于从 API 读取边数据。"""
+
+    id: UUID
+    workflow_id: UUID
+
+
+# ==============================================================================
+# Workflow Models
+# ==============================================================================
+
+
+class WorkflowBase(SQLModel):
+    """工作流的基础共享字段"""
+
+    description: Optional[str] = None
+
+
+class WorkflowCreate(WorkflowBase):
+    """
+    用于创建工作流。
+    前端在 POST /workflows 时发送此模型。
+    user_id 从认证信息中获取。
+    """
+
+    name: str
+
+    pass
+
+
+class WorkflowUpdate(WorkflowBase):
+    """
+    用于更新工作流元数据（名称、描述）。
+    前端在 PATCH /workflows/{workflow_id} 时发送此模型。
+    注意：节点的修改不在这里处理，而是通过专门的节点接口。
+    """
+
+    name: Optional[str] = None
+
+
+class WorkflowReadBasic(WorkflowBase):
+    """
+    用于在列表中读取工作流的基础信息。
+    不包含 nodes 和 edges，避免数据冗余。
+    """
+
+    id: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class WorkflowRead(WorkflowReadBasic):
+    """
+    用于读取单个工作流的完整信息，包含其所有的节点和边。
+    前端在 GET /workflows/{workflow_id} 时会收到此模型。
+    """
+
+    nodes: List[WorkflowNodeRead] = []
+    edges: List[WorkflowEdgeRead] = []

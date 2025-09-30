@@ -8,7 +8,6 @@ from dingent.core.db.crud.user import create_test_user, get_user
 from dingent.core.db.models import User
 from dingent.core.db.session import engine
 from dingent.core.db.crud import assistant as crud_assistant
-from dingent.core.managers.assistant_runtime_manager import AssistantRuntimeManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.managers.workflow_manager import WorkflowManager
@@ -17,8 +16,10 @@ from dingent.server.auth.security import decode_token, verify_password
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlmodel import Session
 from fastapi import Depends
+from dingent.core.config import settings
 
 from dingent.core.schemas import UserRead
+from dingent.server.services.user_assistant_service import UserAssistantService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
@@ -68,57 +69,36 @@ def get_log_manager(
 
 
 def get_resource_manager(
-    log_manager: LogManager = Depends(get_log_manager),
+    request: Request,
 ):
-    return ResourceManager(log_manager)
+    return request.app.state.resource_manager
 
 
 def get_plugin_manager(
     request: Request,
-    session: Session = Depends(get_db_session),
-    log_manager: LogManager = Depends(get_log_manager),
-    current_user: User = Depends(get_current_user),
-    resource_manager: ResourceManager = Depends(get_resource_manager),
 ) -> PluginManager:
     """
     Dependency to get the PluginManager.
     """
-
-    registry = request.app.state.plugin_registry
-    return PluginManager(
-        session,
-        current_user.id,
-        registry,
-        resource_manager,
-        log_manager,
-    )
+    return request.app.state.plugin_manager
 
 
-def get_assistant_manager(
+def get_user_assistant_service(
+    request: Request,
+    user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
-    plugin_manager: PluginManager = Depends(get_plugin_manager),
-    log_manager: LogManager = Depends(get_log_manager),
-) -> AssistantRuntimeManager:
+) -> UserAssistantService:
     """
     Dependency to get the AssistantRuntimeManager.
     """
-    return AssistantRuntimeManager(session, current_user.id, plugin_manager, log_manager)
+    assistant_factory = request.app.state.assistant_factory
+    return UserAssistantService(user.id, session, assistant_factory)
 
 
 def get_workflow_manager(
-    session: Session = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
-    plugin_manager: PluginManager = Depends(get_plugin_manager),
-    log_manager: LogManager = Depends(get_log_manager),
-    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
-):
-    return WorkflowManager(
-        current_user.id,
-        session,
-        log_manager,
-        assistant_manager,
-    )
+    request: Request,
+) -> WorkflowManager:
+    return request.app.state.workflow_manager
 
 
 def get_analytics_manager():
@@ -152,7 +132,7 @@ def get_assistant_and_verify_ownership(
     4. Returns the valid Assistant object if all checks pass.
     """
     # 1. Use the "dumb" CRUD function to get the data
-    assistant = crud_assistant.get_assistant(db, assistant_id)
+    assistant = crud_assistant.get_assistant_by_id(db=db, id=assistant_id)
 
     # 2. Check for existence
     if not assistant:
@@ -170,6 +150,10 @@ def get_assistant_and_verify_ownership(
 
     # 4. If all is good, return the object
     return assistant
+
+
+def get_app_settings():
+    return settings
 
 
 def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_db_session)) -> UserRead:

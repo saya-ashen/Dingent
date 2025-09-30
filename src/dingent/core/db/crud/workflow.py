@@ -4,7 +4,7 @@ from typing import List, Optional
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Workflow, WorkflowNode, WorkflowEdge
-from dingent.core.types import WorkflowCreate, WorkflowUpdate  # Assuming these exist
+from dingent.core.schemas import WorkflowCreate, WorkflowUpdate
 
 # --- Workflow CRUD ---
 

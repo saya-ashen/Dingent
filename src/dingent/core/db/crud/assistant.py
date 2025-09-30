@@ -5,17 +5,46 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
-from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateRequest
+from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdate
 
 
-def get_assistant(db: Session, assistant_id: UUID):
-    return db.get(Assistant, assistant_id)
+def get_assistant_by_id(*, db: Session, id: UUID):
+    return db.get(Assistant, id)
+
+
+def get_assistant_by_name(db: Session, user_id: UUID, name: str):
+    return db.exec(select(Assistant).where(Assistant.user_id == user_id, Assistant.name == name)).first()
+
+
+def get_user_assistant(db: Session, assistant_id: UUID, user_id: UUID):
+    return db.exec(select(Assistant).where(Assistant.id == assistant_id, Assistant.user_id == user_id)).first()
 
 
 def get_all_assistants(db: Session, user_id: UUID):
     statement = select(Assistant).where(Assistant.user_id == user_id)
     results = db.exec(statement).all()
     return results
+
+
+def remove_assistant(db: Session, *, id: UUID) -> Assistant | None:
+    """
+    Deletes an assistant from the database by its ID.
+
+    Args:
+        db: The database session.
+        id: The UUID of the assistant to delete.
+
+    Returns:
+        The deleted Assistant object, or None if not found.
+    """
+    assistant_to_delete = db.get(Assistant, id)
+
+    if not assistant_to_delete:
+        return None
+
+    db.delete(assistant_to_delete)
+
+    return assistant_to_delete
 
 
 def create_assistant(db: Session, assistant_in: AssistantCreate, user_id: UUID):
@@ -59,16 +88,7 @@ def update_assistant(
     return db_assistant
 
 
-def delete_assistant(*, db: Session, db_assistant: Assistant) -> Assistant:
-    """
-    Deletes an assistant from the database.
-    """
-    db.delete(db_assistant)
-    db.commit()
-    return db_assistant
-
-
-def add_plugin_to_assistant(db: Session, *, assistant: Assistant, plugin_id: UUID) -> Assistant:
+def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID) -> Assistant:
     """
     Links an existing plugin to an assistant by creating an AssistantPluginLink record.
 
@@ -82,12 +102,15 @@ def add_plugin_to_assistant(db: Session, *, assistant: Assistant, plugin_id: UUI
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plugin with id {plugin_id} not found.")
 
     # 2. 验证是否已经存在链接，防止重复添加
-    existing_link = db.exec(select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant.id, AssistantPluginLink.plugin_id == plugin_id)).first()
+    existing_link = db.exec(select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin_id)).first()
 
     if existing_link:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Plugin '{plugin.display_name}' is already added to assistant '{assistant.name}'.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Plugin '{plugin.display_name}' is already added to assistant '{assistant_id}'.")
 
     # 3. 创建链接记录
+    assistant = db.get(Assistant, assistant_id)
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Assistant with id {assistant_id} not found.")
     link = AssistantPluginLink(assistant_id=assistant.id, plugin_id=plugin_id)
     db.add(link)
     db.commit()
@@ -98,19 +121,22 @@ def add_plugin_to_assistant(db: Session, *, assistant: Assistant, plugin_id: UUI
     return assistant
 
 
-def update_plugin_for_assistant(db: Session, *, assistant: Assistant, plugin_id: UUID, update_data: PluginUpdateRequest) -> Assistant:
+def update_plugin_on_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID, plugin_update: PluginUpdate) -> Assistant:
     """
     Updates the configuration of a plugin for a specific assistant.
     """
     # 1. Find the specific link to update
-    statement = select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant.id, AssistantPluginLink.plugin_id == plugin_id)
+    statement = select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin_id)
     link_to_update = db.exec(statement).first()
 
     if not link_to_update:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="This plugin is not associated with the assistant")
 
     # 2. Get update data, excluding fields that were not sent
-    update_dict = update_data.model_dump(exclude_unset=True)
+    update_dict = plugin_update.model_dump(exclude_unset=True)
+    assistant = db.get(Assistant, assistant_id)
+    if not assistant:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Assistant with id {assistant_id} not found.")
     if not update_dict:
         # No changes were requested
         return assistant
@@ -126,12 +152,12 @@ def update_plugin_for_assistant(db: Session, *, assistant: Assistant, plugin_id:
     return assistant
 
 
-def remove_plugin_from_assistant(db: Session, *, assistant: Assistant, plugin_id: UUID) -> None:
+def remove_plugin_from_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID) -> None:
     """
     Removes the link between a plugin and an assistant. This is an idempotent operation.
     """
     # 1. Find the specific link to delete
-    statement = select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant.id, AssistantPluginLink.plugin_id == plugin_id)
+    statement = select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin_id)
     link_to_delete = db.exec(statement).first()
 
     # 2. If the link exists, delete it. If not, do nothing (idempotency).

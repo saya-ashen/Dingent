@@ -8,12 +8,9 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
 from dingent.core.db.crud import workflow as crud_workflow
 
-from dingent.core.db.models import Workflow
+from dingent.core.db.models import Assistant, Workflow
 from dingent.core.runtime.assistant import AssistantRuntime
-from dingent.core.types import (
-    WorkflowCreate,
-    WorkflowUpdate,
-)
+from dingent.core.schemas import WorkflowCreate, WorkflowUpdate
 
 
 if TYPE_CHECKING:
@@ -34,20 +31,16 @@ class WorkflowManager:
 
     def __init__(
         self,
-        user_id: UUID,
-        session: Session,
         log_manager,
         assistant_manager: AssistantRuntimeManager | None = None,
     ):
         self.assistant_manager = assistant_manager  # may be None if only doing CRUD
-        self.user_id = user_id
-        self.session = session
         self.log_manager = log_manager
         self._lock = RLock()
 
-    def list_workflows(self):
+    def list_workflows(self, *, user_id: UUID, session: Session):
         """Lists all workflows for the current user."""
-        return crud_workflow.list_workflows_by_user(self.session, user_id=self.user_id)
+        return crud_workflow.list_workflows_by_user(session, user_id=user_id)
 
     def get_workflow(self, workflow_id: UUID) -> Workflow | None:
         """Retrieves a single workflow by its ID."""

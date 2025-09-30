@@ -11,18 +11,10 @@ from dingent.server.api.schemas import AppAdminDetail
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 
+# Admin only
 @router.get("", response_model=AppAdminDetail)
-async def get_app_settings(
-    workflow_manager: WorkflowManager = Depends(get_workflow_manager),
-):
-    settings = config_manager.get_settings()
-    workflows_summary = [{"id": wf.id, "name": wf.name} for wf in workflow_manager.list_workflows()]
-    data = {
-        "llm": settings.llm.model_dump(mode="json") if settings.llm else {},
-        "current_workflow": workflow_manager.active_workflow_id,
-        "workflows": workflows_summary,
-    }
-    return AppAdminDetail(**data)
+async def get_app_settings():
+    pass
 
 
 @router.patch("")

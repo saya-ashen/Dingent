@@ -1,9 +1,10 @@
 from enum import Enum
+from sqlalchemy import LargeBinary
 from datetime import datetime
 from typing import Any, List, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field as PydField
 from sqlalchemy import Column, JSON, Text
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
@@ -14,9 +15,9 @@ class ToolOverrideConfig(BaseModel):
     这不是一个数据库表模型。
     """
 
-    name: str = Field(..., description="要配置的工具的唯一名称")
-    enabled: bool = Field(True, description="此 Assistant 是否启用该工具")
-    description: str | None = Field(None, description="可选的、为此 Assistant 定制的工具描述")
+    name: str = PydField(..., description="要配置的工具的唯一名称")
+    enabled: bool = PydField(True, description="此 Assistant 是否启用该工具")
+    description: str | None = PydField(None, description="可选的、为此 Assistant 定制的工具描述")
     # 未来可以扩展更多可覆盖的字段
 
 
@@ -40,6 +41,7 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True, description="用户邮箱（主要用于登录和通知）")
     role: UserRole = Field(default="user", description="用户角色，如 'user', 'admin', 'guest' 等")
     hashed_password: str
+    encrypted_dek: bytes | None = Field(default=None, sa_column=Column(LargeBinary))
 
     # 用户状态
     is_active: bool = Field(default=True, description="账户是否激活")
@@ -51,6 +53,7 @@ class User(SQLModel, table=True):
     # 审计字段
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    provider_credentials: List["UserProviderCredential"] = Relationship(back_populates="user")
 
     def __repr__(self):
         return f"<User {self.username} ({self.email})>"
@@ -78,7 +81,7 @@ class AssistantPluginLink(SQLModel, table=True):
     # --- 针对单个工具的覆盖配置 ---
     # 存储一个列表，每个元素都是一个符合 ToolOverrideConfig 结构的字典
     # 例如: [{"name": "get_weather", "enabled": false}, {"name": "send_email", "description": "Send email on behalf of the user"}]
-    tool_configs: List[ToolOverrideConfig] = Field(default=None, sa_column=Column(JSON), description="用户对该插件下特定工具的覆盖配置列表")
+    tool_configs: list[ToolOverrideConfig] = Field(default_factory=list, sa_column=Column(JSON))
 
     # --- 用户为插件提供的配置值 (如 API Keys) ---
     user_config_values: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
@@ -113,6 +116,7 @@ class Assistant(SQLModel, table=True):
     plugins: List["Plugin"] = Relationship(
         back_populates="assistants",
         link_model=AssistantPluginLink,
+        sa_relationship_kwargs={"overlaps": "assistant,plugin_links"},
     )
 
     # 提供对链接记录本身的直达访问（便于读写 per-assistant 配置）
@@ -228,3 +232,90 @@ class Resource(SQLModel, table=True):
     # 所有权：多对一 -> User
     user_id: UUID = Field(foreign_key="user.id", index=True)
     user: User = Relationship(back_populates="resources")
+
+
+# --- 大模型 --
+
+
+class LLMProvider(SQLModel, table=True):
+    """Stores information about an LLM provider like OpenAI, Anthropic, or a local Ollama instance."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # A unique name for the provider, e.g., "openai", "anthropic", "ollama"
+    name: str = Field(unique=True, index=True)
+
+    # A user-friendly name for display in the UI, e.g., "OpenAI", "Anthropic"
+    display_name: str
+
+    # The base URL for API calls. E.g., "https://api.openai.com/v1"
+    api_base_url: str
+
+    # A link to the provider's documentation or where to get an API key
+    documentation_url: Optional[str] = None
+
+    # Flag to indicate if this provider requires an API key from the user
+    # True for OpenAI/Anthropic, False for a default local Ollama.
+    requires_api_key: bool = Field(default=True)
+
+    # --- Relationships ---
+    # This provider has many models
+    models: List["LLMModel"] = Relationship(back_populates="provider")
+
+    # Many users can have credentials for this provider
+    user_credentials: List["UserProviderCredential"] = Relationship(back_populates="provider")
+
+
+class ModelType(str, Enum):
+    """Enum for the type of model to guide how it should be used."""
+
+    CHAT = "chat"
+    COMPLETION = "completion"
+    EMBEDDING = "embedding"
+
+
+class LLMModel(SQLModel, table=True):
+    """Stores details for a specific large language model."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # The exact name used in API calls, e.g., "gpt-4-turbo", "claude-3-opus-20240229"
+    model_name: str = Field(index=True)
+
+    # A user-friendly name for display, e.g., "GPT-4 Turbo", "Claude 3 Opus"
+    display_name: str
+
+    # The context window size for the model
+    context_length: int
+
+    # The type of model, useful for application logic
+    model_type: ModelType = Field(default=ModelType.CHAT)
+
+    # A flag to mark a system-wide default model for certain tasks
+    is_default: bool = Field(default=False, index=True)
+
+    # --- Relationships ---
+    # The foreign key linking this model to its provider
+    provider_id: int = Field(foreign_key="llmprovider.id")
+
+    # The relationship back to the provider object
+    provider: LLMProvider = Relationship(back_populates="models")
+
+
+class UserProviderCredential(SQLModel, table=True):
+    """
+    Stores a user's encrypted API key for a specific LLM Provider.
+    This is a many-to-many link between Users and LLMProviders.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # The encrypted API key, using the user's personal DEK
+    encrypted_api_key: bytes = Field(sa_column=Column(LargeBinary))
+
+    # --- Relationships ---
+    user_id: UUID = Field(foreign_key="user.id")
+    provider_id: int = Field(foreign_key="llmprovider.id")
+
+    user: "User" = Relationship(back_populates="provider_credentials")
+    provider: "LLMProvider" = Relationship(back_populates="user_credentials")

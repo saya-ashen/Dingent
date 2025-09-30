@@ -4,8 +4,6 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 from dingent.core.managers.analytics_manager import AnalyticsManager
-from dingent.core.managers.assistant_runtime_manager import AssistantRuntimeManager
-from dingent.core.managers.config_manager import ConfigManager
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 
@@ -13,7 +11,6 @@ from dingent.core.managers.workflow_manager import WorkflowManager
 from dingent.core.services.market_service import MarketService
 from dingent.server.api.dependencies import (
     get_analytics_manager,
-    get_assistant_manager,
     get_log_manager,
     get_market_service,
     get_plugin_manager,
@@ -21,38 +18,6 @@ from dingent.server.api.dependencies import (
 )
 
 router = APIRouter(prefix="/overview", tags=["Overview"])
-
-
-async def _gather_assistants_section(
-    config_manager: ConfigManager,
-    assistant_manager: AssistantRuntimeManager,
-) -> dict[str, Any]:
-    settings_list = config_manager.list_assistants()
-    running_instances = await assistant_manager.get_all_runtime_assistants(preload=False)
-
-    items = []
-    active = 0
-    for s in settings_list:
-        instance = running_instances.get(s.id)
-        status = "active" if instance else "inactive"
-        if status == "active":
-            active += 1
-        enabled_plugins = sum(1 for p in s.plugins if p.enabled)
-        items.append(
-            {
-                "id": s.id,
-                "name": s.name,
-                "status": status,
-                "plugin_count": len(s.plugins),
-                "enabled_plugin_count": enabled_plugins,
-            }
-        )
-    return {
-        "total": len(settings_list),
-        "active": active,
-        "inactive": len(settings_list) - active,
-        "list": items,
-    }
 
 
 def _gather_plugins_section(plugin_manager: PluginManager) -> dict[str, Any]:
@@ -122,25 +87,8 @@ async def _gather_market_section(
     }
 
 
-def _gather_workflows_section(workflow_manager: WorkflowManager) -> dict[str, Any]:
-    workflows = workflow_manager.list_workflows()
-    return {
-        "total": len(workflows),
-        "active_workflow_id": workflow_manager.active_workflow_id,
-        "list": [{"id": w.id, "name": w.name} for w in workflows],
-    }
-
-
-def _gather_llm_section(config_manager: ConfigManager) -> dict[str, Any]:
-    settings = config_manager.get_settings()
-    if settings.llm:
-        return settings.llm.model_dump(mode="json")
-    return {}
-
-
 @router.get("")
 async def get_overview(
-    assistant_manager: AssistantRuntimeManager = Depends(get_assistant_manager),
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     log_manager: LogManager = Depends(get_log_manager),
     market_service: MarketService = Depends(get_market_service),

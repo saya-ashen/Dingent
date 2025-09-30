@@ -19,7 +19,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 #    - ACCESS_TOKEN_EXPIRE_MINUTES: Access Token 的有效期。
 SECRET_KEY = "YOUR_SUPER_SECRET_KEY_CHANGE_THIS"  # 强烈建议从环境变量读取
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30  # Token 有效期为 30 分钟
+ACCESS_TOKEN_EXPIRE_MINUTES = 3600  # Token 有效期为 3600 分钟
 
 # --- 密码相关函数 ---
 

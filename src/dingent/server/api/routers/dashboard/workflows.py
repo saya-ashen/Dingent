@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from dingent.core.db.models import Workflow
 from dingent.core.managers.workflow_manager import WorkflowManager
-from dingent.core.types import Workflow, WorkflowCreate, WorkflowUpdate
+from dingent.core.schemas import WorkflowCreate, WorkflowUpdate
 from dingent.server.api.dependencies import (
     get_workflow_manager,
 )
@@ -19,11 +20,10 @@ async def list_workflows(
 @router.post("", response_model=Workflow)
 async def create_workflow(
     wf_create: WorkflowCreate,
-    make_active: bool = False,
     workflow_manager: WorkflowManager = Depends(get_workflow_manager),
 ):
     try:
-        wf = workflow_manager.create_workflow(wf_create, make_active=make_active)
+        wf = workflow_manager.create_workflow(wf_create)
         return wf
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from langgraph.graph.state import CompiledStateGraph
 
+from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.managers.log_manager import LogManager
+from dingent.core.managers.plugin_manager import PluginManager
+from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.utils import find_project_root
 from dingent.server.copilot.agents import FixedLangGraphAgent
@@ -24,6 +27,14 @@ def create_extended_lifespan(original_lifespan):
             ctx = app.state.app_context
             app.state.log_manager = LogManager()
             app.state.plugin_registry = PluginRegistry(project_root / "plugins", app.state.log_manager)
+            app.state.resource_manager = ResourceManager(app.state.log_manager, max_size=1000)
+            app.state.plugin_manager = PluginManager(
+                app.state.plugin_registry,
+                app.state.resource_manager,
+                app.state.log_manager,
+            )
+            app.state.assistant_factory = AssistantFactory(app.state.plugin_manager, app.state.log_manager)
+
             # gm = ctx.graph_manager
             # active_wid = ctx.workflow_manager.active_workflow_id
             # graph = await gm.get_graph(active_wid)
