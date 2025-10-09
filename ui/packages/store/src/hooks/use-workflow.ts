@@ -1,16 +1,31 @@
+import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, WorkflowSummary, type Workflow } from "@repo/api-client";
 
+const KEY = ["active-workflow-id"];
+const LS_KEY = "active-workflow-id";
 
-
-
-export function useWorkflowsList() {
-  return useQuery<WorkflowSummary[]>({
-    queryKey: ["workflows"],
-    queryFn: async () => (await api.dashboard.workflows.list()) ?? [],
+export function useActiveWorkflowId() {
+  return useQuery<string | null>({
+    queryKey: KEY,
+    initialData: () =>
+      typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null,
   });
 }
 
+export function useSetActiveWorkflowId() {
+  const qc = useQueryClient();
+  return React.useCallback(
+    (id: string | null) => {
+      if (typeof window !== "undefined") {
+        if (id) localStorage.setItem(LS_KEY, id);
+        else localStorage.removeItem(LS_KEY);
+      }
+      qc.setQueryData(KEY, id);
+    },
+    [qc]
+  );
+}
 
 export function useWorkflow(id: string | null) {
   return useQuery<Workflow | null>({
@@ -23,6 +38,12 @@ export function useWorkflow(id: string | null) {
   });
 }
 
+export function useWorkflowsList() {
+  return useQuery<WorkflowSummary[]>({
+    queryKey: ["workflows"],
+    queryFn: async () => (await api.dashboard.workflows.list()) ?? [],
+  });
+}
 
 export function useAssistantsConfig() {
   return useQuery({
