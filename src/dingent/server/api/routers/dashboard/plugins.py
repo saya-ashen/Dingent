@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from dingent.core.db.models import User
 from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.schemas import PluginManifest, PluginRead
+from dingent.core.schemas import PluginRead
 from dingent.server.api.dependencies import (
     get_current_user,
     get_plugin_manager,
@@ -13,6 +13,7 @@ from dingent.server.services.user_plugin_service import UserPluginService
 router = APIRouter(prefix="/plugins", tags=["Plugins"])
 
 
+# WARN: plugin的实例就不能每次都重新创建，速度太慢了
 @router.get("", response_model=list[PluginRead])
 async def list_available_plugins(
     user_plugin_service: UserPluginService = Depends(get_user_plugin_service),

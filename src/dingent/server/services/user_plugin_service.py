@@ -22,7 +22,6 @@ class UserPluginService:
         self.resource_manager = resource_manager
         self.middleware = None
 
-    # FIXME:
     def get_visible_plugins(
         self,
     ) -> list[PluginRead]:
@@ -32,4 +31,5 @@ class UserPluginService:
         (Permission logic is a placeholder for now.)
         """
         visible_plugins = crud_plugin.get_all_plugins(self.session)
-        return visible_plugins
+        plugin_reads = [PluginRead.model_validate(plugin) for plugin in visible_plugins]
+        return plugin_reads

@@ -14,7 +14,6 @@ from dingent.server.api.dependencies import (
     get_log_manager,
     get_market_service,
     get_plugin_manager,
-    get_workflow_manager,
 )
 
 router = APIRouter(prefix="/overview", tags=["Overview"])
@@ -92,7 +91,6 @@ async def get_overview(
     plugin_manager: PluginManager = Depends(get_plugin_manager),
     log_manager: LogManager = Depends(get_log_manager),
     market_service: MarketService = Depends(get_market_service),
-    workflow_manager: WorkflowManager = Depends(get_workflow_manager),
 ):
     """
     聚合后台核心状态用于 Dashboard 展示的总览接口。

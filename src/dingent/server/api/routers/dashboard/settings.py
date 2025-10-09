@@ -3,9 +3,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from dingent.core.managers.workflow_manager import WorkflowManager
-from dingent.server.api.dependencies import (
-    get_workflow_manager,
-)
 from dingent.server.api.schemas import AppAdminDetail
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -20,7 +17,7 @@ async def get_app_settings():
 @router.patch("")
 async def update_app_settings(
     payload: dict,
-    workflow_manager: WorkflowManager = Depends(get_workflow_manager),
+    # workflow_manager: WorkflowManager = Depends(get_workflow_manager),
 ):
     """
     部分更新全局配置 (llm / current_workflow)。

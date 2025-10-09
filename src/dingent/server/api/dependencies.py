@@ -21,6 +21,7 @@ from dingent.core.config import settings
 from dingent.core.schemas import UserRead
 from dingent.server.services.user_assistant_service import UserAssistantService
 from dingent.server.services.user_plugin_service import UserPluginService
+from dingent.server.services.user_workflow_service import UserWorkflowService
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
@@ -109,10 +110,18 @@ def get_user_plugin_service(
     )
 
 
-def get_workflow_manager(
-    request: Request,
-) -> WorkflowManager:
-    return request.app.state.workflow_manager
+def get_user_workflow_service(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+    assistant_service: UserAssistantService = Depends(get_user_assistant_service),
+    log_manager: LogManager = Depends(get_log_manager),
+):
+    return UserWorkflowService(
+        user_id=user.id,
+        session=session,
+        assistant_service=assistant_service,
+        log_manager=log_manager,
+    )
 
 
 def get_analytics_manager():

@@ -2,19 +2,6 @@ from sqlmodel import Session, select
 from dingent.core.db.models import User, UserRole
 
 
-PROD_FAKE_USERS_DB = {
-    "user@example.com": {
-        "id": "user_123",
-        "email": "user@example.com",
-        "username": "user_123",
-        "full_name": "Regular User",
-        # testpassword123
-        "hashed_password": "$2b$12$DmYECapSrA2wOyBn2xK1sOW4Iqi1T5PtEOZHAyCCE/NmfqvAHTAeG",
-        "role": ["user"],
-    },
-}
-
-
 def get_user(session: Session, email: str) -> User | None:
     statement = select(User).where(User.email == email)
     result = session.exec(statement).first()

@@ -88,11 +88,11 @@ class ToolOverrideConfig(SQLModel):
 
 
 class PluginRead(PluginBase):
-    id: str = Field(..., description="插件的唯一永久ID")
+    id: UUID = Field(..., description="插件的唯一永久ID")
     enabled: bool = True
     tools: list[ToolOverrideConfig] | None = None
     config: dict | None = None
-    status: str
+    status: str | None = Field(None, description="运行状态 (active/inactive/error)")
 
 
 class PluginCreate(PluginBase):

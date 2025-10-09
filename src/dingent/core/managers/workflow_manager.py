@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from threading import RLock
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.orm import selectinload
@@ -11,10 +10,6 @@ from dingent.core.db.crud import workflow as crud_workflow
 from dingent.core.db.models import Assistant, Workflow
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import WorkflowCreate, WorkflowUpdate
-
-
-if TYPE_CHECKING:
-    from dingent.core.managers.assistant_runtime_manager import AssistantRuntimeManager
 
 
 class WorkflowManager:
