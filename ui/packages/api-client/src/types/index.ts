@@ -100,7 +100,7 @@ export type Workflow = {
   created_at?: string;
   updated_at?: string;
 };
-
+export type WorkflowSummary = Pick<Workflow, "id" | "name" | "description">;
 type ModelCost = { [modelName: string]: number; };
 export type AnalyticsData = { total_budget: number; current_cost: number; model_cost: ModelCost; };
 

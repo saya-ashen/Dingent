@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import type { Workflow } from "@repo/api-client";
+import type { WorkflowSummary } from "@repo/api-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,9 +18,9 @@ export function WorkflowList({
   onSelect,
   onDelete,
 }: {
-  workflows: Workflow[];
-  selectedWorkflow: Workflow | null;
-  onSelect: (workflow: Workflow) => void;
+  workflows: WorkflowSummary[];
+  selectedWorkflow: WorkflowSummary | null;
+  onSelect: (workflow: WorkflowSummary) => void;
   onDelete: (workflowId: string) => void;
 }) {
   return (
@@ -36,11 +36,10 @@ export function WorkflowList({
           {workflows.map((workflow) => (
             <div
               key={workflow.id}
-              className={`hover:bg-muted cursor-pointer rounded border p-3 ${
-                selectedWorkflow?.id === workflow.id
-                  ? "bg-primary/10 border-primary"
-                  : ""
-              }`}
+              className={`hover:bg-muted cursor-pointer rounded border p-3 ${selectedWorkflow?.id === workflow.id
+                ? "bg-primary/10 border-primary"
+                : ""
+                }`}
               onClick={() => onSelect(workflow)}
             >
               <div className="flex items-start justify-between">
