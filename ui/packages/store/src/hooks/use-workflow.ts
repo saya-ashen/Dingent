@@ -2,26 +2,27 @@ import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, WorkflowSummary, type Workflow } from "@repo/api-client";
 
-const KEY = ["active-workflow-id"];
-const LS_KEY = "active-workflow-id";
+const ACTIVE_ID_KEY = ["active-workflow-id"];
+const LS_ACTIVE_ID = "active-workflow-id";
 
 export function useActiveWorkflowId() {
   return useQuery<string | null>({
-    queryKey: KEY,
+    queryKey: ACTIVE_ID_KEY,
     initialData: () =>
-      typeof window !== "undefined" ? localStorage.getItem(LS_KEY) : null,
+      typeof window !== "undefined" ? localStorage.getItem(LS_ACTIVE_ID) : null,
   });
 }
+
 
 export function useSetActiveWorkflowId() {
   const qc = useQueryClient();
   return React.useCallback(
     (id: string | null) => {
       if (typeof window !== "undefined") {
-        if (id) localStorage.setItem(LS_KEY, id);
-        else localStorage.removeItem(LS_KEY);
+        if (id) localStorage.setItem(LS_ACTIVE_ID, id);
+        else localStorage.removeItem(LS_ACTIVE_ID);
       }
-      qc.setQueryData(KEY, id);
+      qc.setQueryData(ACTIVE_ID_KEY, id);
     },
     [qc]
   );
@@ -36,6 +37,43 @@ export function useWorkflow(id: string | null) {
       return api.dashboard.workflows.get(id);
     },
   });
+}
+
+/**
+ * Returns the active workflow id, its summary (if present in the list),
+ * and a setter. Falls back to fetching the workflow if not in the list.
+ */
+export function useActiveWorkflow() {
+  const { data: activeId } = useActiveWorkflowId();
+  const setActiveId = useSetActiveWorkflowId();
+
+  const { data: list } = useWorkflowsList();
+
+  // Prefer the summary from the list (stays fresh after rename/desc changes)
+  const summaryFromList = React.useMemo(
+    () => list?.find((w) => w.id === activeId) ?? null,
+    [list, activeId]
+  );
+
+  // Optional fallback: if summary not in list, fetch the full workflow
+  const { data: fetched } = useWorkflow(summaryFromList ? null : activeId);
+
+  const summary: WorkflowSummary | null = React.useMemo(() => {
+    if (summaryFromList) return summaryFromList;
+    if (fetched) {
+      // Adapt full Workflow -> WorkflowSummary shape if needed
+      const { id, name, description } = fetched;
+      return { id, name, description } as WorkflowSummary;
+    }
+    return null;
+  }, [summaryFromList, fetched]);
+
+  return {
+    id: activeId,
+    name: summary?.name || "Unnamed workflow",
+    summary,               // null until we can derive/fetch it
+    setActiveId,           // (id: string | null) => void
+  };
 }
 
 export function useWorkflowsList() {
@@ -81,11 +119,14 @@ export function useSaveWorkflow() {
 
 export function useDeleteWorkflow() {
   const qc = useQueryClient();
+  const { data: activeId } = useActiveWorkflowId();
+  const setActiveId = useSetActiveWorkflowId();
+
   return useMutation({
     mutationFn: api.dashboard.workflows.remove,
     onSuccess: (_ok, deletedId: string) => {
       qc.invalidateQueries({ queryKey: ["workflows"] });
       qc.removeQueries({ queryKey: ["workflow", deletedId] });
+      if (activeId === deletedId) setActiveId(null);
     },
   });
-}

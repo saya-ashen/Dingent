@@ -9,10 +9,8 @@ from dingent.core.db.models import User
 from dingent.core.db.session import engine
 from dingent.core.db.crud import assistant as crud_assistant
 from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.managers.resource_manager import ResourceManager
-from dingent.core.managers.workflow_manager import WorkflowManager
 from dingent.core.managers.log_manager import LogManager
-from dingent.server.auth.security import decode_token, verify_password
+from dingent.server.auth.security import decode_token, get_current_user_from_token, verify_password
 from fastapi.security.oauth2 import OAuth2PasswordRequestForm
 from sqlmodel import Session
 from fastapi import Depends
@@ -37,28 +35,11 @@ def get_db_session():
             raise
 
 
-async def get_current_user(session: Session = Depends(get_db_session), token=Depends(oauth2_scheme)):
-    """Extract and validate current user from JWT token."""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    payload = decode_token(token)
-    if payload is None:
-        raise credentials_exception
-
-    email: str = payload.get("sub", "unknown")
-    if email is None:
-        raise credentials_exception
-
-    user_data = get_user(session, email)
-    if user_data is None:
-        raise credentials_exception
-
-    # Convert dictionary to Pydantic model
-    return user_data
+async def get_current_user(
+    session: Session = Depends(get_db_session),
+    token: str = Depends(oauth2_scheme),
+):
+    return get_current_user_from_token(session, token)
 
 
 def get_log_manager(

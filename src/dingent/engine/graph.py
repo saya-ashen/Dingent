@@ -11,6 +11,9 @@ from langgraph.types import Command
 from langgraph_swarm import SwarmState
 from pydantic import BaseModel, Field
 
+from dingent.core.db.models import Workflow
+from dingent.core.factories.assistant_factory import AssistantFactory
+from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import RunnableTool
 
 
@@ -151,15 +154,18 @@ def _normalize_name(name: str) -> str:
 
 
 @asynccontextmanager
-async def create_assistant_graphs(workflow_manager, workflow_id: str, llm, log_method: Callable):
+async def create_assistant_graphs(assistant_factory: AssistantFactory, workflow: Workflow, llm, log_method: Callable):
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    assistants = await workflow_manager.instantiate_workflow_assistants(workflow_id, reset_assistants=False)
+    assistants_runtime: dict[str, AssistantRuntime] = {}
+    for node in workflow.nodes:
+        assistant = node.assistant
+        assistant_runtime = await assistant_factory.create_runtime(assistant)
+        assistants_runtime[assistant.name] = assistant_runtime
 
-    assistants_by_name = {a.name: a for a in assistants.values()}
-    name_map = {original: _normalize_name(original) for original in assistants_by_name}
+    name_map = {original: _normalize_name(original) for original in assistants_runtime}
 
     handoff_tools: dict[str, BaseTool] = {}
-    for original_name, assistant in assistants_by_name.items():
+    for original_name, assistant in assistants_runtime.items():
         normalized_name = name_map[original_name]
         handoff_tools[normalized_name] = create_handoff_tool(
             agent_name=normalized_name,
@@ -168,7 +174,7 @@ async def create_assistant_graphs(workflow_manager, workflow_id: str, llm, log_m
         )
 
     async with AsyncExitStack() as stack:
-        for original_name, assistant in assistants_by_name.items():
+        for original_name, assistant in assistants_runtime.items():
             normalized_name = name_map[original_name]
             tools: list[RunnableTool] = await stack.enter_async_context(assistant.load_tools())
             wrapped_tools = [mcp_tool_wrapper(t, log_method) for t in tools]

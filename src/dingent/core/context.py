@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dingent.engine.graph_manager import GraphManager
 
 from .utils import find_project_root
 

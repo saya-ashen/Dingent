@@ -5,11 +5,13 @@ import { CopilotKit } from "@copilotkit/react-core";
 import { useAuthStore } from "@repo/store";
 import { useAuthInterceptor } from "@repo/store";
 import { ThreadProvider, useThreadContext } from "@/contexts/ThreadProvider";
+import { useActiveWorkflow } from "@repo/store";
 
 function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
   useAuthInterceptor()
   const { activeThreadId } = useThreadContext();
   const accessToken = useAuthStore((state) => state.accessToken);
+  const { name: workflow_name } = useActiveWorkflow();
 
   const headers = useMemo(() => ({
     Authorization: `Bearer ${accessToken || 'None'}`,
@@ -19,9 +21,12 @@ function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
     <CopilotKit
       runtimeUrl="/api/v1/frontend/copilotkit"
       showDevConsole={false}
-      agent="dingent"
+      agent={workflow_name}
       threadId={activeThreadId}
       headers={headers}
+      properties={{
+        authorization: accessToken,
+      }}
     >
       {children}
     </CopilotKit>

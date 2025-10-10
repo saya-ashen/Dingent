@@ -1,6 +1,10 @@
 from typing import Any
 
 
+from fastapi.exceptions import HTTPException
+from sqlmodel import Session
+from starlette import status
+from dingent.core.db.crud.user import get_user
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -68,3 +72,25 @@ def decode_token(token: str) -> dict[str, Any] | None:
         return payload
     except JWTError:
         return None
+
+
+def get_current_user_from_token(session: Session, token: str):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if not token:
+        raise credentials_exception
+    payload = decode_token(token)
+    if payload is None:
+        raise credentials_exception
+
+    email: str | None = payload.get("sub")  # no default; be strict
+    if not email:
+        raise credentials_exception
+
+    user = get_user(session, email)
+    if user is None:
+        raise credentials_exception
+    return user

@@ -7,11 +7,11 @@ import { useWidgets } from "@/hooks/useWidgets";
 
 import { ChevronDown, X } from "lucide-react";
 import { useActiveWorkflowId, useSetActiveWorkflowId, useWorkflow, useWorkflowsList } from "@repo/store";
-import { Workflow } from "@repo/api-client";
+import { WorkflowSummary } from "@repo/api-client";
 
 
 const WorkflowSelector: React.FC<{
-  workflows: Workflow[];
+  workflows: WorkflowSummary[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   isLoading: boolean;
@@ -83,7 +83,7 @@ type MyHeaderProps = {
 
 // The main, refactored component.
 // It is now much cleaner and acts as a container for the sub-components.
-export const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
+const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
   const { data: workflows = [], isLoading } = useWorkflowsList();
   const { data: activeId } = useActiveWorkflowId();
   const setActiveId = useSetActiveWorkflowId();
