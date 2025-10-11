@@ -1,8 +1,8 @@
 from __future__ import annotations
+import os
 import asyncio
 from dataclasses import dataclass
-from typing import OrderedDict, cast
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from typing import Awaitable, OrderedDict, cast
 from copilotkit import Agent, CopilotKitContext, LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
@@ -18,8 +18,10 @@ from dingent.core.managers.llm_manager import LLMManager
 from time import time
 from dingent.server.auth.authorization import dynamic_authorizer
 from dingent.server.auth.security import get_current_user_from_token
-from dingent.server.copilot.agents import FixedLangGraphAgent, LazyFixedLangGraphAgent
-from dingent.core.db.crud.workflow import get_workflow_by_name, list_workflows_by_user
+from dingent.server.copilot.add_fastapi_endpoint import add_fastapi_endpoint
+from dingent.server.copilot.agents import FixedLangGraphAgent
+from dingent.core.db.crud.workflow import get_workflow_by_name
+from dingent.server.copilot.async_copilotkit_remote_endpoint import AsyncCopilotKitRemoteEndpoint
 
 router = APIRouter(dependencies=[Depends(dynamic_authorizer)])
 
@@ -64,11 +66,11 @@ class GraphCache:
             key, _ = self._store.popitem(last=False)
             self._locks.pop(key, None)
 
-    def get_or_build(
+    async def get_or_build(
         self,
         key: Key,
         version: str,
-        builder: Callable[[], GraphArtifact],  # returns either graph or an object with `.graph`
+        builder: Callable[[], Awaitable[GraphArtifact]],  # returns either graph or an object with `.graph`
     ) -> GraphArtifact:
         # Fast path: try without locking (LRU move needs lock)
         with self._global_lock:
@@ -88,7 +90,7 @@ class GraphCache:
                     return entry.graph
 
             # Build outside global lock
-            built = builder()
+            built = await builder()
             graph = getattr(built, "graph", built)
             new_entry = GraphCacheEntry(graph=graph, version=version, built_at=time())
 
@@ -127,71 +129,40 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
 
     # HACK: llm manager
     llm_manager = LLMManager()
-    llm = llm_manager.get_llm(model_provider="openai", model="gpt-4.1", api_base="https://www.dmxapi.cn/v1")
+    api_key = os.getenv("OPENAI_API_KEY")
+    llm = llm_manager.get_llm(
+        model_provider="openai",
+        model="gpt-4.1",
+        api_base="https://www.dmxapi.cn/v1",
+        api_key=api_key,
+    )
 
-    def _agents_pipeline(context: CopilotKitContext) -> list[Agent]:
-        # 1) 认证（注意：不再依赖 frontend_url 推断 name）
+    async def _agents_pipeline(context: CopilotKitContext, name: str) -> Agent:
         token = context.get("properties", {}).get("authorization")
-        graph_cache = ensure_graph_cache(app)
 
         if not token:
-            # 按你原有逻辑决定：返回空/抛 401
-            return []
+            raise HTTPException(status_code=401, detail="Missing token")
 
         with Session(engine, expire_on_commit=False) as session:
             user = get_current_user_from_token(session, token)
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid token")
 
-            # 2) 列出该用户的所有 workflows，逐个包装成 Lazy 代理
-            workflows = list_workflows_by_user(session, user.id)  # <- 你提到可用的接口
+            workflow = get_workflow_by_name(session, name, user.id)
+            if not workflow:
+                raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
+            artifact = await graph_factory.build(workflow, llm, checkpointer)
+            return FixedLangGraphAgent(
+                name=workflow.name,
+                description=f"Agent for workflow '{workflow.name}'",
+                graph=artifact.graph,
+                langgraph_config={"token": token} if token else {},
+            )
 
-            def make_lazy_agent(wf) -> LazyFixedLangGraphAgent:
-                # 缓存 key / 版本：建议用 (user_id, workflow_id)
-                key = (str(user.id), str(wf.id))
-                version = str(wf.updated_at)  # 更新即失效
-
-                def builder():
-                    # 缓存里拿 graph，不存在则 build_sync
-                    def build_artifact():
-                        breakpoint()
-                        artifact = graph_factory.build_sync(wf, llm, checkpointer)
-                        breakpoint()
-                        return artifact
-
-                    graph_art = graph_cache.get_or_build(key, version, build_artifact)
-
-                    # 命中后才真正实例化 FixedLangGraphAgent
-                    return FixedLangGraphAgent(
-                        name=wf.name,
-                        description=f"Agent for workflow '{wf.name}'",
-                        graph=graph_art.graph,
-                        langgraph_config={"token": token} if token else {},
-                    )
-
-                return LazyFixedLangGraphAgent(
-                    name=wf.name,
-                    description=f"Agent for workflow '{wf.name}' (lazy)",
-                    builder=builder,
-                )
-
-            # 3) 返回“仅含 name 的懒代理”列表；你的两行筛选代码只会读 name，不会触发构建
-            return cast(list[Agent], [make_lazy_agent(wf) for wf in workflows])
-
-    sdk = CopilotKitRemoteEndpoint(agents=_agents_pipeline)
+    sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=_agents_pipeline, engine=engine)
     app.state.copilot_sdk = sdk
-    add_fastapi_endpoint(cast(FastAPI, router), sdk, "/copilotkit")
+    add_fastapi_endpoint(router, sdk, "/copilotkit")
 
     app.include_router(router, prefix="/api/v1/frontend")
 
     print("--- CopilotKit Secure Router has been added to the application ---")
-
-    # add_langgraph_fastapi_endpoint(
-    #     app=cast(FastAPI, router),
-    #     agent=LangGraphAGUIAgent(
-    #         name="sample_agent",  # the name of your agent defined in langgraph.json
-    #         description="Describe your agent here, will be used for multi-agent orchestration",
-    #         graph=graph,  # the graph object from your langgraph import
-    #     ),
-    #     path="/copilotkit",
-    # )

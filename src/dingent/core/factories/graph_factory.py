@@ -102,20 +102,6 @@ class GraphFactory:
 
         return await self._build_full(workflow, stack, llm, checkpointer)
 
-    def build_sync(self, *args, **kwargs):
-        try:
-            # Check if an event loop is already running in this thread
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            # No loop is running, so we can safely start one
-            return asyncio.run(self.build(*args, **kwargs))
-        coro = self.build(*args, **kwargs)
-        future: asyncio.Future = asyncio.run_coroutine_threadsafe(coro, loop)
-
-        # future.result() will block the current sync function
-        # until the coroutine is finished on the event loop.
-        return future.result()
-
     # ------------------------------------------------------------------
     # Internal builders
     # ------------------------------------------------------------------

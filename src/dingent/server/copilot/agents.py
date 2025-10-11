@@ -2,7 +2,7 @@
 CopilotKit agent implementations and extensions.
 """
 
-from typing import Any, Callable, cast
+from typing import Any, Awaitable, Callable, cast
 from copilotkit import Agent, LangGraphAgent
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 from copilotkit.langgraph_agent import ensure_config
@@ -41,42 +41,3 @@ class FixedLangGraphAgent(LangGraphAgent):
         state_copy.pop("messages", None)
 
         return {"threadId": thread_id, "threadExists": True, "state": state_copy, "messages": messages}
-
-
-class LazyFixedLangGraphAgent(Agent):
-    def __init__(self, name: str, description: str, builder: Callable[..., FixedLangGraphAgent]):
-        # 仅保存 name / 描述 / 构建器；不做重初始化
-        self._name = name
-        self._description = description
-        self._builder = builder
-        self._real: FixedLangGraphAgent | None = None
-
-    # 让筛选语句只读取到轻量字段，不触发构建
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def description(self) -> str:
-        return self._description
-
-    def execute(self, *args: Any, **kwargs: Any) -> None:
-        return self._ensure().execute(*args, **kwargs)
-
-    def get_state(self, *args: Any, **kwargs: Any):
-        return self._ensure().get_state(*args, **kwargs)
-
-    def _ensure(self) -> FixedLangGraphAgent:
-        if self._real is None:
-            self._real = self._builder()
-        return self._real
-
-    # 框架可能直接访问的属性/方法，统统懒转发
-    def __getattr__(self, attr):
-        # name/description 已在本对象
-        if attr in {"name", "description"}:
-            return getattr(self, f"_{attr}")
-        return getattr(self._ensure(), attr)
-
-    def __repr__(self) -> str:
-        return f"<LazyFixedLangGraphAgent name={self._name} materialized={self._real is not None}>"
