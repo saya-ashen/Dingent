@@ -1,5 +1,5 @@
 import type { AxiosInstance } from "axios";
-import type { Workflow } from "../types";
+import type { Workflow, WorkflowSummary } from "../types";
 
 export function createWorkflowsApi(http: AxiosInstance, base: string) {
   const url = (p: string) => `${base}${p}`;
@@ -20,13 +20,15 @@ export function createWorkflowsApi(http: AxiosInstance, base: string) {
       return data;
     },
 
-    async save(wf: Workflow): Promise<Workflow> {
+    async save(wf: Workflow): Promise<WorkflowSummary> {
       try {
-        const { data } = await http.put<Workflow>(url(`/${wf.id}`), wf);
+        const nodes = wf.nodes.map(n => ({ assistantId: n.data.assistantId, position: n.position, type: n.type, measured: n.measured, isStartNode: n.data.isStart }));
+        const edges = wf.edges.map(e => ({ source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle }));
+        const { data } = await http.put<WorkflowSummary>(url(`/${wf.id}`), { name: wf.name, description: wf.description, nodes: nodes, edges: edges, });
         return data;
       } catch {
         console.warn("Backend not available, mocking save");
-        return { ...wf, updated_at: new Date().toISOString() };
+        return { ...wf, };
       }
     },
 

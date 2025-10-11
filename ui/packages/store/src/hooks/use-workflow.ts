@@ -8,8 +8,12 @@ const LS_ACTIVE_ID = "active-workflow-id";
 export function useActiveWorkflowId() {
   return useQuery<string | null>({
     queryKey: ACTIVE_ID_KEY,
+    queryFn: () =>
+      typeof window !== "undefined" ? localStorage.getItem(LS_ACTIVE_ID) : null,
     initialData: () =>
       typeof window !== "undefined" ? localStorage.getItem(LS_ACTIVE_ID) : null,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 }
 
@@ -18,6 +22,7 @@ export function useSetActiveWorkflowId() {
   const qc = useQueryClient();
   return React.useCallback(
     (id: string | null) => {
+      console.log("Setting active workflow ID to:", id);
       if (typeof window !== "undefined") {
         if (id) localStorage.setItem(LS_ACTIVE_ID, id);
         else localStorage.removeItem(LS_ACTIVE_ID);
@@ -27,6 +32,20 @@ export function useSetActiveWorkflowId() {
     [qc]
   );
 }
+
+export function useSyncActiveWorkflowIdAcrossTabs() {
+  const qc = useQueryClient();
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LS_ACTIVE_ID) {
+        qc.setQueryData(ACTIVE_ID_KEY, e.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [qc]);
+}
+
 
 export function useWorkflow(id: string | null) {
   return useQuery<Workflow | null>({
@@ -91,6 +110,18 @@ export function useAssistantsConfig() {
   });
 }
 
+export interface WorkflowNodeCreate {
+  /** Optional: let server generate if not a valid UUID */
+  id?: string;
+  measured: Record<string, number>;
+  position: { x: number; y: number };
+  selected: boolean;
+  type: string;
+  dragging: boolean;
+  data: Record<string, any>;
+}
+
+
 
 export function useCreateWorkflow() {
   const qc = useQueryClient();
@@ -109,7 +140,7 @@ export function useSaveWorkflow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: api.dashboard.workflows.save,
-    onSuccess: (wf: Workflow) => {
+    onSuccess: (wf: WorkflowSummary) => {
       qc.invalidateQueries({ queryKey: ["workflows"] });
       if (wf?.id) qc.setQueryData(["workflow", wf.id], wf);
     },
@@ -130,3 +161,4 @@ export function useDeleteWorkflow() {
       if (activeId === deletedId) setActiveId(null);
     },
   });
+}

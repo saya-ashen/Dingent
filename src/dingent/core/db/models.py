@@ -188,7 +188,7 @@ class WorkflowNode(SQLModel, table=True):
     type: str = "assistant"
     is_start_node: bool = Field(default=False, index=True)
     position: dict[str, float] = Field(sa_column=Column(JSON))
-
+    measured: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     # 关系：多对一 -> Workflow；多对一 -> Assistant
     workflow: Workflow = Relationship(back_populates="nodes")
     assistant: Assistant = Relationship(back_populates="workflow_nodes")

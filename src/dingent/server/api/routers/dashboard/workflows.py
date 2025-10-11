@@ -5,6 +5,7 @@ from dingent.core.schemas import (
     WorkflowCreate,
     WorkflowRead,
     WorkflowReadBasic,
+    WorkflowReplace,
     WorkflowUpdate,
     WorkflowNodeCreate,
     WorkflowNodeUpdate,
@@ -61,6 +62,20 @@ async def update_workflow(
 ) -> WorkflowReadBasic:
     try:
         return user_workflow_service.update_workflow(workflow_id, payload)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+    except Exception as e:  # pragma: no cover
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.put("/{workflow_id}", response_model=WorkflowReadBasic)
+async def replace_workflow(
+    workflow_id: UUID,
+    payload: WorkflowReplace,
+    user_workflow_service: UserWorkflowService = Depends(get_user_workflow_service),
+) -> WorkflowReadBasic:
+    try:
+        return user_workflow_service.replace_workflow(workflow_id, payload)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except Exception as e:  # pragma: no cover

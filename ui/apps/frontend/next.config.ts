@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../../"),
 
   output: "standalone",
+
   transpilePackages: ["@repo/ui", "@repo/lib"],
   async rewrites() {
     return [

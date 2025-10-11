@@ -185,6 +185,16 @@ async def handler(request: Request, sdk: AsyncCopilotKitRemoteEndpoint):
             actions=actions,
             meta_events=meta_events,
         )
+    if method == "POST" and path == "agents/state":
+        thread_id = body_get_or_raise(body, "threadId")
+        name = body_get_or_raise(body, "name")
+
+        return await handle_get_agent_state(
+            sdk=sdk,
+            context=context,
+            thread_id=thread_id,
+            name=name,
+        )
 
     raise HTTPException(status_code=404, detail="Not found")
 

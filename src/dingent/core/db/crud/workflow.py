@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from dingent.core.db.models import Workflow, WorkflowNode, WorkflowEdge
 from dingent.core.schemas import (
     WorkflowCreate,
+    WorkflowReplace,
     WorkflowUpdate,
     WorkflowNodeCreate,
     WorkflowNodeUpdate,
@@ -36,6 +37,48 @@ def get_workflow_by_name(db: Session, name: str, user_id: UUID) -> Optional[Work
         Workflow.user_id == user_id,
     )
     return db.exec(statement).first()
+
+
+def replace_workflow(db: Session, db_workflow: Workflow, wf_create: WorkflowReplace) -> Workflow:
+    """
+    Replaces an existing workflow with new data, including its nodes and edges.
+
+    This is an atomic operation: it deletes all existing nodes and edges
+    for the workflow and creates new ones from the `wf_create` payload.
+    """
+    # 1. Delete all existing edges and nodes associated with the workflow
+    # It's good practice to delete edges first to avoid foreign key constraint issues.
+    for edge in list_workflow_edges(db, db_workflow.id):
+        db.delete(edge)
+    for node in list_workflow_nodes(db, db_workflow.id):
+        db.delete(node)
+
+    # 2. Update the workflow's own properties (name, description, etc.)
+    # We exclude nodes and edges as we will handle them separately.
+    update_data = wf_create.model_dump(exclude={"nodes", "edges"})
+    for key, value in update_data.items():
+        setattr(db_workflow, key, value)
+    db.add(db_workflow)
+
+    # 3. Create new nodes from the payload
+    # Assumes that wf_create.nodes contains a list of WorkflowNodeCreate schemas
+    # and that the IDs in the payload are the ones we want to use.
+    if wf_create.nodes:
+        for node_create in wf_create.nodes:
+            new_node = WorkflowNode.model_validate(node_create, update={"workflow_id": db_workflow.id})
+            db.add(new_node)
+
+    # 4. Create new edges from the payload
+    # Assumes that wf_create.edges contains a list of WorkflowEdgeCreate schemas
+    if wf_create.edges:
+        for edge_create in wf_create.edges:
+            new_edge = WorkflowEdge.model_validate(edge_create, update={"workflow_id": db_workflow.id})
+            db.add(new_edge)
+
+    # 5. Commit the transaction and refresh the state
+    db.commit()
+    db.refresh(db_workflow)
+    return db_workflow
 
 
 def list_workflows_by_user(db: Session, user_id: UUID) -> list[Workflow]:

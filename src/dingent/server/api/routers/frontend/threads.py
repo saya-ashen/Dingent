@@ -1,19 +1,15 @@
 from __future__ import annotations
 import os
-import asyncio
-from dataclasses import dataclass
-from typing import Awaitable, OrderedDict, cast
 from copilotkit import Agent, CopilotKitContext, LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
 from copilotkit.sdk import CopilotKitRemoteEndpoint
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.exceptions import HTTPException
-from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy import Engine
 from sqlmodel import Session
 
-from dingent.core.factories.graph_factory import GraphArtifact, GraphFactory
+from dingent.core.factories.graph_factory import GraphFactory
 from dingent.core.managers.llm_manager import LLMManager
 from time import time
 from dingent.server.auth.authorization import dynamic_authorizer
@@ -30,93 +26,9 @@ MAX_CACHE_SIZE = 128
 
 
 from collections import OrderedDict
-from dataclasses import dataclass
-from time import time
-from typing import Tuple, Any, Callable
-import threading
+from typing import Tuple, Any, Callable, cast
 
 Key = Tuple[str, str]  # (user_id, agent_name) or (workflow_id, ...)
-
-
-@dataclass
-class GraphCacheEntry:
-    graph: GraphArtifact
-    version: str
-    built_at: float
-
-
-class GraphCache:
-    def __init__(self, maxsize: int = 128):
-        self._store: OrderedDict[Key, GraphCacheEntry] = OrderedDict()
-        self._locks: dict[Key, threading.Lock] = {}
-        self._global_lock = threading.RLock()
-        self._maxsize = maxsize
-
-    def _get_lock(self, key: Key) -> threading.Lock:
-        with self._global_lock:
-            lock = self._locks.get(key)
-            if lock is None:
-                lock = threading.Lock()
-                self._locks[key] = lock
-            return lock
-
-    def _evict_if_needed(self) -> None:
-        while len(self._store) > self._maxsize:
-            # pop least-recently-used (front)
-            key, _ = self._store.popitem(last=False)
-            self._locks.pop(key, None)
-
-    async def get_or_build(
-        self,
-        key: Key,
-        version: str,
-        builder: Callable[[], Awaitable[GraphArtifact]],  # returns either graph or an object with `.graph`
-    ) -> GraphArtifact:
-        # Fast path: try without locking (LRU move needs lock)
-        with self._global_lock:
-            entry = self._store.get(key)
-            if entry and entry.version == version:
-                self._store.move_to_end(key)  # mark as recently used
-                return entry.graph
-
-        # Per-key build lock to prevent duplicate builds
-        lock = self._get_lock(key)
-        with lock:
-            # Double-check inside the lock
-            with self._global_lock:
-                entry = self._store.get(key)
-                if entry and entry.version == version:
-                    self._store.move_to_end(key)
-                    return entry.graph
-
-            # Build outside global lock
-            built = await builder()
-            graph = getattr(built, "graph", built)
-            new_entry = GraphCacheEntry(graph=graph, version=version, built_at=time())
-
-            # Commit + LRU maintenance
-            with self._global_lock:
-                self._store[key] = new_entry
-                self._store.move_to_end(key)
-                self._evict_if_needed()
-
-            return graph
-
-    def invalidate(self, key: Key) -> None:
-        with self._global_lock:
-            self._store.pop(key, None)
-            self._locks.pop(key, None)
-
-    def clear(self) -> None:
-        with self._global_lock:
-            self._store.clear()
-            self._locks.clear()
-
-
-def ensure_graph_cache(app) -> GraphCache:
-    if not hasattr(app.state, "graph_cache"):
-        app.state.graph_cache = GraphCache(maxsize=MAX_CACHE_SIZE)
-    return app.state.graph_cache
 
 
 def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engine, checkpointer):
@@ -138,8 +50,9 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
     )
 
     async def _agents_pipeline(context: CopilotKitContext, name: str) -> Agent:
-        token = context.get("properties", {}).get("authorization")
-
+        token = context.get("properties", {}).get("authorization") or context.get("headers", {}).get("authorization")
+        if token and token.startswith("Bearer "):
+            token = token[len("Bearer ") :].strip()
         if not token:
             raise HTTPException(status_code=401, detail="Missing token")
 
@@ -160,8 +73,10 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
             )
 
     sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=_agents_pipeline, engine=engine)
+    # artifact = graph_factory._build_basic(None, llm, checkpointer)
     app.state.copilot_sdk = sdk
-    add_fastapi_endpoint(router, sdk, "/copilotkit")
+
+    add_fastapi_endpoint(cast(FastAPI, router), sdk, "/copilotkit")
 
     app.include_router(router, prefix="/api/v1/frontend")
 

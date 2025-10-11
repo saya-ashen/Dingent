@@ -8,6 +8,7 @@ import { useWidgets } from "@/hooks/useWidgets";
 import { ChevronDown, X } from "lucide-react";
 import { useActiveWorkflowId, useSetActiveWorkflowId, useWorkflow, useWorkflowsList } from "@repo/store";
 import { WorkflowSummary } from "@repo/api-client";
+import { useMessagesManager } from "@/hooks/useMessagesManager";
 
 
 const WorkflowSelector: React.FC<{
@@ -88,6 +89,7 @@ const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
   const { data: activeId } = useActiveWorkflowId();
   const setActiveId = useSetActiveWorkflowId();
   const { data: workflow } = useWorkflow(activeId ?? null);
+  // useMessagesManager()
 
   return (
     <header className={`px-4 py-3 border-b border-neutral-800 bg-neutral-900 ${className}`}>

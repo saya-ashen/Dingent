@@ -59,7 +59,9 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
     # -------- 仅修改到 agents 的方法 --------
 
     async def info(self, *, context: CopilotKitContext):
-        token = context.get("properties", {}).get("authorization")
+        token = context.get("properties", {}).get("authorization") or context.get("headers", {}).get("authorization")
+        if token and token.startswith("Bearer "):
+            token = token[len("Bearer ") :].strip()
         if not token:
             raise HTTPException(status_code=401, detail="Missing token")
         agents_list: List[AgentDict] = []
@@ -71,6 +73,7 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
                     {
                         "name": wf.name,
                         "description": wf.description or "",
+                        "type": "langgraph",
                     }
                 )
         actions_list: List[dict] = []

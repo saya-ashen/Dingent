@@ -12,7 +12,7 @@ from sqlmodel import SQLModel, Session, select
 
 from dingent.core.db.crud import workflow as crud_workflow
 from dingent.core.db.models import Workflow, WorkflowNode
-from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowUpdate
+from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
 
 # --- New dependencies provided by user ---
 from dingent.core.runtime.assistant import AssistantRuntime
@@ -275,6 +275,18 @@ class UserWorkflowService:
             raise ValueError(f"Workflow name '{wf_create.name}' already exists.")
         wf = crud_workflow.create_workflow(self.session, wf_create=wf_create, user_id=self.user_id)
         return WorkflowReadBasic.model_validate(wf)
+
+    def replace_workflow(self, workflow_id: UUID, wf_create: WorkflowReplace) -> WorkflowReadBasic:
+        wf = self._get_workflow(workflow_id)
+        if wf is None:
+            raise WorkflowNotFoundError(f"Workflow '{workflow_id}' not found or access denied.")
+
+        if wf_create.name != wf.name:
+            if crud_workflow.get_workflow_by_name(self.session, name=wf_create.name, user_id=self.user_id):
+                raise ValueError(f"Another workflow already uses the name '{wf_create.name}'.")
+
+        replaced = crud_workflow.replace_workflow(self.session, db_workflow=wf, wf_create=wf_create)
+        return WorkflowReadBasic.model_validate(replaced)
 
     def update_workflow(self, workflow_id: UUID, wf_update: WorkflowUpdate) -> WorkflowReadBasic:
         wf = self._get_workflow(workflow_id)

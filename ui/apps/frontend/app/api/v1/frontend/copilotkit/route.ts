@@ -13,7 +13,7 @@ if (process.env.DINGENT_DEV === 'true') {
   console.log("DINGENT_DEV is true. Running in development mode.");
   runtime = new CopilotRuntime({
     agents: {
-      'dingent': new LangGraphAgent({
+      'dingent___': new LangGraphAgent({
         deploymentUrl: process.env.DING_BACKEND_URL || 'http://localhost:8000',
         graphId: 'agent',
         propertyHeaders: {
@@ -36,8 +36,10 @@ if (process.env.DINGENT_DEV === 'true') {
               'Authorization': `${ctx.request.headers.get("authorization")}`
             }
           };
-        }
+        },
+
       },
+
     ],
   });
 }

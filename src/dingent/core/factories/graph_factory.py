@@ -2,7 +2,7 @@ from __future__ import annotations
 from uuid import UUID
 import uuid
 
-from dingent.core.db.models import Workflow
+from dingent.core.db.models import Workflow, WorkflowNode
 from dingent.core.factories.assistant_factory import AssistantFactory
 
 """
@@ -95,10 +95,9 @@ class GraphFactory:
 
         stack = AsyncExitStack()
 
-        if not workflow or not _has_start_node(workflow):
-            if workflow_id != "__basic__":
-                self._log("warning", "Workflow invalid or not found; using basic fallback.", context={"wf": workflow_id})
-            return await self._build_basic(stack, llm, checkpointer)
+        if not workflow or not _get_start_node(workflow):
+            self._log("warning", "Workflow invalid or not found; using basic fallback.", context={"wf": workflow_id})
+            return self._build_basic(stack, llm, checkpointer)
 
         return await self._build_full(workflow, stack, llm, checkpointer)
 
@@ -106,7 +105,7 @@ class GraphFactory:
     # Internal builders
     # ------------------------------------------------------------------
 
-    async def _build_basic(self, stack: AsyncExitStack, llm, checkpointer) -> GraphArtifact:
+    def _build_basic(self, stack: AsyncExitStack, llm, checkpointer) -> GraphArtifact:
         wf_id = uuid.uuid4()
         self._log("info", "Building basic fallback graph.", context={"wf": wf_id})
 
@@ -136,7 +135,7 @@ class GraphFactory:
         if not start_node:
             raise ValueError(f"Workflow '{workflow.id}' has no start node.")
 
-        default_active = _normalize_name(start_node.data.assistantName)
+        default_active = _normalize_name(start_node.assistant.name)
 
         # Build assistant subgraphs and compose swarm
         assistants_ctx = create_assistant_graphs(
@@ -178,12 +177,8 @@ class GraphFactory:
 # ==============================================================================
 
 
-def _has_start_node(workflow: Any) -> bool:
-    return any(getattr(n.data, "isStart", False) for n in getattr(workflow, "nodes", []))
-
-
-def _get_start_node(workflow: Any) -> Any | None:
-    for n in getattr(workflow, "nodes", []):
-        if getattr(n.data, "isStart", False):
+def _get_start_node(workflow: Workflow) -> WorkflowNode | None:
+    for n in workflow.nodes:
+        if n.is_start_node:
             return n
     return None

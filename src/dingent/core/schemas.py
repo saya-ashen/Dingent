@@ -6,13 +6,15 @@ import toml
 from pathlib import Path
 from typing import Callable, Literal, Optional
 from uuid import UUID
-from pydantic import PrivateAttr
+from pydantic import ConfigDict, PrivateAttr
 from dingent.core.types import ExecutionModel
 
 
 import re
 from typing import Any
 from sqlmodel import SQLModel, Field
+
+from dingent.core.utils import to_camel
 
 
 def generate_id_from_name(display_name: str) -> str:
@@ -169,6 +171,12 @@ class UserRead(SQLModel):
 class WorkflowNodeBase(SQLModel):
     """节点的基础共享字段"""
 
+    model_config = ConfigDict(  # type: ignore
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
+
     assistant_id: UUID
     position: Dict[str, float]
     is_start_node: bool = False
@@ -182,7 +190,10 @@ class WorkflowNodeCreate(WorkflowNodeBase):
     workflow_id 从 URL 中获取，不需要在 body 中提供。
     """
 
-    pass
+    measured: dict[str, float] = {}
+    position: dict[str, float] = Field(default_factory=lambda: {"x": 0.0, "y": 0.0})
+    is_start_node: bool = False
+    type: str = "assistant"
 
 
 class WorkflowNodeUpdate(SQLModel):
@@ -211,11 +222,17 @@ class WorkflowNodeRead(WorkflowNodeBase):
 class WorkflowEdgeBase(SQLModel):
     """边的基础共享字段"""
 
-    source_node_id: UUID
-    target_node_id: UUID
+    model_config = ConfigDict(  # type: ignore
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
+
+    source: UUID
+    target: UUID
     source_handle: Optional[str] = None
     target_handle: Optional[str] = None
-    type: str = "default"
+    type: str = "directrional"
 
 
 class WorkflowEdgeCreate(WorkflowEdgeBase):
@@ -266,6 +283,18 @@ class WorkflowCreate(WorkflowBase):
     name: str
 
     pass
+
+
+class WorkflowReplace(WorkflowBase):
+    """
+    用于替换整个工作流，包括其节点和边。
+    前端在 PUT /workflows/{workflow_id} 时发送此模型。
+    注意：这会覆盖现有的节点和边。
+    """
+
+    name: str
+    nodes: List[WorkflowNodeCreate] = []
+    edges: List[WorkflowEdgeCreate] = []
 
 
 class WorkflowUpdate(WorkflowBase):

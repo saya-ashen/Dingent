@@ -18,7 +18,7 @@ import {
   useDeleteWorkflow,
   useSaveWorkflow,
   useWorkflowsList,
-} from "../../../hooks/workflows";
+} from "@repo/store";
 import { WorkflowSummary } from "@repo/api-client";
 
 export default function WorkflowsPage() {

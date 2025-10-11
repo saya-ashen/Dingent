@@ -12,8 +12,8 @@ import {
 import { toast } from "sonner";
 import { WorkflowEditor, ContextMenu, EmptyState, LoadingSkeleton } from "@repo/ui/components";
 import type { Workflow, WorkflowNode, WorkflowEdge } from "@repo/api-client";
-import { useWorkflow } from "../../hooks/workflows";
 import { normalizeWorkflow } from "../../lib/workflows-normalize";
+import { useWorkflow } from "@repo/store";
 
 interface EditorPanelProps {
   workflowId: string | null;
