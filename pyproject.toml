@@ -14,7 +14,7 @@ dependencies = [
   "loguru>=0.7.3",
   "langgraph>=0.6.3",
   "typer>=0.16.0",
-  "copilotkit>=0.1.56",
+  "copilotkit==0.1.58",
   "fastapi>=0.115.6",
   "langchain>=0.3.23",
   "fastmcp>=2.2.0",
