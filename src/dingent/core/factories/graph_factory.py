@@ -6,6 +6,7 @@ from sqlmodel import Session
 
 from dingent.core.db.models import Workflow, WorkflowNode
 from dingent.core.factories.assistant_factory import AssistantFactory
+from dingent.core.managers.resource_manager import ResourceManager
 
 """
 Workflow → LangGraph Transform Factory
@@ -88,7 +89,15 @@ class GraphFactory:
         self._log = fake_log
         self.assistant_factory = assistant_factory
 
-    async def build(self, workflow: Workflow, llm, checkpointer) -> GraphArtifact:
+    async def build(
+        self,
+        user_id: UUID,
+        session: Session,
+        resource_manager: ResourceManager,
+        workflow: Workflow,
+        llm,
+        checkpointer,
+    ) -> GraphArtifact:
         """Transform a domain `Workflow`  → compiled LangGraph.
 
         Fallback to a minimal single‑LLM chat graph when workflow is missing or
@@ -102,7 +111,7 @@ class GraphFactory:
             self._log("warning", "Workflow invalid or not found; using basic fallback.", context={"wf": workflow_id})
             return self._build_basic(stack, llm, checkpointer)
 
-        return await self._build_full(workflow, stack, llm, checkpointer)
+        return await self._build_full(user_id, session, resource_manager, workflow, stack, llm, checkpointer)
 
     # ------------------------------------------------------------------
     # Internal builders
@@ -131,7 +140,16 @@ class GraphFactory:
             default_active_agent=None,
         )
 
-    async def _build_full(self, workflow: Workflow, stack: AsyncExitStack, llm, checkpointer) -> GraphArtifact:
+    async def _build_full(
+        self,
+        user_id: UUID,
+        session: Session,
+        resource_manager: ResourceManager,
+        workflow: Workflow,
+        stack: AsyncExitStack,
+        llm,
+        checkpointer,
+    ) -> GraphArtifact:
         self._log("info", "Building graph for workflow.", context={"wf": workflow.id})
 
         start_node = _get_start_node(workflow)
@@ -142,6 +160,9 @@ class GraphFactory:
 
         # Build assistant subgraphs and compose swarm
         assistants_ctx = create_assistant_graphs(
+            user_id,
+            session,
+            resource_manager,
             self.assistant_factory,
             workflow,
             llm,

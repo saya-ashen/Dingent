@@ -329,3 +329,29 @@ class WorkflowRead(WorkflowReadBasic):
 
     nodes: List[WorkflowNodeRead] = []
     edges: List[WorkflowEdgeRead] = []
+
+
+# Resource Models
+
+
+class ResourceBase(SQLModel):
+    version: str = "1.0"
+    model_text: str
+
+    display: Optional[list[dict[str, Any]]] = None
+    data: dict | str | list | None = None
+
+
+class ResourceCreate(ResourceBase):
+    """
+    用于创建 Resource 的输入模型。
+    由前端或工具在提交资源时使用。
+    """
+
+    pass
+
+
+class ResourceRead(ResourceBase):
+    id: UUID
+    created_at: datetime
+    user_id: UUID

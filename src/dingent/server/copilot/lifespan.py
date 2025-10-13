@@ -41,15 +41,16 @@ def create_extended_lifespan(original_lifespan):
             app.state.resource_manager = ResourceManager(app.state.log_manager, max_size=1000)
             app.state.plugin_manager = PluginManager(
                 app.state.plugin_registry,
-                app.state.resource_manager,
                 app.state.log_manager,
             )
             app.state.assistant_factory = AssistantFactory(app.state.plugin_manager, app.state.log_manager)
 
-            app.state.graph_factory = GraphFactory(app.state.assistant_factory)
+            app.state.graph_factory = GraphFactory(
+                app.state.assistant_factory,
+            )
             db_path = project_root / ".dingent/data/dingent.db"
             async with AsyncSqliteSaver.from_conn_string(db_path.as_posix()) as checkpointer:
-                setup_copilot_router(app, app.state.graph_factory, engine, checkpointer)
+                setup_copilot_router(app, app.state.graph_factory, engine, checkpointer, app.state.resource_manager)
 
                 print("--- CopilotKit Extension Initialized ---")
 

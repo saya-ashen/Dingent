@@ -3,6 +3,7 @@ import re
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated, Any, TypedDict
+from uuid import UUID
 
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
@@ -12,11 +13,13 @@ from langgraph.types import Command
 from langgraph_swarm import SwarmState
 from mcp.types import TextContent
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
 from dingent.core.db.models import Workflow
 from dingent.core.factories.assistant_factory import AssistantFactory
+from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.runtime.assistant import AssistantRuntime
-from dingent.core.schemas import RunnableTool
+from dingent.core.schemas import ResourceCreate, RunnableTool
 
 
 from .simple_react_agent import build_simple_react_agent
@@ -97,7 +100,7 @@ def create_dynamic_pydantic_class(
     return type(name, (base_class,), attributes)
 
 
-def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> BaseTool:
+def mcp_tool_wrapper(user_id: UUID, resource_manager: ResourceManager, session: Session, runnable_tool: RunnableTool, log_method: Callable) -> BaseTool:
     tool = runnable_tool.tool
 
     async def call_tool(
@@ -125,8 +128,17 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> BaseT
         if len(contents) == 1 and isinstance(contents[0], TextContent):
             structred_text = contents[0].text
             structred_response = json.loads(structred_text) if structred_text else {}
-        artifact_id = structred_response.get("artifact_id")
+        artifact = structred_response.get("display")
         model_text = structred_response.get("model_text", "Empty response from tool.")
+        resource = resource_manager.create_resource(
+            user_id,
+            ResourceCreate(
+                model_text=model_text,
+                display=artifact or [],
+            ),
+            session,
+        )
+        artifact_id = str(resource.id)
 
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id)
 
@@ -160,7 +172,9 @@ def _normalize_name(name: str) -> str:
 
 
 @asynccontextmanager
-async def create_assistant_graphs(assistant_factory: AssistantFactory, workflow: Workflow, llm, log_method: Callable):
+async def create_assistant_graphs(
+    user_id: UUID, session: Session, resource_manager: ResourceManager, assistant_factory: AssistantFactory, workflow: Workflow, llm, log_method: Callable
+):
     assistant_graphs: dict[str, CompiledStateGraph] = {}
     assistants_runtime: dict[str, AssistantRuntime] = {}
     for node in workflow.nodes:
@@ -183,7 +197,7 @@ async def create_assistant_graphs(assistant_factory: AssistantFactory, workflow:
         for original_name, assistant in assistants_runtime.items():
             normalized_name = name_map[original_name]
             tools: list[RunnableTool] = await stack.enter_async_context(assistant.load_tools())
-            wrapped_tools = [mcp_tool_wrapper(t, log_method) for t in tools]
+            wrapped_tools = [mcp_tool_wrapper(user_id, resource_manager, session, t, log_method) for t in tools]
 
             normalized_destinations = [_normalize_name(d) for d in assistant.destinations if d in name_map]
             dest_tools = [handoff_tools[norm_d] for norm_d in normalized_destinations if norm_d in handoff_tools]

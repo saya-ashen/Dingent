@@ -1,9 +1,7 @@
 from __future__ import annotations
 import os
-from copilotkit import Agent, CopilotKitContext, LangGraphAGUIAgent
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from copilotkit import Agent, CopilotKitContext
 
-from copilotkit.sdk import CopilotKitRemoteEndpoint
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.exceptions import HTTPException
 from sqlalchemy import Engine
@@ -12,6 +10,7 @@ from sqlmodel import Session
 from dingent.core.factories.graph_factory import GraphFactory
 from dingent.core.managers.llm_manager import LLMManager
 from time import time
+from dingent.core.managers.resource_manager import ResourceManager
 from dingent.server.auth.authorization import dynamic_authorizer
 from dingent.server.auth.security import get_current_user_from_token
 from dingent.server.copilot.add_fastapi_endpoint import add_fastapi_endpoint
@@ -31,7 +30,7 @@ from typing import Tuple, Any, Callable, cast
 Key = Tuple[str, str]  # (user_id, agent_name) or (workflow_id, ...)
 
 
-def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engine, checkpointer):
+def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engine, checkpointer, resource_manager: ResourceManager):
     """
     Creates and configures the secure router for CopilotKit and adds it to the application.
 
@@ -64,7 +63,7 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
             workflow = get_workflow_by_name(session, name, user.id)
             if not workflow:
                 raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
-            artifact = await graph_factory.build(workflow, llm, checkpointer)
+            artifact = await graph_factory.build(user.id, session, resource_manager, workflow, llm, checkpointer)
             async with artifact.stack:
                 return FixedLangGraphAgent(
                     name=workflow.name,

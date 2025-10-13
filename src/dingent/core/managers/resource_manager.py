@@ -6,6 +6,8 @@ from sqlmodel import Session, asc, select, func, delete
 
 from dingent.core.db.models import Resource
 from dingent.core.managers.log_manager import LogManager
+from dingent.core.schemas import ResourceCreate
+from dingent.core.db.crud import resource as crud_resource
 
 
 def get_oldest_resource_for_user(session: Session, user_id: UUID) -> Resource | None:
@@ -37,7 +39,7 @@ class ResourceManager:
             raise ValueError("max_size must be a positive integer.")
         self.max_size = max_size
 
-    def create_resource(self, resource: Resource, session: Session) -> Resource:
+    def create_resource(self, user_id: UUID, resource: ResourceCreate, session: Session) -> Resource:
         """
         Saves a new Resource object to the database, enforcing per-user capacity.
         The incoming 'resource' object must have the user_id populated.
@@ -49,37 +51,32 @@ class ResourceManager:
         Returns:
             The saved Resource object.
         """
-        if not resource.user_id:
-            raise ValueError("Resource must have a user_id for multi-tenant creation.")
-
         # Check current size for the specific user
-        statement = select(func.count()).where(Resource.user_id == resource.user_id)
+        statement = select(func.count()).where(Resource.user_id == user_id)
         current_size = session.exec(statement).one()
 
         if current_size >= self.max_size:
-            oldest_resource = get_oldest_resource_for_user(session, resource.user_id)
+            oldest_resource = get_oldest_resource_for_user(session, user_id)
             if oldest_resource:
                 self._log_manager.log_with_context(
                     "warning",
                     "Resource capacity reached for user. Removing oldest resource.",
                     context={
-                        "user_id": resource.user_id,
+                        "user_id": user_id,
                         "removed_resource_id": oldest_resource.id,
                     },
                 )
                 session.delete(oldest_resource)
                 session.commit()  # Commit deletion before adding the new one
 
-        session.add(resource)
-        session.commit()
-        session.refresh(resource)
+        resource_db = crud_resource.create_resource(user_id=user_id, payload=resource, session=session)
 
         self._log_manager.log_with_context(
             "info",
             "Resource registered in DB",
-            context={"resource_id": resource.id, "user_id": resource.user_id},
+            context={"resource_id": resource_db.id, "user_id": resource_db.user_id},
         )
-        return resource
+        return resource_db
 
     def get_resource(self, resource_id: UUID, user_id: UUID, session: Session) -> Resource | None:
         """

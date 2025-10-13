@@ -4,7 +4,6 @@ from typing import Any
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 
-from langchain_mcp_adapters.tools import load_mcp_tools
 
 from dingent.core.db.models import Assistant
 from dingent.core.schemas import RunnableTool
@@ -58,21 +57,6 @@ class AssistantRuntime:
                 )
                 continue
         return cls(str(assistant.id), assistant.name, assistant.description or "", plugin_instances, log_method)
-
-    # @asynccontextmanager
-    # async def load_tools_langgraph(self):
-    #     """
-    #     返回 langgraph 期望的 tool 列表（普通 Tool 对象）。
-    #     """
-    #     tools: list = []
-    #     async with AsyncExitStack() as stack:
-    #         for inst in self.plugin_instances.values():
-    #             client = await stack.enter_async_context(inst.mcp_client)
-    #             session = client.session
-    #             _tools = await load_mcp_tools(session)
-    #             tools.extend(_tools)
-    #         yield tools
-    #
 
     @asynccontextmanager
     async def load_tools(self):

@@ -120,14 +120,10 @@ class PluginManager:
     def __init__(
         self,
         plugin_registry: PluginRegistry,
-        resource_manager: ResourceManager,
         log_manager,
     ):
         self.log_manager = log_manager
         self.registry = plugin_registry
-        self.resource_manager = resource_manager
-        # user_id -> ResourceMiddleware
-        # self.middlewares: dict[str, ResourceMiddleware] = {}  # ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
         self.middlewares = {}
         self._active_runtimes: dict[str, PluginRuntime] = {}
 
