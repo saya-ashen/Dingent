@@ -75,7 +75,7 @@ export type AppSettings = {
 
 export type PluginManifest = {
   id: string;
-  name: string;
+  display_name: string;
   version?: string;
   description?: string;
   spec_version?: string;

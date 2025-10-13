@@ -37,7 +37,7 @@ class PluginSyncService:
         # 2. 从数据库获取“当前持久化状态”
         statement = select(Plugin)
         db_plugins = self.db.exec(statement).all()
-        db_plugins_map: Dict[str, Plugin] = {p.plugin_slug: p for p in db_plugins}
+        db_plugins_map: Dict[str, Plugin] = {p.registry_id: p for p in db_plugins}
 
         # 3. 计算差异并执行操作
 
@@ -51,7 +51,7 @@ class PluginSyncService:
                 manifest.config_schema
                 config_schema = [c.model_dump() for c in manifest.config_schema] if manifest.config_schema else []
                 new_plugin = Plugin(
-                    plugin_slug=slug,
+                    registry_id=slug,
                     display_name=manifest.display_name,
                     description=manifest.description,
                     version=str(manifest.version),

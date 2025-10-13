@@ -2,6 +2,7 @@ import re
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated, Any, TypedDict
+from uuid import UUID
 
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
@@ -10,6 +11,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from langgraph_swarm import SwarmState
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
 from dingent.core.db.models import Workflow
 from dingent.core.factories.assistant_factory import AssistantFactory
@@ -202,7 +204,9 @@ class ConfigSchema(TypedDict):
 def get_safe_swarm(compiled_swarm: CompiledStateGraph, log_method: Callable):
     async def run_swarm_safely(state: MainState, config):
         try:
-            return await compiled_swarm.ainvoke(state, config=config)
+            result = await compiled_swarm.ainvoke(state, config=config)
+            breakpoint()
+            return result
         except Exception as e:
             error_msg_content = f"An error occurred during this execution round: {type(e).__name__}: {e}"
             log_method("error", "{error_type}: {error_msg}", context={"error_type": type(e).__name__, "error_msg": error_msg_content})

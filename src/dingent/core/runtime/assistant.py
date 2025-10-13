@@ -5,10 +5,9 @@ from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from langchain_mcp_adapters.tools import load_mcp_tools
-from pydantic import BaseModel
 
 from dingent.core.db.models import Assistant
-from dingent.core.schemas import PluginManifest, RunnableTool
+from dingent.core.schemas import RunnableTool
 
 from .plugin import PluginRuntime
 from ..managers.plugin_manager import PluginManager
@@ -49,8 +48,8 @@ class AssistantRuntime:
         for link in enabled_plugins:
             manifest = link.plugin
             try:
-                inst = await plugin_manager.create_runtime(manifest, link)
-                plugin_instances[str(link.plugin_id)] = inst
+                inst = await plugin_manager.get_or_create_runtime(manifest.registry_id)
+                plugin_instances[manifest.registry_id] = inst
             except Exception as e:
                 log_method(
                     "error",

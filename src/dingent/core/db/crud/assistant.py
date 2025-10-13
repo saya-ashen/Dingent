@@ -88,7 +88,7 @@ def update_assistant(
     return db_assistant
 
 
-def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID) -> Assistant:
+def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: str) -> Assistant:
     """
     Links an existing plugin to an assistant by creating an AssistantPluginLink record.
 
@@ -97,7 +97,8 @@ def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID)
     2. Checks if the plugin is already linked to the assistant to prevent duplicates.
     """
     # 1. 验证 Plugin 是否存在
-    plugin = db.get(Plugin, plugin_id)
+    # plugin = db.get(Plugin, plugin_id)
+    plugin = db.exec(select(Plugin).where(Plugin.registry_id == plugin_id)).first()
     if not plugin:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plugin with id {plugin_id} not found.")
 

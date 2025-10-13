@@ -80,7 +80,7 @@ export default function PluginsPage() {
                 <div className="flex-grow">
                   {/* Plugin details (共享) */}
                   <div className="text-lg font-semibold">
-                    {p.name} {p.version ? `(v${p.version})` : ""}
+                    {p.display_name} {p.version ? `(v${p.version})` : ""}
                   </div>
                   <div className="text-muted-foreground mt-1 text-sm">
                     {p.description || "No description provided."}
@@ -91,7 +91,7 @@ export default function PluginsPage() {
                 {isAdmin && (
                   <ConfirmDialog
                     title="Confirm Delete Plugin"
-                    description={`Are you sure you want to delete the '${p.name}' plugin?`}
+                    description={`Are you sure you want to delete the '${p.display_name}' plugin?`}
                     onConfirm={() => deleteMutation.mutate(p.id)}
                     trigger={
                       <Button

@@ -134,7 +134,9 @@ class Plugin(SQLModel, table=True):
     """
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    plugin_slug: str = Field(unique=True, index=True)
+    # plugin_slug: str = Field(unique=True, index=True)
+    registry_id: str = Field(..., unique=True, index=True)  # 标识插件来源的 ID，如 LOCAL、或某个市场的 ID
+    registry_name: str = "Local"
     display_name: str
     description: str
     version: str = "0.1.0"

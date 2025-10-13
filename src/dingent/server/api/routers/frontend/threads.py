@@ -65,15 +65,15 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
             if not workflow:
                 raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
             artifact = await graph_factory.build(workflow, llm, checkpointer)
-            return FixedLangGraphAgent(
-                name=workflow.name,
-                description=f"Agent for workflow '{workflow.name}'",
-                graph=artifact.graph,
-                langgraph_config={"token": token} if token else {},
-            )
+            async with artifact.stack:
+                return FixedLangGraphAgent(
+                    name=workflow.name,
+                    description=f"Agent for workflow '{workflow.name}'",
+                    graph=artifact.graph,
+                    langgraph_config={"token": token} if token else {},
+                )
 
     sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=_agents_pipeline, engine=engine)
-    # artifact = graph_factory._build_basic(None, llm, checkpointer)
     app.state.copilot_sdk = sdk
 
     add_fastapi_endpoint(cast(FastAPI, router), sdk, "/copilotkit")

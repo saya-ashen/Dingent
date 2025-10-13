@@ -119,6 +119,7 @@ const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
 export default function CopilotKitPage() {
   const [themeColor] = useState("#6366f1");
   const { widgets } = useWidgets();
+  useMessagesManager()
 
   return (
     <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>

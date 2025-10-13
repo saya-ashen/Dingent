@@ -57,7 +57,6 @@ class UserAssistantService:
                     inst = await self._assistant_factory.create_runtime(assistant)
                     self._runtimes[assistant.id] = inst
                 except Exception:
-                    # 可以记录日志等
                     pass
         return self._runtimes
 
@@ -104,7 +103,7 @@ class UserAssistantService:
         for assistant_db in all_assistants_db:
             runtime_assistant = all_runtime_assistants.get(assistant_db.id)
 
-            assistant_dto = _build_assistant_read(assistant_db, runtime_assistant)
+            assistant_dto = await _build_assistant_read(assistant_db, runtime_assistant)
             assistant_dto_list.append(assistant_dto)
 
         return assistant_dto_list
@@ -215,7 +214,7 @@ class UserAssistantService:
 
         return deleted_assistant
 
-    async def add_plugin_to_assistant(self, assistant_id: UUID, plugin_id: UUID) -> AssistantRead:
+    async def add_plugin_to_assistant(self, assistant_id: UUID, plugin_id: str) -> AssistantRead:
         crud_assistant.add_plugin_to_assistant(db=self.session, assistant_id=assistant_id, plugin_id=plugin_id)
         assistant_dto = await self.get_assistant_details(assistant_id)
         assert assistant_dto is not None

@@ -6,27 +6,31 @@ from dingent.core.runtime.plugin import PluginRuntime
 from dingent.core.schemas import AssistantRead, PluginRead
 
 
-def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: Optional[PluginRuntime]) -> PluginRead:
+async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: Optional[PluginRuntime]) -> PluginRead:
     """
     辅助函数：从数据库和运行时模型构建单个 PluginRead DTO。
     """
     plugin_db = plugin_link.plugin
 
     plugin_status = "inactive"
+    tools = []
     if runtime_plugin:
         plugin_status = runtime_plugin.status  # "active", "error", etc.
+        if plugin_status == "active":
+            tools = await runtime_plugin.list_tools()
 
     return PluginRead(
-        id=str(plugin_db.id),
+        registry_id=plugin_db.registry_id,
         display_name=plugin_db.display_name,
         description=plugin_db.description,
         enabled=plugin_link.enabled,  # 用户在此 Assistant 中的启用状态
         status=plugin_status,
         version=plugin_db.version,
+        tools=tools,
     )
 
 
-def _build_assistant_read(assistant: Assistant, runtime_assistant: Optional[AssistantRuntime]) -> AssistantRead:
+async def _build_assistant_read(assistant: Assistant, runtime_assistant: Optional[AssistantRuntime]) -> AssistantRead:
     """
     主映射函数：从 Assistant 的持久化模型和运行时模型构建 AssistantRead DTO。
     """
@@ -47,10 +51,10 @@ def _build_assistant_read(assistant: Assistant, runtime_assistant: Optional[Assi
         runtime_plugin = None
         if runtime_assistant:
             # 从运行时实例中通过 ID 找到对应的插件实例
-            runtime_plugin = runtime_assistant.plugin_instances.get(str(plugin_link.plugin_id))
+            runtime_plugin = runtime_assistant.plugin_instances.get(str(plugin_link.plugin.registry_id))
 
         # 调用辅助函数来构建每个 PluginRead 对象
-        plugin_read_dto = _build_plugin_read(plugin_link, runtime_plugin)
+        plugin_read_dto = await _build_plugin_read(plugin_link, runtime_plugin)
         plugins_read_list.append(plugin_read_dto)
 
     # 4. 组装并返回最终的 AssistantRead 对象

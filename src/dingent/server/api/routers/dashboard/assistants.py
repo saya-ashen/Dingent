@@ -56,7 +56,7 @@ async def add_plugin_to_assistant(
     plugin_add: PluginAddToAssistant,
     user_assistant_service: UserAssistantService = Depends(get_user_assistant_service),
 ):
-    updated_assistant = await user_assistant_service.add_plugin_to_assistant(assistant_id, plugin_add.id)
+    updated_assistant = await user_assistant_service.add_plugin_to_assistant(assistant_id, plugin_add.registry_id)
     return updated_assistant
 
 

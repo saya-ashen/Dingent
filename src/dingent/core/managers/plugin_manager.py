@@ -9,7 +9,6 @@ from sqlmodel import Session
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools.tool import ToolResult as FastMCPToolResult
 from mcp.types import TextContent
-from pydantic import BaseModel, Field, SecretStr, create_model
 
 from dingent.core.db.models import AssistantPluginLink, Resource
 from dingent.core.runtime.plugin import PluginRuntime
@@ -128,7 +127,9 @@ class PluginManager:
         self.registry = plugin_registry
         self.resource_manager = resource_manager
         # user_id -> ResourceMiddleware
-        self.middlewares: dict[str, ResourceMiddleware] = {}  # ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
+        # self.middlewares: dict[str, ResourceMiddleware] = {}  # ResourceMiddleware(session, user_id, resource_manager, self.log_manager.log_with_context)
+        self.middlewares = {}
+        self._active_runtimes: dict[str, PluginRuntime] = {}
 
     def list_visible_plugins(self) -> list[PluginManifest]:
         """
@@ -140,7 +141,32 @@ class PluginManager:
         # TODO: apply permission filter by user_id if needed
         return manifests
 
-    async def get_runtime_plugin(
+    async def get_or_create_runtime(self, plugin_registry_id: str) -> PluginRuntime:
+        """
+        Gets the singleton runtime instance for a plugin, creating it if it doesn't exist.
+        This method is thread-safe for creation due to Python's GIL, but for async
+        environments, a lock might be considered for production-grade robustness.
+        """
+        # 1. 检查缓存中是否已有实例
+        if plugin_registry_id in self._active_runtimes:
+            return self._active_runtimes[plugin_registry_id]
+
+        # 2. 如果没有，则创建新实例
+        self.log_manager.log_with_context("info", f"Creating singleton instance for plugin '{plugin_registry_id}'.")
+        manifest = self.registry.find_manifest(plugin_registry_id)
+        if not manifest:
+            raise ValueError(f"Plugin with ID '{plugin_registry_id}' not found in registry.")
+
+        runtime_instance = await PluginRuntime.create_singleton(
+            manifest=manifest,
+            log_method=self.log_manager.log_with_context,
+        )
+
+        # 3. 存入缓存并返回
+        self._active_runtimes[plugin_registry_id] = runtime_instance
+        return runtime_instance
+
+    async def _get_runtime_plugin(
         self,
         *,
         user_id: UUID,

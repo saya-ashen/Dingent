@@ -224,7 +224,7 @@ export function AssistantEditor({
     () =>
       availablePlugins
         .filter((p) => !currentIds.has(p.id))
-        .map((p) => ({ value: p.id, label: p.name })),
+        .map((p) => ({ value: p.id, label: p.display_name })),
     [availablePlugins, currentIds],
   );
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 from uuid import UUID
 import uuid
 
+from sqlmodel import Session
+
 from dingent.core.db.models import Workflow, WorkflowNode
 from dingent.core.factories.assistant_factory import AssistantFactory
 
@@ -32,13 +34,10 @@ Design goals:
 - Minimal coupling to the broader app; dependency injection through `AppContextSubset`
 """
 
-import asyncio
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Optional
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -80,9 +79,13 @@ class GraphArtifact:
 # ==============================================================================
 
 
+def fake_log(level, messages="", context={}, *args, **kwargs):
+    print(f"[GraphFactory] [{level.upper()}] {messages} | {context}")
+
+
 class GraphFactory:
     def __init__(self, assistant_factory: AssistantFactory):
-        self._log = lambda level, msg, context={}: print(f"[GraphFactory] [{level.upper()}] {msg} | {context}")
+        self._log = fake_log
         self.assistant_factory = assistant_factory
 
     async def build(self, workflow: Workflow, llm, checkpointer) -> GraphArtifact:

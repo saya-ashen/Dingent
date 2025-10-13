@@ -45,7 +45,8 @@ class PluginManifest(PluginBase):
     Its sole source of truth is the plugin.toml file created by the plugin developer
     """
 
-    id: str = Field(default="no_name_plugin", description="插件唯一标识符")
+    id: str = Field(..., description="插件的本地标识符，从plugin.toml中读取,example: Weather_reporter")
+    display_name: str = Field(..., description="插件的显示名称")
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
     execution: ExecutionModel
     dependencies: list[str] | None = None
@@ -90,9 +91,10 @@ class ToolOverrideConfig(SQLModel):
 
 
 class PluginRead(PluginBase):
-    id: UUID = Field(..., description="插件的唯一永久ID")
+    # id: UUID = Field(..., description="插件的唯一永久ID")
+    registry_id: str = Field(..., description="插件的注册ID (来自插件注册表)")
     enabled: bool = True
-    tools: list[ToolOverrideConfig] | None = None
+    tools: list | None = None
     config: dict | None = None
     status: str | None = Field(None, description="运行状态 (active/inactive/error)")
 
@@ -120,7 +122,7 @@ class PluginAddToAssistant(SQLModel):
     Schema for the request body when adding a plugin to an assistant.
     """
 
-    id: UUID
+    registry_id: str
 
 
 class PluginUpdateOnAssistant(SQLModel):
