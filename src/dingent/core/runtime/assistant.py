@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Any
 
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -9,8 +8,8 @@ from langchain_mcp_adapters.tools import load_mcp_tools
 from dingent.core.db.models import Assistant
 from dingent.core.schemas import RunnableTool
 
-from .plugin import PluginRuntime
 from ..managers.plugin_manager import PluginManager
+from .plugin import PluginRuntime
 
 
 class AssistantRuntime:
