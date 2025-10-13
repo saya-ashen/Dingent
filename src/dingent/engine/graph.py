@@ -1,8 +1,8 @@
+import json
 import re
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated, Any, TypedDict
-from uuid import UUID
 
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
@@ -10,8 +10,8 @@ from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, t
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from langgraph_swarm import SwarmState
+from mcp.types import TextContent
 from pydantic import BaseModel, Field
-from sqlmodel import Session
 
 from dingent.core.db.models import Workflow
 from dingent.core.factories.assistant_factory import AssistantFactory
@@ -120,9 +120,13 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> BaseT
             )
             return Command(update={"messages": [ToolMessage(content=error_msg, tool_call_id=tool_call_id)]})
 
-        structred_response: dict = response_raw.data
+        contents: list[TextContent] = response_raw.content
+        structred_response = {}
+        if len(contents) == 1 and isinstance(contents[0], TextContent):
+            structred_text = contents[0].text
+            structred_response = json.loads(structred_text) if structred_text else {}
         artifact_id = structred_response.get("artifact_id")
-        model_text = structred_response["model_text"]
+        model_text = structred_response.get("model_text", "Empty response from tool.")
 
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id)
 
@@ -205,7 +209,6 @@ def get_safe_swarm(compiled_swarm: CompiledStateGraph, log_method: Callable):
     async def run_swarm_safely(state: MainState, config):
         try:
             result = await compiled_swarm.ainvoke(state, config=config)
-            breakpoint()
             return result
         except Exception as e:
             error_msg_content = f"An error occurred during this execution round: {type(e).__name__}: {e}"

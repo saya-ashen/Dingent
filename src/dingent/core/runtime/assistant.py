@@ -59,22 +59,43 @@ class AssistantRuntime:
                 continue
         return cls(str(assistant.id), assistant.name, assistant.description or "", plugin_instances, log_method)
 
-    @asynccontextmanager
-    async def load_tools_langgraph(self):
-        """
-        返回 langgraph 期望的 tool 列表（普通 Tool 对象）。
-        """
-        tools: list = []
-        async with AsyncExitStack() as stack:
-            for inst in self.plugin_instances.values():
-                client = await stack.enter_async_context(inst.mcp_client)
-                session = client.session
-                _tools = await load_mcp_tools(session)
-                tools.extend(_tools)
-            yield tools
+    # @asynccontextmanager
+    # async def load_tools_langgraph(self):
+    #     """
+    #     返回 langgraph 期望的 tool 列表（普通 Tool 对象）。
+    #     """
+    #     tools: list = []
+    #     async with AsyncExitStack() as stack:
+    #         for inst in self.plugin_instances.values():
+    #             client = await stack.enter_async_context(inst.mcp_client)
+    #             session = client.session
+    #             _tools = await load_mcp_tools(session)
+    #             tools.extend(_tools)
+    #         yield tools
+    #
 
     @asynccontextmanager
     async def load_tools(self):
+        """
+        返回带可直接运行 run(arguments) 的 RunnableTool 列表。
+        """
+        runnable: list[RunnableTool] = []
+        for inst in self.plugin_instances.values():
+            # 先短暂进入上下文列出工具，避免长时间持有连接。
+            async with inst.mcp_client as client:
+                tools = await client.list_tools()
+
+            for t in tools:
+
+                async def call_tool(arguments: dict, _runtime=inst, _tool=t):
+                    async with _runtime.mcp_client as tool_client:
+                        return await tool_client.call_tool(_tool.name, arguments=arguments)
+
+                runnable.append(RunnableTool(tool=t, run=call_tool))
+        yield runnable
+
+    @asynccontextmanager
+    async def _load_tools(self):
         """
         返回带可直接运行 run(arguments) 的 RunnableTool 列表。
         """
