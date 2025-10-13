@@ -65,13 +65,16 @@ class AssistantRuntime:
         返回 langgraph 期望的 tool 列表（普通 Tool 对象）。
         """
         tools: list = []
-        async with AsyncExitStack() as stack:
+        stack = AsyncExitStack()
+        try:
             for inst in self.plugin_instances.values():
                 client = await stack.enter_async_context(inst.mcp_client)
                 session = client.session
                 _tools = await load_mcp_tools(session)
                 tools.extend(_tools)
             yield tools
+        finally:
+            await stack.aclose()
 
     @asynccontextmanager
     async def load_tools(self):
@@ -79,7 +82,8 @@ class AssistantRuntime:
         返回带可直接运行 run(arguments) 的 RunnableTool 列表。
         """
         runnable: list[RunnableTool] = []
-        async with AsyncExitStack() as stack:
+        stack = AsyncExitStack()
+        try:
             for inst in self.plugin_instances.values():
                 client = await stack.enter_async_context(inst.mcp_client)
                 tools = await client.list_tools()
@@ -90,6 +94,8 @@ class AssistantRuntime:
 
                     runnable.append(RunnableTool(tool=t, run=call_tool))
             yield runnable
+        finally:
+            await stack.aclose()
 
     async def aclose(self):
         for inst in self.plugin_instances.values():

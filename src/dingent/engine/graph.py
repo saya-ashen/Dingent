@@ -175,7 +175,8 @@ async def create_assistant_graphs(assistant_factory: AssistantFactory, workflow:
             log_method=log_method,
         )
 
-    async with AsyncExitStack() as stack:
+    stack = AsyncExitStack()
+    try:
         for original_name, assistant in assistants_runtime.items():
             normalized_name = name_map[original_name]
             tools: list[RunnableTool] = await stack.enter_async_context(assistant.load_tools())
@@ -193,6 +194,8 @@ async def create_assistant_graphs(assistant_factory: AssistantFactory, workflow:
             assistant_graphs[normalized_name] = agent
 
         yield assistant_graphs
+    finally:
+        await stack.aclose()
 
 
 class ConfigSchema(TypedDict):
