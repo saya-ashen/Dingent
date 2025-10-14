@@ -65,14 +65,12 @@ class PluginRuntime:
         status: Literal["active", "inactive", "error"],
         manifest: "PluginManifest",
         mcp: FastMCP | None = None,
-        config: dict[str, Any] | None = None,
         transport=None,
     ):
         self.name = name
         self.mcp_client = mcp_client
         self._mcp = mcp
         self._status = status
-        self.config = config
         self.manifest = manifest
         self._transport = transport
 
@@ -80,18 +78,10 @@ class PluginRuntime:
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
         """Create a singleton PluginRuntime instance without user-specific configuration."""
         env = {}
-        validated_config_dict = {}
 
         if manifest.config_schema:
             pass
             DynamicConfigModel = _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
-            # try:
-            # validated_model = DynamicConfigModel.model_validate(link.user_config_values or {})
-            # validated_config_dict = validated_model.model_dump(mode="json")
-            # env = _prepare_environment(validated_model)
-            # except ValidationError as e:
-            #     log_method("warning", "Configuration validation error for plugin '{plugin}': {error_msg}", context={"plugin": manifest.display_name, "error_msg": f"{e}"})
-            #     validated_config_dict = link.user_config_values or {}
 
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None
@@ -123,23 +113,6 @@ class PluginRuntime:
                 "Failed to connect to MCP server: {error_msg}",
                 context={"plugin": manifest.display_name, "error_msg": f"{e}"},
             )
-
-        # mcp = FastMCP(name=manifest.display_name)
-        # mcp.mount(remote_proxy)
-
-        # base_tools_dict = await mcp.get_tools()
-
-        # for tool in link.tool_configs or []:
-        #     base_tool = base_tools_dict.get(tool.name)
-        #     if not base_tool:
-        #         continue
-        #     log_method("info", "Translating tool '{tool}' to user config", context={"tool": tool.name})
-        #     trans_tool = Tool.from_tool(base_tool, name=tool.name, description=tool.description, enabled=tool.enabled)
-        #     mcp.add_tool(trans_tool)
-        #     if tool.name != base_tool.name:
-        #         mirrored_tool = base_tool.copy()
-        #         mirrored_tool.disable()
-        #         mcp.add_tool(mirrored_tool)
 
         mcp_client = Client(remote_proxy)
 
@@ -147,92 +120,6 @@ class PluginRuntime:
             name=manifest.display_name,
             mcp_client=mcp_client,
             status=_status,
-            config=validated_config_dict,
-            manifest=manifest,
-            transport=transport,
-        )
-        return instance
-
-    @classmethod
-    async def from_config(
-        cls,
-        manifest: "PluginManifest",
-        link: AssistantPluginLink,
-        log_method: Callable,
-        middleware: Middleware | None = None,
-    ) -> "PluginRuntime":
-        """ """
-        env = {}
-        validated_config_dict = {}
-
-        if manifest.config_schema:
-            DynamicConfigModel = _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
-            try:
-                validated_model = DynamicConfigModel.model_validate(link.user_config_values or {})
-                validated_config_dict = validated_model.model_dump(mode="json")
-                env = _prepare_environment(validated_model)
-            except ValidationError as e:
-                log_method("warning", "Configuration validation error for plugin '{plugin}': {error_msg}", context={"plugin": manifest.display_name, "error_msg": f"{e}"})
-                validated_config_dict = link.user_config_values or {}
-
-        if manifest.execution.mode == "remote":
-            assert manifest.execution.url is not None
-            if manifest.execution.url.endswith("sse"):
-                transport = SSETransport(url=manifest.execution.url, headers=env)
-            else:
-                transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
-            remote_proxy = FastMCP.as_proxy(transport)
-        else:
-            assert manifest.execution.script_path
-            module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
-            transport = UvStdioTransport(
-                module_path,
-                module=True,
-                project_directory=manifest.path.as_posix(),
-                env_vars=env,
-                python_version=manifest.python_version,
-            )
-            remote_proxy = FastMCP.as_proxy(transport)
-
-        _status = "inactive"
-        try:
-            await remote_proxy.get_tools()
-            _status = "active"
-        except Exception as e:
-            _status = "error"
-            log_method(
-                "error",
-                "Failed to connect to MCP server: {error_msg}",
-                context={"plugin": manifest.display_name, "error_msg": f"{e}"},
-            )
-
-        mcp = FastMCP(name=manifest.display_name)
-        mcp.mount(remote_proxy)
-        if middleware:
-            mcp.add_middleware(middleware)
-
-        base_tools_dict = await mcp.get_tools()
-
-        for tool in link.tool_configs or []:
-            base_tool = base_tools_dict.get(tool.name)
-            if not base_tool:
-                continue
-            log_method("info", "Translating tool '{tool}' to user config", context={"tool": tool.name})
-            trans_tool = Tool.from_tool(base_tool, name=tool.name, description=tool.description, enabled=tool.enabled)
-            mcp.add_tool(trans_tool)
-            if tool.name != base_tool.name:
-                mirrored_tool = base_tool.copy()
-                mirrored_tool.disable()
-                mcp.add_tool(mirrored_tool)
-
-        mcp_client = Client(mcp)
-
-        instance = cls(
-            name=manifest.display_name,
-            mcp_client=mcp_client,
-            mcp=mcp,
-            status=_status,
-            config=validated_config_dict,
             manifest=manifest,
             transport=transport,
         )
@@ -251,25 +138,25 @@ class PluginRuntime:
         async with self.mcp_client as client:
             return await client.list_tools()
 
-    def get_config_details(self) -> list[ConfigItemDetail]:
-        if not self.manifest or not self.manifest.config_schema:
-            return []
-        details = []
-        for schema_item in self.manifest.config_schema:
-            current_value = (self.config or {}).get(schema_item.name)
-            is_secret = getattr(schema_item, "secret", False)
-            if is_secret and current_value is not None:
-                display_value = "********"
-            else:
-                display_value = current_value
-            item_detail = ConfigItemDetail(
-                name=schema_item.name,
-                type=schema_item.type,
-                description=schema_item.description,
-                required=schema_item.required,
-                secret=is_secret,
-                default=schema_item.default,
-                value=display_value,
-            )
-            details.append(item_detail)
-        return details
+    # def get_config_details(self) -> list[ConfigItemDetail]:
+    #     if not self.manifest or not self.manifest.config_schema:
+    #         return []
+    #     details = []
+    #     for schema_item in self.manifest.config_schema:
+    #         current_value = (self.config or {}).get(schema_item.name)
+    #         is_secret = getattr(schema_item, "secret", False)
+    #         if is_secret and current_value is not None:
+    #             display_value = "********"
+    #         else:
+    #             display_value = current_value
+    #         item_detail = ConfigItemDetail(
+    #             name=schema_item.name,
+    #             type=schema_item.type,
+    #             description=schema_item.description,
+    #             required=schema_item.required,
+    #             secret=is_secret,
+    #             default=schema_item.default,
+    #             value=display_value,
+    #         )
+    #         details.append(item_detail)
+    #     return details

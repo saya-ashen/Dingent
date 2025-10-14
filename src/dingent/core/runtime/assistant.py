@@ -26,6 +26,7 @@ class AssistantRuntime:
         name: str,
         description: str,
         plugin_instances: dict[str, PluginRuntime],
+        plugin_configs: dict[str, dict[str, Any]] | None = None,
         log_method: Callable,
     ):
         self.id = assistant_id

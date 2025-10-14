@@ -1,7 +1,6 @@
 import json
 import logging
 import shutil
-from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
@@ -12,89 +11,25 @@ from mcp.types import TextContent
 
 from dingent.core.db.models import AssistantPluginLink, Resource
 from dingent.core.runtime.plugin import PluginRuntime
-from dingent.core.schemas import PluginManifest
+from dingent.core.schemas import PluginConfigSchema, PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.types import ToolResult
 
-from .resource_manager import ResourceManager
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 
 
-class ResourceMiddleware(Middleware):
+class ConfigMiddleware(Middleware):
     """
     拦截工具调用结果，标准化为 ToolResult，并存储，仅向模型暴露最小必要文本。
     """
 
-    def __init__(self, session: Session, user_id: UUID, resource_manager: ResourceManager, log_method: Callable):
+    def __init__(self, config_schema: PluginConfigSchema):
         super().__init__()
-        self.user_id = user_id
-        self.session = session
-        self.resource_manager = resource_manager
-        self.log_with_context = log_method
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
-        result = await call_next(context)
-
-        assert context.fastmcp_context
-
-        # 1. 抽取原始返回
-        raw_text = ""
-        if result.content and result.content[0].text:  # type:ignore
-            raw_text = result.content[0].text  # type:ignore
-
-        structured = result.structured_content
-        parsed_obj: Any = None
-
-        # 2. 尝试解析 JSON
-        if structured and isinstance(structured, dict):
-            parsed_obj = structured
-        else:
-            if raw_text:
-                try:
-                    parsed_obj = json.loads(raw_text)
-                except Exception:
-                    parsed_obj = raw_text
-            else:
-                parsed_obj = raw_text
-
-        # 3. 标准化为 ToolResult
-        try:
-            tool_result = ToolResult.from_any(parsed_obj)
-        except Exception as e:
-            self.log_with_context("warning", "Failed to parse tool result: {error_msg}", context={"error_msg": f"{e}"})
-            tool_result = ToolResult.from_any(raw_text)
-
-        # 4. 注册资源
-        resource_to_save = Resource(
-            user_id=self.user_id,
-            model_text=tool_result.model_text,
-            display=[p.model_dump() for p in tool_result.display],
-            data=tool_result.data,
-            version=tool_result.version,
-        )
-        artifact_id = str(self.resource_manager.create(resource_to_save, self.session).id)
-
-        # 5. 构建最小结构，喂给模型的文本直接用 model_text
-        minimal_struct = {
-            "artifact_id": artifact_id,
-            "model_text": tool_result.model_text,
-            "version": tool_result.version,
-        }
-
-        # 6. 覆盖返回
-        result.structured_content = minimal_struct
-        # 给模型的自然语言部分：只放 model_text，避免输出 JSON 杂讯
-        if result.content:
-            result.content[0].text = tool_result.model_text  # type:ignore
-        else:
-            # 部分 fastmcp 实现可能需要确保 content 不为空
-
-            result.content = [
-                FastMCPToolResult(content=TextContent(type="text", text=tool_result.model_text)),  # type:ignore
-            ]
-
-        return result
+        context.fastmcp_context.set_state()
+        return await call_next(context)
 
 
 class PluginManager:

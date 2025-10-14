@@ -100,7 +100,13 @@ def create_dynamic_pydantic_class(
     return type(name, (base_class,), attributes)
 
 
-def mcp_tool_wrapper(user_id: UUID, resource_manager: ResourceManager, session: Session, runnable_tool: RunnableTool, log_method: Callable) -> BaseTool:
+def mcp_tool_wrapper(
+    user_id: UUID,
+    resource_manager: ResourceManager,
+    session: Session,
+    runnable_tool: RunnableTool,
+    log_method: Callable,
+) -> BaseTool:
     tool = runnable_tool.tool
 
     async def call_tool(
@@ -108,6 +114,7 @@ def mcp_tool_wrapper(user_id: UUID, resource_manager: ResourceManager, session: 
         **kwargs,
     ) -> Command:
         try:
+            kwargs["plugin_user_config"] = {"user_id": str(user_id)}
             response_raw = await runnable_tool.run(kwargs)
             log_method(
                 "info",
