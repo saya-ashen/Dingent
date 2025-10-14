@@ -70,31 +70,31 @@ export const POST = async (req: NextRequest) => {
   // --- Authentication Guard ---
   const authorization = req.headers.get("authorization");
 
-  // 1. Reject if no authorization token is provided.
-  if (!authorization) {
-    return createUnauthorizedResponse(req);
-  }
-
-  // 2. Validate the token by calling your backend authentication service.
-  try {
-    const validationResponse = await fetch(AUTH_VALIDATION_URL, {
-      method: 'GET',
-      headers: { 'Authorization': authorization },
-    });
-
-    // If the backend says the token is invalid (e.g., returns 401/403), reject the request.
-    if (!validationResponse.ok) {
-      console.log(`Auth validation failed with status: ${validationResponse.status}`);
-      return createUnauthorizedResponse(req);
-    }
-  } catch (error) {
-    console.error("Auth validation request failed:", error);
-    // If the validation service itself is down or throws an error, return a 500.
-    return new NextResponse(
-      JSON.stringify({ error: "Internal Server Error during authentication." }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+  // // 1. Reject if no authorization token is provided.
+  // if (!authorization) {
+  //   return createUnauthorizedResponse(req);
+  // }
+  //
+  // // 2. Validate the token by calling your backend authentication service.
+  // try {
+  //   const validationResponse = await fetch(AUTH_VALIDATION_URL, {
+  //     method: 'GET',
+  //     headers: { 'Authorization': authorization },
+  //   });
+  //
+  //   // If the backend says the token is invalid (e.g., returns 401/403), reject the request.
+  //   if (!validationResponse.ok) {
+  //     console.log(`Auth validation failed with status: ${validationResponse.status}`);
+  //     return createUnauthorizedResponse(req);
+  //   }
+  // } catch (error) {
+  //   console.error("Auth validation request failed:", error);
+  //   // If the validation service itself is down or throws an error, return a 500.
+  //   return new NextResponse(
+  //     JSON.stringify({ error: "Internal Server Error during authentication." }),
+  //     { status: 500, headers: { 'Content-Type': 'application/json' } }
+  //   );
+  // }
 
   // --- If authentication succeeds, proceed to CopilotKit ---
   const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

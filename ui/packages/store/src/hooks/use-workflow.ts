@@ -89,7 +89,7 @@ export function useActiveWorkflow() {
 
   return {
     id: activeId,
-    name: summary?.name || "Unnamed workflow",
+    name: summary?.name || "default",
     summary,               // null until we can derive/fetch it
     setActiveId,           // (id: string | null) => void
   };

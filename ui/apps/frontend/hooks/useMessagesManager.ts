@@ -22,7 +22,7 @@ export function useMessagesManager() {
   const { messages, setMessages } = useCopilotMessagesContext();
   const { threadId, agentSession, runtimeClient, } = useCopilotContext();
   const { threads, updateThreadTitle } = useThreadContext();
-  const { setState } = useCoAgent({ name: workflow?.name || "unknow" });
+  const { setState } = useCoAgent({ name: workflow?.name || "default" });
 
   const lastLoadedThreadId = useRef<string>("");
   const lastLoadedAgentName = useRef<string>("");

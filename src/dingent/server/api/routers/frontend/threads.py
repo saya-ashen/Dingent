@@ -1,33 +1,20 @@
 from __future__ import annotations
 import os
-from copilotkit import Agent, CopilotKitContext
+from copilotkit import Agent
 
 from fastapi import APIRouter, Depends, FastAPI
-from fastapi.exceptions import HTTPException
 from sqlalchemy import Engine
 from sqlmodel import Session
 
+from dingent.core.db.models import User, Workflow
 from dingent.core.factories.graph_factory import GraphFactory
 from dingent.core.managers.llm_manager import LLMManager
-from time import time
 from dingent.core.managers.resource_manager import ResourceManager
-from dingent.server.auth.authorization import dynamic_authorizer
-from dingent.server.auth.security import get_current_user_from_token
 from dingent.server.copilot.add_fastapi_endpoint import add_fastapi_endpoint
 from dingent.server.copilot.agents import FixedLangGraphAgent
-from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.server.copilot.async_copilotkit_remote_endpoint import AsyncCopilotKitRemoteEndpoint
 
-router = APIRouter(dependencies=[Depends(dynamic_authorizer)])
-
-
-MAX_CACHE_SIZE = 128
-
-
-from collections import OrderedDict
-from typing import Tuple, Any, Callable, cast
-
-Key = Tuple[str, str]  # (user_id, agent_name) or (workflow_id, ...)
+router = APIRouter()
 
 
 def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engine, checkpointer, resource_manager: ResourceManager):
@@ -48,34 +35,19 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
         api_key=api_key,
     )
 
-    async def _agents_pipeline(context: CopilotKitContext, name: str) -> Agent:
-        token = context.get("properties", {}).get("authorization") or context.get("headers", {}).get("authorization")
-        if token and token.startswith("Bearer "):
-            token = token[len("Bearer ") :].strip()
-        if not token:
-            raise HTTPException(status_code=401, detail="Missing token")
-
-        with Session(engine, expire_on_commit=False) as session:
-            user = get_current_user_from_token(session, token)
-            if not user:
-                raise HTTPException(status_code=401, detail="Invalid token")
-
-            workflow = get_workflow_by_name(session, name, user.id)
-            if not workflow:
-                raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
-            artifact = await graph_factory.build(user.id, session, resource_manager, workflow, llm, checkpointer)
-            async with artifact.stack:
-                return FixedLangGraphAgent(
-                    name=workflow.name,
-                    description=f"Agent for workflow '{workflow.name}'",
-                    graph=artifact.graph,
-                    langgraph_config={"token": token} if token else {},
-                )
+    async def _agents_pipeline(workflow: Workflow, user: User, session: Session) -> Agent:
+        artifact = await graph_factory.build(user.id, session, resource_manager, workflow, llm, checkpointer)
+        return FixedLangGraphAgent(
+            name=workflow.name,
+            description=f"Agent for workflow '{workflow.name}'",
+            graph=artifact.graph,
+            langgraph_config={"user": user},
+        )
 
     sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=_agents_pipeline, engine=engine)
     app.state.copilot_sdk = sdk
 
-    add_fastapi_endpoint(cast(FastAPI, router), sdk, "/copilotkit")
+    add_fastapi_endpoint(router, sdk, "/copilotkit")
 
     app.include_router(router, prefix="/api/v1/frontend")
 
