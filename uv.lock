@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -483,7 +483,7 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "cookiecutter", specifier = ">=2.6.0" },
-    { name = "copilotkit", specifier = ">=0.1.56" },
+    { name = "copilotkit", specifier = "==0.1.58" },
     { name = "fastapi", specifier = ">=0.115.6" },
     { name = "fastmcp", specifier = ">=2.2.0" },
     { name = "google-genai", specifier = ">=1.32.0" },
