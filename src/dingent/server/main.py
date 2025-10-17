@@ -1,6 +1,8 @@
 import os
+
 import uvicorn
-from .app import create_app, base_lifespan
+
+from .app import base_lifespan, create_app
 
 IS_DEV_MODE = os.getenv("DINGENT_DEV")
 

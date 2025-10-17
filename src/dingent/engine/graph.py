@@ -21,7 +21,6 @@ from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import ResourceCreate, RunnableTool
 
-
 from .simple_react_agent import build_simple_react_agent
 
 

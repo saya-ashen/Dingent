@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlmodel import Session, asc, select, func, delete
+from sqlmodel import Session, asc, delete, func, select
 
+from dingent.core.db.crud import resource as crud_resource
 from dingent.core.db.models import Resource
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.schemas import ResourceCreate
-from dingent.core.db.crud import resource as crud_resource
 
 
 def get_oldest_resource_for_user(session: Session, user_id: UUID) -> Resource | None:

@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
-import time
-from fastapi import FastAPI, Request, Response
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+
 from dingent.core.context import initialize_app_context
+
 from .api import api_router
 
 

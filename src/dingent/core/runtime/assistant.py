@@ -1,15 +1,14 @@
 from __future__ import annotations
-from typing import Any
 
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
-
+from typing import Any
 
 from dingent.core.db.models import Assistant
 from dingent.core.schemas import RunnableTool
 
-from .plugin import PluginRuntime
 from ..managers.plugin_manager import PluginManager
+from .plugin import PluginRuntime
 
 
 class AssistantRuntime:
@@ -24,10 +23,10 @@ class AssistantRuntime:
         self,
         assistant_id: str,
         name: str,
+        log_method: Callable,
         description: str,
         plugin_instances: dict[str, PluginRuntime],
         plugin_configs: dict[str, dict[str, Any]] | None = None,
-        log_method: Callable,
     ):
         self.id = assistant_id
         self.name = name
@@ -57,7 +56,13 @@ class AssistantRuntime:
                     context={"name": assistant.name, "pid": link.plugin_id, "e": e},
                 )
                 continue
-        return cls(str(assistant.id), assistant.name, assistant.description or "", plugin_instances, log_method)
+        return cls(
+            str(assistant.id),
+            assistant.name,
+            log_method,
+            assistant.description or "",
+            plugin_instances,
+        )
 
     @asynccontextmanager
     async def load_tools(self):

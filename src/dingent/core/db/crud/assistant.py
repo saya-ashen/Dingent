@@ -1,6 +1,7 @@
 from uuid import UUID
-from fastapi.exceptions import HTTPException
+
 from fastapi import status
+from fastapi.exceptions import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 

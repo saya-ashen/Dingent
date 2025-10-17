@@ -1,10 +1,10 @@
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
-from fastapi.exceptions import HTTPException
-from sqlmodel import Session, select
 
-from dingent.core.db.models import Plugin, Resource
+from fastapi.exceptions import HTTPException
+from sqlmodel import Session
+
+from dingent.core.db.models import Resource
 from dingent.core.schemas import ResourceCreate
 
 

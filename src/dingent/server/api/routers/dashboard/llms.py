@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
-
+from fastapi import APIRouter
 
 router = APIRouter(prefix="/llms", tags=["LLMs"])
 

@@ -3,9 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 from .utils import find_project_root
-
 
 UNIFIED_DB_PATH = ".dingent/data/dingent.sqlite"
 
@@ -19,7 +17,7 @@ class AppContext:
             return
         # Initialize in order of dependency (least dependent first)
 
-        plugin_dir = self.project_root / "plugins"
+        self.project_root / "plugins"
 
         # self.market_service = MarketService(self.config_manager.project_root, self.log_manager)
 

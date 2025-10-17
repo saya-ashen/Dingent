@@ -1,23 +1,23 @@
+from collections.abc import Sequence
 from uuid import UUID
-from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
-from dingent.core.db.models import Workflow, WorkflowNode, WorkflowEdge
+from dingent.core.db.models import Workflow, WorkflowEdge, WorkflowNode
 from dingent.core.schemas import (
     WorkflowCreate,
-    WorkflowReplace,
-    WorkflowUpdate,
-    WorkflowNodeCreate,
-    WorkflowNodeUpdate,
     WorkflowEdgeCreate,
     WorkflowEdgeUpdate,
+    WorkflowNodeCreate,
+    WorkflowNodeUpdate,
+    WorkflowReplace,
+    WorkflowUpdate,
 )
 
 # --- Workflow CRUD ---
 
 
-def get_workflow(db: Session, workflow_id: UUID, user_id: UUID) -> Optional[Workflow]:
+def get_workflow(db: Session, workflow_id: UUID, user_id: UUID) -> Workflow | None:
     """
     Get a single workflow by ID, ensuring it belongs to the specified user.
     """
@@ -28,7 +28,7 @@ def get_workflow(db: Session, workflow_id: UUID, user_id: UUID) -> Optional[Work
     return db.exec(statement).first()
 
 
-def get_workflow_by_name(db: Session, name: str, user_id: UUID) -> Optional[Workflow]:
+def get_workflow_by_name(db: Session, name: str, user_id: UUID) -> Workflow | None:
     """
     Get a single workflow by name for a specific user.
     """

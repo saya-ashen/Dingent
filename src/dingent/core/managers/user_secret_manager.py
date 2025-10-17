@@ -1,8 +1,6 @@
 import logging
-from cryptography.fernet import Fernet, InvalidToken
-import logging
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 # --- 常量定义 ---
 KEYRING_SERVICE_NAME = "dingent-framework"

@@ -1,12 +1,7 @@
-import os
-import base64
 from functools import lru_cache
-from typing import Any
 
-from pydantic import field_validator, SecretStr, computed_field
+from pydantic import SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-from cryptography.fernet import Fernet
 
 from dingent.core.managers.user_secret_manager import UserSecretManager
 
@@ -70,7 +65,7 @@ class Settings(BaseSettings):
         return UserSecretManager(self.APP_MASTER_KEY.get_secret_value())
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
 

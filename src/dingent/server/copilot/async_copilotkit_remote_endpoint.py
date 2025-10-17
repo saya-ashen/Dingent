@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from copilotkit.action import ActionDict
 from copilotkit.agent import Agent
@@ -15,7 +16,6 @@ from copilotkit.sdk import (
     CopilotKitRemoteEndpoint,
 )
 from copilotkit.types import Message, MetaEvent
-
 from fastapi import HTTPException
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
@@ -25,19 +25,18 @@ from dingent.core.db.crud.workflow import get_workflow_by_name, list_workflows_b
 from dingent.core.db.models import User, Workflow
 from dingent.server.auth.security import get_current_user_from_token
 
-
 # ---------- Types ----------
 
 
 @runtime_checkable
 class AgentFactory(Protocol):
-    def __call__(self, workflow: Workflow, user: User, session: Session) -> Union[Agent, None, Awaitable[Union[Agent, None]]]: ...
+    def __call__(self, workflow: Workflow, user: User, session: Session) -> Agent | None | Awaitable[Agent | None]: ...
 
 
 # ---------- Utilities ----------
 
 
-def _extract_bearer_token(context: CopilotKitContext) -> Optional[str]:
+def _extract_bearer_token(context: CopilotKitContext) -> str | None:
     # Prefer properties.authorization, fallback to headers.authorization
     token = context.get("properties", {}).get("authorization") or context.get("headers", {}).get("authorization")
     if not token:
@@ -47,7 +46,7 @@ def _extract_bearer_token(context: CopilotKitContext) -> Optional[str]:
     return token or None
 
 
-async def _maybe_await[T](value: Union[T, Awaitable[T]]) -> T:
+async def _maybe_await[T](value: T | Awaitable[T]) -> T:
     return await value if inspect.isawaitable(value) else value  # type: ignore[return-value]
 
 
@@ -65,7 +64,7 @@ def _truncate(obj: Any, limit: int = 2048) -> Any:
         # Shallow truncate string values only; deep truncation unnecessary in most requests
         out = {}
         for k, v in obj.items():
-            out[k] = _truncate(v, limit=limit // 2) if isinstance(v, (str, list, dict)) else v
+            out[k] = _truncate(v, limit=limit // 2) if isinstance(v, str | list | dict) else v
         return out
     return obj
 
@@ -100,7 +99,7 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
         self.engine = engine
         self._sessionmaker = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
         self._enable_cache = enable_cache
-        self._cache: Dict[_AgentCacheKey, Agent] = {}
+        self._cache: dict[_AgentCacheKey, Agent] = {}
         self._cache_lock = asyncio.Lock()
 
     # ---------- Private helpers ----------
@@ -136,7 +135,7 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
         if not token:
             raise HTTPException(status_code=401, detail="Missing token")
 
-        agents_list: List[AgentDict] = []
+        agents_list: list[AgentDict] = []
         with self._with_session() as session:
             user = get_current_user_from_token(session, token)
             # If token invalid, the above should raise. Keep the HTTPException behavior in that helper.
@@ -150,7 +149,7 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
                     }
                 )
 
-        actions_list: List[dict] = []  # kept for schema parity
+        actions_list: list[dict] = []  # kept for schema parity
 
         self._log_request_info(
             title="Handling info request (factory-based agents)",
@@ -168,11 +167,11 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
         name: str,
         thread_id: str,
         state: dict,
-        config: Optional[dict] = None,
-        messages: List[Message],
-        actions: List[ActionDict],
+        config: dict | None = None,
+        messages: list[Message],
+        actions: list[ActionDict],
         node_name: str,
-        meta_events: Optional[List[MetaEvent]] = None,
+        meta_events: list[MetaEvent] | None = None,
     ) -> Any:
         token = _extract_bearer_token(context)
         if not token:

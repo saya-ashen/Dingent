@@ -2,10 +2,10 @@ from uuid import UUID
 
 from sqlmodel import Session
 
+from dingent.core.db.crud import plugin as crud_plugin
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.schemas import PluginRead
 from dingent.core.services.plugin_registry import PluginRegistry
-from dingent.core.db.crud import plugin as crud_plugin
 
 
 class UserPluginService:

@@ -5,8 +5,10 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from dingent.core.db.models import WorkflowNode
+
 if TYPE_CHECKING:
-    from .types import Workflow, WorkflowNode
+    from dingent.core.db.models import Workflow
 
 
 def find_project_root(marker: str = "dingent.toml") -> Path | None:

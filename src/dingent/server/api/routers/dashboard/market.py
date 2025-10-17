@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
+
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
+from dingent.core.services.market_service import MarketItemCategory, MarketService
 from dingent.server.api.dependencies import (
     get_log_manager,
     get_market_service,
     get_plugin_manager,
 )
-from dingent.core.services.market_service import MarketService, MarketItemCategory
 from dingent.server.api.schemas import MarketDownloadRequest, MarketDownloadResponse
 
 router = APIRouter(prefix="/market", tags=["Market"])

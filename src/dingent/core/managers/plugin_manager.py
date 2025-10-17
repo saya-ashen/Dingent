@@ -1,20 +1,14 @@
-import json
 import logging
 import shutil
-from typing import Any
 from uuid import UUID
 
-from sqlmodel import Session
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from fastmcp.tools.tool import ToolResult as FastMCPToolResult
-from mcp.types import TextContent
+from sqlmodel import Session
 
-from dingent.core.db.models import AssistantPluginLink, Resource
+from dingent.core.db.models import AssistantPluginLink
 from dingent.core.runtime.plugin import PluginRuntime
 from dingent.core.schemas import PluginConfigSchema, PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry
-from dingent.core.types import ToolResult
-
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 

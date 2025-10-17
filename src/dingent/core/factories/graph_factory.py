@@ -1,6 +1,7 @@
 from __future__ import annotations
-from uuid import UUID
+
 import uuid
+from uuid import UUID
 
 from sqlmodel import Session
 
@@ -35,12 +36,13 @@ Design goals:
 - Minimal coupling to the broader app; dependency injection through `AppContextSubset`
 """
 
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph_swarm import create_swarm
 
 from dingent.engine.graph import (
     MainState,
@@ -48,8 +50,6 @@ from dingent.engine.graph import (
     create_assistant_graphs,
     get_safe_swarm,
 )
-from langgraph_swarm import create_swarm
-
 
 # ==============================================================================
 # Public Artifacts
@@ -68,7 +68,7 @@ class GraphArtifact:
     graph: CompiledStateGraph
     stack: AsyncExitStack
     checkpointer: Any
-    default_active_agent: Optional[str]
+    default_active_agent: str | None
 
     async def aclose(self) -> None:
         """Close all resources held by the artifact."""
@@ -80,7 +80,9 @@ class GraphArtifact:
 # ==============================================================================
 
 
-def fake_log(level, messages="", context={}, *args, **kwargs):
+def fake_log(level, messages="", context=None, *args, **kwargs):
+    if context is None:
+        context = {}
     print(f"[GraphFactory] [{level.upper()}] {messages} | {context}")
 
 

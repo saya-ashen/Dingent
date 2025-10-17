@@ -1,4 +1,5 @@
 from uuid import UUID
+
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Plugin

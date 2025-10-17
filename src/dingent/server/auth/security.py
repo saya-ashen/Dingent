@@ -1,14 +1,13 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-
 from fastapi.exceptions import HTTPException
-from sqlmodel import Session
-from starlette import status
-from dingent.core.db.crud.user import get_user
-from datetime import datetime, timedelta, timezone
-
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from sqlmodel import Session
+from starlette import status
+
+from dingent.core.db.crud.user import get_user
 
 # 1. 密码哈希配置 (Passlib)
 #    - schemes=["bcrypt"]: 指定 bcrypt 作为主要的哈希算法。
@@ -51,9 +50,9 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
     """
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
+        expire = datetime.now(UTC) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(UTC) + timedelta(minutes=15)
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

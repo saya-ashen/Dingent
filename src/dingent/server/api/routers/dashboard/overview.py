@@ -3,11 +3,10 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
+
 from dingent.core.managers.analytics_manager import AnalyticsManager
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
-
-from dingent.core.managers.workflow_manager import WorkflowManager
 from dingent.core.services.market_service import MarketService
 from dingent.server.api.dependencies import (
     get_analytics_manager,
@@ -104,7 +103,7 @@ async def get_overview(
       "llm": {...}
     }
     """
-    market_task = asyncio.create_task(_gather_market_section(market_service, plugin_manager))
+    asyncio.create_task(_gather_market_section(market_service, plugin_manager))
 
     # 同步部分
     plugins_section = _gather_plugins_section(plugin_manager)

@@ -5,8 +5,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
-from dingent.core.db.crud import workflow as crud_workflow
 
+from dingent.core.db.crud import workflow as crud_workflow
 from dingent.core.db.models import Assistant, Workflow
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import WorkflowCreate, WorkflowUpdate
@@ -127,7 +127,7 @@ class WorkflowManager:
                 if include_self_loops or src_a != tgt_a:
                     adjacency.setdefault(src_a, set()).add(tgt_a)
 
-            return {k: sorted(list(v)) for k, v in adjacency.items()}
+            return {k: sorted(v) for k, v in adjacency.items()}
 
     # -----------------------------------------------------------------------
     # Runtime Assistant Instantiation

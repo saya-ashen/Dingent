@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status, Response
+from fastapi import APIRouter, Depends, Response, status
 
 from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginAddToAssistant, PluginUpdateOnAssistant
 from dingent.server.api.dependencies import (

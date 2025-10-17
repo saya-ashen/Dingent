@@ -1,26 +1,22 @@
 from uuid import UUID
+
 from fastapi import Depends, Request, status
 from fastapi.exceptions import HTTPException
-from fastapi.security.oauth2 import OAuth2PasswordBearer
+from fastapi.security.oauth2 import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session
 
+from dingent.core.config import settings
+from dingent.core.db.crud import assistant as crud_assistant
 from dingent.core.db.crud.user import create_test_user, get_user
 from dingent.core.db.models import User
 from dingent.core.db.session import engine
-from dingent.core.db.crud import assistant as crud_assistant
-from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.managers.log_manager import LogManager
-from dingent.server.auth.security import decode_token, get_current_user_from_token, verify_password
-from fastapi.security.oauth2 import OAuth2PasswordRequestForm
-from sqlmodel import Session
-from fastapi import Depends
-from dingent.core.config import settings
-
+from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.schemas import UserRead
+from dingent.server.auth.security import get_current_user_from_token, verify_password
 from dingent.server.services.user_assistant_service import UserAssistantService
 from dingent.server.services.user_plugin_service import UserPluginService
 from dingent.server.services.user_workflow_service import UserWorkflowService
-
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
 

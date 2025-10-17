@@ -3,36 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from threading import RLock
-from typing import Dict, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.orm import selectinload
-from sqlmodel import SQLModel, Session, select
+from sqlmodel import Session, SQLModel, select
 
 from dingent.core.db.crud import workflow as crud_workflow
 from dingent.core.db.models import Workflow, WorkflowNode
-from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
 
 # --- New dependencies provided by user ---
 from dingent.core.runtime.assistant import AssistantRuntime
-from dingent.core.db.models import Assistant
+from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
 from dingent.server.services.user_assistant_service import UserAssistantService
-
-
-from dataclasses import dataclass, field
-from enum import Enum
-from threading import RLock
-from typing import Dict, Optional
-from uuid import UUID
-
-from sqlmodel import Session, select
-
-from dingent.core.db.crud import workflow as crud_workflow
-from dingent.core.db.models import Workflow
-from dingent.core.schemas import WorkflowCreate, WorkflowUpdate
-
-from dingent.core.runtime.assistant import AssistantRuntime
 
 
 class WorkflowNotFoundError(ValueError):
@@ -60,13 +43,13 @@ class WorkflowRun:
     workflow_id: UUID
     status: WorkflowRunStatus = WorkflowRunStatus.IDLE
     message: str | None = None
-    assistants: Dict[str, AssistantRuntime] = field(default_factory=dict)  # assistant_name -> runtime
+    assistants: dict[str, AssistantRuntime] = field(default_factory=dict)  # assistant_name -> runtime
 
 
 class WorkflowRunRead(SQLModel):
     workflow_id: UUID
     status: str
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class UserWorkflowService:
@@ -104,7 +87,7 @@ class UserWorkflowService:
         self._log = log_manager
 
         # Track runs in-memory (per-process). Key: (user_id, workflow_id)
-        self._runs: Dict[tuple[UUID, UUID], WorkflowRun] = {}
+        self._runs: dict[tuple[UUID, UUID], WorkflowRun] = {}
         self._lock = RLock()
 
     # ---------------------------------------------------------------------
@@ -166,13 +149,13 @@ class UserWorkflowService:
                 if node.assistant:
                     name_to_id[node.assistant.name] = node.assistant_id
 
-            runtimes: Dict[str, AssistantRuntime] = {}
+            runtimes: dict[str, AssistantRuntime] = {}
             for a_name, a_id in name_to_id.items():
                 try:
                     runtime = await self.assistant_service.get_runtime_assistant(a_id)
                     if mutate_assistant_destinations:
                         # destinations use assistant names
-                        setattr(runtime, "destinations", adjacency.get(a_name, []))
+                        runtime.destinations = adjacency.get(a_name, [])
                     runtimes[a_name] = runtime
                 except Exception as e:
                     self._log.log_with_context(
@@ -231,7 +214,7 @@ class UserWorkflowService:
             if existing and existing.assistants:
                 for rt in existing.assistants.values():
                     try:
-                        setattr(rt, "destinations", [])
+                        rt.destinations = []
                     except Exception:
                         pass
         finally:
@@ -384,7 +367,7 @@ class UserWorkflowService:
     # ---------------------------------------------------------------------
     # Internals
     # ---------------------------------------------------------------------
-    def _get_workflow(self, workflow_id: UUID, *, eager: bool = False) -> Optional[Workflow]:
+    def _get_workflow(self, workflow_id: UUID, *, eager: bool = False) -> Workflow | None:
         stmt = select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == self.user_id)
         if eager:
             stmt = stmt.options(

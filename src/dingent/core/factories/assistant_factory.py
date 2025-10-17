@@ -1,8 +1,4 @@
 from __future__ import annotations
-from uuid import UUID
-
-from sqlmodel import Session
-
 
 from dingent.core.db.models import Assistant
 from dingent.core.runtime.assistant import AssistantRuntime

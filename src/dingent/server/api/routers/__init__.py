@@ -1,7 +1,8 @@
 from fastapi import APIRouter
+
+from .auth import router as auth_router
 from .dashboard import api_router as dashboard_router
 from .frontend import api_router as frontend_router
-from .auth import router as auth_router
 
 api_router = APIRouter()
 

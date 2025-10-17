@@ -1,14 +1,12 @@
-from enum import Enum
-from sqlalchemy import LargeBinary
 from datetime import datetime
-from typing import Any, List, Optional
+from enum import Enum
+from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field as PydField
-from sqlalchemy import Column, JSON, Text
+from pydantic import BaseModel
+from pydantic import Field as PydField
+from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
-
-from dingent.core.schemas import PluginConfigSchema
 
 
 class ToolOverrideConfig(BaseModel):
@@ -49,21 +47,21 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True, description="账户是否激活")
 
     # 个人信息
-    full_name: Optional[str] = Field(default=None, description="真实姓名或昵称")
-    avatar_url: Optional[str] = Field(default=None, description="头像地址")
+    full_name: str | None = Field(default=None, description="真实姓名或昵称")
+    avatar_url: str | None = Field(default=None, description="头像地址")
 
     # 审计字段
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    provider_credentials: List["UserProviderCredential"] = Relationship(back_populates="user")
+    provider_credentials: list["UserProviderCredential"] = Relationship(back_populates="user")
 
     def __repr__(self):
         return f"<User {self.username} ({self.email})>"
 
     # 关系
-    assistants: List["Assistant"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    workflows: List["Workflow"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    resources: List["Resource"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    assistants: list["Assistant"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    workflows: list["Workflow"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    resources: list["Resource"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
 # --- Assistant、Plugin 及其关联（多对多） ---
@@ -86,7 +84,7 @@ class AssistantPluginLink(SQLModel, table=True):
     tool_configs: list[ToolOverrideConfig] = Field(default_factory=list, sa_column=Column(JSON))
 
     # --- 用户为插件提供的配置值 (如 API Keys) ---
-    user_config_values: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    user_config_values: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
 
     # 双向关系（注意 back_populates 名称需与目标模型中的属性名对应）
     assistant: "Assistant" = Relationship(back_populates="plugin_links")
@@ -102,7 +100,7 @@ class Assistant(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str = Field(index=True)
-    description: Optional[str] = None
+    description: str | None = None
     version: str = "0.2.0"
     spec_version: str = "3.0"
     enabled: bool = True
@@ -115,17 +113,17 @@ class Assistant(SQLModel, table=True):
     user: User = Relationship(back_populates="assistants")
 
     # 多对多：通过 link_model
-    plugins: List["Plugin"] = Relationship(
+    plugins: list["Plugin"] = Relationship(
         back_populates="assistants",
         link_model=AssistantPluginLink,
         sa_relationship_kwargs={"overlaps": "assistant,plugin_links"},
     )
 
     # 提供对链接记录本身的直达访问（便于读写 per-assistant 配置）
-    plugin_links: List[AssistantPluginLink] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    plugin_links: list[AssistantPluginLink] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     # 一个 Assistant 可被多个 WorkflowNode 引用
-    workflow_nodes: List["WorkflowNode"] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    workflow_nodes: list["WorkflowNode"] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
 class Plugin(SQLModel, table=True):
@@ -144,13 +142,13 @@ class Plugin(SQLModel, table=True):
     config_schema: list[dict] | None = Field(default=None, sa_column=Column(JSON))
 
     # 多对多
-    assistants: List["Assistant"] = Relationship(
+    assistants: list["Assistant"] = Relationship(
         back_populates="plugins",
         link_model=AssistantPluginLink,
     )
 
     # 反向访问链接表
-    assistant_links: List[AssistantPluginLink] = Relationship(back_populates="plugin", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    assistant_links: list[AssistantPluginLink] = Relationship(back_populates="plugin", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
 # --- Workflow 及其结构 ---
@@ -163,7 +161,7 @@ class Workflow(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
@@ -173,8 +171,8 @@ class Workflow(SQLModel, table=True):
     user: User = Relationship(back_populates="workflows")
 
     # 关系
-    nodes: List["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    edges: List["WorkflowEdge"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    nodes: list["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    edges: list["WorkflowEdge"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
 class WorkflowNode(SQLModel, table=True):
@@ -208,8 +206,8 @@ class WorkflowEdge(SQLModel, table=True):
     target_node_id: UUID = Field(foreign_key="workflownode.id", index=True)
 
     # UI 相关
-    source_handle: Optional[str] = None
-    target_handle: Optional[str] = None
+    source_handle: str | None = None
+    target_handle: str | None = None
     type: str = "default"
     mode: str = "single"
 
@@ -228,7 +226,7 @@ class Resource(SQLModel, table=True):
     version: str = "1.0"
     model_text: str = Field(sa_column=Column(Text))
 
-    display: Optional[List[dict[str, Any]]] = Field(default=None, sa_column=Column(JSON))
+    display: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON))
     data: dict | str | list | None = Field(default=None, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
@@ -244,7 +242,7 @@ class Resource(SQLModel, table=True):
 class LLMProvider(SQLModel, table=True):
     """Stores information about an LLM provider like OpenAI, Anthropic, or a local Ollama instance."""
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
 
     # A unique name for the provider, e.g., "openai", "anthropic", "ollama"
     name: str = Field(unique=True, index=True)
@@ -256,7 +254,7 @@ class LLMProvider(SQLModel, table=True):
     api_base_url: str
 
     # A link to the provider's documentation or where to get an API key
-    documentation_url: Optional[str] = None
+    documentation_url: str | None = None
 
     # Flag to indicate if this provider requires an API key from the user
     # True for OpenAI/Anthropic, False for a default local Ollama.
@@ -264,10 +262,10 @@ class LLMProvider(SQLModel, table=True):
 
     # --- Relationships ---
     # This provider has many models
-    models: List["LLMModel"] = Relationship(back_populates="provider")
+    models: list["LLMModel"] = Relationship(back_populates="provider")
 
     # Many users can have credentials for this provider
-    user_credentials: List["UserProviderCredential"] = Relationship(back_populates="provider")
+    user_credentials: list["UserProviderCredential"] = Relationship(back_populates="provider")
 
 
 class ModelType(str, Enum):
@@ -281,7 +279,7 @@ class ModelType(str, Enum):
 class LLMModel(SQLModel, table=True):
     """Stores details for a specific large language model."""
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
 
     # The exact name used in API calls, e.g., "gpt-4-turbo", "claude-3-opus-20240229"
     model_name: str = Field(index=True)
@@ -312,7 +310,7 @@ class UserProviderCredential(SQLModel, table=True):
     This is a many-to-many link between Users and LLMProviders.
     """
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
 
     # The encrypted API key, using the user's personal DEK
     encrypted_api_key: bytes = Field(sa_column=Column(LargeBinary))

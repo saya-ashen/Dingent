@@ -1,19 +1,16 @@
-from mcp.types import Tool
-from uuid import UUID
-from datetime import datetime
-from typing import List, Optional, Dict
-import toml
-from pathlib import Path
-from typing import Callable, Literal, Optional
-from uuid import UUID
-from pydantic import ConfigDict, PrivateAttr
-from dingent.core.types import ExecutionModel
-
-
 import re
-from typing import Any
-from sqlmodel import SQLModel, Field
+from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Literal
+from uuid import UUID
 
+import toml
+from mcp.types import Tool
+from pydantic import ConfigDict, PrivateAttr
+from sqlmodel import Field, SQLModel
+
+from dingent.core.types import ExecutionModel
 from dingent.core.utils import to_camel
 
 
@@ -131,10 +128,10 @@ class PluginUpdateOnAssistant(SQLModel):
     All fields are optional for PATCH functionality.
     """
 
-    enabled: Optional[bool] = None
-    tools_default_enabled: Optional[bool] = None
-    tools_override: Optional[list[dict[str, Any]]] = None
-    user_config_values: Optional[dict[str, Any]] = None
+    enabled: bool | None = None
+    tools_default_enabled: bool | None = None
+    tools_override: list[dict[str, Any]] | None = None
+    user_config_values: dict[str, Any] | None = None
 
 
 class PluginConfigSchema(SQLModel):
@@ -180,7 +177,7 @@ class WorkflowNodeBase(SQLModel):
     )
 
     assistant_id: UUID
-    position: Dict[str, float]
+    position: dict[str, float]
     is_start_node: bool = False
     type: str = "assistant"
 
@@ -205,8 +202,8 @@ class WorkflowNodeUpdate(SQLModel):
     通常只允许更新位置等 UI 相关属性。
     """
 
-    position: Optional[Dict[str, float]] = None
-    is_start_node: Optional[bool] = None
+    position: dict[str, float] | None = None
+    is_start_node: bool | None = None
 
 
 class WorkflowNodeRead(WorkflowNodeBase):
@@ -232,8 +229,8 @@ class WorkflowEdgeBase(SQLModel):
 
     source: UUID
     target: UUID
-    source_handle: Optional[str] = None
-    target_handle: Optional[str] = None
+    source_handle: str | None = None
+    target_handle: str | None = None
     type: str = "directrional"
 
 
@@ -252,9 +249,9 @@ class WorkflowEdgeUpdate(SQLModel):
     通常边很少被更新，一般是删除后重建。但可以预留接口。
     """
 
-    source_handle: Optional[str] = None
-    target_handle: Optional[str] = None
-    type: Optional[str] = None
+    source_handle: str | None = None
+    target_handle: str | None = None
+    type: str | None = None
 
 
 class WorkflowEdgeRead(WorkflowEdgeBase):
@@ -272,7 +269,7 @@ class WorkflowEdgeRead(WorkflowEdgeBase):
 class WorkflowBase(SQLModel):
     """工作流的基础共享字段"""
 
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class WorkflowCreate(WorkflowBase):
@@ -295,8 +292,8 @@ class WorkflowReplace(WorkflowBase):
     """
 
     name: str
-    nodes: List[WorkflowNodeCreate] = []
-    edges: List[WorkflowEdgeCreate] = []
+    nodes: list[WorkflowNodeCreate] = []
+    edges: list[WorkflowEdgeCreate] = []
 
 
 class WorkflowUpdate(WorkflowBase):
@@ -306,7 +303,7 @@ class WorkflowUpdate(WorkflowBase):
     注意：节点的修改不在这里处理，而是通过专门的节点接口。
     """
 
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class WorkflowReadBasic(WorkflowBase):
@@ -327,8 +324,8 @@ class WorkflowRead(WorkflowReadBasic):
     前端在 GET /workflows/{workflow_id} 时会收到此模型。
     """
 
-    nodes: List[WorkflowNodeRead] = []
-    edges: List[WorkflowEdgeRead] = []
+    nodes: list[WorkflowNodeRead] = []
+    edges: list[WorkflowEdgeRead] = []
 
 
 # Resource Models
@@ -338,7 +335,7 @@ class ResourceBase(SQLModel):
     version: str = "1.0"
     model_text: str
 
-    display: Optional[list[dict[str, Any]]] = None
+    display: list[dict[str, Any]] | None = None
     data: dict | str | list | None = None
 
 

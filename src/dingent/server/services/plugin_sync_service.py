@@ -1,7 +1,7 @@
 # in a new file, e.g., my_app/plugins/sync_service.py
 
 import logging
-from typing import List, Dict
+
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Plugin
@@ -28,7 +28,7 @@ class PluginSyncService:
 
         # 1. 从文件系统获取“期望状态”
         fs_manifests = self.registry.get_all_manifests()
-        fs_manifests_map: Dict[str, PluginManifest] = {
+        fs_manifests_map: dict[str, PluginManifest] = {
             # 假设 manifest.id 就是 plugin_slug
             m.id: m
             for m in fs_manifests
@@ -37,7 +37,7 @@ class PluginSyncService:
         # 2. 从数据库获取“当前持久化状态”
         statement = select(Plugin)
         db_plugins = self.db.exec(statement).all()
-        db_plugins_map: Dict[str, Plugin] = {p.registry_id: p for p in db_plugins}
+        db_plugins_map: dict[str, Plugin] = {p.registry_id: p for p in db_plugins}
 
         # 3. 计算差异并执行操作
 

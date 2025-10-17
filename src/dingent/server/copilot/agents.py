@@ -2,8 +2,9 @@
 CopilotKit agent implementations and extensions.
 """
 
-from typing import Any, Awaitable, Callable, cast
-from copilotkit import Agent, LangGraphAgent
+from typing import Any, cast
+
+from copilotkit import LangGraphAgent
 from copilotkit.langgraph import langchain_messages_to_copilotkit
 from copilotkit.langgraph_agent import ensure_config
 

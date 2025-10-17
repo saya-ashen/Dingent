@@ -1,8 +1,7 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
-from dingent.core.managers.workflow_manager import WorkflowManager
 from dingent.server.api.schemas import AppAdminDetail
 
 router = APIRouter(prefix="/settings", tags=["Settings"])

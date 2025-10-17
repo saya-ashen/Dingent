@@ -1,7 +1,8 @@
 # server/core/middleware.py
 import json
-from starlette.middleware.base import BaseHTTPMiddleware
+
 from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 class DebugRequestMiddleware(BaseHTTPMiddleware):

@@ -1,9 +1,7 @@
 from contextlib import asynccontextmanager
-import time
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langgraph.graph.state import CompiledStateGraph
 from sqlmodel import Session
 
 from dingent.core.db.session import engine
@@ -14,8 +12,8 @@ from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.utils import find_project_root
-from dingent.server.copilot.agents import FixedLangGraphAgent
 from dingent.server.services.plugin_sync_service import PluginSyncService
+
 from ..api.routers.frontend.threads import setup_copilot_router
 
 

@@ -1,4 +1,3 @@
-from typing import Optional
 
 from dingent.core.db.models import Assistant, AssistantPluginLink
 from dingent.core.runtime.assistant import AssistantRuntime
@@ -6,7 +5,7 @@ from dingent.core.runtime.plugin import PluginRuntime
 from dingent.core.schemas import AssistantRead, PluginRead
 
 
-async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: Optional[PluginRuntime]) -> PluginRead:
+async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: PluginRuntime | None) -> PluginRead:
     """
     辅助函数：从数据库和运行时模型构建单个 PluginRead DTO。
     """
@@ -30,7 +29,7 @@ async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: O
     )
 
 
-async def _build_assistant_read(assistant: Assistant, runtime_assistant: Optional[AssistantRuntime]) -> AssistantRead:
+async def _build_assistant_read(assistant: Assistant, runtime_assistant: AssistantRuntime | None) -> AssistantRead:
     """
     主映射函数：从 Assistant 的持久化模型和运行时模型构建 AssistantRead DTO。
     """

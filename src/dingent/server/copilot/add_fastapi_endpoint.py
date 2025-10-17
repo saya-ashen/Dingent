@@ -1,23 +1,21 @@
 from __future__ import annotations
 
 import re
-from typing import List, Optional, cast
 import uuid
+from typing import cast
 
 from copilotkit.action import ActionDict
-from copilotkit.html import generate_info_html
-from copilotkit.sdk import CopilotKitContext, CopilotKitRemoteEndpoint
 from copilotkit.exc import AgentExecutionException, AgentNotFoundException
+from copilotkit.html import generate_info_html
+from copilotkit.integrations.fastapi import body_get_or_raise, handle_execute_action, handle_get_agent_state, logger
+from copilotkit.sdk import CopilotKitContext, CopilotKitRemoteEndpoint
 from copilotkit.types import Message, MetaEvent
-
-
 from fastapi import APIRouter
 from fastapi.applications import FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, StreamingResponse
-from copilotkit.integrations.fastapi import logger, body_get_or_raise, handle_execute_action, handle_get_agent_state, handler_v1, warnings
 
 from dingent.server.copilot.async_copilotkit_remote_endpoint import AsyncCopilotKitRemoteEndpoint
 
@@ -42,11 +40,11 @@ async def handle_execute_agent(  # pylint: disable=too-many-arguments
     thread_id: str,
     name: str,
     state: dict,
-    config: Optional[dict] = None,
-    messages: List[Message],
-    actions: List[ActionDict],
+    config: dict | None = None,
+    messages: list[Message],
+    actions: list[ActionDict],
     node_name: str,
-    meta_events: Optional[List[MetaEvent]] = None,
+    meta_events: list[MetaEvent] | None = None,
 ):
     """Handle continue agent execution request with FastAPI"""
     try:
@@ -170,8 +168,8 @@ async def handler(request: Request, sdk: AsyncCopilotKitRemoteEndpoint):
         name = body_get_or_raise(body, "name")
         state = body_get_or_raise(body, "state")
         messages = body_get_or_raise(body, "messages")
-        actions = cast(List[ActionDict], body.get("actions", []))
-        meta_events = cast(List[MetaEvent], body.get("metaEvents", []))
+        actions = cast(list[ActionDict], body.get("actions", []))
+        meta_events = cast(list[MetaEvent], body.get("metaEvents", []))
 
         return await handle_execute_agent(
             sdk=sdk,

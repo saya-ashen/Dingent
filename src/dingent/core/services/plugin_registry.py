@@ -1,11 +1,8 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 from dingent.core.schemas import PluginManifest
-
-
-from pathlib import Path
-from typing import Dict, List, Optional
 
 
 class PluginRegistry:
@@ -19,15 +16,15 @@ class PluginRegistry:
     def __init__(self, plugin_dir: Path, log_manager):
         self.plugin_dir = plugin_dir
         self.log_manager = log_manager
-        self._manifests: Dict[str, PluginManifest] = {}
+        self._manifests: dict[str, PluginManifest] = {}
         self.reload_plugins()  # 首次加载
 
     # ---------- 查询接口 ----------
-    def get_all_manifests(self) -> List[PluginManifest]:
+    def get_all_manifests(self) -> list[PluginManifest]:
         """返回已发现的全部插件清单（不做过滤）。"""
         return list(self._manifests.values())
 
-    def find_manifest(self, plugin_id: str) -> Optional[PluginManifest]:
+    def find_manifest(self, plugin_id: str) -> PluginManifest | None:
         """按 ID 返回插件清单。"""
         return self._manifests.get(plugin_id)
 
@@ -45,7 +42,7 @@ class PluginRegistry:
             self._manifests = {}
             return
 
-        new_index: Dict[str, PluginManifest] = {}
+        new_index: dict[str, PluginManifest] = {}
 
         for plugin_path in self.plugin_dir.iterdir():
             if not plugin_path.is_dir():
@@ -84,7 +81,7 @@ class PluginRegistry:
             context={"count": len(self._manifests)},
         )
 
-    def add_manifest_from_dir(self, plugin_dir: Path) -> Optional[PluginManifest]:
+    def add_manifest_from_dir(self, plugin_dir: Path) -> PluginManifest | None:
         """
         增量添加：从单个目录解析 manifest 并加入索引。
         - 不做任何生命周期调用。

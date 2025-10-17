@@ -1,8 +1,9 @@
 from __future__ import annotations
-import os
-from copilotkit import Agent
 
-from fastapi import APIRouter, Depends, FastAPI
+import os
+
+from copilotkit import Agent
+from fastapi import APIRouter, FastAPI
 from sqlalchemy import Engine
 from sqlmodel import Session
 

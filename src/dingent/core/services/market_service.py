@@ -11,7 +11,6 @@ from async_lru import alru_cache
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, model_validator
 
-
 # Market repository configuration
 MARKET_REPO_OWNER = "saya-ashen"
 MARKET_REPO_NAME = "dingent-hub"

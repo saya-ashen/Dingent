@@ -1,7 +1,8 @@
 from pathlib import Path
+
 from sqlalchemy import create_engine, event
-from sqlmodel import SQLModel, Session
-from collections.abc import Generator
+from sqlmodel import SQLModel
+
 from .models import *
 
 # --- 1. Configuration ---

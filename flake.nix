@@ -70,6 +70,7 @@
               jaq
               pre-commit
               just
+              ruff
             ];
             shellHook = ''
               VENV_DIR=".venv"

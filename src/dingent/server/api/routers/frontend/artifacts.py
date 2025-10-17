@@ -1,10 +1,8 @@
-from typing import Annotated
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Request, Response
 
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlmodel import Session
-from fastapi import Depends
-from dingent.core.db.crud.user import get_user
+
 from dingent.core.db.models import User
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.server.api.dependencies import get_current_user, get_db_session

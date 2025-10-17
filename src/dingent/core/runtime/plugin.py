@@ -1,22 +1,12 @@
-from fastmcp import Client, FastMCP
-from fastmcp.client import SSETransport, StreamableHttpTransport, UvStdioTransport
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Literal
-from fastmcp.server.middleware import Middleware
-from fastmcp.tools import Tool
-from pydantic import ValidationError
 
-from collections.abc import Callable
-from typing import Any
-
-from fastmcp.server.middleware import Middleware
+from fastmcp import Client, FastMCP
+from fastmcp.client import SSETransport, StreamableHttpTransport, UvStdioTransport
 from pydantic import BaseModel, Field, SecretStr, create_model
 
-from dingent.core.db.models import AssistantPluginLink
-
-from dingent.core.db.models import AssistantPluginLink
-from ..schemas import PluginManifest, ConfigItemDetail, PluginConfigSchema
+from ..schemas import PluginConfigSchema, PluginManifest
 
 
 def _create_dynamic_config_model(
@@ -81,7 +71,7 @@ class PluginRuntime:
 
         if manifest.config_schema:
             pass
-            DynamicConfigModel = _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
+            _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
 
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None

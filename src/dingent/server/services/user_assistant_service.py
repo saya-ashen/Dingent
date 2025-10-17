@@ -1,13 +1,15 @@
 from uuid import UUID
 
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session
+
+from dingent.core.db.crud import assistant as crud_assistant
 from dingent.core.db.models import Assistant
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginUpdateOnAssistant
-from sqlmodel import Session
-from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
-from dingent.core.db.crud import assistant as crud_assistant
+
 from .converters import _build_assistant_read
 
 
@@ -130,15 +132,15 @@ class UserAssistantService:
             db.commit()
             db.refresh(assistant_db)
 
-        except IntegrityError as e:
+        except IntegrityError:
             db.rollback()  # 出现异常，回滚事务
             raise HTTPException(status_code=409, detail=f"An assistant with the name '{assistant_in.name}' was created just now. Please try a different name.")
-        except Exception as e:
+        except Exception:
             db.rollback()
             raise HTTPException(status_code=500, detail="An internal error occurred while saving the assistant.")
         try:
             runtime_assistant = await self.get_runtime_assistant(assistant_db.id)
-        except Exception as e:
+        except Exception:
             pass
         assistant_dto = _build_assistant_read(assistant_db, runtime_assistant)
 
