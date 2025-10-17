@@ -44,6 +44,7 @@ def remove_assistant(db: Session, *, id: UUID) -> Assistant | None:
         return None
 
     db.delete(assistant_to_delete)
+    db.commit()
 
     return assistant_to_delete
 
@@ -72,24 +73,17 @@ def create_assistant(db: Session, assistant_in: AssistantCreate, user_id: UUID):
     return new_assistant
 
 
-def update_assistant(
-    db: Session,
-    db_assistant: Assistant,
-    assistant_in: AssistantUpdate,
-):
+def update_assistant(db: Session, db_assistant: Assistant, assistant_in: AssistantUpdate):
     update_data = assistant_in.model_dump(exclude_unset=True)
-
-    for key, value in update_data.items():
-        setattr(db_assistant, key, value)
-
-    db.add(db_assistant)
-    db.commit()
+    for k, v in update_data.items():
+        setattr(db_assistant, k, v)
+    with db.begin():  # ← 事务块
+        db.add(db_assistant)
     db.refresh(db_assistant)
-
     return db_assistant
 
 
-def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: str) -> Assistant:
+def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_registry_id: UUID) -> Assistant:
     """
     Links an existing plugin to an assistant by creating an AssistantPluginLink record.
 
@@ -99,12 +93,13 @@ def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: str) 
     """
     # 1. 验证 Plugin 是否存在
     # plugin = db.get(Plugin, plugin_id)
-    plugin = db.exec(select(Plugin).where(Plugin.registry_id == plugin_id)).first()
+    plugin = db.exec(select(Plugin).where(Plugin.registry_id == plugin_registry_id)).first()
     if not plugin:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plugin with id {plugin_id} not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Plugin with id {plugin_registry_id} not found.")
 
     # 2. 验证是否已经存在链接，防止重复添加
-    existing_link = db.exec(select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin_id)).first()
+    plugin_pk = plugin.id
+    existing_link = db.exec(select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin_pk)).first()
 
     if existing_link:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Plugin '{plugin.display_name}' is already added to assistant '{assistant_id}'.")
@@ -113,7 +108,7 @@ def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_id: str) 
     assistant = db.get(Assistant, assistant_id)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Assistant with id {assistant_id} not found.")
-    link = AssistantPluginLink(assistant_id=assistant.id, plugin_id=plugin_id)
+    link = AssistantPluginLink(assistant_id=assistant.id, plugin_id=plugin_registry_id)
     db.add(link)
     db.commit()
 

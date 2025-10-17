@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from pydantic import Field as PydField
 from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 
 
 class ToolOverrideConfig(BaseModel):
@@ -81,10 +82,16 @@ class AssistantPluginLink(SQLModel, table=True):
     # --- 针对单个工具的覆盖配置 ---
     # 存储一个列表，每个元素都是一个符合 ToolOverrideConfig 结构的字典
     # 例如: [{"name": "get_weather", "enabled": false}, {"name": "send_email", "description": "Send email on behalf of the user"}]
-    tool_configs: list[ToolOverrideConfig] = Field(default_factory=list, sa_column=Column(JSON))
+    tool_configs: list[ToolOverrideConfig] = Field(
+        default_factory=list,
+        sa_column=Column(MutableList.as_mutable(JSON)),
+    )
 
     # --- 用户为插件提供的配置值 (如 API Keys) ---
-    user_config_values: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    user_config_values: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(MutableDict.as_mutable(JSON)),
+    )
 
     # 双向关系（注意 back_populates 名称需与目标模型中的属性名对应）
     assistant: "Assistant" = Relationship(back_populates="plugin_links")
@@ -132,7 +139,6 @@ class Plugin(SQLModel, table=True):
     """
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    # plugin_slug: str = Field(unique=True, index=True)
     registry_id: str = Field(..., unique=True, index=True)  # 标识插件来源的 ID，如 LOCAL、或某个市场的 ID
     registry_name: str = "Local"
     display_name: str
@@ -187,8 +193,8 @@ class WorkflowNode(SQLModel, table=True):
     # UI 相关
     type: str = "assistant"
     is_start_node: bool = Field(default=False, index=True)
-    position: dict[str, float] = Field(sa_column=Column(JSON))
-    measured: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    position: dict[str, float] = Field(sa_column=Column(MutableDict.as_mutable(JSON)))
+    measured: dict[str, float] = Field(default_factory=dict, sa_column=Column(MutableDict.as_mutable(JSON)))
     # 关系：多对一 -> Workflow；多对一 -> Assistant
     workflow: Workflow = Relationship(back_populates="nodes")
     assistant: Assistant = Relationship(back_populates="workflow_nodes")
