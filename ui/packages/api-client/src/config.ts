@@ -1,3 +1,5 @@
+import { AuthHooks } from "./http";
+
 export type ApiClientConfig = {
   /** e.g. "/api/v1" or "https://api.example.com/api/v1" */
   baseURL: string;

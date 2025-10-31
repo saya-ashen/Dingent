@@ -1,5 +1,6 @@
 import { AuthenticatedLayout } from "@repo/ui/components";
 import { DashboardNavSidebar } from "../../components/NavSidebar";
+import { Providers } from "../providers";
 
 export default function DashboardAppLayout({
   children,
@@ -8,8 +9,10 @@ export default function DashboardAppLayout({
 }) {
   return (
     // Pass the DashboardNavSidebar into the generic layout's `sidebar` prop
-    <AuthenticatedLayout sidebar={<DashboardNavSidebar />}>
-      {children}
-    </AuthenticatedLayout>
+    <Providers>
+      <AuthenticatedLayout sidebar={<DashboardNavSidebar />}>
+        {children}
+      </AuthenticatedLayout>
+    </Providers>
   );
 }

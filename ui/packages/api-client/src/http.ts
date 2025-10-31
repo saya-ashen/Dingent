@@ -8,10 +8,11 @@ export interface AuthHooks {
   getAccessToken?: () => string | undefined;
   resetAuthState?: () => void;
 }
+type Ref<T> = { current: T };
 
 export function createHttp(
   config: ApiClientConfig,
-  authHooks?: AuthHooks,
+  authHooks: Ref<AuthHooks | undefined>,
 ): AxiosInstance {
   const instance = axios.create({
     baseURL: config.baseURL,
@@ -19,8 +20,10 @@ export function createHttp(
   });
 
 
+
   instance.interceptors.request.use((cfg) => {
-    const token = authHooks?.getAccessToken?.();
+    const hooks = authHooks?.current;
+    const token = hooks?.getAccessToken?.();
     if (token) {
       cfg.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,7 +36,8 @@ export function createHttp(
       if (isAxiosError(err) && err.response?.status === 401) {
         if (typeof window !== "undefined" && !isRedirecting) {
           isRedirecting = true;
-          authHooks?.resetAuthState?.();
+          const hooks = authHooks?.current;
+          hooks?.resetAuthState?.();
 
           const next = encodeURIComponent(window.location.pathname + window.location.search);
           window.location.href = `/auth/login?next=${next}`;

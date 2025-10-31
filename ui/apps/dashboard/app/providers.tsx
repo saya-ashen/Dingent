@@ -13,6 +13,7 @@ import { useAuthStore } from "@repo/store";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
+  console.log("Setting auth hooks in Providers");
   setAuthHooks({
     getAccessToken: () => useAuthStore.getState().accessToken,
     resetAuthState: () => useAuthStore.getState().reset(),

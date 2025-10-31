@@ -10,6 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  // Pass the children to the shared layout component
   return <SharedRootLayout>{children}</SharedRootLayout>;
 }
