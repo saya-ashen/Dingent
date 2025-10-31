@@ -8,17 +8,24 @@ import {
   DirectionProvider,
 } from "@repo/ui/providers";
 import { createQueryClient } from "@repo/lib/query-client";
+import { setAuthHooks } from "@repo/api-client";
+import { useAuthStore } from "@repo/store";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => createQueryClient());
+  setAuthHooks({
+    getAccessToken: () => useAuthStore.getState().accessToken,
+    resetAuthState: () => useAuthStore.getState().reset(),
+  });
+
 
   return (
     <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <FontProvider>
-            <DirectionProvider>{children}</DirectionProvider>
-          </FontProvider>
-        </ThemeProvider>
+      <ThemeProvider>
+        <FontProvider>
+          <DirectionProvider>{children}</DirectionProvider>
+        </FontProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

@@ -50,11 +50,11 @@ export const sidebarData: SidebarData = {
           url: "/market",
           icon: Store,
         },
-        {
-          title: "Agent Settings",
-          url: "/agent-settings",
-          icon: Settings,
-        },
+        // {
+        //   title: "Agent Settings",
+        //   url: "/agent-settings",
+        //   icon: Settings,
+        // },
         {
           title: "Logs",
           url: "/system-logs",

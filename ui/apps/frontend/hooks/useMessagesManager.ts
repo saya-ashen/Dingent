@@ -10,13 +10,13 @@ import {
   Message,
   loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
-import { useThreadContext } from "@/contexts/ThreadProvider";
+import { useThreadContext } from "../contexts/ThreadProvider";
 import { useActiveWorkflowId, useWorkflow } from "@repo/store";
 
 /**
  * 只负责消息获取与标题更新
  */
-export function useMessagesManager() {
+export function useMessagesManager(): { messages: Message[] } {
   const { data: activeId } = useActiveWorkflowId();
   const { data: workflow } = useWorkflow(activeId ?? null);
   const { messages, setMessages } = useCopilotMessagesContext();

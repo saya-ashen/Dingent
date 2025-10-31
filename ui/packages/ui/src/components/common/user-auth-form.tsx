@@ -3,7 +3,6 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Loader2, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { IconFacebook, IconGithub } from "@repo/assets/icon";

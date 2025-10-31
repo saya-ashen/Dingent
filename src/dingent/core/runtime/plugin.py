@@ -127,26 +127,3 @@ class PluginRuntime:
     async def list_tools(self):
         async with self.mcp_client as client:
             return await client.list_tools()
-
-    # def get_config_details(self) -> list[ConfigItemDetail]:
-    #     if not self.manifest or not self.manifest.config_schema:
-    #         return []
-    #     details = []
-    #     for schema_item in self.manifest.config_schema:
-    #         current_value = (self.config or {}).get(schema_item.name)
-    #         is_secret = getattr(schema_item, "secret", False)
-    #         if is_secret and current_value is not None:
-    #             display_value = "********"
-    #         else:
-    #             display_value = current_value
-    #         item_detail = ConfigItemDetail(
-    #             name=schema_item.name,
-    #             type=schema_item.type,
-    #             description=schema_item.description,
-    #             required=schema_item.required,
-    #             secret=is_secret,
-    #             default=schema_item.default,
-    #             value=display_value,
-    #         )
-    #         details.append(item_detail)
-    #     return details

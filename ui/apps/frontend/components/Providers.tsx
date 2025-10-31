@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { useAuthStore } from "@repo/store";
-import { useAuthInterceptor } from "@repo/store";
-import { ThreadProvider, useThreadContext } from "@/contexts/ThreadProvider";
-import { useActiveWorkflow } from "@repo/store";
+import { setAuthHooks } from "@repo/api-client";
+import { useAuthInterceptor, useActiveWorkflow, useAuthStore } from "@repo/store";
+import { ThreadProvider, useThreadContext } from "../contexts/ThreadProvider";
+
 
 function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
   useAuthInterceptor()
+  setAuthHooks({
+    getAccessToken: () => useAuthStore.getState().accessToken,
+    resetAuthState: () => useAuthStore.getState().reset(),
+  });
+
   const { activeThreadId } = useThreadContext();
   const accessToken = useAuthStore((state) => state.accessToken);
   const { name: workflow_name } = useActiveWorkflow();
