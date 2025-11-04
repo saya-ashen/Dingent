@@ -199,6 +199,10 @@ class WorkflowNode(SQLModel, table=True):
     workflow: Workflow = Relationship(back_populates="nodes")
     assistant: Assistant = Relationship(back_populates="workflow_nodes")
 
+    @property
+    def name(self) -> str:
+        return self.assistant.name
+
 
 class WorkflowEdge(SQLModel, table=True):
     """

@@ -176,7 +176,6 @@ class WorkflowNodeBase(SQLModel):
         from_attributes=True,
     )
 
-    assistant_id: UUID
     position: dict[str, float]
     is_start_node: bool = False
     type: str = "assistant"
@@ -189,10 +188,20 @@ class WorkflowNodeCreate(WorkflowNodeBase):
     workflow_id 从 URL 中获取，不需要在 body 中提供。
     """
 
+    model_config = ConfigDict(  # type: ignore
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
+
     measured: dict[str, float] = {}
     position: dict[str, float] = Field(default_factory=lambda: {"x": 0.0, "y": 0.0})
     is_start_node: bool = False
     type: str = "assistant"
+    id: str = Field(
+        description="节点在前端，用于识别edge连接的节点，数据库中的id是自动生成的UUID，不使用此字段。",
+    )
+    assistant_id: UUID | None = None
 
 
 class WorkflowNodeUpdate(SQLModel):
@@ -210,6 +219,8 @@ class WorkflowNodeRead(WorkflowNodeBase):
     """用于从 API 读取节点数据。"""
 
     id: UUID
+    name: str
+    assistant_id: UUID
     workflow_id: UUID
 
 
@@ -227,8 +238,8 @@ class WorkflowEdgeBase(SQLModel):
         from_attributes=True,
     )
 
-    source: UUID
-    target: UUID
+    source_node_id: str | UUID
+    target_node_id: str | UUID
     source_handle: str | None = None
     target_handle: str | None = None
     type: str = "directrional"
@@ -239,6 +250,12 @@ class WorkflowEdgeCreate(WorkflowEdgeBase):
     用于创建边。
     前端在 POST /workflows/{workflow_id}/edges 时发送此模型。
     """
+
+    model_config = ConfigDict(  # type: ignore
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
 
     pass
 

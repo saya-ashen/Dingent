@@ -53,6 +53,8 @@ def replace_workflow(db: Session, db_workflow: Workflow, wf_create: WorkflowRepl
     for node in list_workflow_nodes(db, db_workflow.id):
         db.delete(node)
 
+    db.flush()
+
     # 2. Update the workflow's own properties (name, description, etc.)
     # We exclude nodes and edges as we will handle them separately.
     update_data = wf_create.model_dump(exclude={"nodes", "edges"})
@@ -60,21 +62,53 @@ def replace_workflow(db: Session, db_workflow: Workflow, wf_create: WorkflowRepl
         setattr(db_workflow, key, value)
     db.add(db_workflow)
 
+    db.flush()
     # 3. Create new nodes from the payload
     # Assumes that wf_create.nodes contains a list of WorkflowNodeCreate schemas
     # and that the IDs in the payload are the ones we want to use.
+    id_map: dict[str, UUID] = {}
     if wf_create.nodes:
         for node_create in wf_create.nodes:
-            new_node = WorkflowNode.model_validate(node_create, update={"workflow_id": db_workflow.id})
+            client_id_str = str(node_create.id) if getattr(node_create, "id", None) is not None else None
+
+            # 丢弃前端 id，用 DB/模型默认 UUID
+            new_node = WorkflowNode.model_validate(
+                node_create.model_dump(exclude={"id"}),
+                update={"workflow_id": db_workflow.id},
+            )
             db.add(new_node)
+            if client_id_str:
+                id_map[client_id_str] = new_node.id
+
+    db.flush()
 
     # 4. Create new edges from the payload
     # Assumes that wf_create.edges contains a list of WorkflowEdgeCreate schemas
+    def resolve_node_id(raw) -> UUID:
+        raw_str = str(raw)
+        if raw_str in id_map:
+            return id_map[raw_str]
+        try:
+            return UUID(raw_str)
+        except ValueError:
+            raise ValueError(f"edge 引用的节点 id 未找到映射且不是合法 UUID: {raw_str}")
+
     if wf_create.edges:
         for edge_create in wf_create.edges:
-            new_edge = WorkflowEdge.model_validate(edge_create, update={"workflow_id": db_workflow.id})
+            src = resolve_node_id(edge_create.source_node_id)
+            tgt = resolve_node_id(edge_create.target_node_id)
+
+            new_edge = WorkflowEdge.model_validate(
+                edge_create.model_dump(exclude={"id"}),
+                update={
+                    "workflow_id": db_workflow.id,
+                    "source_node_id": src,
+                    "target_node_id": tgt,
+                },
+            )
             db.add(new_edge)
 
+    db.flush()
     # 5. Commit the transaction and refresh the state
     db.commit()
     db.refresh(db_workflow)
@@ -130,7 +164,7 @@ def list_workflow_nodes(db: Session, workflow_id: UUID) -> Sequence[WorkflowNode
 
 
 def create_workflow_node(db: Session, workflow_id: UUID, node_in: WorkflowNodeCreate) -> WorkflowNode:
-    db_node = WorkflowNode.model_validate(node_in, update={"workflow_id": workflow_id})
+    db_node = WorkflowNode.model_validate(node_in.model_dump(exclude={"id"}), update={"workflow_id": workflow_id})
     db.add(db_node)
     db.commit()
     db.refresh(db_node)

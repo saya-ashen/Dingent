@@ -3,7 +3,7 @@ import { Handle, NodeProps, Position, Node } from "@xyflow/react";
 
 type AssistantData = {
   isStart?: boolean;
-  assistantName: string;
+  name: string;
   description?: string;
 };
 
@@ -92,7 +92,7 @@ function AssistantNode({ data }: NodeProps<AssistantNodeType>) {
         }}
       >
         <div
-          title={data.assistantName} // Tooltip to show full content
+          title={data.name} // Tooltip to show full content
           style={{
             fontWeight: 600,
             fontSize: 8,
@@ -105,7 +105,7 @@ function AssistantNode({ data }: NodeProps<AssistantNodeType>) {
             whiteSpace: "nowrap", // Single-line ellipsis
           }}
         >
-          {data.assistantName}
+          {data.name}
         </div>
 
         {data.description && (

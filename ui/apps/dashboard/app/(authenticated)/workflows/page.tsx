@@ -36,7 +36,6 @@ export default function WorkflowsPage() {
   const allAssistants = assistantsQ.data || [];
 
   const paletteAssistants = useMemo(() => {
-    console.log("Filtering assistants, nodeAssistantIds:", nodeAssistantIds);
     return allAssistants.filter(a => !nodeAssistantIds.has(a.id));
   }, [allAssistants, nodeAssistantIds]);
 

@@ -38,10 +38,9 @@ export function WorkflowEditorPanel({
   useEffect(() => {
     const { nodes, edges } = normalizeWorkflow(wf ?? null);
     setGraph({ nodes, edges });
-    // expose current assistant IDs for palette filtering
     if (onNodeAssistantIdsChange) {
       const ids = new Set(
-        nodes.map((n) => n?.data?.assistantId).filter(Boolean)
+        nodes.map((n) => n?.data?.id).filter(Boolean)
       );
       onNodeAssistantIdsChange(ids);
     }
@@ -74,11 +73,8 @@ export function WorkflowEditorPanel({
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      console.log("onEdgesChange triggered. Changes:", changes);
       setEdges((currentEdges) => {
-        console.log("Edges before applying changes:", currentEdges);
         const nextEdges = applyEdgeChanges(changes, currentEdges);
-        console.log("Edges after applying changes:", nextEdges);
         return nextEdges;
       });
     },

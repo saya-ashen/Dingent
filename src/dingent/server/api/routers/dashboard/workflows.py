@@ -74,6 +74,8 @@ async def replace_workflow(
     payload: WorkflowReplace,
     user_workflow_service: UserWorkflowService = Depends(get_user_workflow_service),
 ) -> WorkflowReadBasic:
+    return user_workflow_service.replace_workflow(workflow_id, payload)
+
     try:
         return user_workflow_service.replace_workflow(workflow_id, payload)
     except ValueError as e:

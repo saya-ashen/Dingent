@@ -87,7 +87,7 @@ import type { Edge, Node } from "@xyflow/react";
 interface BaseWorkflowNode { id: string; position: { x: number; y: number }; }
 export interface AssistantWorkflowNode extends BaseWorkflowNode {
   type: "assistant";
-  data: { assistantId: string; isStart?: boolean; assistantName: string; description?: string; };
+  data: { id: string; assistantId: string, isStart?: boolean; name: string; description?: string; };
 }
 export type WorkflowNode = Node<AssistantWorkflowNode["data"]>;
 export type WorkflowEdge = Edge<{ mode?: "bidirectional" | "single" }>;
