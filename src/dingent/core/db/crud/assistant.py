@@ -94,11 +94,11 @@ def update_assistant(
 
             plugin_update_data = plugin_cfg.model_dump(exclude_unset=True)
 
+            # TODO: tools 的单独配置
             # tool_configs 整体覆盖
             # if "tool_configs" in plugin_update_data:
             #     link.tool_configs = plugin_update_data["tool_configs"]
 
-            # user_plugin_config  merge
             if "config" in plugin_update_data:
                 new_conf = plugin_update_data["config"] or {}
 

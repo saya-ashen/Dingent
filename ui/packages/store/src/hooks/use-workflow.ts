@@ -22,7 +22,6 @@ export function useSetActiveWorkflowId() {
   const qc = useQueryClient();
   return React.useCallback(
     (id: string | null) => {
-      console.log("Setting active workflow ID to:", id);
       if (typeof window !== "undefined") {
         if (id) localStorage.setItem(LS_ACTIVE_ID, id);
         else localStorage.removeItem(LS_ACTIVE_ID);

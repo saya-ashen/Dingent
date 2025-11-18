@@ -1,7 +1,7 @@
 "use client";
 
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MainContent } from "@/components/MainContent";
 import { useWidgets } from "@/hooks/useWidgets";
 
@@ -89,7 +89,21 @@ const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
   const { data: activeId } = useActiveWorkflowId();
   const setActiveId = useSetActiveWorkflowId();
   const { data: workflow } = useWorkflow(activeId ?? null);
-  // useMessagesManager()
+  useEffect(() => {
+    if (!workflows.length) {
+      // 后端没有任何 workflow 了，清空 activeId
+      if (activeId) {
+        setActiveId(null);
+      }
+      return;
+    }
+
+    const exists = workflows.some((w) => w.id === activeId);
+    console.log("exists", exists)
+    if (!exists) {
+      setActiveId(null);
+    }
+  }, [workflows, activeId, setActiveId]);
 
   return (
     <header className={`px-4 py-3 border-b border-neutral-800 bg-neutral-900 ${className}`}>
