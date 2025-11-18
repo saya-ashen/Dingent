@@ -1,8 +1,7 @@
-
 from dingent.core.db.models import Assistant, AssistantPluginLink
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.runtime.plugin import PluginRuntime
-from dingent.core.schemas import AssistantRead, PluginRead
+from dingent.core.schemas import AssistantRead, PluginConfigItemRead, PluginRead, ToolConfigItemRead
 
 
 async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: PluginRuntime | None) -> PluginRead:
@@ -13,10 +12,31 @@ async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: P
 
     plugin_status = "inactive"
     tools = []
+    merged_tools: list[ToolConfigItemRead] = []
     if runtime_plugin:
         plugin_status = runtime_plugin.status  # "active", "error", etc.
         if plugin_status == "active":
             tools = await runtime_plugin.list_tools()
+            tool_configs = {item["name"]: item for item in plugin_link.tool_configs}
+            for tool in tools:
+                tool_config = tool_configs.get(tool.name, {})
+                merged_tool = ToolConfigItemRead(
+                    name=tool.name,
+                    enabled=tool_config.get("enabled", True),
+                    description=tool.description,
+                )
+                merged_tools.append(merged_tool)
+
+    config = plugin_link.user_plugin_config or {}
+    config_schema = plugin_db.config_schema or [{}]
+
+    merged_config = [
+        PluginConfigItemRead(
+            **schema,
+            value=config.get(schema["name"]),
+        )
+        for schema in config_schema
+    ]
 
     return PluginRead(
         registry_id=plugin_db.registry_id,
@@ -25,7 +45,8 @@ async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: P
         enabled=plugin_link.enabled,  # 用户在此 Assistant 中的启用状态
         status=plugin_status,
         version=plugin_db.version,
-        tools=tools,
+        tools=merged_tools,
+        config=merged_config,
     )
 
 

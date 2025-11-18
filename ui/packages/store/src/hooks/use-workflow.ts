@@ -142,7 +142,9 @@ export function useSaveWorkflow() {
     mutationFn: api.dashboard.workflows.save,
     onSuccess: (wf: WorkflowSummary) => {
       qc.invalidateQueries({ queryKey: ["workflows"] });
-      if (wf?.id) qc.setQueryData(["workflow", wf.id], wf);
+      if (wf?.id) {
+        qc.invalidateQueries({ queryKey: ["workflow", wf.id] });
+      }
     },
   });
 }

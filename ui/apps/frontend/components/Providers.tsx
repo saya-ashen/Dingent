@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { setAuthHooks } from "@repo/api-client";
 import { useAuthInterceptor, useActiveWorkflow, useAuthStore } from "@repo/store";

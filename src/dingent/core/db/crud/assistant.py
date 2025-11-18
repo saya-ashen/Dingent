@@ -73,17 +73,47 @@ def create_assistant(db: Session, assistant_in: AssistantCreate, user_id: UUID):
     return new_assistant
 
 
-def update_assistant(db: Session, db_assistant: Assistant, assistant_in: AssistantUpdate):
-    update_data = assistant_in.model_dump(exclude_unset=True)
+def update_assistant(
+    db: Session,
+    db_assistant: Assistant,
+    assistant_in: AssistantUpdate,
+):
+    update_data = assistant_in.model_dump(exclude={"plugins"}, exclude_unset=True)
     for k, v in update_data.items():
         setattr(db_assistant, k, v)
-    with db.begin():  # ← 事务块
-        db.add(db_assistant)
+
+    if assistant_in.plugins:
+        # 先建一个索引：plugin_id -> link
+        link_by_registry_id: dict[str, AssistantPluginLink] = {link.plugin.registry_id: link for link in db_assistant.plugin_links}
+
+        for plugin_cfg in assistant_in.plugins:
+            link = link_by_registry_id.get(plugin_cfg.registry_id)
+
+            if link is None:
+                continue
+
+            plugin_update_data = plugin_cfg.model_dump(exclude_unset=True)
+
+            # tool_configs 整体覆盖
+            # if "tool_configs" in plugin_update_data:
+            #     link.tool_configs = plugin_update_data["tool_configs"]
+
+            # user_plugin_config  merge
+            if "config" in plugin_update_data:
+                new_conf = plugin_update_data["config"] or {}
+
+                # 在原有基础上 merge
+                if link.user_plugin_config is None:
+                    link.user_plugin_config = {}
+                link.user_plugin_config.update(new_conf)
+
+    db.add(db_assistant)
+    db.commit()
     db.refresh(db_assistant)
     return db_assistant
 
 
-def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_registry_id: UUID) -> Assistant:
+def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_registry_id: str) -> Assistant:
     """
     Links an existing plugin to an assistant by creating an AssistantPluginLink record.
 
@@ -108,7 +138,7 @@ def add_plugin_to_assistant(db: Session, *, assistant_id: UUID, plugin_registry_
     assistant = db.get(Assistant, assistant_id)
     if not assistant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Assistant with id {assistant_id} not found.")
-    link = AssistantPluginLink(assistant_id=assistant.id, plugin_id=plugin_registry_id)
+    link = AssistantPluginLink(assistant_id=assistant.id, plugin_id=plugin.id)
     db.add(link)
     db.commit()
 

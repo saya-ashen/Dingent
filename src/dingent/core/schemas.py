@@ -10,6 +10,7 @@ from mcp.types import Tool
 from pydantic import ConfigDict, PrivateAttr
 from sqlmodel import Field, SQLModel
 
+from dingent.core.db.models import PluginConfigSchema
 from dingent.core.types import ExecutionModel
 from dingent.core.utils import to_camel
 
@@ -87,17 +88,36 @@ class ToolOverrideConfig(SQLModel):
     description: str | None = None
 
 
+class PluginConfigItemRead(PluginConfigSchema):
+    """Represents a single configuration item with its schema and value."""
+
+    value: Any | None = Field(None, description="用户设置的当前值")
+
+
+class ToolConfigItemRead(SQLModel):
+    name: str = Field(..., description="工具的名称")
+    enabled: bool = Field(..., description="该工具是否启用")
+    # inputSchema: dict[str, Any] | None = Field(None, description="工具输入的JSON Schema定义")
+    # outputSchema: dict[str, Any] | None = Field(None, description="工具输出的JSON Schema定义")
+    description: str | None = Field(None, description="工具的描述")
+
+
 class PluginRead(PluginBase):
     # id: UUID = Field(..., description="插件的唯一永久ID")
     registry_id: str = Field(..., description="插件的注册ID (来自插件注册表)")
     enabled: bool = True
-    tools: list | None = None
-    config: dict | None = None
+    tools: list[ToolConfigItemRead] | None = None
     status: str | None = Field(None, description="运行状态 (active/inactive/error)")
+    config: list[PluginConfigItemRead] | None = Field(None, description="用户为该插件设置的配置项")
 
 
 class PluginCreate(PluginBase):
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
+
+
+class PluginUpdate(PluginBase):
+    registry_id: str = Field(..., description="插件的注册ID (来自插件注册表)")
+    config: dict[str, Any] | None = Field(None, description="用户为该插件设置的配置项")
 
 
 class AssistantRead(AssistantBase):
@@ -111,7 +131,7 @@ class AssistantCreate(AssistantBase):
 
 
 class AssistantUpdate(AssistantBase):
-    plugins: list[PluginRead] | None = None
+    plugins: list[PluginUpdate] | None = None
 
 
 class PluginAddToAssistant(SQLModel):
@@ -134,19 +154,13 @@ class PluginUpdateOnAssistant(SQLModel):
     user_config_values: dict[str, Any] | None = None
 
 
-class PluginConfigSchema(SQLModel):
-    name: str = Field(..., description="配置项的名称 (环境变量名)")
-    type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
-    required: bool = Field(..., description="是否为必需项")
-    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
-    description: str | None = Field(None, description="该配置项的描述")
-    default: Any | None = Field(None, description="默认值 (如果存在)")
-
-
-class ConfigItemDetail(PluginConfigSchema):
-    """Represents a single configuration item with its schema and value."""
-
-    value: Any | None = Field(None, description="用户设置的当前值")
+# class PluginConfigSchema(SQLModel):
+#     name: str = Field(..., description="配置项的名称 (环境变量名)")
+#     type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+#     required: bool = Field(..., description="是否为必需项")
+#     secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
+#     description: str | None = Field(None, description="该配置项的描述")
+#     default: Any | None = Field(None, description="默认值 (如果存在)")
 
 
 class RunnableTool(SQLModel):
@@ -242,7 +256,8 @@ class WorkflowEdgeBase(SQLModel):
     target_node_id: str | UUID
     source_handle: str | None = None
     target_handle: str | None = None
-    type: str = "directrional"
+    type: str = "directional"
+    mode: Literal["single", "bidirectional"] = "single"
 
 
 class WorkflowEdgeCreate(WorkflowEdgeBase):

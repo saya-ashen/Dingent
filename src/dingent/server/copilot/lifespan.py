@@ -10,6 +10,7 @@ from dingent.core.factories.graph_factory import GraphFactory
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.managers.resource_manager import ResourceManager
+from dingent.core.services.market_service import MarketService
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.utils import find_project_root
 from dingent.server.services.plugin_sync_service import PluginSyncService
@@ -42,6 +43,7 @@ def create_extended_lifespan(original_lifespan):
                 app.state.log_manager,
             )
             app.state.assistant_factory = AssistantFactory(app.state.plugin_manager, app.state.log_manager)
+            app.state.market_service = MarketService(project_root, app.state.log_manager)
 
             app.state.graph_factory = GraphFactory(
                 app.state.assistant_factory,

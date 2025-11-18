@@ -179,7 +179,13 @@ def _normalize_name(name: str) -> str:
 
 @asynccontextmanager
 async def create_assistant_graphs(
-    user_id: UUID, session: Session, resource_manager: ResourceManager, assistant_factory: AssistantFactory, workflow: Workflow, llm, log_method: Callable
+    user_id: UUID,
+    session: Session,
+    resource_manager: ResourceManager,
+    assistant_factory: AssistantFactory,
+    workflow: Workflow,
+    llm,
+    log_method: Callable,
 ):
     assistant_graphs: dict[str, CompiledStateGraph] = {}
     assistants_runtime: dict[str, AssistantRuntime] = {}

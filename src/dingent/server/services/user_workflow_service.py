@@ -259,7 +259,7 @@ class UserWorkflowService:
         wf = crud_workflow.create_workflow(self.session, wf_create=wf_create, user_id=self.user_id)
         return WorkflowReadBasic.model_validate(wf)
 
-    def replace_workflow(self, workflow_id: UUID, wf_create: WorkflowReplace) -> WorkflowReadBasic:
+    def replace_workflow(self, workflow_id: UUID, wf_create: WorkflowReplace):
         wf = self._get_workflow(workflow_id)
         if wf is None:
             raise WorkflowNotFoundError(f"Workflow '{workflow_id}' not found or access denied.")
@@ -268,8 +268,7 @@ class UserWorkflowService:
             if crud_workflow.get_workflow_by_name(self.session, name=wf_create.name, user_id=self.user_id):
                 raise ValueError(f"Another workflow already uses the name '{wf_create.name}'.")
 
-        replaced = crud_workflow.replace_workflow(self.session, db_workflow=wf, wf_create=wf_create)
-        return WorkflowReadBasic.model_validate(replaced)
+        crud_workflow.replace_workflow(self.session, db_workflow=wf, wf_create=wf_create)
 
     def update_workflow(self, workflow_id: UUID, wf_update: WorkflowUpdate) -> WorkflowReadBasic:
         wf = self._get_workflow(workflow_id)

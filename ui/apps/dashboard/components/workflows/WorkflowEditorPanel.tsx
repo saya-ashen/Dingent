@@ -40,7 +40,7 @@ export function WorkflowEditorPanel({
     setGraph({ nodes, edges });
     if (onNodeAssistantIdsChange) {
       const ids = new Set(
-        nodes.map((n) => n?.data?.id).filter(Boolean)
+        nodes.map((n) => n?.data?.assistantId).filter(Boolean)
       );
       onNodeAssistantIdsChange(ids);
     }
@@ -95,7 +95,7 @@ export function WorkflowEditorPanel({
         );
         if (!existing) {
           const newEdge: WorkflowEdge = {
-            id: `e-${source}->${target}`,
+            id: `${source}>>>${target}`,
             source,
             target,
             sourceHandle: connection.sourceHandle,

@@ -108,7 +108,9 @@ def get_analytics_manager():
     return None
 
 
-def get_market_service():
+def get_market_service(
+    request: Request,
+):
     """
     Dependency to get the MarketService.
 
@@ -117,6 +119,7 @@ def get_market_service():
     If you add `self.market_service = MarketService(self.config_manager.project_root)`
     to your AppContext's __init__, this will work seamlessly.
     """
+    return request.app.state.market_service
 
 
 def get_assistant_and_verify_ownership(

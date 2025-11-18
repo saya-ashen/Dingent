@@ -4,7 +4,7 @@ import logging
 
 from sqlmodel import Session, select
 
-from dingent.core.db.models import Plugin
+from dingent.core.db.models import Plugin, PluginConfigSchema
 from dingent.core.schemas import PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry  # 你的 Manifest 模型
 

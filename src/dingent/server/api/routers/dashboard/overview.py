@@ -7,7 +7,7 @@ from fastapi.exceptions import HTTPException
 from dingent.core.managers.analytics_manager import AnalyticsManager
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.services.market_service import MarketService
+from dingent.core.services.market_service import MarketItemCategory, MarketService
 from dingent.server.api.dependencies import (
     get_analytics_manager,
     get_log_manager,
@@ -70,7 +70,7 @@ async def _gather_market_section(
     try:
         local_versions = plugin_manager.get_installed_versions()  # {plugin_id: version}
         # 获取市场插件项目
-        market_plugins = await market_service.get_market_items(MarketItemCategory.plugin, installed_items={"plugins": local_versions})
+        market_plugins = await market_service.get_market_items(MarketItemCategory.PLUGIN, installed_items={"plugins": local_versions})
         for item in market_plugins:
             # 假设 item.id 与 plugin_id 对应, item.version 字段存在
             local_ver = local_versions.get(item.id)
@@ -107,12 +107,12 @@ async def get_overview(
 
     # 同步部分
     plugins_section = _gather_plugins_section(plugin_manager)
-    workflows_section = _gather_workflows_section(workflow_manager)
+    # workflows_section = _gather_workflows_section(workflow_manager)
     logs_section = _gather_logs_section(log_manager)
 
     return {
         "plugins": plugins_section,
-        "workflows": workflows_section,
+        "workflows": {},
         "logs": logs_section,
     }
 

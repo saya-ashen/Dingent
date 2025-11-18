@@ -36,21 +36,31 @@ export type LogStats = {
   newest_timestamp: string | null;
 };
 
-export type PluginConfigItem = {
+// export type PluginConfigItem = {
+//   name: string;
+//   type?: "string" | "integer";
+//   required?: boolean;
+//   secret?: boolean;
+//   description?: string;
+//   default?: unknown;
+//   value?: unknown;
+// };
+type PluginConfigType = "string" | "float" | "integer" | "bool";
+export interface PluginConfigItem {
   name: string;
-  type?: "string" | "integer";
-  required?: boolean;
-  secret?: boolean;
-  description?: string;
-  default?: unknown;
-  value?: unknown;
-};
+  type: PluginConfigType;
+  required: boolean;
+  secret: boolean;
+  description?: string | null;
+  default?: string | number | boolean | null;
+  value?: string | number | boolean | null;
+}
 
 export type PluginTool = { name: string; description?: string; enabled?: boolean; };
 
 export type AssistantPlugin = {
   plugin_id: string;
-  name: string;
+  display_name: string;
   status?: string;
   enabled?: boolean;
   config?: PluginConfigItem[];
@@ -74,7 +84,7 @@ export type AppSettings = {
 };
 
 export type PluginManifest = {
-  id: string;
+  registry_id: string;
   display_name: string;
   version?: string;
   description?: string;

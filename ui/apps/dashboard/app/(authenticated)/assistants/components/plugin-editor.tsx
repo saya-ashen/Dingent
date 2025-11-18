@@ -39,7 +39,7 @@ function PluginEditor({
       {/* Increased padding for better readability */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="font-mono">Plugin: {toStr(plugin.name)}</div>
+          <div className="font-mono">Plugin: {toStr(plugin.display_name)}</div>
 
           <StatusBadge level={level} label={label} title={plugin.status} />
         </div>
@@ -56,7 +56,7 @@ function PluginEditor({
 
           <ConfirmDialog
             title="Confirm Remove Plugin"
-            description={`Are you sure you want to remove plugin '${plugin.name}'?`}
+            description={`Are you sure you want to remove plugin '${plugin.display_name}'?`}
             confirmText="Confirm Remove"
             onConfirm={onRemove}
             trigger={
@@ -75,22 +75,28 @@ function PluginEditor({
           />
         </div>
       </div>
-      {!!plugin.config?.length && (
+      {plugin.config && plugin.config.length > 0 && (
         <div className="mt-4 space-y-3">
-          {" "}
-          {/* Adjusted spacing */}
           <div className="text-sm font-medium">User Configuration</div>
-          {plugin.config!.map((item, idx) => {
+
+          {plugin.config.map((item, idx) => {
             const id = `cfg_${plugin.plugin_id}_${idx}`;
-
             const label = `${item.name}${item.required ? " (Required)" : ""}`;
-
             const desc = item.description || `Set ${item.name}`;
+            const rawValue = item.value ?? item.default ?? "";
 
-            const value = item.value ?? item.default;
+            const updateValue = (nextValue: string | number | boolean | null) => {
+              const next = structuredClone(plugin);
+              const config = next.config;
+              if (!config || config.length <= idx) return;
 
+              config[idx]!.value = nextValue;
+              onChange(next);
+            };
+
+            // integer
             if (item.type === "integer") {
-              const iv = Number.isFinite(Number(value)) ? Number(value) : 0;
+              const display = rawValue === null ? "" : String(rawValue);
 
               return (
                 <div
@@ -102,21 +108,85 @@ function PluginEditor({
                   <Input
                     id={id}
                     type="number"
-                    value={iv}
+                    value={display}
                     onChange={(e) => {
-                      const next = structuredClone(plugin);
-                      const config = next.config;
-                      if (config && config.length > idx) {
-                        config[idx]!.value = Number(e.target.value);
+                      const v = e.target.value;
+                      if (v === "") {
+                        // 允许为空，交给后端判断 required
+                        updateValue(null);
+                      } else {
+                        const n = Number(v);
+                        updateValue(Number.isFinite(n) ? n : null);
                       }
-
-                      onChange(next);
                     }}
                     placeholder={desc}
                   />
                 </div>
               );
             }
+
+            // float
+            if (item.type === "float") {
+              const display = rawValue === null ? "" : String(rawValue);
+
+              return (
+                <div
+                  key={id}
+                  className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
+                >
+                  <Label htmlFor={id}>{label}</Label>
+
+                  <Input
+                    id={id}
+                    type="number"
+                    step="any"
+                    value={display}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "") {
+                        updateValue(null);
+                      } else {
+                        const n = Number(v);
+                        updateValue(Number.isFinite(n) ? n : null);
+                      }
+                    }}
+                    placeholder={desc}
+                  />
+                </div>
+              );
+            }
+
+            // bool
+            if (item.type === "bool") {
+              const checked =
+                typeof rawValue === "boolean"
+                  ? rawValue
+                  : Boolean(rawValue ?? false);
+
+              return (
+                <div
+                  key={id}
+                  className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
+                >
+                  <Label htmlFor={id}>{label}</Label>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      id={id}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => updateValue(e.target.checked)}
+                    />
+                    <span className="text-sm text-muted-foreground">{desc}</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // string 默认分支
+            const display = rawValue === null || rawValue === undefined
+              ? ""
+              : String(rawValue);
 
             return (
               <div
@@ -128,15 +198,9 @@ function PluginEditor({
                 <Input
                   id={id}
                   type={item.secret ? "password" : "text"}
-                  value={toStr(value)}
+                  value={display}
                   onChange={(e) => {
-                    const next = structuredClone(plugin);
-                    const config = next.config;
-                    if (config && config.length > idx) {
-                      config[idx]!.value = Number(e.target.value);
-                    }
-
-                    onChange(next);
+                    updateValue(e.target.value);
                   }}
                   placeholder={desc}
                 />
@@ -223,8 +287,8 @@ export function AssistantEditor({
   const addable = useMemo(
     () =>
       availablePlugins
-        .filter((p) => !currentIds.has(p.id))
-        .map((p) => ({ value: p.id, label: p.display_name })),
+        .filter((p) => !currentIds.has(p.registry_id))
+        .map((p) => ({ value: p.registry_id, label: p.display_name })),
     [availablePlugins, currentIds],
   );
 
@@ -272,7 +336,6 @@ export function AssistantEditor({
         <h3 className="text-base font-semibold">Plugins</h3>
         <div className="flex gap-2">
           <SearchableSelect
-            // The select component now receives objects with value/label
             options={addable}
             value={selectedPluginIdToAdd}
             onChange={setSelectedPluginIdToAdd}
@@ -280,7 +343,6 @@ export function AssistantEditor({
             className="min-w-[160px] sm:min-w-[220px]"
           />
           <Button
-            // 4. Logic uses the selected ID
             disabled={!selectedPluginIdToAdd || isCurrentlyAdding}
             onClick={() =>
               selectedPluginIdToAdd && onAddPlugin(selectedPluginIdToAdd)

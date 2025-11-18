@@ -68,16 +68,19 @@ async def update_workflow(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.put("/{workflow_id}", response_model=WorkflowReadBasic)
+@router.put("/{workflow_id}", response_model=WorkflowRead)
 async def replace_workflow(
     workflow_id: UUID,
     payload: WorkflowReplace,
     user_workflow_service: UserWorkflowService = Depends(get_user_workflow_service),
-) -> WorkflowReadBasic:
-    return user_workflow_service.replace_workflow(workflow_id, payload)
-
+) -> WorkflowRead:
     try:
-        return user_workflow_service.replace_workflow(workflow_id, payload)
+        user_workflow_service.replace_workflow(workflow_id, payload)
+        wf = user_workflow_service.get_workflow(workflow_id, eager=True)
+        if not wf or not isinstance(wf, WorkflowRead):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+        return wf
+
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
     except Exception as e:  # pragma: no cover

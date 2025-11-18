@@ -75,7 +75,7 @@ export default function PluginsPage() {
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {plugins?.map((p) => (
-            <div key={p.id} className="rounded-lg border p-4 space-y-3">
+            <div key={p.registry_id} className="rounded-lg border p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-grow">
                   {/* Plugin details (共享) */}
@@ -92,11 +92,11 @@ export default function PluginsPage() {
                   <ConfirmDialog
                     title="Confirm Delete Plugin"
                     description={`Are you sure you want to delete the '${p.display_name}' plugin?`}
-                    onConfirm={() => deleteMutation.mutate(p.id)}
+                    onConfirm={() => deleteMutation.mutate(p.registry_id)}
                     trigger={
                       <Button
                         variant="destructive"
-                        disabled={deleteMutation.isPending && deleteMutation.variables === p.id}
+                        disabled={deleteMutation.isPending && deleteMutation.variables === p.registry_id}
                       >
                         Delete
                       </Button>

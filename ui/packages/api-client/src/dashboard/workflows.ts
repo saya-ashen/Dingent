@@ -19,6 +19,7 @@ type WorkflowEdgeDTO = {
   sourceNodeId: string;
   sourceHandle: string | null;
   type: string;
+  mode: "single" | "bidirectional";
 };
 type WorkflowDTO = {
   id: string;
@@ -51,7 +52,7 @@ function toWorkflowEdge(e: WorkflowEdgeDTO): WorkflowEdge {
     sourceHandle: e.sourceHandle,
     targetHandle: e.targetHandle,
     type: e.type,
-    data: { mode: "single" },
+    data: { mode: e.mode },
   }
 }
 function toWorkflow(dto: WorkflowDTO): Workflow {
@@ -87,7 +88,7 @@ export function createWorkflowsApi(http: AxiosInstance, base: string) {
     async save(wf: Workflow): Promise<WorkflowSummary> {
       try {
         const nodes = wf.nodes.map(n => ({ id: n.id, assistantId: n.data.assistantId, position: n.position, type: n.type, measured: n.measured, isStartNode: n.data.isStart }));
-        const edges = wf.edges.map(e => ({ sourceNodeId: e.source, targetNodeId: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle }));
+        const edges = wf.edges.map(e => ({ sourceNodeId: e.source, targetNodeId: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, mode: e.data?.mode }));
         const { data } = await http.put<WorkflowSummary>(url(`/${wf.id}`), { name: wf.name, description: wf.description, nodes: nodes, edges: edges, });
         return data;
       } catch {

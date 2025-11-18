@@ -42,7 +42,10 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
             name=workflow.name,
             description=f"Agent for workflow '{workflow.name}'",
             graph=artifact.graph,
-            langgraph_config={"user": user},
+            langgraph_config={
+                "user": user,
+                "assistant_plugin_configs": artifact.assistant_plugin_configs,
+            },
         )
 
     sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=_agents_pipeline, engine=engine)

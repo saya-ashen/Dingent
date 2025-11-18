@@ -33,6 +33,7 @@ export function SearchableSelect({
   emptyText = "No results.",
   className,
 }: SearchableSelectProps) {
+  console.log("options:", options);
   const [open, setOpen] = React.useState(false);
 
   // 2. Normalize options to a consistent format internally

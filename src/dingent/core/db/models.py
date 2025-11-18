@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -73,8 +73,16 @@ class AssistantPluginLink(SQLModel, table=True):
     Assistant 与 Plugin 的多对多链接表；同时保存用户侧配置。
     """
 
-    assistant_id: UUID = Field(foreign_key="assistant.id", primary_key=True)
-    plugin_id: UUID = Field(foreign_key="plugin.id", primary_key=True)
+    assistant_id: UUID = Field(
+        foreign_key="assistant.id",
+        primary_key=True,
+        index=True,
+    )
+    plugin_id: UUID = Field(
+        foreign_key="plugin.id",
+        primary_key=True,
+        index=True,
+    )
 
     enabled: bool = True
     # tools_default_enabled: bool = True
@@ -82,14 +90,14 @@ class AssistantPluginLink(SQLModel, table=True):
     # --- 针对单个工具的覆盖配置 ---
     # 存储一个列表，每个元素都是一个符合 ToolOverrideConfig 结构的字典
     # 例如: [{"name": "get_weather", "enabled": false}, {"name": "send_email", "description": "Send email on behalf of the user"}]
-    tool_configs: list[ToolOverrideConfig] = Field(
+    tool_configs: list[dict[str, Any]] = Field(
         default_factory=list,
         sa_column=Column(MutableList.as_mutable(JSON)),
     )
 
     # --- 用户为插件提供的配置值 (如 API Keys) ---
-    user_config_values: dict[str, Any] | None = Field(
-        default=None,
+    user_plugin_config: dict[str, Any] | None = Field(
+        default_factory=dict,
         sa_column=Column(MutableDict.as_mutable(JSON)),
     )
 
@@ -133,6 +141,15 @@ class Assistant(SQLModel, table=True):
     workflow_nodes: list["WorkflowNode"] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
+class PluginConfigSchema(SQLModel):
+    name: str = Field(..., description="配置项的名称 (环境变量名)")
+    type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+    required: bool = Field(..., description="是否为必需项")
+    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
+    description: str | None = Field(None, description="该配置项的描述")
+    default: Any | None = Field(None, description="默认值 (如果存在)")
+
+
 class Plugin(SQLModel, table=True):
     """
     插件的全局定义：系统级资源；用户侧配置在 AssistantPluginLink 中。
@@ -145,7 +162,7 @@ class Plugin(SQLModel, table=True):
     description: str
     version: str = "0.1.0"
 
-    config_schema: list[dict] | None = Field(default=None, sa_column=Column(JSON))
+    config_schema: list[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
     # 多对多
     assistants: list["Assistant"] = Relationship(

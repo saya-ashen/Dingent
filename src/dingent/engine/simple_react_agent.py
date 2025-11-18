@@ -27,12 +27,12 @@ class SimpleAgentState(TypedDict, total=False):
 
 
 def build_simple_react_agent(
+    name: str,
     llm: BaseChatModel,
     tools: list[BaseTool],
     system_prompt: str | None = None,
     max_iterations: int = 6,
     stop_when_no_tool: bool = True,
-    name: str = "simple_react_agent",
 ):
     """
     返回一个可作为子图嵌入父图的 LangGraph 图对象（已 compile）。
@@ -85,6 +85,9 @@ def build_simple_react_agent(
         if last_ai is None:
             return {}
 
+        plugin_configs = config.get("configurable", {}).get("plugin_configs", {})
+        plugin_tool_configs = plugin_configs.get(name, {})
+
         tool_messages: list[ToolMessage] = []
         artifact_ids: list[str] = []
         goto_data: dict[str, Any] | None = None
@@ -92,6 +95,7 @@ def build_simple_react_agent(
         for tc in last_ai.tool_calls:
             tool_name = tc.get("name")
             args = tc.get("args", {}) or {}
+            args = {**args, **(plugin_tool_configs or {})}
             tool = name_to_tool.get(tool_name)
             if tool is None:
                 tool_messages.append(

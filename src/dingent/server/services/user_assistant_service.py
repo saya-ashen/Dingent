@@ -86,7 +86,7 @@ class UserAssistantService:
             pass
 
         # 3. 调用映射函数进行转换
-        assistant_dto = _build_assistant_read(assistant_db, runtime_assistant)
+        assistant_dto = await _build_assistant_read(assistant_db, runtime_assistant)
 
         return assistant_dto
 
@@ -144,7 +144,7 @@ class UserAssistantService:
             pass
         assistant_dto = _build_assistant_read(assistant_db, runtime_assistant)
 
-        return assistant_dto
+        return await assistant_dto
 
     async def update_assistant(
         self,
@@ -175,7 +175,7 @@ class UserAssistantService:
             self.session.refresh(assistant_db)
         except Exception:
             self.session.rollback()
-            raise HTTPException(status_code=500, detail="An internal error occurred while updating the assistant.")
+            raise
 
         # 4. 清除旧的缓存，因为配置可能已更改
         if assistant_id in self._runtimes:
@@ -191,7 +191,7 @@ class UserAssistantService:
 
         # 6. 构建并返回 DTO
         assistant_dto = _build_assistant_read(assistant_db, runtime_assistant)
-        return assistant_dto
+        return await assistant_dto
 
     async def delete_assistant(self, assistant_id: UUID) -> Assistant:
         """
@@ -216,8 +216,8 @@ class UserAssistantService:
 
         return deleted_assistant
 
-    async def add_plugin_to_assistant(self, assistant_id: UUID, plugin_id: str) -> AssistantRead:
-        crud_assistant.add_plugin_to_assistant(db=self.session, assistant_id=assistant_id, plugin_id=plugin_id)
+    async def add_plugin_to_assistant(self, assistant_id: UUID, plugin_registry_id: str) -> AssistantRead:
+        crud_assistant.add_plugin_to_assistant(db=self.session, assistant_id=assistant_id, plugin_registry_id=plugin_registry_id)
         assistant_dto = await self.get_assistant_details(assistant_id)
         assert assistant_dto is not None
         return assistant_dto
