@@ -2,9 +2,9 @@ name: Python CI/CD with uv and ruff
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   # == CI Job: Build, Lint, and Test ==
@@ -29,6 +29,8 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
 
       - name: Set up Just
         uses: extractions/setup-just@v3

@@ -9,7 +9,7 @@ on:
   push:
     branches: ["main"]
     paths:
-      - 'website/**'
+      - "website/**"
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -39,6 +39,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Build website
