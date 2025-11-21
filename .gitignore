@@ -210,3 +210,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 src/dingent/static
+ui/apps/frontend/public/dashboard
+ui/apps/dashboard

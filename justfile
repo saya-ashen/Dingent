@@ -16,7 +16,7 @@ VERBOSE           := "0"               # 1=更多输出
 
 install:
     @echo "Installing all monorepo dependencies from the root..."
-    @bun install
+    @bun install --frozen-lockfile
 
 # =====================
 # 内部：裁剪函数配方（可单独运行： just prune-next）
@@ -71,7 +71,7 @@ build-dashboard:
 # =====================
 build-frontend:
 	@echo "Building user frontend (Next.js standalone)..."
-	@(cd ui/ && bun install && bun run build --filter=frontend)
+	@(cd ui/ && bun install --frozen-lockfile && bun run build --filter=frontend)
 
 	@echo "Pruning standalone output..."
 	@just prune-next

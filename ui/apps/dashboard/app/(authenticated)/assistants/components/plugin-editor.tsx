@@ -1,6 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import type {
   Assistant,
   AssistantPlugin,
@@ -32,6 +32,7 @@ function PluginEditor({
 }) {
   const enabled = safeBool(plugin.enabled, false);
   const { level, label } = effectiveStatusForItem(plugin.status, enabled);
+  const [isConfigExpanded, setIsConfigExpanded] = useState(false);
 
   return (
     <div className="rounded-md border p-4">
@@ -75,138 +76,164 @@ function PluginEditor({
           />
         </div>
       </div>
-      {plugin.config && plugin.config.length > 0 && (
-        <div className="mt-4 space-y-3">
-          <div className="text-sm font-medium">User Configuration</div>
+      {plugin.enabled && plugin.config && plugin.config.length > 0 && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setIsConfigExpanded((prev) => !prev)}
+            className="
+      w-full flex items-center justify-between
+      px-3 py-2 rounded-md border bg-muted/40
+      hover:bg-muted transition
+      text-sm font-medium text-left
+    "
+          >
+            <div className="flex items-center gap-2">
+              {isConfigExpanded ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              User Configuration
+            </div>
 
-          {plugin.config.map((item, idx) => {
-            const id = `cfg_${plugin.plugin_id}_${idx}`;
-            const label = `${item.name}${item.required ? " (Required)" : ""}`;
-            const desc = item.description || `Set ${item.name}`;
-            const rawValue = item.value ?? item.default ?? "";
+            <span className="text-xs text-muted-foreground">
+              {plugin.config.length} settings
+            </span>
+          </button>
 
-            const updateValue = (nextValue: string | number | boolean | null) => {
-              const next = structuredClone(plugin);
-              const config = next.config;
-              if (!config || config.length <= idx) return;
+          {isConfigExpanded && (
+            <div className="space-y-3">
+              <div className="text-sm font-medium">User Configuration</div>
 
-              config[idx]!.value = nextValue;
-              onChange(next);
-            };
+              {plugin.config.map((item, idx) => {
+                const id = `cfg_${plugin.registry_id}_${idx}`;
+                const label = `${item.name}${item.required ? " (Required)" : ""}`;
+                const desc = item.description || `Set ${item.name}`;
+                const rawValue = item.value ?? item.default ?? "";
 
-            // integer
-            if (item.type === "integer") {
-              const display = rawValue === null ? "" : String(rawValue);
+                const updateValue = (
+                  nextValue: string | number | boolean | null,
+                ) => {
+                  const next = structuredClone(plugin);
+                  const config = next.config;
+                  if (!config || config.length <= idx) return;
 
-              return (
-                <div
-                  key={id}
-                  className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
-                >
-                  <Label htmlFor={id}>{label}</Label>
+                  config[idx]!.value = nextValue;
+                  onChange(next);
+                };
 
-                  <Input
-                    id={id}
-                    type="number"
-                    value={display}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "") {
-                        // 允许为空，交给后端判断 required
-                        updateValue(null);
-                      } else {
-                        const n = Number(v);
-                        updateValue(Number.isFinite(n) ? n : null);
-                      }
-                    }}
-                    placeholder={desc}
-                  />
-                </div>
-              );
-            }
+                // integer
+                if (item.type === "integer") {
+                  const display = rawValue === null ? "" : String(rawValue);
 
-            // float
-            if (item.type === "float") {
-              const display = rawValue === null ? "" : String(rawValue);
+                  return (
+                    <div
+                      key={id}
+                      className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
+                    >
+                      <Label htmlFor={id}>{label}</Label>
+                      <Input
+                        id={id}
+                        type="number"
+                        value={display}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            updateValue(null);
+                          } else {
+                            const n = Number(v);
+                            updateValue(Number.isFinite(n) ? n : null);
+                          }
+                        }}
+                        placeholder={desc}
+                      />
+                    </div>
+                  );
+                }
 
-              return (
-                <div
-                  key={id}
-                  className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
-                >
-                  <Label htmlFor={id}>{label}</Label>
+                // float
+                if (item.type === "float") {
+                  const display = rawValue === null ? "" : String(rawValue);
 
-                  <Input
-                    id={id}
-                    type="number"
-                    step="any"
-                    value={display}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "") {
-                        updateValue(null);
-                      } else {
-                        const n = Number(v);
-                        updateValue(Number.isFinite(n) ? n : null);
-                      }
-                    }}
-                    placeholder={desc}
-                  />
-                </div>
-              );
-            }
+                  return (
+                    <div
+                      key={id}
+                      className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
+                    >
+                      <Label htmlFor={id}>{label}</Label>
+                      <Input
+                        id={id}
+                        type="number"
+                        step="any"
+                        value={display}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "") {
+                            updateValue(null);
+                          } else {
+                            const n = Number(v);
+                            updateValue(Number.isFinite(n) ? n : null);
+                          }
+                        }}
+                        placeholder={desc}
+                      />
+                    </div>
+                  );
+                }
 
-            // bool
-            if (item.type === "bool") {
-              const checked =
-                typeof rawValue === "boolean"
-                  ? rawValue
-                  : Boolean(rawValue ?? false);
+                // bool
+                if (item.type === "bool") {
+                  const checked =
+                    typeof rawValue === "boolean"
+                      ? rawValue
+                      : Boolean(rawValue ?? false);
 
-              return (
-                <div
-                  key={id}
-                  className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
-                >
-                  <Label htmlFor={id}>{label}</Label>
+                  return (
+                    <div
+                      key={id}
+                      className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
+                    >
+                      <Label htmlFor={id}>{label}</Label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={id}
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => updateValue(e.target.checked)}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {desc}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
 
-                  <div className="flex items-center gap-2">
-                    <input
+                // string
+                const display =
+                  rawValue === null || rawValue === undefined
+                    ? ""
+                    : String(rawValue);
+
+                return (
+                  <div
+                    key={id}
+                    className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
+                  >
+                    <Label htmlFor={id}>{label}</Label>
+                    <Input
                       id={id}
-                      type="checkbox"
-                      checked={checked}
-                      onChange={(e) => updateValue(e.target.checked)}
+                      type={item.secret ? "password" : "text"}
+                      value={display}
+                      onChange={(e) => updateValue(e.target.value)}
+                      placeholder={desc}
                     />
-                    <span className="text-sm text-muted-foreground">{desc}</span>
                   </div>
-                </div>
-              );
-            }
-
-            // string 默认分支
-            const display = rawValue === null || rawValue === undefined
-              ? ""
-              : String(rawValue);
-
-            return (
-              <div
-                key={id}
-                className="grid grid-cols-1 gap-2 md:grid-cols-[240px_1fr]"
-              >
-                <Label htmlFor={id}>{label}</Label>
-
-                <Input
-                  id={id}
-                  type={item.secret ? "password" : "text"}
-                  value={display}
-                  onChange={(e) => {
-                    updateValue(e.target.value);
-                  }}
-                  placeholder={desc}
-                />
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
       {!!plugin.tools?.length && (
@@ -273,17 +300,19 @@ export function AssistantEditor({
   onAddPlugin: (pluginId: string) => void;
   isAddingPlugin: boolean;
   addingPluginDetails: { assistantId: string; pluginId: string } | null;
-  onRemovePlugin: (pluginId: string) => void;
+  onRemovePlugin: (registry_id: string) => void;
   isRemovingPlugin: boolean;
   removingPluginDetails: { assistantId: string; pluginId: string } | null;
 }) {
   const enabled = safeBool(assistant.enabled, false);
 
-  // 1. Track currently used plugins by their ID for robustness
-  const currentIds = new Set((assistant.plugins || []).map((p) => p.plugin_id));
+  const currentIds = new Set((assistant.plugins || []).map((p) => p.registry_id));
 
-  // 2. Filter available plugins by ID and map them for the select component
-  //    value = id (for logic), label = name (for display)
+  // 监控currentIds和availablePlugins的变化
+  useEffect(() => {
+    console.log("Current Plugin IDs:", Array.from(currentIds));
+  }, [currentIds]);
+
   const addable = useMemo(
     () =>
       availablePlugins
@@ -292,7 +321,6 @@ export function AssistantEditor({
     [availablePlugins, currentIds],
   );
 
-  // 3. State now holds the ID of the plugin to be added
   const [selectedPluginIdToAdd, setSelectedPluginIdToAdd] =
     useState<string>("");
 
@@ -366,11 +394,11 @@ export function AssistantEditor({
           const isCurrentlyRemoving =
             isRemovingPlugin &&
             removingPluginDetails?.assistantId === assistant.id &&
-            removingPluginDetails?.pluginId === p.plugin_id;
+            removingPluginDetails?.pluginId === p.registry_id;
 
           return (
             <PluginEditor
-              key={p.plugin_id}
+              key={p.registry_id}
               plugin={p}
               onChange={(np) => {
                 const next = structuredClone(assistant) as Assistant;
@@ -378,7 +406,7 @@ export function AssistantEditor({
                 next.plugins[j] = np;
                 onChange(next);
               }}
-              onRemove={() => onRemovePlugin(p.plugin_id)}
+              onRemove={() => onRemovePlugin(p.registry_id)}
               // --- Pass the calculated boolean down ---
               isRemoving={isCurrentlyRemoving}
             />

@@ -28,7 +28,7 @@ async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: P
                 merged_tools.append(merged_tool)
 
     config = plugin_link.user_plugin_config or {}
-    config_schema = plugin_db.config_schema or [{}]
+    config_schema = plugin_db.config_schema or []
 
     merged_config = [
         PluginConfigItemRead(

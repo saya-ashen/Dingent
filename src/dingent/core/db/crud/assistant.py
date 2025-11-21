@@ -94,11 +94,6 @@ def update_assistant(
 
             plugin_update_data = plugin_cfg.model_dump(exclude_unset=True)
 
-            # TODO: tools 的单独配置
-            # tool_configs 整体覆盖
-            # if "tool_configs" in plugin_update_data:
-            #     link.tool_configs = plugin_update_data["tool_configs"]
-
             if "config" in plugin_update_data:
                 new_conf = plugin_update_data["config"] or {}
 
@@ -106,6 +101,7 @@ def update_assistant(
                 if link.user_plugin_config is None:
                     link.user_plugin_config = {}
                 link.user_plugin_config.update(new_conf)
+                link.enabled = plugin_cfg.enabled
 
     db.add(db_assistant)
     db.commit()
@@ -179,12 +175,16 @@ def update_plugin_on_assistant(db: Session, *, assistant_id: UUID, plugin_id: UU
     return assistant
 
 
-def remove_plugin_from_assistant(db: Session, *, assistant_id: UUID, plugin_id: UUID) -> None:
+def remove_plugin_from_assistant(db: Session, *, assistant_id: UUID, registry_id: str) -> None:
     """
     Removes the link between a plugin and an assistant. This is an idempotent operation.
     """
     # 1. Find the specific link to delete
-    statement = select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin_id)
+    plugin_statement = select(Plugin).where(Plugin.registry_id == registry_id)
+    plugin = db.exec(plugin_statement).first()
+    if not plugin:
+        return
+    statement = select(AssistantPluginLink).where(AssistantPluginLink.assistant_id == assistant_id, AssistantPluginLink.plugin_id == plugin.id)
     link_to_delete = db.exec(statement).first()
 
     # 2. If the link exists, delete it. If not, do nothing (idempotency).

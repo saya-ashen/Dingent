@@ -136,7 +136,6 @@ class PluginManager:
             A dictionary mapping plugin_id to its version string.
             Example: {"my-cool-plugin": "1.2.0", "another-plugin": "0.9.1"}
         """
-        return {}
         # if not self.plugins:
         #     return {}
         #

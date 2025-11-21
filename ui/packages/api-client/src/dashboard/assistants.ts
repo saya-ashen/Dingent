@@ -27,8 +27,8 @@ export function createAssistantsApi(http: AxiosInstance, assistantsBase: string)
       await http.post(url(`/${assistantId}/plugins`), { registry_id: pluginId });
     },
 
-    async removePluginFromAssistant(assistantId: string, pluginId: string): Promise<void> {
-      await http.delete(url(`/${assistantId}/plugins/${pluginId}`));
+    async removePluginFromAssistant(assistantId: string, registry_id: string): Promise<void> {
+      await http.delete(url(`/${assistantId}/plugins/${registry_id}`));
     },
 
     async updateAssistant(assistantId: string, payload: Partial<Assistant>): Promise<Assistant> {

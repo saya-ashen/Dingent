@@ -75,15 +75,15 @@ async def update_plugin_on_assistant(
     return updated_assistant
 
 
-@router.delete("/{assistant_id}/plugins/{plugin_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{assistant_id}/plugins/{registry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_plugin_from_assistant(
     *,
     assistant_id: UUID,
-    plugin_id: UUID,
+    registry_id: str,
     user_assistant_service: UserAssistantService = Depends(get_user_assistant_service),
 ):
     """
     Removes the association between a plugin and an assistant.
     """
-    await user_assistant_service.remove_plugin_from_assistant(assistant_id, plugin_id)
+    await user_assistant_service.remove_plugin_from_assistant(assistant_id, registry_id)
     return

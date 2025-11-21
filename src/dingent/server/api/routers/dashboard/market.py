@@ -7,15 +7,17 @@ from dingent.server.api.dependencies import (
     get_log_manager,
     get_market_service,
     get_plugin_manager,
+    get_user_plugin_service,
 )
 from dingent.server.api.schemas import MarketDownloadRequest, MarketDownloadResponse
+from dingent.server.services.user_plugin_service import UserPluginService
 
 router = APIRouter(prefix="/market", tags=["Market"])
 
 
 @router.get("/metadata")
 async def get_market_metadata(
-    market_service=Depends(get_market_service),
+    market_service: MarketService = Depends(get_market_service),
 ):
     """
     Get market metadata including version and item counts.
@@ -30,8 +32,8 @@ async def get_market_metadata(
 @router.get("/items")
 async def get_market_items(
     category: str,
-    market_service=Depends(get_market_service),
-    plugin_manager: PluginManager = Depends(get_plugin_manager),
+    market_service: MarketService = Depends(get_market_service),
+    plugin_service: UserPluginService = Depends(get_user_plugin_service),
     log_manager: LogManager = Depends(get_log_manager),
 ):
     """
@@ -39,7 +41,7 @@ async def get_market_items(
     """
     try:
         category_enum = MarketItemCategory(category)
-        local_plugin_versions = plugin_manager.get_installed_versions()
+        local_plugin_versions = plugin_service.get_visible_plugins()
         items = await market_service.get_market_items(category_enum, installed_items={"plugins": local_plugin_versions})
         return [item.model_dump() for item in items]
     except Exception as e:

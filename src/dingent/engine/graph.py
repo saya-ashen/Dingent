@@ -113,7 +113,7 @@ def mcp_tool_wrapper(
         **kwargs,
     ) -> Command:
         try:
-            kwargs["plugin_user_config"] = {"user_id": str(user_id)}
+            # kwargs["plugin_config"]["user_id"] = str(user_id)
             response_raw = await runnable_tool.run(kwargs)
             log_method(
                 "info",

@@ -141,6 +141,7 @@ class GraphFactory:
             stack=stack,
             checkpointer=checkpointer,
             default_active_agent=None,
+            assistant_plugin_configs={},
         )
 
     async def _build_full(

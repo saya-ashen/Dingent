@@ -28,11 +28,10 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
 
     # HACK: llm manager
     llm_manager = LLMManager()
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     llm = llm_manager.get_llm(
-        model_provider="openai",
-        model="gpt-4.1",
-        api_base="https://www.dmxapi.cn/v1",
+        model="gemini/gemini-2.5-flash",
+        # api_base="https://www.dmxapi.cn/v1",
         api_key=api_key,
     )
 

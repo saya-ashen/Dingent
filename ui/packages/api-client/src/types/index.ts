@@ -59,7 +59,7 @@ export interface PluginConfigItem {
 export type PluginTool = { name: string; description?: string; enabled?: boolean; };
 
 export type AssistantPlugin = {
-  plugin_id: string;
+  registry_id: string;
   display_name: string;
   status?: string;
   enabled?: boolean;

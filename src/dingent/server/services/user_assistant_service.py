@@ -233,8 +233,8 @@ class UserAssistantService:
         assert assistant_dto is not None
         return assistant_dto
 
-    async def remove_plugin_from_assistant(self, assistant_id: UUID, plugin_id: UUID) -> None:
-        crud_assistant.remove_plugin_from_assistant(db=self.session, assistant_id=assistant_id, plugin_id=plugin_id)
+    async def remove_plugin_from_assistant(self, assistant_id: UUID, registry_id: str) -> None:
+        crud_assistant.remove_plugin_from_assistant(db=self.session, assistant_id=assistant_id, registry_id=registry_id)
         if assistant_id in self._runtimes:
             del self._runtimes[assistant_id]
         return

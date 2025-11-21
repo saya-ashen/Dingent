@@ -95,7 +95,8 @@ def build_simple_react_agent(
         for tc in last_ai.tool_calls:
             tool_name = tc.get("name")
             args = tc.get("args", {}) or {}
-            args = {**args, **(plugin_tool_configs or {})}
+            if len(plugin_tool_configs) > 0:
+                args["plugin_config"] = plugin_tool_configs
             tool = name_to_tool.get(tool_name)
             if tool is None:
                 tool_messages.append(
