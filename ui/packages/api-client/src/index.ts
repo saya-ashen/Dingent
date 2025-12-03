@@ -24,4 +24,3 @@ export function setAuthHooks(h?: AuthHooks) {
 
 export const api = createApiClient({ baseURL: "/api/v1" });
 export type { DashboardApi } from "./dashboard";
-

@@ -17,4 +17,3 @@ export type ApiClientConfig = {
   /** request timeout in ms */
   timeoutMs?: number;
 };
-

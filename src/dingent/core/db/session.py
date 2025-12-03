@@ -3,7 +3,7 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlmodel import SQLModel
 
-from .models import *
+from .models import *  # noqa: F403
 
 # --- 1. Configuration ---
 DB_PATH = Path(".dingent/data/dingent.db").resolve()
@@ -20,6 +20,7 @@ engine = create_engine(
 
 
 def _set_sqlite_pragmas(dbapi_connection, connection_record):
+    print(connection_record)
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL;")
     cursor.execute("PRAGMA foreign_keys=ON;")

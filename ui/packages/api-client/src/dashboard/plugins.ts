@@ -15,5 +15,3 @@ export function createPluginsApi(http: AxiosInstance, pluginsBase: string) {
     }
   };
 }
-
-

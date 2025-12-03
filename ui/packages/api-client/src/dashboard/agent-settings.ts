@@ -16,7 +16,3 @@ export function createSettingsApi(http: AxiosInstance, agentSettingsBase: string
     },
   };
 }
-
-
-
-

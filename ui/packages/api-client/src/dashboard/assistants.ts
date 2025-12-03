@@ -52,5 +52,3 @@ export function createAssistantsApi(http: AxiosInstance, assistantsBase: string)
 
   };
 }
-
-

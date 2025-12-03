@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 import uuid
+from contextlib import AsyncExitStack
+from dataclasses import dataclass
+from typing import Any
 from uuid import UUID
 
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from langgraph_swarm import create_swarm
 from sqlmodel import Session
 
 from dingent.core.db.models import Workflow, WorkflowNode
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.managers.resource_manager import ResourceManager
+from dingent.engine.graph import (
+    MainState,
+    _normalize_name,
+    create_assistant_graphs,
+    get_safe_swarm,
+)
 
 """
 Workflow → LangGraph Transform Factory
@@ -35,22 +47,6 @@ Design goals:
 - Clear fallback path when workflow is missing or invalid
 - Minimal coupling to the broader app; dependency injection through `AppContextSubset`
 """
-
-from contextlib import AsyncExitStack
-from dataclasses import dataclass
-from typing import Any
-
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
-from langgraph_swarm import create_swarm
-
-from dingent.engine.graph import (
-    MainState,
-    _normalize_name,
-    create_assistant_graphs,
-    get_safe_swarm,
-)
-
 # ==============================================================================
 # Public Artifacts
 # ==============================================================================
@@ -83,7 +79,8 @@ class GraphArtifact:
 
 def fake_log(level, messages="", context=None, *args, **kwargs):
     if context is None:
-        context = {}
+        context = kwargs
+        context["args"] = args
     print(f"[GraphFactory] [{level.upper()}] {messages} | {context}")
 
 

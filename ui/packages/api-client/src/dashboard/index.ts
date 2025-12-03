@@ -35,4 +35,3 @@ export function createDashboardApi(http: AxiosInstance, dashboardBase: string) {
 }
 
 export type DashboardApi = ReturnType<typeof createDashboardApi>;
-

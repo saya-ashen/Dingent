@@ -1,11 +1,8 @@
 import logging
 import shutil
-from uuid import UUID
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from sqlmodel import Session
 
-from dingent.core.db.models import AssistantPluginLink
 from dingent.core.runtime.plugin import PluginRuntime
 from dingent.core.schemas import PluginConfigSchema, PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry
@@ -22,7 +19,6 @@ class ConfigMiddleware(Middleware):
         super().__init__()
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
-        context.fastmcp_context.set_state()
         return await call_next(context)
 
 
@@ -91,28 +87,6 @@ class PluginManager:
         self._active_runtimes[plugin_registry_id] = runtime_instance
         return runtime_instance
 
-    async def _get_runtime_plugin(
-        self,
-        *,
-        user_id: UUID,
-        session: Session,
-        plugin_id: str,
-        link: AssistantPluginLink,
-    ) -> PluginRuntime:
-        manifest = self.registry.find_manifest(plugin_id)
-        if not manifest:
-            raise ValueError(f"Plugin with ID '{plugin_id}' not found in registry.")
-        middleware = self.middlewares.get(str(user_id))
-        if not middleware:
-            middleware = ResourceMiddleware(session, user_id, self.resource_manager, self.log_manager.log_with_context)
-            self.middlewares[str(user_id)] = middleware
-        return await PluginRuntime.from_config(
-            manifest=manifest,
-            link=link,
-            middleware=middleware,
-            log_method=self.log_manager.log_with_context,
-        )
-
     def get_manifest_plugin(self, *, plugin_id: str) -> PluginManifest | None:
         return self.registry.find_manifest(plugin_id)
 
@@ -127,17 +101,3 @@ class PluginManager:
             # self.log_manager.log_with_context("warning", "Plugin with ID '{id}' not found in PluginManager.", context={"id": plugin_id})
             removed = False
         return removed
-
-    def get_installed_versions(self) -> dict[str, str]:
-        """
-        Scans registered plugins and returns a dictionary of their IDs and versions.
-
-        Returns:
-            A dictionary mapping plugin_id to its version string.
-            Example: {"my-cool-plugin": "1.2.0", "another-plugin": "0.9.1"}
-        """
-        # if not self.plugins:
-        #     return {}
-        #
-        # Use a dictionary comprehension for a clean and efficient implementation
-        # return {plugin_id: str(manifest.version) for plugin_id, manifest in self.plugins.items() if manifest.version is not None}

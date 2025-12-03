@@ -4,7 +4,7 @@ import logging
 
 from sqlmodel import Session, select
 
-from dingent.core.db.models import Plugin, PluginConfigSchema
+from dingent.core.db.models import Plugin
 from dingent.core.schemas import PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry  # 你的 Manifest 模型
 
@@ -48,7 +48,6 @@ class PluginSyncService:
             if not db_plugin:
                 # 数据库中不存在 -> 新增
                 logger.info(f"New plugin found: '{slug}'. Adding to database.")
-                manifest.config_schema
                 config_schema = [c.model_dump() for c in manifest.config_schema] if manifest.config_schema else []
                 new_plugin = Plugin(
                     registry_id=slug,

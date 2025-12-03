@@ -1,7 +1,3 @@
-from typing import Any
-
-from fastapi import APIRouter, HTTPException
-
-from dingent.server.api.schemas import AppAdminDetail
+from fastapi import APIRouter
 
 router = APIRouter(prefix="/settings", tags=["Settings"])

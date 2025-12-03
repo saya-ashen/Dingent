@@ -30,4 +30,3 @@ export function createLogsApi(http: AxiosInstance, logsBase: string) {
     },
   };
 }
-

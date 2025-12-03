@@ -51,5 +51,3 @@ export function createHttp(
 
   return instance;
 }
-
-

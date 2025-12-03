@@ -50,4 +50,3 @@ export function LoginPage({ onLoginSuccess, onLoginFail }: LoginPageProps) {
     </Card>
   );
 }
-

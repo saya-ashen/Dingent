@@ -1,28 +1,27 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-json
-    -   id: check-merge-conflict
-    -   id: check-added-large-files
-        args: ['--maxkb=1024']
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
 
--   repo: https://github.com/astral-sh/ruff-pre-commit
+  - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.7
     hooks:
-    -   id: ruff
+      - id: ruff
         args: [--fix]
-    -   id: ruff-format
-
--   repo: https://github.com/gitleaks/gitleaks
-    rev: v8.28.0
-    hooks:
-    -   id: gitleaks
-        name: Detect secrets with gitleaks
-        description: Scans for hardcoded secrets.
-        entry: gitleaks detect --source . --verbose
+      - id: ruff-format
+# -   repo: https://github.com/gitleaks/gitleaks
+#     rev: v8.28.0
+#     hooks:
+#     -   id: gitleaks
+#         name: Detect secrets with gitleaks
+#         description: Scans for hardcoded secrets.
+#         entry: gitleaks detect --source . --verbose

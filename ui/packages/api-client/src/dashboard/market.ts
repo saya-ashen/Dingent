@@ -46,6 +46,3 @@ export function createMarketApi(http: AxiosInstance, marketBase: string) {
     },
   };
 }
-
-
-

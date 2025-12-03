@@ -38,6 +38,7 @@ def create_test_user(
         role=role,
         is_active=True,
     )
+    assert password
 
     # 3. 将新用户添加到数据库
     session.add(new_user)

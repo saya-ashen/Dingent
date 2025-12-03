@@ -224,7 +224,7 @@ class UserWorkflowService:
                 updated.message = None
                 updated.assistants = {}
                 self._runs[key] = updated
-                return updated
+        return updated
 
     # ---------------------------------------------------------------------
     # Optional CRUD passthroughs (workflows)

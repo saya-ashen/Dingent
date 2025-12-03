@@ -159,4 +159,3 @@ export type Artifact = {
   metadata?: unknown;
   [k: string]: unknown;
 }
-

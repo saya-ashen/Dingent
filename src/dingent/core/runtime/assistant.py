@@ -1,15 +1,5 @@
 from __future__ import annotations
 
-"""
-Assistant runtime container that wires together enabled plugin runtimes and
-exposes their MCP tools as lightweight, runnable callables.
-
-Design notes:
-- `load_tools()` opens and closes an MCP connection per call to keep resource
-  usage low when the caller enumerates tools then calls one occasionally.
-  context using `AsyncExitStack`, which is more efficient for burst workloads.
-"""
-
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any
@@ -19,6 +9,16 @@ from dingent.core.schemas import RunnableTool
 
 from ..managers.plugin_manager import PluginManager
 from .plugin import PluginRuntime
+
+"""
+Assistant runtime container that wires together enabled plugin runtimes and
+exposes their MCP tools as lightweight, runnable callables.
+
+Design notes:
+- `load_tools()` opens and closes an MCP connection per call to keep resource
+  usage low when the caller enumerates tools then calls one occasionally.
+  context using `AsyncExitStack`, which is more efficient for burst workloads.
+"""
 
 
 class AssistantRuntime:

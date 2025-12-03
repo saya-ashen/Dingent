@@ -13,7 +13,7 @@ export function createArtifactsApi(http: AxiosInstance, artifactsBase: string) {
     async get(id: string, config?: AxiosRequestConfig): Promise<Artifact> {
       // 1. Changed the return type from Artifact[] to Artifact.
       // 2. The endpoint seems to be /api/resource/{id}, so your http instance
-      //    should be configured with the base URL /api. 
+      //    should be configured with the base URL /api.
       //    And artifactsBase should probably be "/resource"
       const { data } = await http.get<Artifact>(url(`/${id}`), config);
       return data;

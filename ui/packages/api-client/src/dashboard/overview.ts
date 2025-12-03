@@ -16,4 +16,3 @@ export function createOverviewApi(http: AxiosInstance, base: string) {
     },
   };
 }
-

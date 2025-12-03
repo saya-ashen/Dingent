@@ -30,4 +30,3 @@ export function toApiError(err: unknown): ApiError {
   }
   return new ApiError(String(err));
 }
-

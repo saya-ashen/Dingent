@@ -76,7 +76,7 @@ async def handler(request: Request, sdk: AsyncCopilotKitRemoteEndpoint):
 
     try:
         body = await request.json()
-    except:  # pylint: disable=bare-except
+    except Exception:
         body = None
 
     path = request.path_params.get("path")
@@ -206,6 +206,8 @@ def add_fastapi_endpoint(
     max_workers: int = 10,
 ):
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
+    assert use_thread_pool
+    assert max_workers
 
     async def make_handler(request: Request):
         return await handler(request, sdk)

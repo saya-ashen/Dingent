@@ -1,10 +1,10 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from dingent.core.schemas import UserRead
-from dingent.server.api.dependencies import authenticate_user, get_current_user
+from dingent.server.api.dependencies import authenticate_user
 from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -33,15 +33,15 @@ async def login_for_access_token(
     )
 
 
-@router.get("/verify", status_code=status.HTTP_200_OK)
-async def verify_token(
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    An endpoint to verify a token's validity.
-    Accessing this endpoint successfully (i.e., getting a 200 OK response)
-    proves the token is valid.
-    """
-    # If the Depends(get_current_user) succeeds, we know the token is valid.
-    # We can just return a success message.
-    return {"status": "ok", "message": "Token is valid"}
+# @router.get("/verify", status_code=status.HTTP_200_OK)
+# async def verify_token(
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     """
+#     An endpoint to verify a token's validity.
+#     Accessing this endpoint successfully (i.e., getting a 200 OK response)
+#     proves the token is valid.
+#     """
+#     assert current_user
+#     # If the Depends(get_current_user) succeeds, we know the token is valid.
+#     # We can just return a success message.

@@ -15,4 +15,3 @@ export function createFrontendApi(http: AxiosInstance, dashboardBase: string) {
 }
 
 export type FrontendApi = ReturnType<typeof createFrontendApi>;
-
