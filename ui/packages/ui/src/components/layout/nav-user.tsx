@@ -6,7 +6,7 @@ import {
   CreditCard,
   LogOut,
 } from "lucide-react";
-import { useDialogState } from "@repo/hooks";
+import { useDialogState } from "../../hooks";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,24 +79,24 @@ export function NavUser({ user }: NavUserProps) {
               <DropdownMenuSeparator />
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings/account">
-                    <BadgeCheck />
-                    Account
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <CreditCard />
-                    Billing
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings/notifications">
-                    <Bell />
-                    Notifications
-                  </Link>
-                </DropdownMenuItem>
+                {/* <DropdownMenuItem asChild> */}
+                {/*   <Link href="/settings/account"> */}
+                {/*     <BadgeCheck /> */}
+                {/*     Account */}
+                {/*   </Link> */}
+                {/* </DropdownMenuItem> */}
+                {/* <DropdownMenuItem asChild> */}
+                {/*   <Link href="/settings"> */}
+                {/*     <CreditCard /> */}
+                {/*     Billing */}
+                {/*   </Link> */}
+                {/* </DropdownMenuItem> */}
+                {/* <DropdownMenuItem asChild> */}
+                {/*   <Link href="/settings/notifications"> */}
+                {/*     <Bell /> */}
+                {/*     Notifications */}
+                {/*   </Link> */}
+                {/* </DropdownMenuItem> */}
               </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setOpen(true)}>

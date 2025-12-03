@@ -4,7 +4,6 @@ Dingent CLI (Simplified version for concurrent Frontend + Backend execution)
 Commands:
   dingent run        Concurrently start backend (langgraph dev no UI) + frontend (node)
   dingent dev        Start langgraph dev with UI (backend only, for debugging Graph + API)
-  dingent init       Create a new Agent project from a template
   dingent version    Show version
 
 Optional Environment Variables:
@@ -37,7 +36,7 @@ from .context import CliContext
 app = typer.Typer(help="Dingent Agent Framework CLI")
 
 DEFAULT_GRAPH_SPEC = "dingent.engine.graph:make_graph"
-DEFAULT_API_SPEC = "dingent.server.app_factory:app"
+DEFAULT_API_SPEC = "dingent.server.main:app"
 ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
 ENV_API_SPEC = "DINGENT_API_SPEC"
 
@@ -108,6 +107,8 @@ def _create_backend_config(cli_ctx: CliContext) -> Path:
     api_spec = os.getenv(ENV_API_SPEC, DEFAULT_API_SPEC)
 
     # Create the .dingent directory if it doesn't exist
+    if not cli_ctx.project_root:
+        raise RuntimeError("Project root is not set in the CLI context.")
     dingent_dir = cli_ctx.project_root / ".dingent"
     dingent_dir.mkdir(parents=True, exist_ok=True)
 
@@ -369,7 +370,7 @@ def run(
 
     backend_cmd = [
         "uvicorn",
-        "dingent.server.copilot_server:app",
+        "dingent.server.main:app",
         "--host",
         "localhost",
         "--port",

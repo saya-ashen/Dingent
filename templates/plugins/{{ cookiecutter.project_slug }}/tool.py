@@ -1,8 +1,9 @@
 from typing import Annotated
 
+from pydantic import Field
+
 from dingent.engine.plugins import BaseTool
 from dingent.engine.plugins.types import TablePayload, ToolOutput
-from pydantic import Field
 
 from .settings import Settings
 

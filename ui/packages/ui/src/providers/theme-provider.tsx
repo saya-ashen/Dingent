@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { getCookie, setCookie, removeCookie } from "@repo/lib/cookies";
 
 type Theme = "dark" | "light" | "system";

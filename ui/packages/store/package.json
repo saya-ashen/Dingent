@@ -11,16 +11,22 @@
   "scripts": {
     "lint": "eslint ."
   },
-  "peerDependencies":{
+  "peerDependencies": {
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "@tanstack/react-query": "^5.90.5",
+    "next": "^16.0.1"
   },
   "devDependencies": {
+    "@repo/api-client": "workspace:*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/lib": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@tanstack/react-query": "^5.90.5",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "@repo/eslint-config": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
     "eslint": "^8.57.0",
+    "next": "^16.0.1",
     "typescript": "^5.3.3"
   },
   "dependencies": {

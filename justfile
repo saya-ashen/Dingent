@@ -47,18 +47,24 @@ prune-next:
 	@echo "[prune] Done."
 
 # =====================
-# 构建 Admin
+# 构建 dashboard
 # =====================
-build-admin:
-	@echo "Building admin dashboard..."
-	@(cd ui/ && bun install --frozen-lockfile && bun run build --filter=admin-dashboard)
+build-dashboard:
+	@echo "Building dashboard..."
+	@(cd ui/ && bun install && bun run build --filter=dashboard)
 
-	@echo "Copying admin dashboard artifacts..."
-	@rm -rf src/dingent/static/admin_dashboard
-	@mkdir -p src/dingent/static/admin_dashboard
-	@cp -r ui/apps/admin-dashboard/out/. src/dingent/static/admin_dashboard/
+	# @echo "Copying dashboard artifacts..."
+	# @rm -rf src/dingent/static/dashboard
+	# @mkdir -p src/dingent/static/dashboard
+	# @cp -r ui/apps/dashboard/out/. src/dingent/static/dashboard/
 
-	@echo "✅ Admin dashboard built and copied successfully."
+	@echo "Copying dashboard into frontend/public..."
+	@mkdir -p ui/apps/frontend/public/dashboard
+	@rm -rf ui/apps/frontend/public/dashboard/*
+	@cp -r ui/apps/dashboard/out/. ui/apps/frontend/public/dashboard/
+
+	@echo "Done"
+
 
 # =====================
 # 构建 Frontend (Next.js) + 裁剪
@@ -70,23 +76,23 @@ build-frontend:
 	@echo "Pruning standalone output..."
 	@just prune-next
 
-	@echo "Copying pruned Next.js standalone artifacts to 'src/dingent/static/frontend'..."
-	@rm -rf src/dingent/static/frontend
-	@mkdir -p src/dingent/static/frontend
-	@cp -r ui/apps/frontend/.next/standalone/. src/dingent/static/frontend/
+	@echo "Copying pruned Next.js standalone artifacts to 'src/dingent/static'..."
+	@rm -rf src/dingent/static
+	@mkdir -p src/dingent/static
+	@cp -r ui/apps/frontend/.next/standalone/. src/dingent/static
 
 	@echo "Copying .next/static (client assets)..."
-	@cp -r ui/apps/frontend/.next/static src/dingent/static/frontend/apps/frontend/.next/
+	@cp -r ui/apps/frontend/.next/static src/dingent/static/apps/frontend/.next/
 
 	@echo "Copying public/ assets..."
-	@cp -r ui/apps/frontend/public src/dingent/static/frontend/apps/frontend/ 2>/dev/null || true
+	@cp -r ui/apps/frontend/public src/dingent/static/apps/frontend/ 2>/dev/null || true
 
 	@echo "Final size (human readable):"
-	@du -sh src/dingent/static/frontend || true
+	@du -sh src/dingent/static || true
 	@echo "✅ User frontend built, pruned and copied successfully."
 
 # =====================
 # 同时构建两个
 # =====================
-build-ui: build-admin build-frontend
+build-ui: build-dashboard build-frontend
 	@echo "🚀 All UI applications have been built."

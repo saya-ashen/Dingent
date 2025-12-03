@@ -10,12 +10,13 @@
     "ui": "bun --filter @repo/ui ui"
   },
   "devDependencies": {
+    "@redux-devtools/extension": "^3.3.0",
+    "@types/react": "19.1.13",
+    "@types/react-dom": "19.1.9",
     "barrelsby": "^2.8.1",
     "prettier": "^3.6.2",
     "turbo": "^2.5.6",
-    "typescript": "5.9.2",
-    "@types/react": "19.1.13",
-    "@types/react-dom": "19.1.9"
+    "typescript": "5.9.2"
   },
   "engines": {
     "node": ">=18"

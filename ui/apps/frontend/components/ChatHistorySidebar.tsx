@@ -1,68 +1,80 @@
 "use client";
 
 import React from "react";
-import { useThreadContext } from "@/contexts/ThreadProvider";
 import { v4 as uuidv4 } from "uuid";
+import { Trash2, Plus } from "lucide-react";
+import { useThreadContext } from "@/contexts/ThreadProvider";
+import { Button, useSidebar, AppSidebar } from "@repo/ui/components"; // 引入 AppSidebar
+import {
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from "@repo/ui/components"; // 引入需要的子组件
 
 export function ChatHistorySidebar() {
-  const {
-    threads, // This is now an array of {id, title}
-    activeThreadId,
-    setActiveThreadId,
-    deleteAllThreads,
-  } = useThreadContext();
+  const { threads, activeThreadId, setActiveThreadId, deleteAllThreads } = useThreadContext();
+  const { isMobile, setOpenMobile } = useSidebar();
 
   const handleNewChat = () => {
-    const newId = uuidv4();
-    setActiveThreadId(newId);
+    setActiveThreadId(uuidv4());
+    if (isMobile) setOpenMobile(false);
+  };
+
+  const handleSelectThread = (id: string) => {
+    setActiveThreadId(id);
+    if (isMobile) setOpenMobile(false);
   };
 
   const handleDeleteAll = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete all conversations? This action cannot be undone.",
-      )
-    ) {
+    if (window.confirm("Are you sure?")) {
       deleteAllThreads();
     }
   };
 
+  // 定义独有的头部内容
+  const headerContent = (
+    <Button variant="outline" size="sm" onClick={handleNewChat} className="justify-start w-full">
+      <Plus className="mr-2 h-4 w-4" />
+      New Chat
+    </Button>
+  );
+
+  // 定义独有的底部内容
+  const footerContent = (
+    <Button
+      variant="ghost"
+      className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+      onClick={handleDeleteAll}
+    >
+      <Trash2 className="mr-2 h-4 w-4" />
+      Clear All Chats
+    </Button>
+  );
+
   return (
-    <div className="flex flex-col h-screen w-64 bg-indigo-800 text-white p-4">
-      <div className="mb-4">
-        <button
-          onClick={handleNewChat}
-          className="w-full px-4 py-2 border border-white/50 rounded-md hover:bg-indigo-700 transition-colors duration-200"
-        >
-          + New Chat
-        </button>
-      </div>
-      <div className="flex-grow overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-2 px-2">History</h2>
-        <ul className="space-y-1">
-          {/* --- CHANGE: Map over threads array and use thread object properties --- */}
-          {threads.map((thread: { id: string; title: string }) => (
-            <li key={thread.id}>
-              <button
-                onClick={() => setActiveThreadId(thread.id)}
-                className={`w-full text-left px-3 py-2 rounded-md truncate text-sm transition-colors duration-200 ${
-                  thread.id === activeThreadId
-                    ? "bg-indigo-600 font-semibold"
-                    : "hover:bg-indigo-700/50"
-                }`}
-              >
-                {thread.title} {/* Display the title */}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <button
-        onClick={handleDeleteAll}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-red-500/50 text-red-300 rounded-md hover:bg-red-500 hover:text-white transition-colors duration-200"
-      >
-        Clear All Chats
-      </button>
-    </div>
+    <AppSidebar header={headerContent} footer={footerContent}>
+      {/* 这里是 children，也就是主要内容 */}
+      <SidebarGroup>
+        <SidebarGroupLabel>History</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {threads.map((thread: { id: string; title: string }) => (
+              <SidebarMenuItem key={thread.id}>
+                <SidebarMenuButton
+                  isActive={thread.id === activeThreadId}
+                  onClick={() => handleSelectThread(thread.id)}
+                  tooltip={thread.title}
+                >
+                  <span className="truncate">{thread.title}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </AppSidebar>
   );
 }

@@ -1,7 +1,9 @@
+import json
 import re
 from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Annotated, Any, TypedDict
+from uuid import UUID
 
 from copilotkit import CopilotKitState
 from langchain_core.messages import AIMessage, ToolMessage
@@ -9,9 +11,15 @@ from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, t
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Command
 from langgraph_swarm import SwarmState
+from mcp.types import TextContent
 from pydantic import BaseModel, Field
+from sqlmodel import Session
 
-from dingent.core.assistant_manager import RunnableTool
+from dingent.core.db.models import Workflow
+from dingent.core.factories.assistant_factory import AssistantFactory
+from dingent.core.managers.resource_manager import ResourceManager
+from dingent.core.runtime.assistant import AssistantRuntime
+from dingent.core.schemas import ResourceCreate, RunnableTool
 
 from .simple_react_agent import build_simple_react_agent
 
@@ -20,13 +28,13 @@ class MainState(CopilotKitState, SwarmState):
     artifact_ids: list[str]
 
 
-def create_handoff_tool(*, agent_name: str, description: str | None, log_method: Callable) -> BaseTool:
+def create_handoff_tool(*, agent_name: str, description: str | None, log_method) -> BaseTool:
     name = f"transfer_to_{agent_name}"
 
     @tool(name, description=description)
     async def handoff_tool(
         tool_call_id: Annotated[str, InjectedToolCallId],
-    ) -> Command:
+    ):
         tool_message = {
             "role": "tool",
             "content": f"Successfully transferred to {agent_name}",
@@ -91,7 +99,13 @@ def create_dynamic_pydantic_class(
     return type(name, (base_class,), attributes)
 
 
-def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> BaseTool:
+def mcp_tool_wrapper(
+    user_id: UUID,
+    resource_manager: ResourceManager,
+    session: Session,
+    runnable_tool: RunnableTool,
+    log_method: Callable,
+) -> BaseTool:
     tool = runnable_tool.tool
 
     async def call_tool(
@@ -99,6 +113,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> BaseT
         **kwargs,
     ) -> Command:
         try:
+            # kwargs["plugin_config"]["user_id"] = str(user_id)
             response_raw = await runnable_tool.run(kwargs)
             log_method(
                 "info",
@@ -114,9 +129,22 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> BaseT
             )
             return Command(update={"messages": [ToolMessage(content=error_msg, tool_call_id=tool_call_id)]})
 
-        structred_response: dict = response_raw.data
-        artifact_id = structred_response.get("artifact_id")
-        model_text = structred_response["model_text"]
+        contents: list[TextContent] = response_raw.content
+        structred_response = {}
+        if len(contents) == 1 and isinstance(contents[0], TextContent):
+            structred_text = contents[0].text
+            structred_response = json.loads(structred_text) if structred_text else {}
+        artifact = structred_response.get("display")
+        model_text = structred_response.get("model_text", "Empty response from tool.")
+        resource = resource_manager.create_resource(
+            user_id,
+            ResourceCreate(
+                model_text=model_text,
+                display=artifact or [],
+            ),
+            session,
+        )
+        artifact_id = str(resource.id)
 
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id)
 
@@ -150,15 +178,26 @@ def _normalize_name(name: str) -> str:
 
 
 @asynccontextmanager
-async def create_assistant_graphs(workflow_manager, workflow_id: str, llm, log_method: Callable):
+async def create_assistant_graphs(
+    user_id: UUID,
+    session: Session,
+    resource_manager: ResourceManager,
+    assistant_factory: AssistantFactory,
+    workflow: Workflow,
+    llm,
+    log_method: Callable,
+):
     assistant_graphs: dict[str, CompiledStateGraph] = {}
-    assistants = await workflow_manager.instantiate_workflow_assistants(workflow_id, reset_assistants=False)
+    assistants_runtime: dict[str, AssistantRuntime] = {}
+    for node in workflow.nodes:
+        assistant = node.assistant
+        assistant_runtime = await assistant_factory.create_runtime(assistant)
+        assistants_runtime[assistant.name] = assistant_runtime
 
-    assistants_by_name = {a.name: a for a in assistants.values()}
-    name_map = {original: _normalize_name(original) for original in assistants_by_name}
+    name_map = {original: _normalize_name(original) for original in assistants_runtime}
 
     handoff_tools: dict[str, BaseTool] = {}
-    for original_name, assistant in assistants_by_name.items():
+    for original_name, assistant in assistants_runtime.items():
         normalized_name = name_map[original_name]
         handoff_tools[normalized_name] = create_handoff_tool(
             agent_name=normalized_name,
@@ -167,10 +206,10 @@ async def create_assistant_graphs(workflow_manager, workflow_id: str, llm, log_m
         )
 
     async with AsyncExitStack() as stack:
-        for original_name, assistant in assistants_by_name.items():
+        for original_name, assistant in assistants_runtime.items():
             normalized_name = name_map[original_name]
             tools: list[RunnableTool] = await stack.enter_async_context(assistant.load_tools())
-            wrapped_tools = [mcp_tool_wrapper(t, log_method) for t in tools]
+            wrapped_tools = [mcp_tool_wrapper(user_id, resource_manager, session, t, log_method) for t in tools]
 
             normalized_destinations = [_normalize_name(d) for d in assistant.destinations if d in name_map]
             dest_tools = [handoff_tools[norm_d] for norm_d in normalized_destinations if norm_d in handoff_tools]
@@ -195,7 +234,8 @@ class ConfigSchema(TypedDict):
 def get_safe_swarm(compiled_swarm: CompiledStateGraph, log_method: Callable):
     async def run_swarm_safely(state: MainState, config):
         try:
-            return await compiled_swarm.ainvoke(state, config=config)
+            result = await compiled_swarm.ainvoke(state, config=config)
+            return result
         except Exception as e:
             error_msg_content = f"An error occurred during this execution round: {type(e).__name__}: {e}"
             log_method("error", "{error_type}: {error_msg}", context={"error_type": type(e).__name__, "error_msg": error_msg_content})

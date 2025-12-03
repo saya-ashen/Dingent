@@ -6,7 +6,10 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "peerDependencies":{
+  "scripts": {
+    "generate-api-types": "openapi-typescript http://localhost:8000/openapi.json --output ./src/types/api.d.ts"
+  },
+  "peerDependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -14,9 +17,11 @@
     "axios": "^1.11.0"
   },
   "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "@repo/typescript-config": "workspace:*",
+    "@xyflow/react": "^12.9.2",
+    "openapi-typescript": "^7.9.1",
     "typescript": "^5.3.3"
   }
 }

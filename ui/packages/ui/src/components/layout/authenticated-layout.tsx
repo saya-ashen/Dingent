@@ -1,36 +1,34 @@
 import { getCookie } from "@repo/lib/cookies";
 import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";
-import {
-  SidebarInset,
-  SidebarProvider,
-  AppSidebar,
-  SkipToMain,
-} from "@repo/ui/components";
+import { SidebarInset, SidebarProvider, SkipToMain } from "@repo/ui/components";
 
 type AuthenticatedLayoutProps = {
+  // The specific sidebar component will be passed in from the app
+  sidebar: React.ReactNode;
   children?: React.ReactNode;
 };
 
-export function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
+export function AuthenticatedLayout({ sidebar, children }: AuthenticatedLayoutProps) {
+  // Logic to read cookie remains the same
+
   const defaultOpen = getCookie("sidebar_state") !== "false";
+
   return (
     <SearchProvider>
       <LayoutProvider>
+        {/* The SidebarProvider now wraps the specific sidebar and the page content */}
         <SidebarProvider defaultOpen={defaultOpen}>
           <SkipToMain />
-          <AppSidebar />
+
+          {/* Render the sidebar that was passed in */}
+          {sidebar}
+
           <SidebarInset
+            id="main-content" // Good practice for the SkipToMain link
             className={cn(
-              // Set content container, so we can use container queries
               "@container/content",
-
-              // If layout is fixed, set the height
-              // to 100svh to prevent overflow
               "has-[[data-layout=fixed]]:h-svh",
-
-              // If layout is fixed and sidebar is inset,
-              // set the height to 100svh - spacing (total margins) to prevent overflow
               "peer-data-[variant=inset]:has-[[data-layout=fixed]]:h-[calc(100svh-(var(--spacing)*4))]",
             )}
           >

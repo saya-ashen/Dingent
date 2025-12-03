@@ -1,0 +1,267 @@
+"use client";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@repo/api-client";
+import {
+  ConfigDrawer,
+  FloatingActionButtons,
+  Header,
+  Main,
+  ProfileDropdown,
+  Search,
+  ThemeSwitch,
+  Button,
+  Input,
+} from "@repo/ui/components";
+
+const levelColors: Record<string, string> = {
+  DEBUG: "#808080",
+  INFO: "#0066CC",
+  WARNING: "#FF8C00",
+  ERROR: "#FF4444",
+  CRITICAL: "#CC0000",
+};
+
+const LEVELS = ["All", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
+
+export default function LogsPage() {
+  const qc = useQueryClient();
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  const statsQ = useQuery({
+    queryKey: ["log-stats"],
+    queryFn: api.dashboard.logs.getStats,
+    refetchInterval: autoRefresh ? 10_000 : false,
+  });
+
+  const [level, setLevel] = useState<string>("All");
+  const [module, setModule] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [limit, setLimit] = useState<number>(100);
+
+  const logsQ = useQuery({
+    queryKey: ["logs", level, module, search, limit],
+    queryFn: () =>
+      api.dashboard.logs.getLogs({
+        level: level === "All" ? null : level,
+        module: module.trim() || null,
+        search: search.trim() || null,
+        limit,
+      }),
+    staleTime: 2_000,
+    refetchInterval: autoRefresh ? 10_000 : false,
+  });
+
+  const total = statsQ.data?.total_logs ?? 0;
+  const byLevelEntries = useMemo(
+    () => Object.entries(statsQ.data?.by_level ?? {}),
+    [statsQ.data],
+  );
+
+  return (
+    <>
+      <Header>
+        <Search />
+        <div className="ms-auto flex items-center gap-4">
+          <ThemeSwitch />
+          <ConfigDrawer />
+          <ProfileDropdown />
+        </div>
+      </Header>
+
+      <FloatingActionButtons>
+        {/* We moved the buttons from PageHeader into this component */}
+        <Button
+          variant={autoRefresh ? "default" : "outline"}
+          onClick={() => setAutoRefresh((v) => !v)}
+          className="w-40 justify-center shadow-lg"
+        >
+          {autoRefresh ? "Auto Refresh: ON" : "Auto Refresh: OFF"}
+        </Button>
+        <Button
+          onClick={async () => {
+            await qc.invalidateQueries({ queryKey: ["logs"] });
+            await qc.invalidateQueries({ queryKey: ["log-stats"] });
+          }}
+          className="shadow-lg"
+        >
+          Refresh
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={async () => {
+            const ok = await api.dashboard.logs.clearAll();
+            if (ok) {
+              toast.success("All logs cleared");
+              await qc.invalidateQueries({ queryKey: ["logs"] });
+              await qc.invalidateQueries({ queryKey: ["log-stats"] });
+            } else {
+              toast.error("Failed to clear logs");
+            }
+          }}
+          className="shadow-lg"
+        >
+          Clear All
+        </Button>
+      </FloatingActionButtons>
+      <Main>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">System Logs</h1>
+          <p className="text-muted-foreground">
+            Inspect logs and filter by level, module, or keywords.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[2fr_1fr]">
+          <div className="rounded border p-3">
+            <div className="mb-2 font-medium">Log Statistics</div>
+            {total > 0 ? (
+              <>
+                <div className="text-3xl font-bold">{total}</div>
+                {!!byLevelEntries.length && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {byLevelEntries.map(([lvl, count]) => (
+                      <span
+                        key={lvl}
+                        className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
+                        style={{
+                          borderColor: levelColors[lvl] || "#999",
+                          color: levelColors[lvl] || "#999",
+                        }}
+                      >
+                        {lvl} <span className="font-semibold">{count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-muted-foreground text-sm">
+                No logs available
+              </div>
+            )}
+          </div>
+
+          <div className="rounded border p-3">
+            <div className="mb-2 font-medium">Filter</div>
+            <div className="grid grid-cols-1 gap-2">
+              <div className="flex flex-wrap gap-2">
+                {LEVELS.map((l) => (
+                  <button
+                    key={l}
+                    className={`rounded-full border px-3 py-1 text-sm ${l === level ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                    onClick={() => setLevel(l)}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <Input
+                placeholder="Module (e.g., config_manager)"
+                value={module}
+                onChange={(e) => setModule(e.target.value)}
+              />
+              <Input
+                placeholder="Search in message..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <Input
+                type="number"
+                min={10}
+                max={500}
+                step={10}
+                value={limit}
+                onChange={(e) => setLimit(Number(e.target.value))}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {logsQ.isLoading && <div>Loading logs...</div>}
+          {logsQ.error && (
+            <div className="text-red-600">Failed to load logs</div>
+          )}
+          {logsQ.data && logsQ.data.length > 0 && (
+            <div className="text-sm font-medium">
+              Showing {logsQ.data.length} logs
+            </div>
+          )}
+          {logsQ.data?.map((log, idx) => {
+            const color = levelColors[log.level] || "#000000";
+            return (
+              <details key={idx} className="rounded border p-2">
+                <summary className="cursor-pointer">
+                  <span className="font-semibold" style={{ color }}>
+                    {log.level}
+                  </span>{" "}
+                  <span className="text-muted-foreground">
+                    [{(log.timestamp || "").slice(0, 19)}]
+                  </span>{" "}
+                  <code>
+                    {log.module || "unknown"}.{log.function || "unknown"}
+                  </code>{" "}
+                  - {log.message?.slice(0, 100)}
+                </summary>
+                <div className="mt-2 space-y-1">
+                  <div>
+                    <span className="font-semibold">Level:</span>{" "}
+                    <span style={{ color }}>{log.level}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold">Timestamp:</span>{" "}
+                    {log.timestamp}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Module:</span>{" "}
+                    <code>{log.module}</code>
+                  </div>
+                  <div>
+                    <span className="font-semibold">Function:</span>{" "}
+                    <code>{log.function}</code>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold">Message:</div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(log.message || "");
+                        toast.success("Message copied");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <pre className="bg-muted rounded p-2 text-sm whitespace-pre-wrap">
+                    {log.message}
+                  </pre>
+                  {log.context && Object.keys(log.context).length > 0 && (
+                    <>
+                      <div className="font-semibold">Context:</div>
+                      <pre className="bg-muted rounded p-2 text-sm whitespace-pre-wrap">
+                        {JSON.stringify(log.context, null, 2)}
+                      </pre>
+                    </>
+                  )}
+                  {log.correlation_id && (
+                    <div>
+                      <span className="font-semibold">Correlation ID:</span>{" "}
+                      <code>{log.correlation_id}</code>
+                    </div>
+                  )}
+                </div>
+              </details>
+            );
+          })}
+          {logsQ.data && logsQ.data.length === 0 && (
+            <div className="text-muted-foreground text-sm">
+              No logs match the current filters.
+            </div>
+          )}
+        </div>
+      </Main>
+    </>
+  );
+}

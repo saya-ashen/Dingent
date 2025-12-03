@@ -3,18 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dingent.core.market_service import MarketService
-from dingent.engine.graph_manager import GraphManager
-
-from .analytics_manager import AnalyticsManager
-from .assistant_manager import AssistantManager
-from .config_manager import ConfigManager
-from .llm_manager import LLMManager
-from .log_manager import LogManager
-from .plugin_manager import PluginManager
-from .resource_manager import ResourceManager
 from .utils import find_project_root
-from .workflow_manager import WorkflowManager
+
+UNIFIED_DB_PATH = ".dingent/data/dingent.sqlite"
 
 
 class AppContext:
@@ -25,31 +16,15 @@ class AppContext:
         if not self.project_root:
             return
         # Initialize in order of dependency (least dependent first)
-        self.log_manager = LogManager()
-        self.config_manager = ConfigManager(self.project_root, self.log_manager)
-        self.resource_manager = ResourceManager(self.log_manager, self.project_root / ".dingent" / "data" / "resources.db")
-        self.llm_manager = LLMManager(self.log_manager)
 
-        self.analytics_manager = AnalyticsManager("test_project")
-        self.analytics_manager.register()
+        self.project_root / "plugins"
 
-        plugin_dir = self.project_root / "plugins"
-        self.plugin_manager = PluginManager(plugin_dir, self.resource_manager, self.log_manager)
+        # self.market_service = MarketService(self.config_manager.project_root, self.log_manager)
 
-        self.assistant_manager = AssistantManager(self.config_manager, self.plugin_manager, self.log_manager)
-
-        self.workflow_manager = WorkflowManager(
-            self.config_manager,
-            self.log_manager,
-            self.assistant_manager,
-        )
-        self.market_service = MarketService(self.config_manager.project_root, self.log_manager)
-        self.graph_manager = GraphManager(self)
-
-    async def close(self):
-        """Close all managers that require cleanup."""
-        self.resource_manager.close()
-        await self.assistant_manager.aclose()
+    async def close_async_components(self):
+        """
+        Gracefully close all managers that require async cleanup.
+        """
 
 
 _app_context_instance: AppContext | None = None

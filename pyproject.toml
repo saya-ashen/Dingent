@@ -14,8 +14,7 @@ dependencies = [
   "loguru>=0.7.3",
   "langgraph>=0.6.3",
   "typer>=0.16.0",
-  "copilotkit==0.1.58",
-  "fastapi>=0.115.6",
+  "copilotkit>=0.1.56",
   "langchain>=0.3.23",
   "fastmcp>=2.2.0",
   "langchain-mcp-adapters>=0.0.11",
@@ -34,12 +33,16 @@ dependencies = [
   "keyring>=25.6.0",
   "litellm>=1.76.1",
   "google-genai>=1.32.0",
+  "fastapi[all]>=0.115.14",
+  "passlib[bcrypt]>=1.7.4",
+  "python-jose[cryptography]>=3.5.0",
+  "sqlmodel>=0.0.25",
+  "pycasbin>=2.2.0",
 ]
 dev = [
   "ipython>=9.4.0",
   "pytest-mock>=3.14.1",
   "aiobotocore>=2.22.0",
-  "basedpyright>=1.28",
   "coverage<8.0.0,>=7.4.3",
   "pre-commit<4.0.0,>=3.6.2",
   "pytest<9.0.0,>=8.4.1",
@@ -97,19 +100,19 @@ local_scheme = "no-local-version"
 
 
 [tool.basedpyright]
-include = ["src/"]
+# include = ["src/"]
 exclude = ["**/__pycache__"]
-# defineConstant = { DEBUG = true }
 reportMissingImports = "error"
 reportMissingTypeStubs = false
 pythonVersion = "3.13"
 pythonPlatform = "Linux"
 typeCheckingMode = "standard"
+useLibraryCodeForTypes = true
+reportInvalidCast = "none"
 
-
-[tool.uv]
-link-mode = "symlink"
-default-groups = "all"
+# [tool.uv]
+# link-mode = "symlink"
+# default-groups = "all"
 
 [dependency-groups]
 dev = ["ipython>=9.4.0"]

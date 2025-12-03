@@ -1,11 +1,7 @@
 "use client";
 
-import { ChatThread, Widget, TablePayload, MarkdownPayload } from "@repo/types";
-import { MarkdownWidget } from "@repo/ui/components";
-import { TableWidget } from "@repo/ui/components";
-import { useMemo, useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { ThreadContext, useThreadManager } from "@/contexts/ThreadProvider";
+import { Widget, TablePayload, MarkdownPayload } from "@repo/types";
+import { MarkdownWidget, TableWidget } from "@repo/ui/components";
 
 export function MainContent({ widgets }: { widgets: Widget[] }) {
   return (
@@ -29,7 +25,6 @@ export function MainContent({ widgets }: { widgets: Widget[] }) {
                   data={widget.payload as TablePayload}
                 />
               );
-
             case "markdown":
               return (
                 <MarkdownWidget
@@ -37,82 +32,11 @@ export function MainContent({ widgets }: { widgets: Widget[] }) {
                   data={widget.payload as MarkdownPayload}
                 />
               );
-
             default:
               return null;
           }
         })
       )}
     </div>
-  );
-}
-
-function AppWithThreads({ children }: { children: React.ReactNode }) {
-  const { threads, updateThreadTitle, ...threadManager } = useThreadManager();
-
-  const contextValue = useMemo(
-    () => ({
-      ...threadManager,
-      threads,
-      updateThreadTitle,
-    }),
-    [threadManager, threads, updateThreadTitle],
-  );
-
-  return (
-    <ThreadContext.Provider value={contextValue}>
-      {children}
-    </ThreadContext.Provider>
-  );
-}
-const THREAD_LIST_KEY = "chatThreadIdList";
-const CURRENT_THREAD_ID_KEY = "currentChatThreadId";
-
-function getInitialThreadId(): string | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  const storedList: ChatThread[] = JSON.parse(
-    localStorage.getItem(THREAD_LIST_KEY) || "[]",
-  );
-  const lastActiveId = localStorage.getItem(CURRENT_THREAD_ID_KEY);
-
-  if (lastActiveId && storedList.some((thread) => thread.id === lastActiveId)) {
-    return lastActiveId;
-  }
-  if (storedList.length > 0) {
-    return storedList[0]?.id;
-  }
-  return undefined;
-}
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  const [activeThreadId, setActiveThreadId] = useState<string | undefined>(
-    getInitialThreadId,
-  );
-
-  const initialThreadContextValue = useMemo(
-    () => ({
-      activeThreadId,
-      setActiveThreadId,
-      threads: [],
-      isLoading: true,
-      updateThreadTitle: () => {},
-      deleteAllThreads: () => {},
-    }),
-    [activeThreadId],
-  );
-
-  return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
-      agent="dingent"
-      threadId={activeThreadId}
-    >
-      <ThreadContext.Provider value={initialThreadContextValue}>
-        <AppWithThreads>{children}</AppWithThreads>
-      </ThreadContext.Provider>
-    </CopilotKit>
   );
 }

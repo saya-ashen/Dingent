@@ -4,7 +4,6 @@
  */
 
 export * from "./common/coming-soon";
-export * from "./common/command-menu";
 export * from "./common/config-drawer";
 export * from "./common/confirm-dialog";
 export * from "./common/date-picker";
@@ -21,6 +20,7 @@ export * from "./common/sign-out-dialog";
 export * from "./common/skip-to-main";
 export * from "./common/status-badge";
 export * from "./common/theme-switch";
+export * from "./common/user-auth-form";
 export * from "./dashboard/analytics-tab";
 export * from "./dashboard/assistants-card";
 export * from "./dashboard/dashboard-stats";
@@ -50,8 +50,6 @@ export * from "./layout/main";
 export * from "./layout/nav-group";
 export * from "./layout/nav-user";
 export * from "./layout/top-nav";
-export * from "./layout/types";
-export * from "./layout/data/sidebar-data";
 export * from "./ui/accordion";
 export * from "./ui/alert-dialog";
 export * from "./ui/alert";
@@ -85,3 +83,6 @@ export * from "./ui/textarea";
 export * from "./ui/tooltip";
 export * from "./widgets/DataTableWidget";
 export * from "./widgets/MarkdownWidget";
+export * from "./layout/root-layout";
+export * from "./layout/types";
+export * from "./layout/auth-layout";

@@ -9,12 +9,11 @@ interface SignOutDialogProps {
 
 export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
   const router = useRouter();
-  const { auth } = useAuthStore();
+  const { reset } = useAuthStore();
 
   const handleSignOut = () => {
-    auth.reset();
-    // Preserve current location for redirect after sign-in
-    router.replace("/sign-in");
+    reset();
+    router.replace("auth/login");
   };
 
   return (

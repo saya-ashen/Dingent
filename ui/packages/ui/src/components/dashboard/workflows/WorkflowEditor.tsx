@@ -80,13 +80,15 @@ export function WorkflowEditor({
         y: event.clientY,
       });
 
+      const newNodeId = `node-${assistant.id}-${Date.now()}`;
       const newNode: WorkflowNode = {
-        id: assistant.id,
+        id: newNodeId,
         type: "assistant",
         position,
         data: {
+          id: newNodeId,
           assistantId: assistant.id,
-          assistantName: assistant.name,
+          name: assistant.name,
           description: assistant.description,
         },
       };
