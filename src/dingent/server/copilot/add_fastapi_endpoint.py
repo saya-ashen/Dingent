@@ -206,7 +206,7 @@ def add_fastapi_endpoint(
     max_workers: int = 10,
 ):
     """Add FastAPI endpoint with configurable ThreadPoolExecutor size"""
-    assert use_thread_pool
+    assert use_thread_pool is not None
     assert max_workers
 
     async def make_handler(request: Request):

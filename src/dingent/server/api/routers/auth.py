@@ -1,11 +1,13 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlmodel import Session
 
-from dingent.core.schemas import UserRead
-from dingent.server.api.dependencies import authenticate_user
-from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
+from dingent.core.db.crud.user import get_user, create_user
+from dingent.core.schemas import UserCreate, UserRead
+from dingent.server.api.dependencies import authenticate_user, get_db_session
+from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_password_hash
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -33,15 +35,15 @@ async def login_for_access_token(
     )
 
 
-# @router.get("/verify", status_code=status.HTTP_200_OK)
-# async def verify_token(
-#     current_user: dict = Depends(get_current_user),
-# ):
-#     """
-#     An endpoint to verify a token's validity.
-#     Accessing this endpoint successfully (i.e., getting a 200 OK response)
-#     proves the token is valid.
-#     """
-#     assert current_user
-#     # If the Depends(get_current_user) succeeds, we know the token is valid.
-#     # We can just return a success message.
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+def register_user(user_in: UserCreate, session: Session = Depends(get_db_session)):
+    """
+    用户注册接口
+    """
+    existing_user = get_user(session, user_in.email)
+    if existing_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Email {user_in.email} already registered")
+
+    new_user = create_user(session, user_in)
+
+    return new_user

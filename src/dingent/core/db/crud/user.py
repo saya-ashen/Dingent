@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
 
-from dingent.core.db.models import User, UserRole
+from dingent.core.db.models import User, Role
+from dingent.core.schemas import UserCreate
 
 
 def get_user(session: Session, email: str) -> User | None:
@@ -9,41 +10,33 @@ def get_user(session: Session, email: str) -> User | None:
     return result
 
 
-def create_test_user(
-    session: Session,
-    username: str = "testuser",
-    email: str = "test@example.com",
-    password: str = "testpassword123",
-    role: UserRole = UserRole.user,
-) -> User:
+def create_user(session: Session, user_in: UserCreate) -> User:
     """
-    创建一个用于测试的用户。
-
-    如果具有相同邮箱的用户已存在，则直接返回该用户。
-    否则，创建一个新用户并存入数据库。
+    接收 Pydantic 模型，处理密码加密，并保存到数据库
     """
-    # 1. 检查用户是否已存在
-    db_user = get_user(session, email=email)
-    if db_user:
-        print(f"User with email '{email}' already exists.")
-        return db_user
+    from dingent.server.auth.security import get_password_hash
 
-    # 2. 如果用户不存在，则创建新用户
-    hashed_password = "$2b$12$DmYECapSrA2wOyBn2xK1sOW4Iqi1T5PtEOZHAyCCE/NmfqvAHTAeG"
+    # 1. 密码加密逻辑封装在这里
+    hashed_pw = get_password_hash(user_in.password)
 
-    new_user = User(
-        username=username,
-        email=email,
-        hashed_password=hashed_password,
-        role=role,
-        is_active=True,
+    # 2. 转换模型
+    # 如果字段很多，也可以用 User(**user_in.dict(), hashed_password=hashed_pw) (Pydantic v1)
+    # 或者 User.model_validate(user_in, update={"hashed_password": hashed_pw}) (Pydantic v2 / SQLModel)
+    db_user = User(
+        username=user_in.username,
+        email=user_in.email,
+        hashed_password=hashed_pw,
     )
-    assert password
+    default_role_name = "user"
+    statement = select(Role).where(Role.name == default_role_name)
+    role_obj = session.exec(statement).first()
+    if not role_obj:
+        raise ValueError(f"系统错误：默认角色 '{default_role_name}' 未在数据库中创建。请先运行初始化脚本。")
+    db_user.roles.append(role_obj)
 
-    # 3. 将新用户添加到数据库
-    session.add(new_user)
+    # 3. 写入数据库
+    session.add(db_user)
     session.commit()
-    session.refresh(new_user)
+    session.refresh(db_user)
 
-    print(f"Successfully created new user '{username}' with email '{email}'.")
-    return new_user
+    return db_user

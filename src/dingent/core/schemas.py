@@ -7,7 +7,7 @@ from uuid import UUID
 
 import toml
 from mcp.types import Tool
-from pydantic import ConfigDict, PrivateAttr
+from pydantic import ConfigDict, EmailStr, PrivateAttr
 from sqlmodel import Field, SQLModel
 
 from dingent.core.db.models import PluginConfigSchema
@@ -154,26 +154,9 @@ class PluginUpdateOnAssistant(SQLModel):
     user_config_values: dict[str, Any] | None = None
 
 
-# class PluginConfigSchema(SQLModel):
-#     name: str = Field(..., description="配置项的名称 (环境变量名)")
-#     type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
-#     required: bool = Field(..., description="是否为必需项")
-#     secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
-#     description: str | None = Field(None, description="该配置项的描述")
-#     default: Any | None = Field(None, description="默认值 (如果存在)")
-
-
 class RunnableTool(SQLModel):
     tool: Tool
     run: Callable[[dict], Any]
-
-
-class UserRead(SQLModel):
-    id: str
-    username: str
-    email: str
-    full_name: str | None = None
-    role: list[str] = Field(default_factory=lambda: ["user"])
 
 
 # ==============================================================================
@@ -384,3 +367,17 @@ class ResourceRead(ResourceBase):
     id: UUID
     created_at: datetime
     user_id: UUID
+
+
+class UserRead(SQLModel):
+    id: UUID
+    username: str
+    email: str
+    full_name: str | None = None
+    role: list[str] = Field(default_factory=lambda: ["user"])
+
+
+class UserCreate(SQLModel):
+    username: str
+    email: EmailStr
+    password: str
