@@ -65,8 +65,7 @@
               nodejs
               python
               uv
-              electron
-              nodejs_22
+              bun
               jaq
               pre-commit
               just

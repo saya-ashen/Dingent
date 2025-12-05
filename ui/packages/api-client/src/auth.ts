@@ -1,5 +1,5 @@
 import type { AxiosInstance } from "axios";
-import type { LoginRequest, LoginResponse, AuthUser } from "./types";
+import type { LoginRequest, LoginResponse, AuthUser, SignupRequest, SignupResponse } from "./types";
 import { setAccessToken, setUser, resetAuth } from "@repo/store";
 
 
@@ -22,6 +22,16 @@ export function createAuthApi(http: AxiosInstance, opts: { authPath: string; }) 
         // const userProfile = await this.getMe();
         // setUser(userProfile);
       }
+      return data;
+    },
+    /** * POST /auth/register
+     */
+    async signup(payload: SignupRequest): Promise<SignupResponse> {
+      const { data } = await http.post<SignupResponse>(
+        `${opts.authPath}/register`,
+        payload
+      );
+
       return data;
     },
 

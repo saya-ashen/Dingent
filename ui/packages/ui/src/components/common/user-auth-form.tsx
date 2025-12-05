@@ -7,7 +7,7 @@ import { Loader2, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { IconFacebook, IconGithub } from "@repo/assets/icon";
 import { useAuthStore } from "@repo/store";
-import { sleep, cn } from "@repo/lib/utils";
+import { cn } from "@repo/lib/utils";
 import { api } from "@repo/api-client";
 import {
   Button,
@@ -135,17 +135,24 @@ export function UserAuthForm({
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-background text-muted-foreground px-2">
-              Or continue with
+              Or
             </span>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
+          <Link href="/auth/sign-up">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={isLoading}
+              className="w-full" // 确保按钮填满 Link 容器的宽度
+            >
+              Sign up
+            </Button>
+          </Link>
           <Button variant="outline" type="button" disabled={isLoading}>
-            <IconGithub className="h-4 w-4" /> GitHub
-          </Button>
-          <Button variant="outline" type="button" disabled={isLoading}>
-            <IconFacebook className="h-4 w-4" /> Facebook
+            SSO
           </Button>
         </div>
       </form>

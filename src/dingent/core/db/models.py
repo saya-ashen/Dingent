@@ -25,10 +25,17 @@ class ToolOverrideConfig(BaseModel):
 # --- 用户与所有权模型 ---
 
 
-class UserRole(str, Enum):
-    admin = "admin"
-    user = "user"
-    guest = "guest"
+class UserRoleLink(SQLModel, table=True):
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+    role_id: int = Field(foreign_key="role.id", primary_key=True)
+
+
+class Role(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True)  # 例如 "admin", "user"
+    description: str | None = None
+
+    users: list["User"] = Relationship(back_populates="roles", link_model=UserRoleLink)
 
 
 class User(SQLModel, table=True):
@@ -38,9 +45,9 @@ class User(SQLModel, table=True):
 
     # 基本标识
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    username: str = Field(unique=True, index=True, description="唯一用户名（可显示/可登录）")
+    username: str = Field(description="用户昵称，非唯一标识")
     email: str = Field(unique=True, index=True, description="用户邮箱（主要用于登录和通知）")
-    role: UserRole = Field(default="user", description="用户角色，如 'user', 'admin', 'guest' 等")
+    roles: list[Role] = Relationship(back_populates="users", link_model=UserRoleLink)
     hashed_password: str
     encrypted_dek: bytes | None = Field(default=None, sa_column=Column(LargeBinary))
 

@@ -7,7 +7,7 @@ from sqlmodel import Session
 
 from dingent.core.config import settings
 from dingent.core.db.crud import assistant as crud_assistant
-from dingent.core.db.crud.user import create_test_user, get_user
+from dingent.core.db.crud.user import get_user
 from dingent.core.db.models import User
 from dingent.core.db.session import engine
 from dingent.core.managers.log_manager import LogManager
@@ -165,7 +165,6 @@ def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends(), session:
     1. 从数据库获取用户
     2. 验证密码哈希
     """
-    create_test_user(session)
 
     user = get_user(session, form_data.username)
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -175,7 +174,7 @@ def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends(), session:
             headers={"WWW-Authenticate": "Bearer"},
         )
     return UserRead(
-        id=str(user.id),
+        id=user.id,
         email=user.email,
         username=user.username,
     )

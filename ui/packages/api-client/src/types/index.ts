@@ -17,6 +17,12 @@ export type AuthUser = {
   role: string[];
 };
 
+export interface SignupRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+export type SignupResponse = AuthUser;
 
 export type LogItem = {
   timestamp: string;
