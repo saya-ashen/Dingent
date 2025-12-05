@@ -17,9 +17,11 @@ import os
 import queue
 import re
 import subprocess
+import sys
 import tempfile
 import threading
 import time
+import tarfile
 import webbrowser
 from pathlib import Path
 from typing import Annotated
@@ -31,7 +33,7 @@ from cookiecutter.main import cookiecutter
 from rich import print
 from rich.text import Text
 
-from .context import CliContext
+from dingent.cli.context import CliContext
 
 app = typer.Typer(help="Dingent Agent Framework CLI")
 
@@ -57,6 +59,14 @@ frontend_port = 3000
 # --------- Utility Functions ---------
 
 
+# --- 新增：资源路径获取函数 ---
+def get_resource_path(relative_path: str | Path) -> Path:
+    """获取资源绝对路径（兼容 PyInstaller 打包后的 _MEIPASS）"""
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / relative_path
+    return Path(relative_path)
+
+
 def _ensure_project_root(cli_ctx: CliContext):
     """
     Checks if the current directory is a Dingent project. If not, prompts the user to create dingent.toml.
@@ -78,7 +88,7 @@ def _ensure_project_root(cli_ctx: CliContext):
     return
 
 
-def _resolve_node_binary():
+def _resolve_node_binary() -> str:
     """
     Gets the node executable path using nodejs_wheel.
     """
@@ -269,8 +279,9 @@ class ServiceSupervisor:
             popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         try:
             svc.process = subprocess.Popen(svc.command, **popen_kwargs)
-        except FileNotFoundError:
-            print(f"[bold red]❌ Failed to start {svc.name}: Command not found: {svc.command[0]}[/bold red]")
+        except FileNotFoundError as e:
+            print(f"[bold red]❌ Failed to start service {svc.name}: {e}[/bold red]")
+            breakpoint()
             raise typer.Exit(1)
         threading.Thread(target=self._stream_reader, args=(svc,), daemon=True).start()
         print(f"[bold green]✓ {svc.name} (PID {svc.process.pid}) started: {' '.join(svc.command)}[/bold green]")
@@ -369,14 +380,20 @@ def run(
         raise typer.Exit(1)
 
     backend_cmd = [
-        "uvicorn",
-        "dingent.server.main:app",
-        "--host",
+        sys.executable,
+        "internal-backend",
         "localhost",
-        "--port",
         str(cli_ctx.backend_port),
     ]
-    frontend_cmd = [node_bin, "apps/frontend/server.js"]
+    static_path = get_resource_path("src/dingent/static/")
+    tar_path = get_resource_path("src/dingent/static.tar.gz")
+    # 先解压 static.zip 到 static_path（如果不存在的话）
+    if not static_path.exists():
+        static_path.mkdir(parents=True, exist_ok=True)
+
+        print("[bold blue]⏳ Extracting static assets...[/bold blue]")
+        with tarfile.open(tar_path, "r:gz") as tar:
+            tar.extractall(path=static_path, filter="data")
 
     services = [
         Service(
@@ -387,8 +404,8 @@ def run(
         ),
         Service(
             name="frontend",
-            command=frontend_cmd,
-            cwd=cli_ctx.frontend_path,
+            command=[node_bin, "apps/frontend/server.js"],  # 确保转为 str
+            cwd=static_path,  # 使用计算后的路径
             color="cyan",
             env={
                 "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
@@ -402,89 +419,15 @@ def run(
     supervisor.start_all()
 
 
-@app.command()
-def dev(
-    open_ui: bool = typer.Option(True, "--ui/--no-ui", help="Start the official langgraph dev UI"),
-    with_frontend: bool = typer.Option(True, "--with-frontend", help="Also start the frontend"),
-    no_browser: bool = typer.Option(False, "--no-browser", help="When --with-frontend is enabled, do not open the browser automatically"),
-):
+@app.command(hidden=True)
+def internal_backend(host: str, port: int, app_str: str = "dingent.server.main:app"):
     """
-    Starts the development server, primarily for debugging the backend Graph and API.
+    (Internal) 仅供打包后的 EXE 内部调用，用于启动 Uvicorn
     """
-    if not open_ui and not with_frontend:
-        print("[yellow]No action specified (use --ui or --with-frontend). Exiting.[/yellow]")
-        raise typer.Exit(0)
+    import uvicorn
 
-    cli_ctx = CliContext()
-    _ensure_project_root(cli_ctx)
-
-    if open_ui and not with_frontend:
-        try:
-            from .dev_runner import start_langgraph_ui
-        except Exception as e:
-            print(f"[bold red]Failed to import dev_runner: {e}[/bold red]")
-            raise typer.Exit(1)
-        start_langgraph_ui()
-        return
-
-    # MODIFICATION: Using the new function to create the config
-    cfg_path = _create_backend_config(cli_ctx)
-    backend_cmd = [
-        "langgraph",
-        "dev",
-        "--allow-blocking",
-        "--no-reload",
-        "--port",
-        str(cli_ctx.backend_port),
-        "--config",
-        str(cfg_path),
-    ]
-
-    services = [
-        Service(
-            name="backend-ui" if open_ui else "backend",
-            command=backend_cmd,
-            cwd=cli_ctx.project_root,
-            env={"DINGENT_DEV": "true"},
-            color="magenta",
-            open_browser_hint=True,
-        ),
-    ]
-
-    if with_frontend:
-        try:
-            node_bin = _resolve_node_binary()
-        except Exception as e:
-            print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
-            raise typer.Exit(1)
-
-        frontend_cmd = [node_bin, "apps/frontend/server.js", "--port", str(cli_ctx.frontend_port)]
-        services.append(
-            Service(
-                name="frontend",
-                command=frontend_cmd,
-                cwd=cli_ctx.frontend_path,
-                color="cyan",
-                env={
-                    "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
-                    "DINGENT_DEV": "true",
-                },
-            )
-        )
-
-    supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)
-    supervisor.start_all()
-
-
-@app.command("init")
-def init(
-    project_name: Annotated[str, typer.Argument(help="The name of the new project")],
-    template: Annotated[str, typer.Option(help="The template to use for creating the project")] = "basic",
-    checkout: Annotated[str, typer.Option(help="The branch, tag, or commit to check out")] = "main",
-):
-    """Create a new Agent project from a template."""
-    initializer = ProjectInitializer(project_name, template, checkout)
-    initializer.run()
+    # 动态导入 app 对象，或者直接传字符串（uvicorn 只是在 EXE 内调用 python 模块）
+    uvicorn.run(app_str, host=host, port=port)
 
 
 @app.command()
