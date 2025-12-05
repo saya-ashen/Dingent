@@ -1,6 +1,6 @@
 from sqlmodel import Session, select
 
-from dingent.core.db.models import User, Role
+from dingent.core.db.models import Role, User
 from dingent.core.schemas import UserCreate
 
 

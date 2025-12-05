@@ -1,9 +1,10 @@
 from pathlib import Path
 
 from sqlalchemy import create_engine, event
-from sqlmodel import SQLModel, Session, select
+from sqlmodel import Session, SQLModel, select
 
 from .models import *  # noqa: F403
+from .models import Role
 
 # --- 1. Configuration ---
 DB_PATH = Path(".dingent/data/dingent.db").resolve()

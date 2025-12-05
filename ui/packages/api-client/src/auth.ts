@@ -24,7 +24,7 @@ export function createAuthApi(http: AxiosInstance, opts: { authPath: string; }) 
       }
       return data;
     },
-    /** * POST /auth/register 
+    /** * POST /auth/register
      */
     async signup(payload: SignupRequest): Promise<SignupResponse> {
       const { data } = await http.post<SignupResponse>(

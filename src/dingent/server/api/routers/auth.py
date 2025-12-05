@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from dingent.core.db.crud.user import get_user, create_user
+from dingent.core.db.crud.user import create_user, get_user
 from dingent.core.schemas import UserCreate, UserRead
 from dingent.server.api.dependencies import authenticate_user, get_db_session
-from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_password_hash
+from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 

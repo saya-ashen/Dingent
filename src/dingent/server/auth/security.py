@@ -3,9 +3,9 @@ from typing import Any
 
 from fastapi.exceptions import HTTPException
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 from sqlmodel import Session
 from starlette import status
-from passlib.context import CryptContext
 
 from dingent.core.db.crud.user import get_user
 
