@@ -49,12 +49,11 @@ jobs:
 
       - name: Lint with ruff
         run: |
-          uv pip install ruff
-          uv run ruff check .
+          ruff check .
 
       - name: Check formatting with ruff
         run: |
-          uv run ruff format --check .
+          ruff format --check .
 
       # - name: Run tests with pytest
       #   run: |
