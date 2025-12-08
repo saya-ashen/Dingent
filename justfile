@@ -2,6 +2,8 @@
 set export
 # 更安全的 shell 行为
 set shell := ["sh","-c"]
+set windows-shell := ["sh", "-c"]
+
 
 # =====================
 # 可覆盖变量（命令行： just SWC_PLATFORM=linux-x64-musl build-frontend）
@@ -22,72 +24,72 @@ install:
 # 内部：裁剪函数配方（可单独运行： just prune-next）
 # =====================
 prune-next:
-	@echo "[prune] Start pruning Next.js standalone..."
-	@if [ ! -d ui/apps/frontend/.next/standalone/apps/frontend/node_modules/next/dist/compiled ]; then \
-	  echo "[prune] compiled directory not found, maybe build failed or not standalone build"; \
-	  exit 0; \
-	fi
-	# 1. 裁剪 swc 平台二进制
-	@echo "[prune] Keep swc platform pattern: $${SWC_PLATFORM}"
-	@cd ui/apps/frontend/.next/standalone/apps/frontend/node_modules/next/dist/compiled; \
-	for d in @next/swc-*; do \
-	  if echo "$d" | grep -q "$$SWC_PLATFORM"; then \
-	    if [ "$VERBOSE" = "1" ]; then echo "  keep $$d"; fi; \
-	  else \
-	    echo "  remove $$d"; rm -rf "$$d"; \
-	  fi; \
-	done
-	#  删除 @img
-	@if [ "$STRIP_IMG" = "1" ]; then \
-	  echo "[prune] Removing @img (image optimizer binaries)"; \
-	  rm -rf ui/apps/frontend/.next/standalone/node_modules/@img || true; \
-	fi
-	@echo "[prune] Size after prune:"
-	@du -sh ui/apps/frontend/.next/standalone || true
-	@echo "[prune] Done."
+  @echo "[prune] Start pruning Next.js standalone..."
+  @if [ ! -d ui/apps/frontend/.next/standalone/apps/frontend/node_modules/next/dist/compiled ]; then \
+    echo "[prune] compiled directory not found, maybe build failed or not standalone build"; \
+    exit 0; \
+  fi
+  # 1. 裁剪 swc 平台二进制
+  @echo "[prune] Keep swc platform pattern: $${SWC_PLATFORM}"
+  @cd ui/apps/frontend/.next/standalone/apps/frontend/node_modules/next/dist/compiled; \
+  for d in @next/swc-*; do \
+    if echo "$d" | grep -q "$$SWC_PLATFORM"; then \
+      if [ "$VERBOSE" = "1" ]; then echo "  keep $$d"; fi; \
+    else \
+      echo "  remove $$d"; rm -rf "$$d"; \
+    fi; \
+  done
+  #  删除 @img
+  @if [ "$STRIP_IMG" = "1" ]; then \
+    echo "[prune] Removing @img (image optimizer binaries)"; \
+    rm -rf ui/apps/frontend/.next/standalone/node_modules/@img || true; \
+  fi
+  @echo "[prune] Size after prune:"
+  @du -sh ui/apps/frontend/.next/standalone || true
+  @echo "[prune] Done."
 
 # =====================
 # 构建 dashboard
 # =====================
 build-dashboard:
-	@echo "Building dashboard..."
-	@(cd ui/ && bun install && bun run build --filter=dashboard)
+  @echo "Building dashboard..."
+  @(cd ui/ && bun install && bun run build --filter=dashboard)
 
-	@echo "Copying dashboard into frontend/public..."
-	@mkdir -p ui/apps/frontend/public/dashboard
-	@rm -rf ui/apps/frontend/public/dashboard/*
-	@cp -r ui/apps/dashboard/out/. ui/apps/frontend/public/dashboard/
+  @echo "Copying dashboard into frontend/public..."
+  @mkdir -p ui/apps/frontend/public/dashboard
+  @rm -rf ui/apps/frontend/public/dashboard/*
+  @cp -r ui/apps/dashboard/out/. ui/apps/frontend/public/dashboard/
 
-	@echo "Done"
+  @echo "Done"
 
 
 # =====================
 # 构建 Frontend (Next.js) + 裁剪
 # =====================
 build-frontend:
-	@echo "Building user frontend (Next.js standalone)..."
-	@(cd ui/ && bun install --frozen-lockfile && bun run build --filter=frontend)
+  @echo "Building user frontend (Next.js standalone)..."
+  @(cd ui/ && bun install --frozen-lockfile && bun run build --filter=frontend)
 
-	@echo "Pruning standalone output..."
-	@just prune-next
+  @echo "Pruning standalone output..."
+  @just prune-next
 
 
-	@echo "Copying .next/static (client assets)..."
+  @echo "Copying .next/static (client assets)..."
   @cp -r ui/apps/frontend/.next/static ui/apps/frontend/.next/standalone/apps/frontend/.next/
 
-	@echo "Copying public/ assets..."
+  @echo "Copying public/ assets..."
   @cp -r ui/apps/frontend/public ui/apps/frontend/.next/standalone/apps/frontend/ 2>/dev/null || true
 
   @echo "Compressing artifacts to 'build/static.tar.gz'..."
   @mkdir -p build
   @tar -czf build/static.tar.gz -C ui/apps/frontend/.next/standalone .
 
-	@echo "Final size (human readable):"
+  @echo "Final size (human readable):"
   @ls -lh build/static.tar.gz
-	@echo "✅ User frontend built, pruned and copied successfully."
+  @echo "✅ User frontend built, pruned and copied successfully."
 
 # =====================
 # 同时构建两个
 # =====================
 build-ui: build-dashboard build-frontend
-	@echo "🚀 All UI applications have been built."
+  @echo "🚀 All UI applications have been built."
