@@ -90,7 +90,7 @@ exclude = [
   ".pytest_cache",
   "__pycache__",
 ]
-force-include = { "src/dingent/static" = "src/dingent/static" }
+# force-include = { "src/dingent/static" = "src/dingent/static" }
 [tool.hatch.version]
 source = "vcs"
 [tool.hatch.version.raw-options]
