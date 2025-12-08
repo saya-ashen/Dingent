@@ -1,8 +1,7 @@
 # 让所有定义的变量导出到配方的环境中
 set export
 # 更安全的 shell 行为
-bash_path := if os() == "windows" { "C:/Program Files/Git/bin/bash.exe" } else { "bash" }
-set shell := [bash_path, "-eu", "-o", "pipefail", "-c"]
+# set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 
 # =====================
 # 可覆盖变量（命令行： just SWC_PLATFORM=linux-x64-musl build-frontend）
