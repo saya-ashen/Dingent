@@ -49,10 +49,10 @@ jobs:
 
       - name: Build a binary wheel and a source tarball
         if: runner.os == 'Linux'
-        run: python3 -m build
+        run: uv build
 
       - name: Build executable with PyInstaller 🧊
-        run: pyinstaller --clean dingent.spec --distpath dist_bin
+        run: uv run pyinstaller --clean dingent.spec --distpath dist_bin
 
       - name: Store the executable artifact 📦
         uses: actions/upload-artifact@v4
