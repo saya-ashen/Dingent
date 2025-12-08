@@ -1,7 +1,7 @@
 # 让所有定义的变量导出到配方的环境中
 set export
 # 更安全的 shell 行为
-# set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+set shell := ["sh","-c"]
 
 # =====================
 # 可覆盖变量（命令行： just SWC_PLATFORM=linux-x64-musl build-frontend）
