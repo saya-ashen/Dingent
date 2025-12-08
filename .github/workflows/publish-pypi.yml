@@ -19,9 +19,17 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: DeterminateSystems/nix-installer-action@main
-      - uses: DeterminateSystems/magic-nix-cache-action@main
-      - name: Set up direnv
+      # ================== Linux (Nix) 环境设置 ==================
+      - name: Install Nix ❄️ (Linux only)
+        if: runner.os == 'Linux'
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Magic Nix Cache 🪄 (Linux only)
+        if: runner.os == 'Linux'
+        uses: DeterminateSystems/magic-nix-cache-action@main
+
+      - name: Set up direnv (Linux only)
+        if: runner.os == 'Linux'
         uses: HatsuneMiku3939/direnv-action@v1
 
       - name: Set up Python 🐍 (Windows only)
