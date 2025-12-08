@@ -19,26 +19,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # ================== Linux (Nix) 环境设置 ==================
-      - name: Install Nix ❄️ (Linux only)
-        if: runner.os == 'Linux'
-        uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Magic Nix Cache 🪄 (Linux only)
-        if: runner.os == 'Linux'
-        uses: DeterminateSystems/magic-nix-cache-action@main
-
-      - name: Set up direnv (Linux only)
-        if: runner.os == 'Linux'
-        uses: HatsuneMiku3939/direnv-action@v1
-
-      - name: Set up Python 🐍 (Windows only)
-        if: runner.os == 'Windows'
+      - name: Set up Python 🐍
         uses: actions/setup-python@v6
         with:
           python-version-file: "pyproject.toml"
-      - name: Set up Bun ⚡(Windows only)
-        if: runner.os == 'Windows'
+
+      - name: Set up Bun ⚡
         uses: oven-sh/setup-bun@v2
 
       - name: Install uv
@@ -53,8 +39,11 @@ jobs:
             bun-${{ runner.os }}-
 
       - name: Set up Just
-        if: runner.os == 'Windows'
         uses: extractions/setup-just@v3
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
       - name: Build UI
         run: just build-ui
 

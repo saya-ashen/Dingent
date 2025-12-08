@@ -62,7 +62,6 @@
           pre-commit
           just
           ruff
-          python313Packages.pyinstaller
         ];
         shellHook = ''
           VENV_DIR=".venv"

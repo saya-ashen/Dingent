@@ -116,6 +116,7 @@ reportInvalidCast = "none"
 [dependency-groups]
 dev = [
     "ipython>=9.4.0",
+    "pyinstaller>=6.17.0",
 ]
 
 

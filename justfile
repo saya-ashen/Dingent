@@ -53,11 +53,6 @@ build-dashboard:
 	@echo "Building dashboard..."
 	@(cd ui/ && bun install && bun run build --filter=dashboard)
 
-	# @echo "Copying dashboard artifacts..."
-	# @rm -rf src/dingent/static/dashboard
-	# @mkdir -p src/dingent/static/dashboard
-	# @cp -r ui/apps/dashboard/out/. src/dingent/static/dashboard/
-
 	@echo "Copying dashboard into frontend/public..."
 	@mkdir -p ui/apps/frontend/public/dashboard
 	@rm -rf ui/apps/frontend/public/dashboard/*
@@ -76,19 +71,19 @@ build-frontend:
 	@echo "Pruning standalone output..."
 	@just prune-next
 
-	@echo "Copying pruned Next.js standalone artifacts to 'src/dingent/static'..."
-	@rm -rf src/dingent/static
-	@mkdir -p src/dingent/static
-	@cp -r ui/apps/frontend/.next/standalone/. src/dingent/static
 
 	@echo "Copying .next/static (client assets)..."
-	@cp -r ui/apps/frontend/.next/static src/dingent/static/apps/frontend/.next/
+  @cp -r ui/apps/frontend/.next/static ui/apps/frontend/.next/standalone/apps/frontend/.next/
 
 	@echo "Copying public/ assets..."
-	@cp -r ui/apps/frontend/public src/dingent/static/apps/frontend/ 2>/dev/null || true
+  @cp -r ui/apps/frontend/public ui/apps/frontend/.next/standalone/apps/frontend/ 2>/dev/null || true
+
+  @echo "Compressing artifacts to 'build/static.tar.gz'..."
+  @mkdir -p build
+  @tar -czf build/static.tar.gz -C ui/apps/frontend/.next/standalone .
 
 	@echo "Final size (human readable):"
-	@du -sh src/dingent/static || true
+  @ls -lh build/static.tar.gz
 	@echo "✅ User frontend built, pruned and copied successfully."
 
 # =====================
