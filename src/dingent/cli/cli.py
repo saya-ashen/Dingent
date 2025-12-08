@@ -281,7 +281,6 @@ class ServiceSupervisor:
             svc.process = subprocess.Popen(svc.command, **popen_kwargs)
         except FileNotFoundError as e:
             print(f"[bold red]❌ Failed to start service {svc.name}: {e}[/bold red]")
-            breakpoint()
             raise typer.Exit(1)
         threading.Thread(target=self._stream_reader, args=(svc,), daemon=True).start()
         print(f"[bold green]✓ {svc.name} (PID {svc.process.pid}) started: {' '.join(svc.command)}[/bold green]")
