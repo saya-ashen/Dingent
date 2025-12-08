@@ -48,6 +48,9 @@ jobs:
           restore-keys: |
             bun-${{ runner.os }}-
 
+      - name: Set up Just
+        if: runner.os == 'Windows'
+        uses: extractions/setup-just@v3
       - name: Build UI
         run: just build-ui
 
