@@ -6,7 +6,7 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 # =====================
 # 可覆盖变量（命令行： just SWC_PLATFORM=linux-x64-musl build-frontend）
 # =====================
-SWC_PLATFORM      := "linux-x64-gnu"   # 例如 linux-x64-musl / darwin-arm64 / darwin-x64
+SWC_PLATFORM := if os() == "windows" { "win32-x64-msvc" } else { "linux-x64-gnu" }
 STRIP_IMG         := "1"               # 1=删除 next/dist/compiled/@img
 STRIP_SOURCE_MAPS := "1"               # 1=删除 *.map
 STRIP_TESTS       := "1"               # 1=删除 tests/examples/docs 等目录

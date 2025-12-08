@@ -40,6 +40,9 @@ jobs:
           restore-keys: |
             bun-${{ runner.os }}-
 
+      - name: Build UI
+        run: just build-ui
+
       - name: Build a binary wheel and a source tarball
         if: runner.os == 'Linux'
         run: python3 -m build
