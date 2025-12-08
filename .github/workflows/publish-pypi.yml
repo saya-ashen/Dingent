@@ -67,6 +67,30 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+  publish-to-github-release:
+    name: Upload Assets to GitHub Release 🐙
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 必须有这个权限才能上传文件到 Release
+
+    steps:
+      - name: Download all executable artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # 下载名字匹配该模式的所有 artifact
+          pattern: dingent-executable-*
+          path: release_assets
+          merge-multiple: true # 将 Windows 和 Linux 的文件合并到同一目录
+
+      - name: Display structure of downloaded files
+        run: ls -R release_assets
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_assets/*
+
   publish-to-pypi:
     name: >-
       Publish Python 🐍 distribution 📦 to PyPI
