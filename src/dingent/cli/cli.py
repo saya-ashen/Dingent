@@ -3,12 +3,7 @@ Dingent CLI (Simplified version for concurrent Frontend + Backend execution)
 
 Commands:
   dingent run        Concurrently start backend (langgraph dev no UI) + frontend (node)
-  dingent dev        Start langgraph dev with UI (backend only, for debugging Graph + API)
   dingent version    Show version
-
-Optional Environment Variables:
-  DINGENT_GRAPH_SPEC   Override default Graph entrypoint (default: dingent.engine.graph:make_graph)
-  DINGENT_API_SPEC     Override default FastAPI application entrypoint (default: dingent.server.main:app)
 """
 
 from __future__ import annotations
@@ -67,25 +62,102 @@ def get_resource_path(relative_path: str | Path) -> Path:
     return Path(relative_path)
 
 
-def _ensure_project_root(cli_ctx: CliContext):
+def _prepare_static_assets(cli_ctx: CliContext) -> Path:
     """
-    Checks if the current directory is a Dingent project. If not, prompts the user to create dingent.toml.
+    根据运行模式准备静态资源路径。
+    - 开发模式：直接返回源码中的 static 目录。
+    - 打包模式：将内置的 tar.gz 解压到临时目录并返回该目录。
     """
-    if not cli_ctx.project_root:
-        print("[bold yellow]⚠️ Not a Dingent project directory (missing dingent.toml).[/bold yellow]")
-        create_file = typer.confirm("Would you like to create a default dingent.toml configuration file here?")
-        if create_file:
-            cwd = Path.cwd()
-            project_name = cwd.name
-            config_path = cwd / "dingent.toml"
-            config_content = DEFAULT_DINGENT_TOML.format(project_name=project_name)
-            config_path.write_text(config_content, encoding="utf-8")
-            print(f"[bold green]✅ Default config created at {config_path}. Please re-run the command to start.[/bold green]")
-            raise typer.Exit()
-        else:
-            print("[bold red]Operation cancelled.[/bold red]")
-            raise typer.Exit()
-    return
+    # ============================
+    # 场景 A: 打包模式 (Frozen/PyInstaller)
+    # ============================
+    if getattr(sys, "frozen", False):
+        # 1. 定位打包在 exe 内部的 tar.gz 文件
+        # 注意：这里假设你在 spec 文件中把 static.tar.gz 放到了 dingent 根目录下
+        # 例如 datas=[('src/dingent/static.tar.gz', 'dingent')]
+        bundle_dir = Path(sys._MEIPASS)
+        tar_source = bundle_dir / "static.tar.gz"
+
+        # 2. 设定解压目标：系统的临时目录
+        # 使用临时目录可以避免权限问题，也不污染用户的工作目录
+        temp_dir = Path(tempfile.gettempdir()) / "dingent_runtime" / "static"
+
+        # 3. 如果临时目录不存在，或者你希望每次启动都覆盖（为了更新），则解压
+        if not temp_dir.exists():
+            print(f"[bold blue]📦 Extracting embedded assets to {temp_dir}...[/bold blue]")
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                with tarfile.open(tar_source, "r:gz") as tar:
+                    tar.extractall(path=temp_dir, filter="data")
+            except Exception as e:
+                print(f"[bold red]❌ Failed to extract assets: {e}[/bold red]")
+                raise typer.Exit(1)
+
+        return temp_dir
+
+    # ============================
+    # 场景 B: 开发模式 (Development)
+    # ============================
+    else:
+        assert cli_ctx.project_root
+        dev_static_path = cli_ctx.project_root / "src" / "dingent" / "static"
+
+        if not dev_static_path.exists():
+            dev_static_path = Path(__file__).parents[2] / "dingent" / "static"
+
+        if not dev_static_path.exists():
+            print(f"[bold yellow]⚠️ Warning: Static folder not found at {dev_static_path}[/bold yellow]")
+
+        return dev_static_path
+
+
+def _ensure_project_root(explicit_dir: Path | None = None) -> bool:
+    """
+    Ensure the application is running in the correct data directory.
+    For a service/software, we use the OS standard AppData folder.
+    """
+    APP_NAME = "dingent"
+    if explicit_dir:
+        # 如果用户指定了目录，将其转换为绝对路径
+        app_dir = explicit_dir.resolve()
+        print(f"[bold blue]📂 Using custom data directory: {app_dir}[/bold blue]")
+    else:
+        # 否则使用系统标准目录
+        app_dir = Path(typer.get_app_dir(APP_NAME))
+        # 只有在默认模式下才打印这个，避免 verbose
+        # print(f"[bold blue]📂 Using system data directory: {app_dir}[/bold blue]")
+
+    # 2. 确保目录存在
+    if not app_dir.exists():
+        try:
+            app_dir.mkdir(parents=True, exist_ok=True)
+            print(f"[bold blue]📂 Created application data directory: {app_dir}[/bold blue]")
+        except Exception as e:
+            print(f"[bold red]❌ Failed to create app directory {app_dir}: {e}[/bold red]")
+            raise typer.Exit(1)
+
+    # 3. [关键步骤] 强制将当前工作目录 (CWD) 切换到这个数据目录
+    # 这样后续所有的 CliContext 读取、日志生成、临时文件都会在这个安全目录下进行
+    os.chdir(app_dir)
+
+    # 4. 检查并创建配置文件
+    config_path = app_dir / "dingent.toml"
+
+    if config_path.exists():
+        # 如果文件已存在，直接返回，不需要重新加载
+        return False
+
+    # --- 文件不存在，创建默认配置 ---
+    print(f"[bold blue]ℹ️ Initializing configuration in {config_path}...[/bold blue]")
+    try:
+        # 服务软件通常不需要动态的项目名，直接叫 dingent-service 即可
+        config_content = DEFAULT_DINGENT_TOML.format(project_name="dingent-service")
+        config_path.write_text(config_content, encoding="utf-8")
+        print(f"[bold green]✅ Configuration created.[/bold green]")
+        return True
+    except Exception as e:
+        print(f"[bold red]❌ Failed to write config file: {e}[/bold red]")
+        raise typer.Exit(1)
 
 
 def _resolve_node_binary() -> str:
@@ -106,34 +178,6 @@ def _resolve_node_binary() -> str:
         raise RuntimeError("nodejs_wheel returned an exception")
     except Exception as e:
         raise RuntimeError(f"Could not resolve Node executable: {e}")
-
-
-def _create_backend_config(cli_ctx: CliContext) -> Path:
-    """
-    Generates a configuration file for the backend's langgraph.dev inside the project's .dingent directory.
-    Returns the path to the config file.
-    """
-    graph_spec = os.getenv(ENV_GRAPH_SPEC, DEFAULT_GRAPH_SPEC)
-    api_spec = os.getenv(ENV_API_SPEC, DEFAULT_API_SPEC)
-
-    # Create the .dingent directory if it doesn't exist
-    if not cli_ctx.project_root:
-        raise RuntimeError("Project root is not set in the CLI context.")
-    dingent_dir = cli_ctx.project_root / ".dingent"
-    dingent_dir.mkdir(parents=True, exist_ok=True)
-
-    cfg_path = dingent_dir / "langgraph.json"
-    cfg = {
-        "graphs": {"agent": graph_spec},
-        "http": {"app": api_spec},
-        "dependencies": ["langchain_openai"],
-        "metadata": {"provider": "dingent", "mode": "run"},
-    }
-    cfg_path.write_text(
-        import_json_dumps(cfg),
-        encoding="utf-8",
-    )
-    return cfg_path
 
 
 def import_json_dumps(obj) -> str:
@@ -195,7 +239,7 @@ class Service:
         self,
         name: str,
         command: list[str],
-        cwd: Path,
+        cwd: Path | None,
         color: str,
         env: dict[str, str] | None = None,
         open_browser_hint: bool = False,
@@ -365,12 +409,15 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
 @app.command()
 def run(
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the frontend page in a browser automatically."),
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d", help="Specify a custom data directory for config and logs.")] = None,
 ):
     """
     Concurrently starts the backend and frontend services.
     """
     cli_ctx = CliContext()
-    _ensure_project_root(cli_ctx)
+    was_created = _ensure_project_root(data_dir)
+    if was_created:
+        cli_ctx = CliContext()
 
     try:
         node_bin = _resolve_node_binary()
@@ -378,15 +425,24 @@ def run(
         print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
         raise typer.Exit(1)
 
-    backend_cmd = [
-        sys.executable,
-        "internal-backend",
-        "localhost",
-        str(cli_ctx.backend_port),
-    ]
-    static_path = get_resource_path("src/dingent/static/")
+    if getattr(sys, "frozen", False):
+        backend_cmd = [
+            sys.executable,
+            "internal-backend",
+            "localhost",
+            str(cli_ctx.backend_port),
+        ]
+    else:
+        backend_cmd = [
+            "uvicorn",
+            "dingent.server.main:app",
+            "--host",
+            "localhost",
+            "--port",
+            str(cli_ctx.backend_port),
+        ]
+    static_path = _prepare_static_assets(cli_ctx)
     tar_path = get_resource_path("src/dingent/static.tar.gz")
-    # 先解压 static.zip 到 static_path（如果不存在的话）
     if not static_path.exists():
         static_path.mkdir(parents=True, exist_ok=True)
 
@@ -403,8 +459,8 @@ def run(
         ),
         Service(
             name="frontend",
-            command=[node_bin, "apps/frontend/server.js"],  # 确保转为 str
-            cwd=static_path,  # 使用计算后的路径
+            command=[node_bin, "apps/frontend/server.js"],
+            cwd=static_path,
             color="cyan",
             env={
                 "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
@@ -439,6 +495,18 @@ def version():
     except Exception:
         ver = "unknown"
     print(f"Dingent version: {ver}")
+
+
+@app.callback(invoke_without_command=True)
+def main_entry(ctx: typer.Context):
+    """
+    Dingent Agent Framework CLI
+    If no command is provided, acts as 'dingent run'.
+    """
+    # 如果用户没有输入任何子命令 (如 run, dev, version)
+    if ctx.invoked_subcommand is None:
+        # 手动调用 run 函数，传入默认参数
+        run(no_browser=False)
 
 
 def main():

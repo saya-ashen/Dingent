@@ -9,9 +9,10 @@ from sqlmodel import Session
 
 from dingent.core.db.models import User, Workflow
 from dingent.core.factories.graph_factory import GraphFactory
-from dingent.core.managers.llm_manager import LLMManager
+from dingent.core.managers.llm_manager import LLMManager, get_llm_service
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.server.copilot.add_fastapi_endpoint import add_fastapi_endpoint
+
 from dingent.server.copilot.agents import FixedLangGraphAgent
 from dingent.server.copilot.async_copilotkit_remote_endpoint import AsyncCopilotKitRemoteEndpoint
 
@@ -26,17 +27,17 @@ def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engi
     """
     print("--- Setting up CopilotKit Secure Router ---")
 
-    # HACK: llm manager
-    llm_manager = LLMManager()
-    api_key = os.getenv("GEMINI_API_KEY")
-    llm = llm_manager.get_llm(
-        model="gemini/gemini-2.5-flash",
-        # api_base="https://www.dmxapi.cn/v1",
-        api_key=api_key,
-    )
+    llm = get_llm_service()
 
     async def _agents_pipeline(workflow: Workflow, user: User, session: Session) -> Agent:
-        artifact = await graph_factory.build(user.id, session, resource_manager, workflow, llm, checkpointer)
+        artifact = await graph_factory.build(
+            user.id,
+            session,
+            resource_manager,
+            workflow,
+            llm,
+            checkpointer,
+        )
         return FixedLangGraphAgent(
             name=workflow.name,
             description=f"Agent for workflow '{workflow.name}'",

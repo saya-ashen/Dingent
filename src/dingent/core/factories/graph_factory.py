@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from langchain_litellm import ChatLiteLLM
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph_swarm import create_swarm
@@ -95,7 +96,7 @@ class GraphFactory:
         session: Session,
         resource_manager: ResourceManager,
         workflow: Workflow,
-        llm,
+        llm: ChatLiteLLM,
         checkpointer,
     ) -> GraphArtifact:
         """Transform a domain `Workflow`  → compiled LangGraph.
@@ -117,7 +118,7 @@ class GraphFactory:
     # Internal builders
     # ------------------------------------------------------------------
 
-    def _build_basic(self, stack: AsyncExitStack, llm, checkpointer) -> GraphArtifact:
+    def _build_basic(self, stack: AsyncExitStack, llm: ChatLiteLLM, checkpointer) -> GraphArtifact:
         wf_id = uuid.uuid4()
         self._log("info", "Building basic fallback graph.", context={"wf": wf_id})
 
@@ -148,7 +149,7 @@ class GraphFactory:
         resource_manager: ResourceManager,
         workflow: Workflow,
         stack: AsyncExitStack,
-        llm,
+        llm: ChatLiteLLM,
         checkpointer,
     ) -> GraphArtifact:
         self._log("info", "Building graph for workflow.", context={"wf": workflow.id})

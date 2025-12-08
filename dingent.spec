@@ -5,6 +5,14 @@ from PyInstaller.utils.hooks import collect_submodules
 from PyInstaller.utils.hooks import copy_metadata
 
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, Tree
+import platform 
+
+system_name = platform.system().lower()  
+machine_name = platform.machine().lower() 
+exe_name = f"dingent-{system_name}-{machine_name}"
+
+if system_name == 'windows':
+    exe_name += ".exe"
 
 block_cipher = None
 
@@ -28,7 +36,7 @@ hiddenimports += tmp_ret[2]
 dingent_hidden_imports = collect_submodules('dingent')
 hiddenimports += dingent_hidden_imports
 
-static = [('src/dingent/static.tar.gz','build/static.tar.gz','DATA')]
+static = [('static.tar.gz','build/static.tar.gz','DATA')]
 
 
 a = Analysis(
@@ -56,7 +64,7 @@ exe = EXE(
     a.binaries,
     a.datas + static,
     [],
-    name="dingent",
+    name=exe_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
