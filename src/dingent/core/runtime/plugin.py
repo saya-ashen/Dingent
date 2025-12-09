@@ -21,6 +21,7 @@ def _create_dynamic_config_model(
         "boolean": bool,
         "float": float,
         "bool": bool,
+        "dict": dict,
     }
     for item in config_schema:
         field_name = item.name
@@ -42,7 +43,7 @@ def _create_dynamic_config_model(
 class PluginRuntime:
     mcp_client: Client
     name: str
-    config: dict[str, Any] | None = None
+    # config_model: type[BaseModel] | None = None
     manifest: "PluginManifest"
     _transport: StreamableHttpTransport | UvStdioTransport | None = None
     _mcp: FastMCP | None
@@ -55,6 +56,7 @@ class PluginRuntime:
         status: Literal["active", "inactive", "error"],
         manifest: "PluginManifest",
         mcp: FastMCP | None = None,
+        # config_model: type[BaseModel] | None = None,
         transport=None,
     ):
         self.name = name
@@ -63,15 +65,16 @@ class PluginRuntime:
         self._status = status
         self.manifest = manifest
         self._transport = transport
+        # self.config_model = config_model
 
     @classmethod
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
         """Create a singleton PluginRuntime instance without user-specific configuration."""
         env = {}
 
-        if manifest.config_schema:
-            pass
-            _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
+        # config_model = None
+        # if manifest.config_schema:
+        #     config_model = _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
 
         if manifest.execution.mode == "remote":
             assert manifest.execution.url is not None
@@ -112,6 +115,7 @@ class PluginRuntime:
             status=_status,
             manifest=manifest,
             transport=transport,
+            # config_model=config_model,
         )
         return instance
 

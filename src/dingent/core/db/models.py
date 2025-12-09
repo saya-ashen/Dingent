@@ -92,7 +92,6 @@ class AssistantPluginLink(SQLModel, table=True):
     )
 
     enabled: bool = True
-    # tools_default_enabled: bool = True
 
     # --- 针对单个工具的覆盖配置 ---
     # 存储一个列表，每个元素都是一个符合 ToolOverrideConfig 结构的字典
@@ -150,7 +149,7 @@ class Assistant(SQLModel, table=True):
 
 class PluginConfigSchema(SQLModel):
     name: str = Field(..., description="配置项的名称 (环境变量名)")
-    type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+    type: Literal["string", "float", "integer", "bool", "dict", "object"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
     required: bool = Field(..., description="是否为必需项")
     secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
     description: str | None = Field(None, description="该配置项的描述")
@@ -169,7 +168,7 @@ class Plugin(SQLModel, table=True):
     description: str
     version: str = "0.1.0"
 
-    config_schema: list[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    config_schema: dict[str, Any] = Field(default=None, sa_column=Column(JSON))
 
     # 多对多
     assistants: list["Assistant"] = Relationship(

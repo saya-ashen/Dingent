@@ -10,39 +10,78 @@ async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: P
     """
     plugin_db = plugin_link.plugin
 
+    # 1. 处理 Tools (保持原有逻辑不变，除非 Runtime 也有变动)
     plugin_status = "inactive"
-    tools = []
     merged_tools: list[ToolConfigItemRead] = []
+
     if runtime_plugin:
-        plugin_status = runtime_plugin.status  # "active", "error", etc.
+        plugin_status = runtime_plugin.status
         if plugin_status == "active":
+            # 获取运行时工具列表
             tools = await runtime_plugin.list_tools()
-            tool_configs = {item["name"]: item for item in plugin_link.tool_configs}
+            # 获取数据库中关于工具的配置（开关状态）
+            db_tool_configs = {item["name"]: item for item in plugin_link.tool_configs}
+
             for tool in tools:
-                tool_config = tool_configs.get(tool.name, {})
+                tool_config = db_tool_configs.get(tool.name, {})
                 merged_tool = ToolConfigItemRead(
                     name=tool.name,
+                    # 默认启用，除非明确被禁用
                     enabled=tool_config.get("enabled", True),
                     description=tool.description,
                 )
                 merged_tools.append(merged_tool)
 
-    config = plugin_link.user_plugin_config or {}
-    config_schema = plugin_db.config_schema or []
+    # 2. 处理 Config (核心修改部分)
+    # 获取用户当前存储的值
+    current_values = plugin_link.user_plugin_config or {}
 
-    merged_config = [
-        PluginConfigItemRead(
-            **schema,
-            value=config.get(schema["name"]),
+    # 获取标准 JSON Schema 定义
+    # 数据库现在存的是 {"type": "object", "properties": {...}, "required": [...]}
+    json_schema = plugin_db.config_schema or {}
+
+    properties = json_schema.get("properties", {})
+    required_fields = set(json_schema.get("required", []))  # 转为集合查询更快
+
+    merged_config: list[PluginConfigItemRead] = []
+
+    for field_key, field_def in properties.items():
+        # field_def 是单个属性的定义 dict
+
+        # 提取基础信息
+        field_type = field_def.get("type", "string")
+        description = field_def.get("description", "")
+        title = field_def.get("title", field_key)  # 如果没有 title 就用 key
+        default_val = field_def.get("default")
+        raw_value = current_values.get(field_key)
+
+        final_value = raw_value
+        if field_type in ["object", "dict"] and raw_value is not None:
+            final_value = str(raw_value)
+
+        # 判断是否必填
+        is_required = field_key in required_fields
+
+        # 判断是否敏感字段 (兼容我们之前存入的 writeOnly 或 x-ui-secret)
+        is_secret = field_def.get("writeOnly", False) or field_def.get("x-ui-secret", False)
+
+        item = PluginConfigItemRead(
+            name=field_key,
+            title=title,
+            type=field_type,
+            description=description,
+            default=default_val,
+            required=is_required,
+            secret=is_secret,
+            value=final_value,
         )
-        for schema in config_schema
-    ]
+        merged_config.append(item)
 
     return PluginRead(
         registry_id=plugin_db.registry_id,
         display_name=plugin_db.display_name,
         description=plugin_db.description,
-        enabled=plugin_link.enabled,  # 用户在此 Assistant 中的启用状态
+        enabled=plugin_link.enabled,
         status=plugin_status,
         version=plugin_db.version,
         tools=merged_tools,
@@ -56,7 +95,7 @@ async def _build_assistant_read(assistant: Assistant, runtime_assistant: Assista
     """
     # 校验输入的一致性
     if runtime_assistant:
-        assert str(assistant.id) == runtime_assistant.id, "Mismatched Assistant and AssistantRuntime IDs"
+        assert assistant.id == runtime_assistant.id, "Mismatched Assistant and AssistantRuntime IDs"
 
     # 确定顶层状态
     assistant_status = "active" if runtime_assistant else "inactive"

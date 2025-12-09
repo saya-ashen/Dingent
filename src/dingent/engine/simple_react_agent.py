@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import operator
 from typing import Annotated, Any, TypedDict
+from uuid import UUID
 
 from copilotkit.langgraph import copilotkit_emit_state
 from langchain.chat_models.base import BaseChatModel
@@ -12,7 +13,8 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.messages.tool import ToolCall
-from langchain_core.tools import BaseTool
+from langchain_core.tools import BaseTool, StructuredTool
+from langchain_core.tools.base import _prep_run_args
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import RunnableConfig
 from langgraph.types import Command
@@ -29,7 +31,7 @@ class SimpleAgentState(TypedDict, total=False):
 def build_simple_react_agent(
     name: str,
     llm: BaseChatModel,
-    tools: list[BaseTool],
+    tools: list[StructuredTool],
     system_prompt: str | None = None,
     max_iterations: int = 6,
     stop_when_no_tool: bool = True,
@@ -49,7 +51,7 @@ def build_simple_react_agent(
         # 在父图里 add_node("agent", agent_app)
     """
 
-    name_to_tool: dict[str, BaseTool] = {t.name: t for t in tools}
+    name_to_tool: dict[str, StructuredTool] = {t.name: t for t in tools}
 
     # ---- 模型节点 ----
     async def model_node(state: SimpleAgentState) -> dict[str, Any]:
@@ -85,8 +87,8 @@ def build_simple_react_agent(
         if last_ai is None:
             return {}
 
-        plugin_configs = config.get("configurable", {}).get("plugin_configs", {})
-        plugin_tool_configs = plugin_configs.get(name, {})
+        assistant_plugin_tool_configs = config.get("configurable", {}).get("assistant_plugin_configs", {})
+        plugin_tool_configs = assistant_plugin_tool_configs.get(name, {})
 
         tool_messages: list[ToolMessage] = []
         artifact_ids: list[str] = []
@@ -95,9 +97,12 @@ def build_simple_react_agent(
         for tc in last_ai.tool_calls:
             tool_name = tc.get("name")
             args = tc.get("args", {}) or {}
-            if len(plugin_tool_configs) > 0:
-                args["plugin_config"] = plugin_tool_configs
+            args["tool_call_id"] = tc.get("id")
             tool = name_to_tool.get(tool_name)
+            assert tool
+            if len(plugin_tool_configs) > 0:
+                plugin_name = tool.tags[0]
+                args["plugin_config"] = plugin_tool_configs.get(plugin_name)
             if tool is None:
                 tool_messages.append(
                     ToolMessage(

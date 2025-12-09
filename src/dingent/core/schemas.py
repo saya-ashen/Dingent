@@ -91,6 +91,8 @@ class ToolOverrideConfig(SQLModel):
 class PluginConfigItemRead(PluginConfigSchema):
     """Represents a single configuration item with its schema and value."""
 
+    title: str | None
+
     value: Any | None = Field(None, description="用户设置的当前值")
 
 
@@ -156,6 +158,7 @@ class PluginUpdateOnAssistant(SQLModel):
 
 class RunnableTool(SQLModel):
     tool: Tool
+    plugin_name: str
     run: Callable[[dict], Any]
 
 

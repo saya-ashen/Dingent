@@ -105,7 +105,7 @@ def mcp_tool_wrapper(
     session: Session,
     runnable_tool: RunnableTool,
     log_method: Callable,
-) -> BaseTool:
+) -> StructuredTool:
     tool = runnable_tool.tool
 
     async def call_tool(
@@ -145,7 +145,6 @@ def mcp_tool_wrapper(
             session,
         )
         artifact_id = str(resource.id)
-
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id)
 
         return Command(
@@ -164,12 +163,16 @@ def mcp_tool_wrapper(
         name=f"CombinedToolArgsSchema_{tool.name}",
     )
 
+    args_schema = CombinedToolArgsSchema.model_json_schema()
+    args_schema["properties"].pop("tool_call_id", None)
+    args_schema["required"] = [arg for arg in args_schema.get("required", []) if arg != "tool_call_id"]
     return StructuredTool(
         name=tool.name,
         description=tool.description or "",
-        args_schema=CombinedToolArgsSchema,
+        args_schema=args_schema,  # 这里不直接传 CombinedToolArgsSchema 是因为 StructuredTool 内部会根据schema过滤参数
         coroutine=call_tool,
         metadata=tool.annotations.model_dump() if tool.annotations else None,
+        tags=[runnable_tool.plugin_name],
     )
 
 
@@ -197,27 +200,27 @@ async def create_assistant_graphs(
     name_map = {original: _normalize_name(original) for original in assistants_runtime}
 
     handoff_tools: dict[str, BaseTool] = {}
-    for original_name, assistant in assistants_runtime.items():
+    for original_name, _assistant in assistants_runtime.items():
         normalized_name = name_map[original_name]
         handoff_tools[normalized_name] = create_handoff_tool(
             agent_name=normalized_name,
-            description=f"Transfer the conversation to {original_name} assistant. {original_name}'s description: {assistant.description}",
+            description=f"Transfer the conversation to {original_name} assistant. {original_name}'s description: {_assistant.description}",
             log_method=log_method,
         )
 
     async with AsyncExitStack() as stack:
-        for original_name, assistant in assistants_runtime.items():
+        for original_name, _assistant in assistants_runtime.items():
             normalized_name = name_map[original_name]
-            tools: list[RunnableTool] = await stack.enter_async_context(assistant.load_tools())
+            tools: list[RunnableTool] = await stack.enter_async_context(_assistant.load_tools())
             wrapped_tools = [mcp_tool_wrapper(user_id, resource_manager, session, t, log_method) for t in tools]
 
-            normalized_destinations = [_normalize_name(d) for d in assistant.destinations if d in name_map]
+            normalized_destinations = [_normalize_name(d) for d in _assistant.destinations if d in name_map]
             dest_tools = [handoff_tools[norm_d] for norm_d in normalized_destinations if norm_d in handoff_tools]
 
             agent = build_simple_react_agent(
                 llm=llm,
                 tools=dest_tools + wrapped_tools,
-                system_prompt=assistant.description,
+                system_prompt=_assistant.description,
                 name=normalized_name,
             )
             assistant_graphs[normalized_name] = agent
@@ -233,8 +236,9 @@ class ConfigSchema(TypedDict):
 
 def get_safe_swarm(compiled_swarm: CompiledStateGraph, log_method: Callable):
     async def run_swarm_safely(state: MainState, config):
+        result = await compiled_swarm.ainvoke(state, config=config)
         try:
-            result = await compiled_swarm.ainvoke(state, config=config)
+            # result = await compiled_swarm.ainvoke(state, config=config)
             return result
         except Exception as e:
             error_msg_content = f"An error occurred during this execution round: {type(e).__name__}: {e}"

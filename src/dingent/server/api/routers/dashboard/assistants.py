@@ -71,7 +71,11 @@ async def update_plugin_on_assistant(
     """
     Updates a plugin's configuration for a specific assistant (e.g., enables/disables it).
     """
-    updated_assistant = await user_assistant_service.update_plugin_on_assistant(assistant_id, plugin_id, plugin_update)
+    updated_assistant = await user_assistant_service.update_plugin_on_assistant(
+        assistant_id,
+        plugin_id,
+        plugin_update,
+    )
     return updated_assistant
 
 

@@ -69,8 +69,7 @@ class PluginRegistry:
             except Exception as e:
                 self.log_manager.log_with_context(
                     "error",
-                    "Failed to load plugin from '{path}': {error_msg}",
-                    context={"path": str(toml_path), "error_msg": f"{e}"},
+                    f"Failed to load plugin from '{str(toml_path)}': {e}",
                 )
 
         # 原子替换

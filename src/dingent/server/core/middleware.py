@@ -28,7 +28,6 @@ class DebugRequestMiddleware(BaseHTTPMiddleware):
         print("--------------------------")
 
         # To debug, uncomment the following line in your dev environment
-        # breakpoint()
 
         response = await call_next(request)
         return response

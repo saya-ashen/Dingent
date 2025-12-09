@@ -161,7 +161,7 @@ class GraphFactory:
         default_active = _normalize_name(start_node.assistant.name)
 
         # Build assistant subgraphs and compose swarm
-        assistant_plugin_configs: dict[str, dict[UUID, Any]] = {}
+        assistant_plugin_configs: dict[str, dict[str, Any]] = {}
         for node in workflow.nodes:
             assistant = node.assistant
             assistant_name = assistant.name
@@ -170,8 +170,8 @@ class GraphFactory:
                 assistant_plugin_configs[assistant_name] = {}
 
             for link in assistant.plugin_links:
-                plugin_id = link.plugin.id
-                assistant_plugin_configs[assistant_name][plugin_id] = link.user_plugin_config
+                plugin_name = link.plugin.registry_id
+                assistant_plugin_configs[assistant_name][plugin_name] = link.user_plugin_config
 
         assistants_ctx = create_assistant_graphs(
             user_id,

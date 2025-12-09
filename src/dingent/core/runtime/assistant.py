@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any
+from uuid import UUID
 
 from dingent.core.db.models import Assistant
 from dingent.core.schemas import RunnableTool
@@ -40,7 +41,7 @@ class AssistantRuntime:
 
     def __init__(
         self,
-        assistant_id: str,
+        assistant_id: UUID,
         name: str,
         log_method: Callable,
         description: str,
@@ -106,7 +107,7 @@ class AssistantRuntime:
                 )
                 continue
         return cls(
-            str(assistant.id),
+            assistant.id,
             assistant.name,
             log_method,
             assistant.description or "",
@@ -155,7 +156,7 @@ class AssistantRuntime:
                     async with _runtime.mcp_client as tool_client:
                         return await tool_client.call_tool(_tool.name, arguments=arguments)
 
-                runnable.append(RunnableTool(tool=t, run=call_tool))
+                runnable.append(RunnableTool(tool=t, plugin_name=inst.name, run=call_tool))
         yield runnable
 
     async def aclose(self):

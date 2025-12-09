@@ -1,4 +1,6 @@
 from uuid import UUID
+from fastapi import HTTPException
+from jsonschema import validate, ValidationError
 
 from fastapi import status
 from fastapi.exceptions import HTTPException
@@ -7,6 +9,68 @@ from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
 from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
+
+import json
+from fastapi import HTTPException
+# ... 其他 import
+
+
+import json
+import ast  # 引入 ast 库
+from fastapi import HTTPException
+
+
+def _preprocess_json_fields(config_data: dict, schema: dict | None):
+    """
+    尝试解析 JSON 字符串。
+    策略：先尝试标准 JSON 解析，如果失败，再尝试 Python 字面量解析（支持单引号）。
+    """
+    if not schema or not config_data:
+        return
+
+    properties = schema.get("properties", {})
+
+    for key, value in config_data.items():
+        # 如果不是字符串，说明不需要解析，跳过
+        if not isinstance(value, str):
+            continue
+
+        field_def = properties.get(key)
+        if not field_def:
+            continue
+
+        expected_type = field_def.get("type")
+
+        # 针对 object (dict) 和 array (list) 类型尝试解析
+        if expected_type in ["object", "array"]:
+            parsed_value = None
+
+            # --- 方案 1: 尝试标准 JSON 解析 (最快，最标准) ---
+            try:
+                parsed_value = json.loads(value)
+            except json.JSONDecodeError as json_err:
+                # --- 方案 2: JSON 失败，尝试 Python 字面量解析 (支持单引号) ---
+                try:
+                    # ast.literal_eval 只能解析基础数据结构，非常安全，不会执行恶意代码
+                    parsed_value = ast.literal_eval(value)
+                except (ValueError, SyntaxError):
+                    # 如果两个都失败了，抛出原始的 JSON 错误，提示用户格式不对
+                    # 也可以把 json_err 和 ast 的错误一起 log 出来
+                    raise HTTPException(
+                        status_code=400, detail=(f"Field '{key}' invalid. Expected valid JSON (double quotes) or Python dict (single quotes). Error: {str(json_err)}")
+                    )
+
+            # --- 解析成功，检查类型是否匹配 ---
+            # json.loads 可能把 "123" 解析成 int，但我们需要 object/list
+            # 注意：Python 中 dict 对应 JSON object, list 对应 JSON array
+            if expected_type == "object" and not isinstance(parsed_value, dict):
+                raise HTTPException(status_code=400, detail=f"Field '{key}' parsed successfully but result is not a Dictionary.")
+
+            if expected_type == "array" and not isinstance(parsed_value, list):
+                raise HTTPException(status_code=400, detail=f"Field '{key}' parsed successfully but result is not a List.")
+
+            # --- 原地更新配置 ---
+            config_data[key] = parsed_value
 
 
 def get_assistant_by_id(*, db: Session, id: UUID):
@@ -78,30 +142,50 @@ def update_assistant(
     db_assistant: Assistant,
     assistant_in: AssistantUpdate,
 ):
+    # 1. 更新 Assistant 基础字段
     update_data = assistant_in.model_dump(exclude={"plugins"}, exclude_unset=True)
     for k, v in update_data.items():
         setattr(db_assistant, k, v)
 
+    # 2. 更新 Plugins 配置
     if assistant_in.plugins:
-        # 先建一个索引：plugin_id -> link
+        # 建立索引：plugin_registry_id -> link 对象
         link_by_registry_id: dict[str, AssistantPluginLink] = {link.plugin.registry_id: link for link in db_assistant.plugin_links}
 
         for plugin_cfg in assistant_in.plugins:
             link = link_by_registry_id.get(plugin_cfg.registry_id)
-
             if link is None:
                 continue
 
             plugin_update_data = plugin_cfg.model_dump(exclude_unset=True)
 
+            # 更新 enabled 状态
+            if "enabled" in plugin_update_data:
+                link.enabled = plugin_cfg.enabled
+
+            # 处理 config 更新与验证
             if "config" in plugin_update_data:
                 new_conf = plugin_update_data["config"] or {}
 
-                # 在原有基础上 merge
-                if link.user_plugin_config is None:
-                    link.user_plugin_config = {}
-                link.user_plugin_config.update(new_conf)
-                link.enabled = plugin_cfg.enabled
+                schema = link.plugin.config_schema
+                _preprocess_json_fields(new_conf, schema)
+
+                current_conf = link.user_plugin_config or {}
+
+                merged_conf = current_conf.copy()
+                merged_conf.update(new_conf)
+
+                if schema:
+                    try:
+                        # 使用 jsonschema 进行校验
+                        validate(instance=merged_conf, schema=schema)
+                    except ValidationError as e:
+                        # 验证失败，抛出 HTTP 400 错误
+                        # e.message 通常包含具体的错误字段信息
+                        raise HTTPException(status_code=400, detail=f"Plugin '{plugin_cfg.registry_id}' configuration error: {e.message}")
+
+                # 验证通过，才真正更新数据库对象
+                link.user_plugin_config = merged_conf
 
     db.add(db_assistant)
     db.commit()
