@@ -15,7 +15,7 @@ from dingent.core.db.models import Workflow, WorkflowNode
 # --- New dependencies provided by user ---
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
-from dingent.server.services.user_assistant_service import UserAssistantService
+from dingent.server.services.workspace_assistant_service import WorkspaceAssistantService
 
 
 class WorkflowNotFoundError(ValueError):
@@ -39,7 +39,7 @@ class WorkflowRunStatus(str, Enum):
 
 @dataclass
 class WorkflowRun:
-    user_id: UUID
+    workspace_id: UUID
     workflow_id: UUID
     status: WorkflowRunStatus = WorkflowRunStatus.IDLE
     message: str | None = None
@@ -52,35 +52,17 @@ class WorkflowRunRead(SQLModel):
     message: str | None = None
 
 
-class UserWorkflowService:
-    """
-    Request-scoped service that manages the lifecycle of a user's *workflow run* and
-    wires Assistant runtimes using the provided `UserAssistantService`.
-
-    Responsibilities
-    --------------
-    - Create/read/update/delete workflows (optional helpers)
-    - Start/stop workflows for a user
-    - Build adjacency from workflow graph and assign destinations to runtimes
-    - Track in-memory run state per (user_id, workflow_id)
-    - **CRUD for nodes & edges** within a workflow
-
-    Notes
-    -----
-    - This service assumes per-request construction with a live `Session` and a
-      `UserAssistantService` that is already scoped to the same user & session.
-    - All assistant runtime creation is **async**, so `start_workflow` and other
-      APIs that touch runtimes are async as well.
-    """
-
+class WorkspaceWorkflowService:
     def __init__(
         self,
         *,
+        workspace_id: UUID,
         user_id: UUID,
         session: Session,
-        assistant_service: UserAssistantService | None,
+        assistant_service: WorkspaceAssistantService | None,
         log_manager,
     ) -> None:
+        self.workspace_id = workspace_id
         self.user_id = user_id
         self.session = session
         self.assistant_service = assistant_service
@@ -117,15 +99,24 @@ class UserWorkflowService:
                 raise WorkflowNotFoundError(f"Workflow '{workflow}' not found or access denied.")
         else:
             # unique name per user
-            if crud_workflow.get_workflow_by_name(self.session, name=workflow.name, user_id=self.user_id):
+            if crud_workflow.get_workflow_by_name(
+                self.session,
+                name=workflow.name,
+                workspace_id=self.workspace_id,
+            ):
                 raise ValueError(f"Workflow name '{workflow.name}' already exists.")
-            wf = crud_workflow.create_workflow(self.session, wf_create=workflow, user_id=self.user_id)
+            wf = crud_workflow.create_workflow(
+                self.session,
+                wf_create=workflow,
+                workspace_id=self.workspace_id,
+                user_id=self.user_id,
+            )
 
-        key = (self.user_id, wf.id)
+        key = (self.workspace_id, wf.id)
         with self._lock:
             if key in self._runs and self._runs[key].status == WorkflowRunStatus.RUNNING:
-                raise WorkflowAlreadyRunningError(f"Workflow '{wf.id}' is already running for user '{self.user_id}'.")
-            self._runs[key] = WorkflowRun(user_id=self.user_id, workflow_id=wf.id)
+                raise WorkflowAlreadyRunningError(f"Workflow '{wf.id}' is already running for workspace '{self.workspace_id}'.")
+            self._runs[key] = WorkflowRun(workspace_id=self.workspace_id, workflow_id=wf.id)
 
         # Fresh load for graph relationships
         wf = self._get_workflow(wf.id, eager=True)
@@ -142,7 +133,7 @@ class UserWorkflowService:
             # Optionally clear existing runtimes (request-scoped caches live only per request,
             # so typically there is nothing to reset across requests; kept for parity/semantics)
             if reset_existing:
-                pass  # no-op by default since UserAssistantService is request-scoped
+                pass  # no-op by default since WorkspaceAssistantService is request-scoped
 
             name_to_id: dict[str, UUID] = {}
             for node in wf.nodes:
@@ -180,12 +171,12 @@ class UserWorkflowService:
             self._log.log_with_context(
                 "error",
                 message="Failed to start workflow",
-                context={"user_id": str(self.user_id), "workflow_id": str(wf.id), "error": str(e)},
+                context={"workspace_id": str(self.workspace_id), "workflow_id": str(wf.id), "error": str(e)},
             )
             raise
 
     def get_workflow_status(self, workflow_id: UUID) -> WorkflowRun:
-        key = (self.user_id, workflow_id)
+        key = (self.workspace_id, workflow_id)
         with self._lock:
             run = self._runs.get(key)
             if run is not None:
@@ -195,13 +186,13 @@ class UserWorkflowService:
         if wf is None:
             raise WorkflowNotFoundError(f"Workflow '{workflow_id}' not found or access denied.")
 
-        idle = WorkflowRun(user_id=self.user_id, workflow_id=workflow_id, status=WorkflowRunStatus.STOPPED)
+        idle = WorkflowRun(workspace_id=self.workspace_id, workflow_id=workflow_id, status=WorkflowRunStatus.STOPPED)
         with self._lock:
             self._runs[key] = idle
         return idle
 
     async def stop_workflow(self, workflow_id: UUID) -> WorkflowRun:
-        key = (self.user_id, workflow_id)
+        key = (self.workspace_id, workflow_id)
         with self._lock:
             existing = self._runs.get(key)
 
@@ -219,7 +210,7 @@ class UserWorkflowService:
                         pass
         finally:
             with self._lock:
-                updated = self._runs.get(key) or WorkflowRun(user_id=self.user_id, workflow_id=workflow_id)
+                updated = self._runs.get(key) or WorkflowRun(workspace_id=self.workspace_id, workflow_id=workflow_id)
                 updated.status = WorkflowRunStatus.STOPPED
                 updated.message = None
                 updated.assistants = {}
@@ -233,7 +224,7 @@ class UserWorkflowService:
         if eager:
             wfs = self.session.exec(
                 select(Workflow)
-                .where(Workflow.user_id == self.user_id)
+                .where(Workflow.workspace_id == self.workspace_id)
                 .options(
                     selectinload(Workflow.nodes).selectinload(WorkflowNode.assistant),
                     selectinload(Workflow.edges),
@@ -241,7 +232,7 @@ class UserWorkflowService:
             ).all()
             return [WorkflowRead.model_validate(wf) for wf in wfs]
         else:
-            wfs = self.session.exec(select(Workflow).where(Workflow.user_id == self.user_id)).all()
+            wfs = self.session.exec(select(Workflow).where(Workflow.workspace_id == self.workspace_id)).all()
             return [WorkflowReadBasic.model_validate(wf) for wf in wfs]
 
     def get_workflow(self, workflow_id: UUID, *, eager: bool = False) -> WorkflowRead | WorkflowReadBasic | None:
@@ -254,9 +245,9 @@ class UserWorkflowService:
             return WorkflowReadBasic.model_validate(wf)
 
     def create_workflow(self, wf_create: WorkflowCreate) -> WorkflowReadBasic:
-        if crud_workflow.get_workflow_by_name(self.session, name=wf_create.name, user_id=self.user_id):
+        if crud_workflow.get_workflow_by_name(self.session, name=wf_create.name, workspace_id=self.workspace_id):
             raise ValueError(f"Workflow name '{wf_create.name}' already exists.")
-        wf = crud_workflow.create_workflow(self.session, wf_create=wf_create, user_id=self.user_id)
+        wf = crud_workflow.create_workflow(self.session, wf_create=wf_create, workspace_id=self.workspace_id, user_id=self.user_id)
         return WorkflowReadBasic.model_validate(wf)
 
     def replace_workflow(self, workflow_id: UUID, wf_create: WorkflowReplace):
@@ -265,7 +256,7 @@ class UserWorkflowService:
             raise WorkflowNotFoundError(f"Workflow '{workflow_id}' not found or access denied.")
 
         if wf_create.name != wf.name:
-            if crud_workflow.get_workflow_by_name(self.session, name=wf_create.name, user_id=self.user_id):
+            if crud_workflow.get_workflow_by_name(self.session, name=wf_create.name, workspace_id=self.workspace_id):
                 raise ValueError(f"Another workflow already uses the name '{wf_create.name}'.")
 
         crud_workflow.replace_workflow(self.session, db_workflow=wf, wf_create=wf_create)
@@ -276,7 +267,7 @@ class UserWorkflowService:
             raise WorkflowNotFoundError(f"Workflow '{workflow_id}' not found or access denied.")
 
         if wf_update.name and wf_update.name != wf.name:
-            if crud_workflow.get_workflow_by_name(self.session, name=wf_update.name, user_id=self.user_id):
+            if crud_workflow.get_workflow_by_name(self.session, name=wf_update.name, workspace_id=self.workspace_id):
                 raise ValueError(f"Another workflow already uses the name '{wf_update.name}'.")
 
         updated = crud_workflow.update_workflow(self.session, db_workflow=wf, wf_update=wf_update)
@@ -288,9 +279,9 @@ class UserWorkflowService:
             return False
         crud_workflow.delete_workflow(self.session, db_workflow=wf)
         # Also mark stopped in registry
-        key = (self.user_id, workflow_id)
+        key = (self.workspace_id, workflow_id)
         with self._lock:
-            self._runs[key] = WorkflowRun(user_id=self.user_id, workflow_id=workflow_id, status=WorkflowRunStatus.STOPPED)
+            self._runs[key] = WorkflowRun(workspace_id=self.workspace_id, workflow_id=workflow_id, status=WorkflowRunStatus.STOPPED)
         return True
 
     # ---------------------------------------------------------------------
@@ -367,7 +358,7 @@ class UserWorkflowService:
     # Internals
     # ---------------------------------------------------------------------
     def _get_workflow(self, workflow_id: UUID, *, eager: bool = False) -> Workflow | None:
-        stmt = select(Workflow).where(Workflow.id == workflow_id, Workflow.user_id == self.user_id)
+        stmt = select(Workflow).where(Workflow.id == workflow_id, Workflow.workspace_id == self.workspace_id)
         if eager:
             stmt = stmt.options(
                 selectinload(Workflow.nodes).selectinload(WorkflowNode.assistant),

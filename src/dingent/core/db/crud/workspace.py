@@ -60,3 +60,16 @@ def get_user_workspaces(db: Session, user_id: UUID) -> list[Workspace]:
     # 或者手动 join 查询以便获取 role 信息
     user = db.get(User, user_id)
     return user.workspaces if user else []
+
+
+def get_specific_user_workspace(db: Session, user_id: UUID, workspace_id: UUID) -> Workspace | None:
+    """
+    获取特定用户的特定 Workspace。
+    如果用户不是该 Workspace 的成员，或者 Workspace 不存在，都返回 None。
+    """
+    statement = select(Workspace).join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == user_id).where(Workspace.id == workspace_id)
+
+    # 执行查询
+    result = db.exec(statement).first()
+
+    return result

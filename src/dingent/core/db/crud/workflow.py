@@ -118,7 +118,6 @@ def replace_workflow(db: Session, db_workflow: Workflow, wf_create: WorkflowRepl
 def list_workflows_by_workspace(db: Session, workspace_id: UUID) -> list[Workflow]:
     """
     List all workflows for a specific WORKSPACE.
-    (原名 list_workflows_by_user)
     """
     statement = select(Workflow).where(Workflow.workspace_id == workspace_id)  # 变更
     return list(db.exec(statement).all())

@@ -5,6 +5,7 @@ import inspect
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
+from uuid import UUID
 
 from copilotkit.action import ActionDict
 from copilotkit.agent import Agent
@@ -21,7 +22,8 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import Session
 
-from dingent.core.db.crud.workflow import get_workflow_by_name, list_workflows_by_user
+from dingent.core.db.crud.workflow import get_workflow_by_name, list_workflows_by_workspace
+from dingent.core.db.crud.workspace import get_specific_user_workspace
 from dingent.core.db.models import User, Workflow
 from dingent.server.auth.security import get_current_user_from_token
 
@@ -44,6 +46,16 @@ def _extract_bearer_token(context: CopilotKitContext) -> str | None:
     if token.startswith("Bearer "):
         token = token[len("Bearer ") :].strip()
     return token or None
+
+
+def _extract_workspace_id(context: CopilotKitContext) -> UUID | None:
+    # Prefer properties.authorization, fallback to headers.authorization
+    token = context.get("properties", {}).get("authorization") or context.get("headers", {}).get("authorization")
+    if not token:
+        return None
+    if token.startswith("Bearer "):
+        token = token[len("Bearer ") :].strip()
+    assert 1 == 2
 
 
 async def _maybe_await[T](value: T | Awaitable[T]) -> T:
@@ -132,14 +144,17 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
 
     async def info(self, *, context: CopilotKitContext):
         token = _extract_bearer_token(context)
-        if not token:
+        workspace_id = _extract_workspace_id(context)
+        if not token or not workspace_id:
             raise HTTPException(status_code=401, detail="Missing token")
 
         agents_list: list[AgentDict] = []
         with self._with_session() as session:
             user = get_current_user_from_token(session, token)
+            workspace = get_specific_user_workspace(session, user.id, workspace_id)
+            assert workspace is not None, "User must have access to the specified workspace"
             # If token invalid, the above should raise. Keep the HTTPException behavior in that helper.
-            workflows = list_workflows_by_user(session, user.id)
+            workflows = list_workflows_by_workspace(session, workspace.id)
             for wf in workflows:
                 agents_list.append(
                     {

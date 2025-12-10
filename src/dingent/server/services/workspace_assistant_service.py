@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from dingent.core.db.crud import assistant as crud_assistant
-from dingent.core.db.models import Assistant
+from dingent.core.db.models import Assistant, Workspace
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginUpdateOnAssistant
@@ -13,7 +13,7 @@ from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate
 from .converters import _build_assistant_read
 
 
-class UserAssistantService:
+class WorkspaceAssistantService:
     """
     这是一个请求作用域的服务，负责为单个用户管理其Assistant的运行时实例。
     它持有本次请求内的实例缓存。
@@ -21,11 +21,11 @@ class UserAssistantService:
 
     def __init__(
         self,
-        user_id: UUID,
+        workspace_id: UUID,
         session: Session,
-        assistant_factory: AssistantFactory,  # 依赖注入新的Core Manager
+        assistant_factory: AssistantFactory,
     ):
-        self.user_id = user_id
+        self.workspace_id = workspace_id
         self.session = session
         self._assistant_factory = assistant_factory
         self._runtimes: dict[UUID, AssistantRuntime] = {}  # 请求内缓存
@@ -37,10 +37,10 @@ class UserAssistantService:
 
         # 2. 缓存未命中，从数据库加载用户特定的配置
         #    这是 Service 的职责：处理权限和用户数据
-        assistant_config = crud_assistant.get_user_assistant(db=self.session, assistant_id=assistant_id, user_id=self.user_id)
+        assistant_config = crud_assistant.get_workspace_assistant(db=self.session, assistant_id=assistant_id, workspace_id=self.workspace_id)
 
         if not assistant_config or not assistant_config.enabled:
-            raise ValueError(f"Assistant '{assistant_id}' not found or disabled for user '{self.user_id}'.")
+            raise ValueError(f"Assistant '{assistant_id}' not found or disabled for workspace '{self.workspace_id}'.")
 
         # 3. 调用 Core Manager 来执行复杂的构建任务
         inst = await self._assistant_factory.create_runtime(assistant_config)
@@ -50,7 +50,10 @@ class UserAssistantService:
         return inst
 
     async def get_all_runtime_assistants(self) -> dict[UUID, AssistantRuntime]:
-        assistant_configs = crud_assistant.get_all_assistants(db=self.session, user_id=self.user_id)
+        assistant_configs = crud_assistant.get_all_assistants(
+            db=self.session,
+            workspace_id=self.workspace_id,
+        )
         if not assistant_configs:
             return {}
         for assistant in assistant_configs:
@@ -92,12 +95,13 @@ class UserAssistantService:
 
     async def get_all_assistant_details(
         self,
+        workspace_id: UUID,
     ) -> list[AssistantRead]:
         """
         一个完整的服务函数：获取所有 Assistant 的数据、处理逻辑、并返回 API 模型列表。
         采用批量操作以提高效率。
         """
-        all_assistants_db = crud_assistant.get_all_assistants(db=self.session, user_id=self.user_id)
+        all_assistants_db = crud_assistant.get_all_assistants(db=self.session, workspace_id=workspace_id)
 
         all_runtime_assistants = await self.get_all_runtime_assistants()
 
@@ -113,11 +117,13 @@ class UserAssistantService:
     async def create_assistant(
         self,
         assistant_in: AssistantCreate,
+        user_id: UUID,
+        workspace_id: UUID,
     ) -> AssistantRead:
         """
         一个完整的服务函数：校验数据、创建 Assistant、处理异常并返回 API 模型。
         """
-        existing_assistant = crud_assistant.get_assistant_by_name(db=self.session, user_id=self.user_id, name=assistant_in.name)
+        existing_assistant = crud_assistant.get_assistant_by_name(db=self.session, workspace_id=workspace_id, name=assistant_in.name)
         if existing_assistant:
             raise HTTPException(
                 status_code=409,  # 409 Conflict 是表示资源冲突的正确状态码
@@ -127,7 +133,12 @@ class UserAssistantService:
         runtime_assistant = None
         db = self.session
         try:
-            assistant_db = crud_assistant.create_assistant(db=self.session, user_id=self.user_id, assistant_in=assistant_in)
+            assistant_db = crud_assistant.create_assistant(
+                db=self.session,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                assistant_in=assistant_in,
+            )
 
             db.commit()
             db.refresh(assistant_db)
@@ -155,13 +166,21 @@ class UserAssistantService:
         更新一个 Assistant。
         """
         # 1. 获取数据库中的现有对象，同时验证所有权
-        assistant_db = crud_assistant.get_user_assistant(db=self.session, assistant_id=assistant_id, user_id=self.user_id)
+        assistant_db = crud_assistant.get_workspace_assistant(
+            db=self.session,
+            assistant_id=assistant_id,
+            workspace_id=self.workspace_id,
+        )
         if not assistant_db:
             raise HTTPException(status_code=404, detail=f"Assistant with id '{assistant_id}' not found.")
 
         # 2. 如果名称被更改，检查新名称是否与该用户的其他助手冲突
         if assistant_in.name and assistant_in.name != assistant_db.name:
-            existing_assistant = crud_assistant.get_assistant_by_name(db=self.session, user_id=self.user_id, name=assistant_in.name)
+            existing_assistant = crud_assistant.get_assistant_by_name(
+                db=self.session,
+                name=assistant_in.name,
+                workspace_id=self.workspace_id,
+            )
             if existing_assistant and existing_assistant.id != assistant_id:
                 raise HTTPException(
                     status_code=409,
@@ -197,7 +216,11 @@ class UserAssistantService:
         """
         Deletes an assistant.
         """
-        assistant_to_delete = crud_assistant.get_user_assistant(db=self.session, assistant_id=assistant_id, user_id=self.user_id)
+        assistant_to_delete = crud_assistant.get_workspace_assistant(
+            db=self.session,
+            assistant_id=assistant_id,
+            workspace_id=self.workspace_id,
+        )
         if not assistant_to_delete:
             raise HTTPException(status_code=404, detail=f"Assistant with id '{assistant_id}' not found.")
 

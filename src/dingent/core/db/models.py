@@ -38,6 +38,19 @@ class Role(SQLModel, table=True):
     users: list["User"] = Relationship(back_populates="roles", link_model=UserRoleLink)
 
 
+class WorkspaceMember(SQLModel, table=True):
+    """
+    用户与工作空间的多对多关联，包含用户在这个空间的角色（如管理员、普通成员）
+    """
+
+    workspace_id: UUID = Field(default_factory=uuid4, foreign_key="workspace.id", primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+
+    # 成员角色：owner, admin, member, viewer
+    role: str = Field(default="member")
+    joined_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class User(SQLModel, table=True):
     """
     用户模型：系统中的账户主体，所有用户资源都与此模型关联。
@@ -67,21 +80,8 @@ class User(SQLModel, table=True):
         return f"<User {self.username} ({self.email})>"
 
     # 关系
-    resources: list["Resource"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    resources: list["Resource"] = Relationship(back_populates="created_by", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     workspaces: list["Workspace"] = Relationship(back_populates="members", link_model=WorkspaceMember)
-
-
-class WorkspaceMember(SQLModel, table=True):
-    """
-    用户与工作空间的多对多关联，包含用户在这个空间的角色（如管理员、普通成员）
-    """
-
-    workspace_id: UUID = Field(default_factory=uuid4, foreign_key="workspace.id", primary_key=True)
-    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
-
-    # 成员角色：owner, admin, member, viewer
-    role: str = Field(default="member")
-    joined_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Workspace(SQLModel, table=True):
@@ -93,15 +93,12 @@ class Workspace(SQLModel, table=True):
     name: str
     description: str | None = None
 
-    # 关系
     # 一个工作空间有多个成员
     members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
 
-    # 一个工作空间拥有多个 Assistant
     assistants: list["Assistant"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-
-    # Workflow 和 Resource 也应该迁移到这里
     workflows: list["Workflow"] = Relationship(back_populates="workspace")
+    resources: list["Resource"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -300,9 +297,10 @@ class Resource(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     created_by_id: UUID = Field(foreign_key="user.id", index=True)
-    created_by: User = Relationship()
+    created_by: User = Relationship(back_populates="resources")
 
     workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship(back_populates="resources")
 
 
 # --- 大模型 --
