@@ -12,7 +12,6 @@ from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateO
 
 import json
 from fastapi import HTTPException
-# ... 其他 import
 
 
 import json
@@ -77,30 +76,66 @@ def get_assistant_by_id(*, db: Session, id: UUID):
     return db.get(Assistant, id)
 
 
-def get_assistant_by_name(db: Session, user_id: UUID, name: str):
-    return db.exec(select(Assistant).where(Assistant.user_id == user_id, Assistant.name == name)).first()
+def get_assistant_by_name(db: Session, workspace_id: UUID, name: str) -> Assistant | None:
+    """
+    修改：现在在 workspace 范围内查找同名 Assistant
+    """
+    return db.exec(select(Assistant).where(Assistant.workspace_id == workspace_id, Assistant.name == name)).first()
 
 
-def get_user_assistant(db: Session, assistant_id: UUID, user_id: UUID):
-    return db.exec(select(Assistant).where(Assistant.id == assistant_id, Assistant.user_id == user_id)).first()
+def get_workspace_assistant(db: Session, assistant_id: UUID, workspace_id: UUID) -> Assistant | None:
+    """
+    修改：验证 Assistant 是否属于该 Workspace
+    原名: get_user_assistant
+    """
+    return db.exec(select(Assistant).where(Assistant.id == assistant_id, Assistant.workspace_id == workspace_id)).first()
 
 
-def get_all_assistants(db: Session, user_id: UUID):
-    statement = select(Assistant).where(Assistant.user_id == user_id)
+def get_all_assistants(db: Session, workspace_id: UUID) -> list[Assistant]:
+    """
+    修改：获取该 Workspace 下的所有 Assistant
+    """
+    statement = select(Assistant).where(Assistant.workspace_id == workspace_id)
     results = db.exec(statement).all()
+    results = list(results)
     return results
+
+
+def create_assistant(db: Session, assistant_in: AssistantCreate, workspace_id: UUID, user_id: UUID) -> Assistant:
+    """
+    修改：
+    1. 接收 workspace_id 作为资源归属。
+    2. 接收 user_id 作为 created_by_id (审计用)。
+    """
+    # 构造数据：必须包含 workspace_id，可选包含 created_by_id
+    db_obj_data = assistant_in.model_dump()
+
+    new_assistant = Assistant(
+        **db_obj_data,
+        workspace_id=workspace_id,
+        created_by_id=user_id,  # 记录是谁创建的
+    )
+
+    db.add(new_assistant)
+    try:
+        db.commit()
+        db.refresh(new_assistant)
+    except IntegrityError:
+        db.rollback()
+        # 错误信息现在反映的是 Workspace 内的冲突
+        raise HTTPException(
+            status_code=409,
+            detail=f"Assistant with name '{assistant_in.name}' already exists in this workspace.",
+        )
+
+    return new_assistant
 
 
 def remove_assistant(db: Session, *, id: UUID) -> Assistant | None:
     """
-    Deletes an assistant from the database by its ID.
-
-    Args:
-        db: The database session.
-        id: The UUID of the assistant to delete.
-
-    Returns:
-        The deleted Assistant object, or None if not found.
+    保持不变。
+    注意：在调用此函数前的 API 层（Router），你应该先调用 get_workspace_assistant
+    来确保当前用户有权限删除这个 Workspace 下的 Assistant。
     """
     assistant_to_delete = db.get(Assistant, id)
 
@@ -113,41 +148,20 @@ def remove_assistant(db: Session, *, id: UUID) -> Assistant | None:
     return assistant_to_delete
 
 
-def create_assistant(db: Session, assistant_in: AssistantCreate, user_id: UUID):
-    new_assistant = Assistant(**assistant_in.model_dump(), user_id=user_id)
-    db.add(new_assistant)
-    try:
-        # 尝试提交事务，这里可能会触发 IntegrityError
-        db.commit()
-        # 成功后，刷新实例以从数据库获取最新状态（如默认值）
-        db.refresh(new_assistant)
-
-    except IntegrityError:
-        # 3. 如果发生完整性错误，必须回滚事务！
-        # 失败的 commit() 会让 session 进入一个不一致的状态，必须回滚才能继续使用。
-        db.rollback()
-
-        # 4. 抛出一个对 API 友好的异常
-        # HTTP 409 Conflict 是用于此类错误的标准化状态码
-        raise HTTPException(
-            status_code=409,
-            detail=f"Assistant with name '{assistant_in.name}' already exists.",
-        )
-
-    return new_assistant
-
-
 def update_assistant(
     db: Session,
     db_assistant: Assistant,
     assistant_in: AssistantUpdate,
-):
+) -> Assistant:
+    """
+    逻辑基本保持不变。
+    """
     # 1. 更新 Assistant 基础字段
     update_data = assistant_in.model_dump(exclude={"plugins"}, exclude_unset=True)
     for k, v in update_data.items():
         setattr(db_assistant, k, v)
 
-    # 2. 更新 Plugins 配置
+    # 2. 更新 Plugins 配置 (复用你原本的优秀逻辑)
     if assistant_in.plugins:
         # 建立索引：plugin_registry_id -> link 对象
         link_by_registry_id: dict[str, AssistantPluginLink] = {link.plugin.registry_id: link for link in db_assistant.plugin_links}
@@ -177,14 +191,10 @@ def update_assistant(
 
                 if schema:
                     try:
-                        # 使用 jsonschema 进行校验
                         validate(instance=merged_conf, schema=schema)
                     except ValidationError as e:
-                        # 验证失败，抛出 HTTP 400 错误
-                        # e.message 通常包含具体的错误字段信息
                         raise HTTPException(status_code=400, detail=f"Plugin '{plugin_cfg.registry_id}' configuration error: {e.message}")
 
-                # 验证通过，才真正更新数据库对象
                 link.user_plugin_config = merged_conf
 
     db.add(db_assistant)

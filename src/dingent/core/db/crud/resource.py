@@ -9,22 +9,24 @@ from dingent.core.schemas import ResourceCreate
 
 
 def create_resource(
-    user_id: UUID,
     session: Session,
+    workspace_id: UUID,
+    user_id: UUID,
     payload: ResourceCreate,
 ) -> Resource:
     """
     新建 Resource。
     """
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id is required")
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspace_id is required")
 
     db_obj = Resource(
         version=payload.version or "1.0",
         model_text=payload.model_text,
         display=payload.display,
         data=payload.data,
-        user_id=user_id,
+        workspace_id=workspace_id,
+        created_by_id=user_id,
         created_at=datetime.utcnow(),
     )
     session.add(db_obj)

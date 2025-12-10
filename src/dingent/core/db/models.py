@@ -67,9 +67,43 @@ class User(SQLModel, table=True):
         return f"<User {self.username} ({self.email})>"
 
     # 关系
-    assistants: list["Assistant"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    workflows: list["Workflow"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     resources: list["Resource"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    workspaces: list["Workspace"] = Relationship(back_populates="members", link_model=WorkspaceMember)
+
+
+class WorkspaceMember(SQLModel, table=True):
+    """
+    用户与工作空间的多对多关联，包含用户在这个空间的角色（如管理员、普通成员）
+    """
+
+    workspace_id: UUID = Field(default_factory=uuid4, foreign_key="workspace.id", primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+
+    # 成员角色：owner, admin, member, viewer
+    role: str = Field(default="member")
+    joined_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Workspace(SQLModel, table=True):
+    """
+    工作空间/团队：资源（Assistant/Workflow）的真正持有者
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
+    name: str
+    description: str | None = None
+
+    # 关系
+    # 一个工作空间有多个成员
+    members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
+
+    # 一个工作空间拥有多个 Assistant
+    assistants: list["Assistant"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    # Workflow 和 Resource 也应该迁移到这里
+    workflows: list["Workflow"] = Relationship(back_populates="workspace")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # --- Assistant、Plugin 及其关联（多对多） ---
@@ -117,7 +151,7 @@ class Assistant(SQLModel, table=True):
     Assistant 模型：属于某个用户；可关联多个 Plugin（多对多）。
     """
 
-    __table_args__ = (UniqueConstraint("user_id", "name", name="unique_user_assistant_name"),)
+    __table_args__ = (UniqueConstraint("workspace_id", "name", name="unique_workspace_assistant_name"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str = Field(index=True)
@@ -130,8 +164,9 @@ class Assistant(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
 
     # 外键：多对一 -> User
-    user_id: UUID = Field(foreign_key="user.id", index=True)
-    user: User = Relationship(back_populates="assistants")
+    created_by_id: UUID | None = Field(default=None, foreign_key="user.id")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)  # <-- 新增这行
+    workspace: Workspace = Relationship(back_populates="assistants")
 
     # 多对多：通过 link_model
     plugins: list["Plugin"] = Relationship(
@@ -196,8 +231,9 @@ class Workflow(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
 
     # 外键：多对一 -> User
-    user_id: UUID = Field(foreign_key="user.id", index=True)
-    user: User = Relationship(back_populates="workflows")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship(back_populates="workflows")
+    created_by_id: UUID | None = Field(default=None, foreign_key="user.id")
 
     # 关系
     nodes: list["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
@@ -263,10 +299,10 @@ class Resource(SQLModel, table=True):
     data: dict | str | list | None = Field(default=None, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_by_id: UUID = Field(foreign_key="user.id", index=True)
+    created_by: User = Relationship()
 
-    # 所有权：多对一 -> User
-    user_id: UUID = Field(foreign_key="user.id", index=True)
-    user: User = Relationship(back_populates="resources")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
 
 
 # --- 大模型 --
