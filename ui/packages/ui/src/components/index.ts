@@ -87,3 +87,4 @@ export * from "./widgets/MarkdownWidget";
 export * from "./layout/root-layout";
 export * from "./layout/types";
 export * from "./layout/auth-layout";
+export * from "./layout/workspace-switcher";

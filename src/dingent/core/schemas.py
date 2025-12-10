@@ -1,3 +1,4 @@
+from enum import Enum
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -384,3 +385,55 @@ class UserCreate(SQLModel):
     username: str
     email: EmailStr
     password: str
+
+
+# --- Workspace Schemas ---
+
+
+class WorkspaceBase(SQLModel):
+    name: str
+    description: str | None = None
+
+
+class WorkspaceCreate(WorkspaceBase):
+    pass
+
+
+class WorkspaceUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class WorkspaceRole(str, Enum):
+    OWNER = "owner"
+    MEMBER = "member"
+    ADMIN = "admin"
+    GUEST = "guest"
+
+
+class WorkspaceMemberRead(SQLModel):
+    user_id: UUID
+    email: str
+    username: str
+    role: WorkspaceRole
+    joined_at: datetime
+    avatar_url: str | None = None
+
+
+class WorkspaceRead(WorkspaceBase):
+    id: UUID
+    role: WorkspaceRole
+    slug: str
+    created_at: datetime
+    # 简单的成员概览
+    member_count: int | None = None
+
+
+class WorkspaceInvite(SQLModel):
+    email: EmailStr
+    role: WorkspaceRole
+
+
+class WorkspaceWithRole(WorkspaceRead):
+    pass
+    # permissions: list[str] = [] # 可选：更细粒度的权限列表

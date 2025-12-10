@@ -14,6 +14,7 @@ from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.schemas import UserRead
 from dingent.server.auth.security import get_current_user_from_token, verify_password
+from dingent.server.services.user_workspace_service import UserWorkspaceService
 from dingent.server.services.workspace_assistant_service import WorkspaceAssistantService
 from dingent.server.services.user_plugin_service import UserPluginService
 from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService
@@ -149,6 +150,13 @@ def get_market_service(
     to your AppContext's __init__, this will work seamlessly.
     """
     return request.app.state.market_service
+
+
+def get_user_workspace_service(
+    session: Session = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> UserWorkspaceService:
+    return UserWorkspaceService(session=session, user_id=user.id)
 
 
 def get_assistant_and_verify_ownership(

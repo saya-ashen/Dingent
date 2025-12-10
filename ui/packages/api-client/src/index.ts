@@ -21,6 +21,12 @@ export function createApiClient(cfg: ApiClientConfig) {
 export function setAuthHooks(h?: AuthHooks) {
   hooksRef.current = h;
 }
+export const getBaseUrl = () => {
+  if (typeof window !== 'undefined') return '/api/v1/';
 
-export const api = createApiClient({ baseURL: "/api/v1" });
+  if (process.env.API_BASE_URL) return process.env.API_BASE_URL; // 优先读取环境变量
+
+  return 'http://localhost:3001/api/v1/';
+};
+export const api = createApiClient({ baseURL: getBaseUrl() });
 export type { DashboardApi } from "./dashboard";

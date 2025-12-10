@@ -1,6 +1,8 @@
 import axios, { type AxiosInstance, isAxiosError } from "axios";
 import type { ApiClientConfig } from "./config";
+import { useWorkspaceStore } from "@repo/store";
 import { toApiError } from "./errors";
+import { getCookie } from "@repo/lib/cookies";
 
 let isRedirecting = false;
 
@@ -26,6 +28,12 @@ export function createHttp(
     const token = hooks?.getAccessToken?.();
     if (token) {
       cfg.headers.Authorization = `Bearer ${token}`;
+    }
+    const workspaceState = useWorkspaceStore.getState();
+    const activeWorkspaceId = workspaceState.currentWorkspace?.id || getCookie("active_workspace_id");
+
+    if (activeWorkspaceId) {
+      cfg.headers["X-Workspace-Id"] = activeWorkspaceId;
     }
     return cfg;
   });

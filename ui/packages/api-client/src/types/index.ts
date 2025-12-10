@@ -42,15 +42,6 @@ export type LogStats = {
   newest_timestamp: string | null;
 };
 
-// export type PluginConfigItem = {
-//   name: string;
-//   type?: "string" | "integer";
-//   required?: boolean;
-//   secret?: boolean;
-//   description?: string;
-//   default?: unknown;
-//   value?: unknown;
-// };
 type PluginConfigType = "string" | "float" | "integer" | "bool";
 export interface PluginConfigItem {
   name: string;
@@ -164,4 +155,42 @@ export type Artifact = {
   data?: unknown;
   metadata?: unknown;
   [k: string]: unknown;
+}
+
+export interface Workspace {
+  id: string; // UUID
+  name: string;
+  slug: string;
+  description?: string;
+  role?: "owner" | "admin" | "member";
+}
+
+// types/workspace.ts
+
+export type WorkspaceRole = "owner" | "admin" | "member" | "viewer";
+
+
+export interface WorkspaceMember {
+  user_id: string;
+  email: string;
+  username: string;
+  avatar_url?: string | null;
+  role: WorkspaceRole;
+  joined_at: string;
+}
+
+export interface WorkspaceCreatePayload {
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface WorkspaceUpdatePayload {
+  name?: string;
+  description?: string;
+}
+
+export interface WorkspaceInvitePayload {
+  email: string;
+  role?: WorkspaceRole; // 默认为 "member"
 }

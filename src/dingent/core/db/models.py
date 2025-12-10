@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -8,6 +8,13 @@ from pydantic import Field as PydField
 from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
+
+
+class WorkspaceRole(str, Enum):
+    OWNER = "owner"
+    MEMBER = "member"
+    ADMIN = "admin"
+    GUEST = "guest"
 
 
 class ToolOverrideConfig(BaseModel):
@@ -46,8 +53,7 @@ class WorkspaceMember(SQLModel, table=True):
     workspace_id: UUID = Field(default_factory=uuid4, foreign_key="workspace.id", primary_key=True)
     user_id: UUID = Field(foreign_key="user.id", primary_key=True)
 
-    # 成员角色：owner, admin, member, viewer
-    role: str = Field(default="member")
+    role: WorkspaceRole = Field(default="member")
     joined_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -91,6 +97,7 @@ class Workspace(SQLModel, table=True):
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str
+    slug: str = Field(index=True, description="工作空间的唯一标识符，用于 URL 等")
     description: str | None = None
 
     # 一个工作空间有多个成员

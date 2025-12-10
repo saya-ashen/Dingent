@@ -10,8 +10,6 @@ import {
   ThemeSwitch,
   ConfigDrawer,
 } from "@repo/ui/components";
-import { WorkflowsSidebar } from "../../../components/workflows/WorkflowsSidebar";
-import { WorkflowEditorPanel } from "../../../components/workflows/WorkflowEditorPanel";
 import {
   useAssistantsConfig,
   useCreateWorkflow,
@@ -20,6 +18,8 @@ import {
   useWorkflowsList,
 } from "@repo/store";
 import { WorkflowSummary } from "@repo/api-client";
+import { WorkflowsSidebar } from "../../../../components/workflows/WorkflowsSidebar";
+import { WorkflowEditorPanel } from "../../../../components/workflows/WorkflowEditorPanel";
 
 export default function WorkflowsPage() {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);

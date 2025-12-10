@@ -2,6 +2,7 @@ import { getCookie } from "@repo/lib/cookies";
 import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";
 import { SidebarInset, SidebarProvider, SkipToMain } from "@repo/ui/components";
+import { WorkspaceInitializer } from "./workspace-initializer";
 
 type AuthenticatedLayoutProps = {
   // The specific sidebar component will be passed in from the app
@@ -18,6 +19,7 @@ export function AuthenticatedLayout({ sidebar, children }: AuthenticatedLayoutPr
     <SearchProvider>
       <LayoutProvider>
         {/* The SidebarProvider now wraps the specific sidebar and the page content */}
+        <WorkspaceInitializer />
         <SidebarProvider defaultOpen={defaultOpen}>
           <SkipToMain />
 
