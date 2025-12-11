@@ -23,7 +23,8 @@ export function DashboardNavSidebar() {
   })) as NavGroupProps[];
   return (
     <AppSidebar
-      header={<WorkspaceSwitcher api={api} workspaces={workspaces} />}
+      api={api}
+      workspaces={workspaces}
     >
       {dynamicNavGroups.map((props) => (
         <NavGroup key={props.title} {...props} />

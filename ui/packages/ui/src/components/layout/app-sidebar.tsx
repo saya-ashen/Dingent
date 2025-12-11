@@ -1,4 +1,5 @@
 "use client";
+
 import {
   Sidebar,
   SidebarContent,
@@ -7,44 +8,34 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from "@repo/ui/components";
-import { NavUser } from "./nav-user";
+import { WorkspaceSwitcher } from "./workspace-switcher";
 
-
-
-
-// 定义 Props，允许传入自定义的头部、内容和底部
-type AppSidebarProps = {
-  header?: React.ReactNode;
-  children: React.ReactNode; // 主要内容
-  footer?: React.ReactNode;
-};
-
-// 模拟一个 user 对象，实际应用中应该从认证状态中获取
+// 模拟数据 (实际应从 props 或 context 获取)
 const user = {
   name: "User",
   email: "user@example.com",
-  avatar: "/avatars/placeholder.jpg", // 默认头像
+  avatar: "/avatars/placeholder.jpg",
 };
 
-export function AppSidebar({ header, children, footer }: AppSidebarProps) {
+// 假设 workspaces 和 api 也是通过某种方式获取的，这里为了演示简化
+// 实际使用时，AppSidebar 可能需要接收这些作为 Props
+import { ApiClient, Workspace } from '@repo/api-client';
+type AppSidebarProps = {
+  children: React.ReactNode;
+  workspaces: Workspace[];
+  api: ApiClient;
+};
+
+export function AppSidebar({ children, workspaces, api }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" variant="inset">
-      {/* 1. 可选的头部区域 */}
-      {header && <SidebarHeader>{header}</SidebarHeader>}
+      <SidebarHeader>
+        <WorkspaceSwitcher workspaces={workspaces} api={api} user={user} />
+      </SidebarHeader>
 
-      {/* 2. 主要内容区域，由使用方定义 */}
       <SidebarContent>{children}</SidebarContent>
 
-      {/* 3. 通用的底部区域 */}
-      <SidebarSeparator />
-      <SidebarFooter className="gap-2">
-        {/* 可选的底部操作 */}
-        {footer}
-        {/* 统一的用户信息展示 */}
-        <NavUser user={user} />
-      </SidebarFooter>
 
-      {/* 统一的展开/折叠轨道 */}
       <SidebarRail />
     </Sidebar>
   );

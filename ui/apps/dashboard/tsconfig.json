@@ -12,7 +12,7 @@
         "**/*.ts",
         "**/*.tsx",
         ".next/types/**/*.ts"
-    ],
+, "../../packages/ui/src/components/layout/page.tsx", "../../packages/ui/src/components/layout/settings-dialog.tsx"    ],
     "exclude": [
         "node_modules"
     ]
