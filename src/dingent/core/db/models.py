@@ -98,9 +98,9 @@ class Workspace(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str = Field(index=True, description="工作空间的显示名称")
     slug: str = Field(index=True, description="工作空间的唯一标识符，用于 URL 等")
+    avatar_url: str | None = Field(default=None, description="工作空间的头像地址")
     description: str | None = None
 
-    # 一个工作空间有多个成员
     members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
 
     assistants: list["Assistant"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})

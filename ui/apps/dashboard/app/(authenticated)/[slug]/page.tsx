@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 
-export default function WorkspaceRootPage({
+export default async function WorkspaceRootPage({
   params,
 }: {
   params: { slug: string };
 }) {
-  redirect(`/${params.slug}/overview`);
+  const slug = (await params).slug;
+  redirect(`/${slug}/overview`);
 }

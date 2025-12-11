@@ -62,6 +62,7 @@
           pre-commit
           just
           ruff
+          unzip
         ];
         shellHook = ''
           VENV_DIR=".venv"
