@@ -9,8 +9,9 @@ import {
   AuthLayout,
   SignUpForm,
 } from '@repo/ui/components'
+import { ApiClient } from "@repo/api-client";
 
-export function SignUpPage() {
+export function SignUpPage({ api }: { api: ApiClient }) {
   return (
     <AuthLayout>
       <Card className='gap-4'>
@@ -30,7 +31,7 @@ export function SignUpPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SignUpForm />
+          <SignUpForm api={api} />
         </CardContent>
         <CardFooter>
           <p className='text-muted-foreground px-8 text-center text-sm'>

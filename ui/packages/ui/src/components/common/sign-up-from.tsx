@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { IconFacebook, IconGithub } from '@repo/assets/icon'
 import { cn } from "@repo/lib/utils";
-import { api } from "@repo/api-client";
 import {
   Button,
   Form,
@@ -18,6 +17,14 @@ import {
   PasswordInput,
 } from '@repo/ui/components'
 import { toast } from 'sonner'
+interface SignUpFormProps extends React.HTMLAttributes<HTMLFormElement> {
+  // 定义接口
+  api: {
+    auth: {
+      signup: (data: any) => Promise<any>;
+    }
+  }
+}
 
 const formSchema = z
   .object({
@@ -38,8 +45,9 @@ const formSchema = z
 
 export function SignUpForm({
   className,
+  api,
   ...props
-}: React.HTMLAttributes<HTMLFormElement>) {
+}: SignUpFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 

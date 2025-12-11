@@ -1,165 +1,109 @@
-import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, WorkflowSummary, type Workflow } from "@repo/api-client";
+import { WorkflowSummary, type Workflow } from "@repo/api-client";
+import type { AssistantsApi, WorkflowsApi } from "@repo/api-client";
+import { workflowKeys } from "../queries/keys";
+import { useWorkflowStore } from "../stores/workflow";
 
-const ACTIVE_ID_KEY = ["active-workflow-id"];
-const LS_ACTIVE_ID = "active-workflow-id";
+// --- Queries ---
 
-export function useActiveWorkflowId() {
-  return useQuery<string | null>({
-    queryKey: ACTIVE_ID_KEY,
-    queryFn: () =>
-      typeof window !== "undefined" ? localStorage.getItem(LS_ACTIVE_ID) : null,
-    initialData: () =>
-      typeof window !== "undefined" ? localStorage.getItem(LS_ACTIVE_ID) : null,
-    staleTime: Infinity,
-    gcTime: Infinity,
+export function useWorkflowsList(api: WorkflowsApi) {
+  return useQuery({
+    queryKey: workflowKeys.lists(),
+    queryFn: async () => (await api.list()) ?? [],
   });
 }
 
+export function useWorkflow(api: WorkflowsApi, id: string | null) {
+  const queryClient = useQueryClient();
 
-export function useSetActiveWorkflowId() {
-  const qc = useQueryClient();
-  return React.useCallback(
-    (id: string | null) => {
-      if (typeof window !== "undefined") {
-        if (id) localStorage.setItem(LS_ACTIVE_ID, id);
-        else localStorage.removeItem(LS_ACTIVE_ID);
-      }
-      qc.setQueryData(ACTIVE_ID_KEY, id);
-    },
-    [qc]
-  );
-}
-
-export function useSyncActiveWorkflowIdAcrossTabs() {
-  const qc = useQueryClient();
-  React.useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === LS_ACTIVE_ID) {
-        qc.setQueryData(ACTIVE_ID_KEY, e.newValue);
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [qc]);
-}
-
-
-export function useWorkflow(id: string | null) {
-  return useQuery<Workflow | null>({
-    queryKey: ["workflow", id],
+  return useQuery({
+    queryKey: workflowKeys.detail(id!),
     enabled: !!id,
-    queryFn: async () => {
-      if (!id) return null;
-      return api.dashboard.workflows.get(id);
+    queryFn: async () => api.get(id!),
+    placeholderData: () => {
+      const list = queryClient.getQueryData<WorkflowSummary[]>(workflowKeys.lists());
+      return list?.find((w) => w.id === id);
     },
   });
 }
 
-/**
- * Returns the active workflow id, its summary (if present in the list),
- * and a setter. Falls back to fetching the workflow if not in the list.
- */
-export function useActiveWorkflow() {
-  const { data: activeId } = useActiveWorkflowId();
-  const setActiveId = useSetActiveWorkflowId();
+export function useAssistantsConfig(api: AssistantsApi) {
+  return useQuery({
+    queryKey: workflowKeys.assistants,
+    queryFn: async () => (await api.list()) ?? [],
+  });
+}
 
-  const { data: list } = useWorkflowsList();
+// --- Composite Hook (结合 Zustand 和 React Query) ---
 
-  // Prefer the summary from the list (stays fresh after rename/desc changes)
-  const summaryFromList = React.useMemo(
-    () => list?.find((w) => w.id === activeId) ?? null,
-    [list, activeId]
-  );
+export function useActiveWorkflow(api: WorkflowsApi) {
+  const { activeId, setActiveId } = useWorkflowStore();
 
-  // Optional fallback: if summary not in list, fetch the full workflow
-  const { data: fetched } = useWorkflow(summaryFromList ? null : activeId);
-
-  const summary: WorkflowSummary | null = React.useMemo(() => {
-    if (summaryFromList) return summaryFromList;
-    if (fetched) {
-      // Adapt full Workflow -> WorkflowSummary shape if needed
-      const { id, name, description } = fetched;
-      return { id, name, description } as WorkflowSummary;
-    }
-    return null;
-  }, [summaryFromList, fetched]);
+  // 获取详情（如果缓存里有列表数据，会自动作为初始数据展示）
+  const { data: workflow, isLoading, isError } = useWorkflow(api, activeId);
 
   return {
     id: activeId,
-    name: summary?.name || "default",
-    summary,               // null until we can derive/fetch it
-    setActiveId,           // (id: string | null) => void
+    workflow, // 可能是 Full Workflow 或 Summary (取决于 placeholderData)
+    isLoading,
+    isError,
+    setActiveId,
+    // 辅助属性，防止 workflow 为空时报错
+    name: workflow?.name || "Untitled",
   };
 }
 
-export function useWorkflowsList() {
-  return useQuery<WorkflowSummary[]>({
-    queryKey: ["workflows"],
-    queryFn: async () => (await api.dashboard.workflows.list()) ?? [],
-  });
-}
+// --- Mutations ---
 
-export function useAssistantsConfig() {
-  return useQuery({
-    queryKey: ["assistants"],
-    queryFn: async () =>
-      (await api.dashboard.assistants.getAssistantsConfig()) ?? [],
-  });
-}
+export function useCreateWorkflow(api: WorkflowsApi) {
+  const queryClient = useQueryClient();
+  const { setActiveId } = useWorkflowStore();
 
-export interface WorkflowNodeCreate {
-  /** Optional: let server generate if not a valid UUID */
-  id?: string;
-  measured: Record<string, number>;
-  position: { x: number; y: number };
-  selected: boolean;
-  type: string;
-  dragging: boolean;
-  data: Record<string, any>;
-}
-
-
-
-export function useCreateWorkflow() {
-  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ name, description }: { name: string; description?: string }) =>
-      api.dashboard.workflows.create(name, description),
-    onSuccess: (wf: Workflow) => {
-      qc.invalidateQueries({ queryKey: ["workflows"] });
-      qc.setQueryData(["workflow", wf.id], wf);
+      api.create({ name, description }),
+    onSuccess: (newWf) => {
+      // 1. 更新列表缓存
+      queryClient.invalidateQueries({ queryKey: workflowKeys.lists() });
+      // 2. 写入详情缓存 (避免由于重定向导致的二次 fetch)
+      queryClient.setQueryData(workflowKeys.detail(newWf.id), newWf);
+      // 3. 自动设为当前选中
+      setActiveId(newWf.id);
     },
   });
 }
 
+export function useSaveWorkflow(api: WorkflowsApi) {
+  const queryClient = useQueryClient();
 
-export function useSaveWorkflow() {
-  const qc = useQueryClient();
   return useMutation({
-    mutationFn: api.dashboard.workflows.save,
-    onSuccess: (wf: WorkflowSummary) => {
-      qc.invalidateQueries({ queryKey: ["workflows"] });
-      if (wf?.id) {
-        qc.invalidateQueries({ queryKey: ["workflow", wf.id] });
+    // 显式定义参数，增加类型安全
+    mutationFn: (data: Workflow) => api.update(data),
+    onSuccess: (savedWf) => {
+      // 更新列表（可能改了名字）
+      queryClient.invalidateQueries({ queryKey: workflowKeys.lists() });
+      // 更新详情
+      if (savedWf?.id) {
+        queryClient.setQueryData(workflowKeys.detail(savedWf.id), savedWf);
       }
     },
   });
 }
 
-
-export function useDeleteWorkflow() {
-  const qc = useQueryClient();
-  const { data: activeId } = useActiveWorkflowId();
-  const setActiveId = useSetActiveWorkflowId();
+export function useDeleteWorkflow(api: WorkflowsApi) {
+  const queryClient = useQueryClient();
+  const { activeId, setActiveId } = useWorkflowStore();
 
   return useMutation({
-    mutationFn: api.dashboard.workflows.remove,
-    onSuccess: (_ok, deletedId: string) => {
-      qc.invalidateQueries({ queryKey: ["workflows"] });
-      qc.removeQueries({ queryKey: ["workflow", deletedId] });
-      if (activeId === deletedId) setActiveId(null);
+    mutationFn: (id: string) => api.delete(id),
+    onSuccess: (_ok, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: workflowKeys.lists() });
+      queryClient.removeQueries({ queryKey: workflowKeys.detail(deletedId) });
+
+      // 如果删除的是当前选中的，清除选中状态
+      if (activeId === deletedId) {
+        setActiveId(null);
+      }
     },
   });
 }

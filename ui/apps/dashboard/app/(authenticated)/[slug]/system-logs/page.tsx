@@ -2,7 +2,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "@repo/api-client";
 import {
   ConfigDrawer,
   FloatingActionButtons,
@@ -14,6 +13,9 @@ import {
   Button,
   Input,
 } from "@repo/ui/components";
+
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
 
 const levelColors: Record<string, string> = {
   DEBUG: "#808080",
@@ -28,10 +30,14 @@ const LEVELS = ["All", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"];
 export default function LogsPage() {
   const qc = useQueryClient();
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
 
   const statsQ = useQuery({
     queryKey: ["log-stats"],
-    queryFn: api.dashboard.logs.getStats,
+    queryFn: wsApi.logs.list,
     refetchInterval: autoRefresh ? 10_000 : false,
   });
 
@@ -43,10 +49,10 @@ export default function LogsPage() {
   const logsQ = useQuery({
     queryKey: ["logs", level, module, search, limit],
     queryFn: () =>
-      api.dashboard.logs.getLogs({
-        level: level === "All" ? null : level,
-        module: module.trim() || null,
-        search: search.trim() || null,
+      wsApi.logs.list({
+        level: level === "All" ? "" : level,
+        module: module.trim() || "",
+        search: search.trim() || "",
         limit,
       }),
     staleTime: 2_000,
@@ -91,7 +97,7 @@ export default function LogsPage() {
         <Button
           variant="destructive"
           onClick={async () => {
-            const ok = await api.dashboard.logs.clearAll();
+            const ok = await wsApi.logs.clear();
             if (ok) {
               toast.success("All logs cleared");
               await qc.invalidateQueries({ queryKey: ["logs"] });

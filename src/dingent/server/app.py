@@ -41,8 +41,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Include routers
     app.include_router(api_router, prefix="/api/v1")
-    # app.include_router(admin_router)  # Admin SPA routes
 
     return app

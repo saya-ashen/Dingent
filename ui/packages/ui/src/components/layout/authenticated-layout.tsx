@@ -3,23 +3,22 @@ import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";
 import { SidebarInset, SidebarProvider, SkipToMain } from "@repo/ui/components";
 import { WorkspaceInitializer } from "./workspace-initializer";
+import { Workspace } from "@repo/api-client";
 
 type AuthenticatedLayoutProps = {
-  // The specific sidebar component will be passed in from the app
+  workspaces: Workspace[];
   sidebar: React.ReactNode;
   children?: React.ReactNode;
 };
 
-export function AuthenticatedLayout({ sidebar, children }: AuthenticatedLayoutProps) {
-  // Logic to read cookie remains the same
+export function AuthenticatedLayout({ workspaces, sidebar, children }: AuthenticatedLayoutProps) {
 
   const defaultOpen = getCookie("sidebar_state") !== "false";
 
   return (
     <SearchProvider>
       <LayoutProvider>
-        {/* The SidebarProvider now wraps the specific sidebar and the page content */}
-        <WorkspaceInitializer />
+        <WorkspaceInitializer workspaces={workspaces} />
         <SidebarProvider defaultOpen={defaultOpen}>
           <SkipToMain />
 

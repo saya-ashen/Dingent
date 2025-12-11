@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-import { api } from "@repo/api-client";
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
 
 import type { OverviewData } from "@repo/api-client";
 
 export function useOverview() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
   const [data, setData] = useState<OverviewData | null>(null);
-
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState<string | null>(null);
 
   const reload = () => {
@@ -18,7 +21,7 @@ export function useOverview() {
 
     setError(null);
 
-    api.dashboard.overview.getOverview()
+    wsApi.overview.get()
       .then((d) => {
         setData(d);
       })

@@ -4,11 +4,10 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useWorkspaceStore } from "@repo/store";
-import { api } from "@repo/api-client";
 import {
   Dialog,
   DialogContent,
@@ -26,9 +25,8 @@ import {
   FormMessage,
   Input,
 } from "@repo/ui/components";
+import { ApiClient } from "@repo/api-client";
 
-// 1. 定义校验规则 (Zod Schema)
-// slug 正则：只允许小写字母、数字和连字符
 const formSchema = z.object({
   name: z.string().min(1, "工作空间名称不能为空").max(50, "名称太长了"),
   slug: z
@@ -42,11 +40,13 @@ const formSchema = z.object({
 type CreateWorkspaceValues = z.infer<typeof formSchema>;
 
 interface CreateWorkspaceDialogProps {
+  api: ApiClient;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function CreateWorkspaceDialog({
+  api,
   open,
   onOpenChange,
 }: CreateWorkspaceDialogProps) {
@@ -78,7 +78,7 @@ export function CreateWorkspaceDialog({
     // 构造 Promise 用于 toast.promise
     const createPromise = async () => {
       // 调用 API (假设这是你的 API 签名)
-      const newWorkspace = await api.dashboard.workspaces.createWorkspace({
+      const newWorkspace = await api.workspaces.create({
         name: data.name,
         slug: data.slug,
       });

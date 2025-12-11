@@ -7,7 +7,6 @@ import { Loader2, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@repo/store";
 import { cn } from "@repo/lib/utils";
-import { api } from "@repo/api-client";
 import {
   Button,
   Form,
@@ -19,6 +18,7 @@ import {
   Input,
   PasswordInput,
 } from "@repo/ui/components";
+import type { ApiClient } from "@repo/api-client";
 import { useWorkspaceStore } from "@repo/store";
 
 const formSchema = z.object({
@@ -32,18 +32,21 @@ const formSchema = z.object({
 });
 
 interface UserAuthFormProps extends React.HTMLAttributes<HTMLFormElement> {
+  api: ApiClient;
   onLoginSuccess: (user: any, token: string) => void;
   onLoginFail?: (error: Error) => void;
 }
 
 export function UserAuthForm({
+  api,
   className,
   onLoginSuccess,
   onLoginFail,
   ...props
 }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { setUser, setAccessToken } = useAuthStore();
+  const { setAuth } = useAuthStore();
+  const { setWorkspaces } = useWorkspaceStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -57,27 +60,27 @@ export function UserAuthForm({
     setIsLoading(true);
 
     const handleLoginFlow = async () => {
+
+
       // 第一步：登录
+      // 注意：这里的 api.auth 对应我们在 @repo/api 中定义的 AuthApi 类
       const { access_token, user } = await api.auth.login({
         email: data.email,
         password: data.password,
       });
 
-      // 第二步：保存 Token (确保 API Client 下一次请求能带上这个 Token)
-      // 注意：这里假设 setAccessToken 会同步写入 Cookie/LocalStorage，
-      // 或者是你的 api client 拦截器能立即读取到新 token。
-      setUser(user);
-      setAccessToken(access_token);
+      // 第二步：更新状态 (这一步至关重要)
+      // 我们需要先将 Token 写入 Store/Cookie，后续的 API 请求才能带上 Token
+      // 假设 setAuth = (token, user) => { Cookie.set(...); set({ token, user }) }
+      setAuth(access_token, user);
 
       // 第三步：获取工作空间
-      // 这里的 await 失败会被下面的 catch 捕获，从而触发 toast 的 error 状态
-      const workspaces = await api.dashboard.workspaces.listWorkspaces();
+      // getClientApi 内部会读取刚才 setAuth 更新后的 Store/Cookie
+      const workspaces = await api.workspaces.list(); // 假设 API 方法名为 list
 
-      // 第四步：存入 Store
-      // 使用 getState() 在组件外/回调中访问是个好习惯
-      useWorkspaceStore.getState().setWorkspaces(workspaces);
+      // 第四步：存入 Workspace Store
+      setWorkspaces(workspaces);
 
-      // 返回 user 和 token 给 success 回调使用
       return { user, access_token };
     };
 

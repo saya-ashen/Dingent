@@ -1,26 +1,41 @@
-import { createHttp, AuthHooks } from "./http";
-import { createAuthApi } from "./auth";
-import { createDashboardApi } from "./dashboard";
+import { createHttpClient, AuthHooks, TokenProvider, UnauthorizeHandler } from "./http";
 import type { ApiClientConfig } from "./config";
-import { createFrontendApi } from "./frontend";
-type Ref<T> = { current: T };
+import { AuthApi } from "./auth";
+import { AssistantsApi, WorkflowsApi, SettingsApi, LogsApi, MarketApi, OverviewApi, PluginsApi } from "./dashboard";
+import { WorkspaceApi } from "./workspace";
+
 
 export * from "./types";
-const hooksRef: Ref<AuthHooks | undefined> = { current: undefined };
+export * from "./dashboard";
 
+export class ApiClient {
+  public http: any;
+  public auth: AuthApi;
+  public workspaces: WorkspaceApi;
 
-export function createApiClient(cfg: ApiClientConfig) {
-  const http = createHttp(cfg, hooksRef);
+  constructor(config: ApiClientConfig, getToken: TokenProvider, on401?: UnauthorizeHandler) {
+    this.http = createHttpClient(config, getToken, on401);
 
-  return {
-    auth: createAuthApi(http, { authPath: "/auth" }),
-    dashboard: createDashboardApi(http, "/dashboard"),
-    frontend: createFrontendApi(http, "/frontend")
-  };
+    // 初始化子模块
+    this.auth = new AuthApi(this.http);
+    this.workspaces = new WorkspaceApi(this.http, "/workspaces");
+  }
+
+  // 替代原来的 Proxy 写法，显式提供 Scope 方法
+  public forWorkspace(slug: string) {
+    const wsPath = `/${slug}`;
+    return {
+      overview: new OverviewApi(this.http, `${wsPath}/overview`),
+      assistants: new AssistantsApi(this.http, `${wsPath}/assistants`),
+      workflows: new WorkflowsApi(this.http, `${wsPath}/workflows`),
+      plugins: new PluginsApi(this.http, `${wsPath}/plugins`),
+      logs: new LogsApi(this.http, `${wsPath}/logs`),
+      settings: new SettingsApi(this.http, `${wsPath}/settings`),
+      market: new MarketApi(this.http, `${wsPath}/market`),
+    };
+  }
 }
-export function setAuthHooks(h?: AuthHooks) {
-  hooksRef.current = h;
-}
+
 export const getBaseUrl = () => {
   if (typeof window !== 'undefined') return '/api/v1/';
 
@@ -28,5 +43,3 @@ export const getBaseUrl = () => {
 
   return 'http://localhost:3001/api/v1/';
 };
-export const api = createApiClient({ baseURL: getBaseUrl() });
-export type { DashboardApi } from "./dashboard";

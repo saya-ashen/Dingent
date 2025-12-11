@@ -392,6 +392,7 @@ class UserCreate(SQLModel):
 
 class WorkspaceBase(SQLModel):
     name: str
+    slug: str
     description: str | None = None
 
 

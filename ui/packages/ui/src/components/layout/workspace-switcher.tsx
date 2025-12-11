@@ -15,20 +15,19 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '../'
-import { useWorkspaceStore } from '@repo/store'
 import { useState } from 'react'
 import { CreateWorkspaceDialog } from '../common/create-workspace-dialog'
+import { ApiClient, Workspace } from '@repo/api-client';
+import { useParams } from "next/navigation";
 
 
-export function WorkspaceSwitcher() {
-  const { workspaces, currentWorkspace: activeWorkspace } = useWorkspaceStore();
+export function WorkspaceSwitcher({ workspaces, api }: { workspaces: Workspace[], api: ApiClient }) {
+  const params = useParams();
+  const slug = params.slug as string;
+  const name = workspaces.find(w => w.slug === slug)?.name || slug;
   const { isMobile } = useSidebar()
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const selectedWorkspace = activeWorkspace || workspaces[0]
   const router = useRouter();
-  if (!selectedWorkspace) {
-    return null
-  }
 
   const handleSwitch = (workspaceSlug: string) => {
     router.push(`/${workspaceSlug}`);
@@ -47,9 +46,9 @@ export function WorkspaceSwitcher() {
               </div>
               <div className='grid flex-1 text-start text-sm leading-tight'>
                 <span className='truncate font-semibold'>
-                  {selectedWorkspace.name}
+                  {name}
                 </span>
-                <span className='truncate text-xs'>{selectedWorkspace.name}</span>
+                <span className='truncate text-xs'>{name}</span>
               </div>
               <ChevronsUpDown className='ms-auto' />
             </SidebarMenuButton>
@@ -77,7 +76,7 @@ export function WorkspaceSwitcher() {
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={(e) => {
-              e.preventDefault(); // 防止下拉菜单关闭导致弹窗闪退
+              e.preventDefault();
               setIsDialogOpen(true);
             }}>
               <div className="flex items-center gap-2">
@@ -88,6 +87,7 @@ export function WorkspaceSwitcher() {
           </DropdownMenuContent>
         </DropdownMenu>
         <CreateWorkspaceDialog
+          api={api}
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
         />

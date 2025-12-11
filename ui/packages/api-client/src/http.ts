@@ -1,10 +1,11 @@
 import axios, { type AxiosInstance, isAxiosError } from "axios";
 import type { ApiClientConfig } from "./config";
-import { useWorkspaceStore } from "@repo/store";
+import { getCurrentSlug } from "@repo/store";
 import { toApiError } from "./errors";
-import { getCookie } from "@repo/lib/cookies";
 
 let isRedirecting = false;
+export type TokenProvider = () => string | Promise<string | null> | null;
+export type UnauthorizeHandler = () => void;
 
 export interface AuthHooks {
   getAccessToken?: () => string | undefined;
@@ -12,48 +13,32 @@ export interface AuthHooks {
 }
 type Ref<T> = { current: T };
 
-export function createHttp(
+export function createHttpClient(
   config: ApiClientConfig,
-  authHooks: Ref<AuthHooks | undefined>,
+  getToken: TokenProvider,
+  onUnauthorized?: UnauthorizeHandler
 ): AxiosInstance {
   const instance = axios.create({
     baseURL: config.baseURL,
     timeout: config.timeoutMs ?? 120_000,
   });
 
-
-
-  instance.interceptors.request.use((cfg) => {
-    const hooks = authHooks?.current;
-    const token = hooks?.getAccessToken?.();
+  instance.interceptors.request.use(async (req) => {
+    const token = await getToken();
     if (token) {
-      cfg.headers.Authorization = `Bearer ${token}`;
+      req.headers.Authorization = `Bearer ${token}`;
     }
-    const workspaceState = useWorkspaceStore.getState();
-    const activeWorkspaceId = workspaceState.currentWorkspace?.id || getCookie("active_workspace_id");
 
-    if (activeWorkspaceId) {
-      cfg.headers["X-Workspace-Id"] = activeWorkspaceId;
-    }
-    return cfg;
+    return req;
   });
 
   instance.interceptors.response.use(
-    (resp) => resp,
+    (res) => res,
     (err) => {
-      if (isAxiosError(err) && err.response?.status === 401) {
-        if (typeof window !== "undefined" && !isRedirecting) {
-          isRedirecting = true;
-          const hooks = authHooks?.current;
-          hooks?.resetAuthState?.();
-
-          const next = encodeURIComponent(window.location.pathname + window.location.search);
-          window.location.href = `/auth/login?next=${next}`;
-          return new Promise(() => { });
-        }
+      if (err.response?.status === 401 && onUnauthorized) {
+        onUnauthorized();
       }
-
-      return Promise.reject(toApiError(err));
+      return Promise.reject(err);
     }
   );
 

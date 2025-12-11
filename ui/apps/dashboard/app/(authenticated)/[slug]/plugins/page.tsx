@@ -1,8 +1,9 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "@repo/api-client";
 import { useAuthStore } from "@repo/store";
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
 
 // UI Components
 import {
@@ -17,14 +18,17 @@ import { getErrorMessage } from "@repo/lib/utils";
 
 
 export default function PluginsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
   const queryClient = useQueryClient();
   const auth = useAuthStore();
   const isAdmin = auth.user?.role.includes('admin');
 
   const { data: plugins, isLoading, error } = useQuery({
     queryKey: ["available-plugins"],
-    // 注意: 如果普通用户只能看到部分插件, getAvailablePlugins 可能也需要根据角色调整
-    queryFn: async () => (await api.dashboard.plugins.getAvailablePlugins()) ?? [],
+    queryFn: async () => (await wsApi.plugins.list()) ?? [],
   });
 
   const deleteMutation = useMutation({
@@ -32,7 +36,7 @@ export default function PluginsPage() {
       if (!isAdmin) {
         throw new Error("You do not have permission to delete plugins.");
       }
-      return api.dashboard.plugins.deletePlugin(id);
+      return wsApi.plugins.delete(id);
     },
     onSuccess: async () => {
       toast.success("Plugin deleted successfully");

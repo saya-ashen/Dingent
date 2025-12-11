@@ -1,48 +1,35 @@
 import type { AxiosInstance } from "axios";
 import type { MarketItem, MarketMetadata, MarketDownloadRequest, MarketDownloadResponse } from "../types";
 
-export function createMarketApi(http: AxiosInstance, marketBase: string) {
-  const url = (p = "") => `${marketBase}${p}`;
+export class MarketApi {
+  constructor(private http: AxiosInstance, private basePath: string = "") { }
 
-  return {
-    async getMetadata(): Promise<MarketMetadata | null> {
-      try {
-        const { data } = await http.get<MarketMetadata>(url("/metadata"));
-        return data;
-      } catch (err) {
-        console.warn("Backend not available, return mock metadata", err);
-        return {
-          version: "1.0.0",
-          updated_at: new Date().toISOString(),
-          categories: { plugins: 15, assistants: 8, workflows: 5 },
-        };
-      }
-    },
+  private url(path: string = ""): string {
+    return `${this.basePath}${path}`;
+  }
 
-    async list(category: "all" | "plugin" | "assistant" | "workflow"): Promise<MarketItem[]> {
-      try {
-        const path = category ? `/items?category=${category}` : "/items";
-        const { data } = await http.get<MarketItem[]>(url(path));
-        return data;
-      } catch (err) {
-        console.warn("Backend not available, return []", err);
-        return [];
-      }
-    },
+  /** GET /metadata */
+  async getMetadata(): Promise<MarketMetadata> {
+    const { data } = await this.http.get<MarketMetadata>(this.url("/metadata"));
+    return data;
+  }
 
-    async download(req: MarketDownloadRequest): Promise<MarketDownloadResponse> {
-      const { data } = await http.post<MarketDownloadResponse>(url("/download"), req);
-      return data;
-    },
+  /** GET /items */
+  async list(category?: "all" | "plugin" | "assistant" | "workflow"): Promise<MarketItem[]> {
+    const path = category && category !== "all" ? `/items?category=${category}` : "/items";
+    const { data } = await this.http.get<MarketItem[]>(this.url(path));
+    return data;
+  }
 
-    async readme(itemId: string): Promise<string | null> {
-      try {
-        const { data } = await http.get<{ readme: string }>(url(`/items/${itemId}/readme`));
-        return data.readme;
-      } catch (err) {
-        console.warn("Failed to fetch readme", itemId, err);
-        return null;
-      }
-    },
-  };
+  /** POST /download */
+  async download(req: MarketDownloadRequest): Promise<MarketDownloadResponse> {
+    const { data } = await this.http.post<MarketDownloadResponse>(this.url("/download"), req);
+    return data;
+  }
+
+  /** GET /items/:id/readme */
+  async getReadme(itemId: string): Promise<string> {
+    const { data } = await this.http.get<{ readme: string }>(this.url(`/items/${itemId}/readme`));
+    return data.readme;
+  }
 }

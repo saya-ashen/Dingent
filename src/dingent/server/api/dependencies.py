@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import Depends, Header, Request, status
+from fastapi import Depends, Header, Path, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.security.oauth2 import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -41,8 +41,7 @@ async def get_current_user(
 
 def get_current_workspace(
     # 1. 前端必须在 Header 中传递这个 ID
-    workspace_id: UUID = Header(..., alias="X-Workspace-Id", description="The ID of the active workspace"),
-    # 2. 获取当前登录用户
+    workspace_slug: str = Path(..., description="The unique slug of the workspace"),
     current_user: User = Depends(get_current_user),
     # 3. 获取数据库会话
     session: Session = Depends(get_db_session),
@@ -52,16 +51,15 @@ def get_current_workspace(
     如果是，返回 Workspace 对象；否则抛出 403。
     """
     # 查询关联表
-    statement = select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id, WorkspaceMember.user_id == current_user.id)
-    member = session.exec(statement).first()
-
-    if not member:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this workspace or it does not exist.")
-
+    statement = select(Workspace).where(Workspace.slug == workspace_slug)
+    workspace = session.exec(statement).first()
     # 获取并返回 Workspace 对象
-    workspace = session.get(Workspace, workspace_id)
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    member_statement = select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace.id, WorkspaceMember.user_id == current_user.id)
+    member = session.exec(member_statement).first()
+    if not member:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this workspace or it does not exist.")
 
     return workspace
 

@@ -3,10 +3,9 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, PlusCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
-import {
-  api,
-  type Assistant,
-} from "@repo/api-client";
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
+import type { Assistant } from "@repo/api-client";
 import {
   safeBool,
   effectiveStatusForItem,
@@ -45,16 +44,20 @@ import { AssistantEditor } from "./components/plugin-editor";
 
 export default function AssistantsPage() {
   const qc = useQueryClient();
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
 
   const assistantsQ = useQuery({
     queryKey: ["assistants"],
-    queryFn: async () => (await api.dashboard.assistants.getAssistantsConfig()) ?? [],
+    queryFn: async () => (await wsApi.assistants.list()) ?? [],
     staleTime: 5_000,
   });
 
   const pluginsQ = useQuery({
     queryKey: ["available-plugins"],
-    queryFn: async () => (await api.dashboard.plugins.getAvailablePlugins()) ?? [],
+    queryFn: async () => (await wsApi.plugins.list()) ?? [],
     staleTime: 30_000,
   });
 
@@ -71,7 +74,7 @@ export default function AssistantsPage() {
 
   const addPluginMutation = useMutation({
     mutationFn: async (p: { assistantId: string; pluginId: string }) =>
-      api.dashboard.assistants.addPluginToAssistant(p.assistantId, p.pluginId),
+      wsApi.assistants.addPlugin(p.assistantId, p.pluginId),
     onSuccess: async () => {
       toast.success("Plugin added");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
@@ -82,7 +85,7 @@ export default function AssistantsPage() {
 
   const removePluginMutation = useMutation({
     mutationFn: async (p: { assistantId: string; pluginId: string }) =>
-      api.dashboard.assistants.removePluginFromAssistant(p.assistantId, p.pluginId),
+      wsApi.assistants.removePlugin(p.assistantId, p.pluginId),
     onSuccess: async () => {
       toast.success("Plugin removed");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
@@ -105,7 +108,7 @@ export default function AssistantsPage() {
     }: {
       name: string;
       description: string;
-    }) => api.dashboard.assistants.addAssistant(name, description),
+    }) => wsApi.assistants.create({ name, description }),
     onSuccess: async () => {
       toast.success("Assistant added successfully!");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
@@ -128,7 +131,7 @@ export default function AssistantsPage() {
       }
 
       const updatePromises = changedAssistants.map((assistant) =>
-        api.dashboard.assistants.updateAssistant(assistant.id, assistant),
+        wsApi.assistants.update(assistant.id, assistant),
       );
 
       await Promise.all(updatePromises);
@@ -137,14 +140,13 @@ export default function AssistantsPage() {
       toast.success("All changes have been saved successfully!");
       await qc.invalidateQueries({ queryKey: ["assistants"] });
       setSaveDialogOpen(false); // Close the dialog
-      // The useEffect will then clear the dirty set automatically
     },
     onError: (e: unknown) =>
       toast.error(getErrorMessage(e, "Failed to save some changes.")),
   });
 
   const deleteAssistantMutation = useMutation({
-    mutationFn: async (assistantId: string) => api.dashboard.assistants.deleteAssistant(assistantId),
+    mutationFn: async (assistantId: string) => wsApi.assistants.delete(assistantId),
     onSuccess: async () => {
       toast.success("Assistant deleted");
       await qc.invalidateQueries({ queryKey: ["assistants"] });

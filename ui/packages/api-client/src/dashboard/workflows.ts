@@ -1,17 +1,19 @@
 import type { AxiosInstance } from "axios";
 import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowSummary } from "../types";
 
-type WorkflowNodeDTO = {
-  id: string;               // 节点ID（不是 assistantId）
+// --- DTO Types (Internal) ---
+interface WorkflowNodeDTO {
+  id: string;
   assistantId: string;
   name: string;
   type: "assistant";
-  isStartNode?: boolean;    // 后端字段：isStartNode
+  isStartNode?: boolean;
   position: { x: number; y: number };
   workflowId: string;
   description?: string;
-};
-type WorkflowEdgeDTO = {
+}
+
+interface WorkflowEdgeDTO {
   id: string;
   workflowId: string;
   targetNodeId: string;
@@ -20,100 +22,115 @@ type WorkflowEdgeDTO = {
   sourceHandle: string | null;
   type: string;
   mode: "single" | "bidirectional";
-};
-type WorkflowDTO = {
+}
+
+interface WorkflowDTO {
   id: string;
   name: string;
   description: string | null;
   created_at?: string;
   updated_at?: string;
   nodes: WorkflowNodeDTO[];
-  edges: any[]; // 按需细化
-};
-function toWorkflowNode(n: WorkflowNodeDTO): WorkflowNode {
-  return {
-    id: n.id,
-    type: "assistant",
-    position: n.position,
-    data: {
-      id: n.id,
-      assistantId: n.assistantId,
-      name: n.name,
-      isStart: n.isStartNode ?? false,
-      description: n.description || "",
-    },
-  };
+  edges: any[];
 }
-function toWorkflowEdge(e: WorkflowEdgeDTO): WorkflowEdge {
-  return {
-    id: e.id,
-    source: e.sourceNodeId,
-    target: e.targetNodeId,
-    sourceHandle: e.sourceHandle,
-    targetHandle: e.targetHandle,
-    type: e.type,
-    data: { mode: e.mode },
+
+export class WorkflowsApi {
+  constructor(private http: AxiosInstance, private basePath: string = "") { }
+
+  private url(path: string = ""): string {
+    return `${this.basePath}${path}`;
   }
-}
-function toWorkflow(dto: WorkflowDTO): Workflow {
-  return {
-    id: dto.id,
-    name: dto.name,
-    description: dto.description ?? undefined,
-    created_at: dto.created_at,
-    updated_at: dto.updated_at,
-    nodes: dto.nodes.map(toWorkflowNode),
-    edges: dto.edges.map(toWorkflowEdge),
-  };
-}
-export function createWorkflowsApi(http: AxiosInstance, base: string) {
-  const url = (p: string) => `${base}${p}`;
 
-  return {
-    async list(): Promise<Workflow[]> {
-      try {
-        const { data } = await http.get<Workflow[]>(url(""));
-        return data;
-      } catch (err) {
-        console.warn("Backend not available, returning []", err);
-        return [];
-      }
-    },
+  /** GET / */
+  async list(): Promise<Workflow[]> {
+    // 假设列表接口返回的是简化版或完整版，这里假设是完整版并包含 DTO 转换
+    // 如果列表返回结构不同，需调整
+    const { data } = await this.http.get<Workflow[]>(this.url(""));
+    return data;
+  }
 
-    async get(id: string): Promise<Workflow | null> {
-      const { data } = await http.get<WorkflowDTO>(url(`/${id}`));
-      return data ? toWorkflow(data) : null;
-    },
+  /** GET /:id */
+  async get(id: string): Promise<Workflow> {
+    const { data } = await this.http.get<WorkflowDTO>(this.url(`/${id}`));
+    return this.transformToDomain(data);
+  }
 
-    async save(wf: Workflow): Promise<WorkflowSummary> {
-      try {
-        const nodes = wf.nodes.map(n => ({ id: n.id, assistantId: n.data.assistantId, position: n.position, type: n.type, measured: n.measured, isStartNode: n.data.isStart }));
-        const edges = wf.edges.map(e => ({ sourceNodeId: e.source, targetNodeId: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle, mode: e.data?.mode }));
-        const { data } = await http.put<WorkflowSummary>(url(`/${wf.id}`), { name: wf.name, description: wf.description, nodes: nodes, edges: edges, });
-        return data;
-      } catch {
-        console.warn("Backend not available, mocking save");
-        return { ...wf, };
-      }
-    },
+  /** POST / */
+  async create(payload: { name: string; description?: string }): Promise<Workflow> {
+    const { data } = await this.http.post<Workflow>(this.url(""), payload);
+    return data;
+  }
 
-    async create(name: string, description?: string): Promise<Workflow> {
-      try {
-        const { data } = await http.post<Workflow>(url(""), { name, description });
-        return data;
-      } catch {
-        console.warn("Backend not available, mocking create");
-        const now = new Date().toISOString();
-        return { id: `mock-${Date.now()}`, name, description, nodes: [], edges: [], created_at: now, updated_at: now };
-      }
-    },
+  /** PUT /:id */
+  async update(wf: Workflow): Promise<WorkflowSummary> {
+    // Transform Domain -> DTO
+    const payload = {
+      name: wf.name,
+      description: wf.description,
+      nodes: wf.nodes.map((n) => ({
+        id: n.id,
+        assistantId: n.data.assistantId,
+        position: n.position,
+        type: n.type,
+        measured: n.measured,
+        isStartNode: n.data.isStart,
+      })),
+      edges: wf.edges.map((e) => ({
+        sourceNodeId: e.source,
+        targetNodeId: e.target,
+        sourceHandle: e.sourceHandle,
+        targetHandle: e.targetHandle,
+        mode: e.data?.mode,
+      })),
+    };
 
-    async remove(id: string): Promise<void> {
-      try {
-        await http.delete(url(`/${id}`));
-      } catch {
-        console.warn("Backend not available, mocking delete");
-      }
-    },
-  };
+    const { data } = await this.http.put<WorkflowSummary>(this.url(`/${wf.id}`), payload);
+    return data;
+  }
+
+  /** DELETE /:id */
+  async delete(id: string): Promise<void> {
+    await this.http.delete(this.url(`/${id}`));
+  }
+
+  // --- Private Transformers ---
+
+  private transformToDomain(dto: WorkflowDTO): Workflow {
+    return {
+      id: dto.id,
+      name: dto.name,
+      description: dto.description ?? undefined,
+      created_at: dto.created_at,
+      updated_at: dto.updated_at,
+      nodes: dto.nodes.map(this.transformNode),
+      edges: dto.edges.map(this.transformEdge),
+    };
+  }
+
+  private transformNode(n: WorkflowNodeDTO): WorkflowNode {
+    return {
+      id: n.id,
+      type: "assistant",
+      position: n.position,
+      data: {
+        id: n.id,
+        assistantId: n.assistantId,
+        name: n.name,
+        isStart: n.isStartNode ?? false,
+        description: n.description || "",
+      },
+    };
+  }
+
+  private transformEdge(e: WorkflowEdgeDTO): WorkflowEdge {
+    return {
+      id: e.id,
+      source: e.sourceNodeId,
+      target: e.targetNodeId,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
+      type: e.type,
+      data: { mode: e.mode },
+    };
+  }
 }

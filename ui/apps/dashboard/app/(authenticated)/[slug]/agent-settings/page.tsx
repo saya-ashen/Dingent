@@ -6,12 +6,12 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
 import {
   type AppSettings,
-  api,
 } from "@repo/api-client";
 
-// UI Components
 import {
   Button,
   Input,
@@ -54,6 +54,10 @@ type FormValues = z.infer<typeof schema>;
 
 // The main component for the settings page
 export default function AgentSettings() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
   const queryClient = useQueryClient();
 
   const {
@@ -63,7 +67,7 @@ export default function AgentSettings() {
   } = useQuery<AppSettings>({
     queryKey: ["app-settings"],
     queryFn: async () =>
-      (await api.dashboard.agentSettings.getAppSettings()) ?? { llm: {}, current_workflow: "" },
+      (await wsApi.settings.get()) ?? { llm: {}, current_workflow: "" },
     staleTime: 5_000,
   });
 
@@ -75,7 +79,7 @@ export default function AgentSettings() {
     handleSubmit,
     setValue,
     control,
-    formState: { errors, isSubmitting, isDirty },
+    formState: { errors, isDirty },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { llm: {}, current_workflow: "" },
@@ -93,7 +97,7 @@ export default function AgentSettings() {
   }, [settings, setValue]);
 
   const saveMutation = useMutation({
-    mutationFn: (form: FormValues) => api.dashboard.agentSettings.saveAppSettings(form as AppSettings),
+    mutationFn: (form: FormValues) => wsApi.settings.update(form as AppSettings),
     onSuccess: async () => {
       toast.success("Settings saved successfully!");
       await queryClient.invalidateQueries({ queryKey: ["app-settings"] });

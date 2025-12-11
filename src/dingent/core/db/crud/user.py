@@ -41,7 +41,11 @@ def create_user(session: Session, user_in: UserCreate) -> User:
     # --- 新增：自动创建默认工作空间 ---
 
     # 3. 创建个人工作空间
-    default_workspace = Workspace(name=f"{user_in.username}'s Workspace", description="Default personal workspace")
+    default_workspace = Workspace(
+        name=f"{user_in.username}'s Workspace",
+        slug=f"user-{db_user.id}-workspace",
+        description="Default personal workspace",
+    )
     session.add(default_workspace)
     # flush 以获取 workspace.id
     session.flush()

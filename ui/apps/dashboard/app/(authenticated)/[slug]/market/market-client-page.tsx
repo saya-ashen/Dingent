@@ -23,9 +23,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-// API and types
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
 import {
-  api,
   MarketItem,
   MarketDownloadResponse,
   MarketDownloadRequest,
@@ -57,6 +57,7 @@ import {
   Search,
   ThemeSwitch,
 } from "@repo/ui/components";
+import { getSlugOrThrow } from "@repo/store";
 
 // --- Helper Types and Constants ---
 type CategoryFilter = "all" | "plugin" | "assistant" | "workflow";
@@ -127,6 +128,10 @@ function MarketItemActionButton({
 }
 
 export function MarketPageContent() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -149,18 +154,18 @@ export function MarketPageContent() {
   // React Query 的数据获取逻辑保持不变
   const metadataQuery = useQuery({
     queryKey: ["market-metadata"],
-    queryFn: api.dashboard.market.getMetadata,
+    queryFn: wsApi.market.getMetadata,
     staleTime: 300_000,
   });
 
   const itemsQuery = useQuery({
     queryKey: ["market-items", category],
-    queryFn: () => api.dashboard.market.list(category),
+    queryFn: () => wsApi.market.list(category),
     staleTime: 60_000,
   });
 
   const downloadMutation = useMutation({
-    mutationFn: api.dashboard.market.download,
+    mutationFn: wsApi.market.download,
     onSuccess: (_data, variables) => {
       const action = variables.isUpdate ? "updated" : "downloaded";
       toast.success(

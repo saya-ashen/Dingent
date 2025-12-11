@@ -17,26 +17,33 @@ import {
   useSaveWorkflow,
   useWorkflowsList,
 } from "@repo/store";
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
 import { WorkflowSummary } from "@repo/api-client";
 import { WorkflowsSidebar } from "../../../../components/workflows/WorkflowsSidebar";
 import { WorkflowEditorPanel } from "../../../../components/workflows/WorkflowEditorPanel";
 
 export default function WorkflowsPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi();
+  const wsApi = api.forWorkspace(slug);
+  const workflowApi = wsApi.workflows
+  const assistantsApi = wsApi.assistants;
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [nodeAssistantIds, setNodeAssistantIds] = useState<Set<string>>(new Set());
 
-  const workflowsQ = useWorkflowsList();
-  const assistantsQ = useAssistantsConfig();
+  const workflowsQ = useWorkflowsList(workflowApi);
+  const assistantsQ = useAssistantsConfig(assistantsApi);
 
-  const createWorkflow = useCreateWorkflow();
-  const saveWorkflow = useSaveWorkflow();
-  const deleteWorkflow = useDeleteWorkflow();
+  const createWorkflow = useCreateWorkflow(workflowApi);
+  const saveWorkflow = useSaveWorkflow(workflowApi);
+  const deleteWorkflow = useDeleteWorkflow(workflowApi);
 
   const workflows = workflowsQ.data || [];
   const allAssistants = assistantsQ.data || [];
 
   const paletteAssistants = useMemo(() => {
-    console.log("Calculating paletteAssistants", { allAssistants, nodeAssistantIds });
     return allAssistants.filter(a => !nodeAssistantIds.has(a.id));
   }, [allAssistants, nodeAssistantIds]);
 

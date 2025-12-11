@@ -7,13 +7,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@repo/ui/components";
+import type { ApiClient } from "@repo/api-client";
 import { UserAuthForm } from "../components/";
 
 interface LoginPageProps {
+  api: ApiClient;
   onLoginSuccess: (token: string) => void;
   onLoginFail?: (error: Error) => void;
 }
-export function LoginPage({ onLoginSuccess, onLoginFail }: LoginPageProps) {
+export function LoginPage({ api, onLoginSuccess, onLoginFail }: LoginPageProps) {
   return (
     <Card className="gap-4">
       <CardHeader>
@@ -25,6 +27,7 @@ export function LoginPage({ onLoginSuccess, onLoginFail }: LoginPageProps) {
       </CardHeader>
       <CardContent>
         <UserAuthForm
+          api={api}
           onLoginSuccess={onLoginSuccess}
           onLoginFail={onLoginFail} />
       </CardContent>

@@ -96,7 +96,7 @@ class Workspace(SQLModel, table=True):
     """
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
-    name: str
+    name: str = Field(index=True, description="工作空间的显示名称")
     slug: str = Field(index=True, description="工作空间的唯一标识符，用于 URL 等")
     description: str | None = None
 

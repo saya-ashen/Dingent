@@ -1,17 +1,21 @@
 import type { AxiosInstance } from "axios";
 import { PluginManifest } from "../types";
 
-export function createPluginsApi(http: AxiosInstance, pluginsBase: string) {
-  const url = (p = "") => `${pluginsBase}${p}`;
+export class PluginsApi {
+  constructor(private http: AxiosInstance, private basePath: string = "") { }
 
-  return {
-    async getAvailablePlugins(): Promise<PluginManifest[] | null> {
-      const { data } = await http.get<PluginManifest[]>(url("/"));
-      return data;
-    },
+  private url(path: string = ""): string {
+    return `${this.basePath}${path}`;
+  }
 
-    async deletePlugin(pluginId: string): Promise<void> {
-      await http.delete(url(`/${pluginId}`));
-    }
-  };
+  /** GET / */
+  async list(): Promise<PluginManifest[]> {
+    const { data } = await this.http.get<PluginManifest[]>(this.url("/"));
+    return data || [];
+  }
+
+  /** DELETE /:id */
+  async delete(pluginId: string): Promise<void> {
+    await this.http.delete(this.url(`/${pluginId}`));
+  }
 }

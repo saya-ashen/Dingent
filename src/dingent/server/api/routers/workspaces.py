@@ -19,20 +19,11 @@ from dingent.server.api.dependencies import get_user_workspace_service
 
 router = APIRouter(prefix="/workspaces", tags=["Workspaces"])
 
-# --- Collection Operations (不需要改) ---
 
-
-# @router.get("", response_model=list[WorkspaceRead])
-# async def list_my_workspaces(service: UserWorkspaceService = Depends(get_user_workspace_service)):
-#     """List all workspaces the current user belongs to."""
-#     return service.list_workspaces()
-
-
-# WARN:
 @router.get("", response_model=list[WorkspaceRead])
-async def fake_list_my_workspaces():
+async def list_my_workspaces(service: UserWorkspaceService = Depends(get_user_workspace_service)):
     """List all workspaces the current user belongs to."""
-    return [WorkspaceRead(id=uuid.uuid4(), role=WorkspaceRole.MEMBER, created_at=datetime.now(), name="示例工作区", slug="example-workspace")]
+    return service.list_workspaces()
 
 
 @router.post("", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
@@ -45,40 +36,24 @@ async def create_workspace(payload: WorkspaceCreate, service: UserWorkspaceServi
 # --- Single Resource Operations (核心修改) ---
 
 
-# @router.get("/{slug}", response_model=WorkspaceWithRole)  # 👈 返回模型变了
-# async def get_workspace(slug: str, service: UserWorkspaceService = Depends(get_user_workspace_service)):  # 👈 参数变了
-#     """
-#     Get workspace by slug.
-#     Implicitly checks if current user is a member.
-#     Returns workspace details + user's role.
-#     """
-#     # Service 层需要实现 get_by_slug
-#     workspace = service.get_workspace(slug)
-#     if not workspace:
-#         # 为了安全，建议 slug 找不到或者无权限都返回 404
-#         raise HTTPException(status_code=404, detail="Workspace not found")
-#     return workspace
-
-
 @router.get("/{slug}", response_model=WorkspaceWithRole)  # 👈 返回模型变了
-async def fake_get_workspace(slug: str):
+async def get_workspace(slug: str, service: UserWorkspaceService = Depends(get_user_workspace_service)):  # 👈 参数变了
     """
     Get workspace by slug.
     Implicitly checks if current user is a member.
     Returns workspace details + user's role.
     """
-    return WorkspaceWithRole(name="示例工作区", slug=slug, id=uuid.uuid4(), created_at=datetime.now(), role=WorkspaceRole.ADMIN)
+    # Service 层需要实现 get_by_slug
+    workspace = service.get_workspace(slug)
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return workspace
 
 
 @router.patch("/{slug}", response_model=WorkspaceRead)
 async def update_workspace(slug: str, payload: WorkspaceUpdate, service: UserWorkspaceService = Depends(get_user_workspace_service)):
     """Update workspace settings using slug."""
     return service.update_workspace(slug, payload)
-
-
-# --- Member Management ---
-# 这里的路径参数也建议统一改为 slug，以保持 URL 一致性
-# 例如: POST /workspaces/acme-corp/members
 
 
 @router.get("/{slug}/members", response_model=list[WorkspaceMemberRead])

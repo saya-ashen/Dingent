@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import { api, AnalyticsData } from "@repo/api-client";
+import { AnalyticsData, OverviewApi } from "@repo/api-client";
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
 } from "../";
 import { StatCard } from "./stat-card";
 
-function useAnalytics() {
+function useAnalytics({ wsApi }: { wsApi: { overview: OverviewApi } }) {
   // The type here should match what your API function returns.
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,7 @@ function useAnalytics() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    api.dashboard.overview.getBudget()
+    wsApi.overview.getBudget()
       .then((apiData) => {
         // 1. Set the data on success
         console.log("data", apiData);
@@ -39,8 +39,8 @@ function useAnalytics() {
   return { data, loading, error };
 }
 
-export function AnalyticsTab() {
-  const { data, loading } = useAnalytics();
+export function AnalyticsTab({ wsApi }: { wsApi: { overview: OverviewApi } }) {
+  const { data, loading } = useAnalytics({ wsApi });
 
   const budgetUsage = useMemo(() => {
     if (!data || !data.total_budget) return 0;

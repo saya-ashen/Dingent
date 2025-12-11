@@ -1,18 +1,21 @@
 import type { AxiosInstance } from "axios";
 import type { AppSettings } from "../types";
 
-export function createSettingsApi(http: AxiosInstance, agentSettingsBase: string) {
-  const url = (p = "") => `${agentSettingsBase}${p}`;
+export class SettingsApi {
+  constructor(private http: AxiosInstance, private basePath: string = "") { }
 
-  return {
+  private url(path: string = ""): string {
+    return `${this.basePath}${path}`;
+  }
 
-    async getAppSettings(): Promise<AppSettings | null> {
-      const { data } = await http.get<AppSettings>(url("/"));
-      return data;
-    },
+  /** GET / */
+  async get(): Promise<AppSettings | null> {
+    const { data } = await this.http.get<AppSettings>(this.url("/"));
+    return data;
+  }
 
-    async saveAppSettings(payload: AppSettings): Promise<void> {
-      await http.patch(url("/"), payload);
-    },
-  };
+  /** PATCH / */
+  async update(payload: AppSettings): Promise<void> {
+    await this.http.patch(this.url("/"), payload);
+  }
 }

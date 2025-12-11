@@ -1,45 +1,30 @@
 import { create } from "zustand";
-import { getCookie, setCookie, removeCookie } from "@repo/lib/cookies";
 import type { AuthUser } from "@repo/api-client";
+import Cookies from "js-cookie";
 
-const ACCESS_TOKEN_KEY = "auth_access_token";
 
 interface AuthState {
   user: AuthUser | null;
-  accessToken: string;
-  hydrated: boolean;
-  setUser: (user: AuthUser | null) => void;
-  setAccessToken: (accessToken: string) => void;
-  reset: () => void;
-  hydrate: () => void;
+  accessToken: string | null;
+  // Actions
+  setAuth: (token: string, user?: AuthUser) => void;
+  logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  accessToken: "",
-  hydrated: false,
-  setUser: (user) => set({ user }),
-  setAccessToken: (token) => {
-    setCookie(ACCESS_TOKEN_KEY, token);
-    set({ accessToken: token });
-  },
-  reset: () => {
-    removeCookie(ACCESS_TOKEN_KEY);
-    set({ user: null, accessToken: "" });
-  },
-  hydrate: () => {
-    if (get().hydrated) return;
+  accessToken: null,
 
-    try {
-      const initialToken = getCookie(ACCESS_TOKEN_KEY) || "";
-      if (initialToken) {
-        set({ accessToken: initialToken });
-      }
-    } catch (e) {
-      console.error("Failed to hydrate auth store:", e);
-    }
-    set({ hydrated: true });
+  setAuth: (token, user) => {
+    // 1. 写 Cookie (让 Next.js Server 能看到)
+    Cookies.set("access_token", token, { expires: 7 });
+    // 2. 更新内存状态
+    set({ accessToken: token, user: user || null });
+  },
+
+  logout: () => {
+    Cookies.remove("access_token");
+    set({ accessToken: null, user: null });
   },
 }));
 
-export const { setAccessToken, setUser, reset: resetAuth } = useAuthStore.getState();

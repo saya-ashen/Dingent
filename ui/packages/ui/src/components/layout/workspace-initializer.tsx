@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from "react"; // 引入 useRef 防止 React Strict Mode 下的双重请求
 import { useWorkspaceStore, useAuthStore } from "@repo/store";
-import { api } from "@repo/api-client";
+import { Workspace } from "@repo/api-client";
 
-export function WorkspaceInitializer() {
+export function WorkspaceInitializer({ workspaces }: { workspaces: Workspace[] }) {
   const { setWorkspaces, hydrated, hydrate } = useWorkspaceStore();
   const { accessToken } = useAuthStore();
 
@@ -17,9 +17,8 @@ export function WorkspaceInitializer() {
       isFetching.current = true; // 标记正在请求
 
       try {
-        const data = await api.dashboard.workspaces.listWorkspaces();
 
-        setWorkspaces(data);
+        setWorkspaces(workspaces);
 
         hydrate();
       } catch (error) {
