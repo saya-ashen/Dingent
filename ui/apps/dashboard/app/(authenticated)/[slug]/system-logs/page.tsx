@@ -7,7 +7,6 @@ import {
   FloatingActionButtons,
   Header,
   Main,
-  ProfileDropdown,
   Search,
   ThemeSwitch,
   Button,
@@ -72,7 +71,6 @@ export default function LogsPage() {
         <div className="ms-auto flex items-center gap-4">
           <ThemeSwitch />
           <ConfigDrawer />
-          <ProfileDropdown />
         </div>
       </Header>
 

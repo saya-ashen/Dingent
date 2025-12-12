@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { useAuthInterceptor, useActiveWorkflow, useAuthStore } from "@repo/store";
+import { useAuthInterceptor, useAuthStore } from "@repo/store";
 import { ThreadProvider, useThreadContext } from "../contexts/ThreadProvider";
+import { useParams } from "next/navigation";
 
 
 function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
@@ -11,22 +12,33 @@ function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
 
   const { activeThreadId } = useThreadContext();
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { name: workflow_name } = useActiveWorkflow();
+  const params = useParams();
+  const slug = params.slug as string;
+  // const { name: workflow_name } = useActiveWorkflow();
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
 
   const headers = useMemo(() => ({
     Authorization: `Bearer ${accessToken || 'None'}`,
+    WorkspaceSlug: slug,
   }), [accessToken]);
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <CopilotKit
-      runtimeUrl="/api/v1/frontend/copilotkit"
+      runtimeUrl={`/api/v1/${slug}/chat`}
       showDevConsole={false}
-      agent={workflow_name}
+      agent={"test"}
       threadId={activeThreadId}
       headers={headers}
       properties={{
         authorization: accessToken,
+        workspace_slug: slug
       }}
     >
       {children}

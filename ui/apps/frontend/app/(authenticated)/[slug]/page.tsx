@@ -1,12 +1,11 @@
 "use client";
 
 import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { MainContent } from "@/components/MainContent";
 import { useWidgets } from "@/hooks/useWidgets";
 
 import { ChevronDown, X } from "lucide-react";
-import { useActiveWorkflowId, useSetActiveWorkflowId, useWorkflow, useWorkflowsList } from "@repo/store";
 import { WorkflowSummary } from "@repo/api-client";
 import { useMessagesManager } from "@/hooks/useMessagesManager";
 
@@ -85,34 +84,30 @@ type MyHeaderProps = {
 // The main, refactored component.
 // It is now much cleaner and acts as a container for the sub-components.
 const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
-  const { data: workflows = [], isLoading } = useWorkflowsList();
-  const { data: activeId } = useActiveWorkflowId();
-  const setActiveId = useSetActiveWorkflowId();
-  const { data: workflow } = useWorkflow(activeId ?? null);
-  useEffect(() => {
-    if (!workflows.length) {
-      // 后端没有任何 workflow 了，清空 activeId
-      if (activeId) {
-        setActiveId(null);
-      }
-      return;
-    }
-
-    const exists = workflows.some((w) => w.id === activeId);
-    console.log("exists", exists)
-    if (!exists) {
-      setActiveId(null);
-    }
-  }, [workflows, activeId, setActiveId]);
+  // useEffect(() => {
+  //   if (!workflows.length) {
+  //     // 后端没有任何 workflow 了，清空 activeId
+  //     if (activeId) {
+  //       setActiveId(null);
+  //     }
+  //     return;
+  //   }
+  //
+  //   const exists = workflows.some((w) => w.id === activeId);
+  //   console.log("exists", exists)
+  //   if (!exists) {
+  //     setActiveId(null);
+  //   }
+  // }, [workflows, activeId, setActiveId]);
 
   return (
     <header className={`px-4 py-3 border-b border-neutral-800 bg-neutral-900 ${className}`}>
       <div className="flex items-center justify-between">
         <WorkflowSelector
-          workflows={workflows}
-          activeId={activeId}
-          setActiveId={setActiveId}
-          isLoading={isLoading}
+          workflows={[]}
+          activeId={""}
+          setActiveId={() => void 0}
+          isLoading={false}
         />
         {onClose && (
           <button
@@ -124,7 +119,7 @@ const MyHeader = ({ className = "", onClose }: MyHeaderProps) => {
           </button>
         )}
       </div>
-      <WorkflowDetails description={workflow?.description} />
+      <WorkflowDetails description={""} />
     </header>
   );
 };

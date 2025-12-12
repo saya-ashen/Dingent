@@ -1,16 +1,10 @@
 import {
   LayoutDashboard,
-  Monitor,
-  HelpCircle,
-  Bell,
-  Palette,
-  Settings,
-  Wrench,
-  UserCog,
   FileText,
   Bot,
   Workflow,
   Store,
+  Construction
 } from "lucide-react";
 import { type SidebarData } from "@repo/ui/components";
 
@@ -50,15 +44,15 @@ export const sidebarData: SidebarData = {
           url: "/market",
           icon: Store,
         },
-        // {
-        //   title: "Agent Settings",
-        //   url: "/agent-settings",
-        //   icon: Settings,
-        // },
         {
           title: "Logs",
           url: "/system-logs",
           icon: FileText,
+        },
+        {
+          title: "Chat Interface",
+          url: "/system-logs",
+          icon: Construction,
         },
       ],
     },

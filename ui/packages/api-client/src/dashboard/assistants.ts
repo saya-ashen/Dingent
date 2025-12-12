@@ -2,7 +2,6 @@ import type { AxiosInstance } from "axios";
 import type { Assistant } from "../types";
 
 export class AssistantsApi {
-  // 允许动态传入 basePath，例如 "/workspaces/ws-123/assistants"
   constructor(
     private http: AxiosInstance,
     private basePath: string = ""

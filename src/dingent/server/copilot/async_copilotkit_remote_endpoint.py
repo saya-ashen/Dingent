@@ -48,16 +48,6 @@ def _extract_bearer_token(context: CopilotKitContext) -> str | None:
     return token or None
 
 
-def _extract_workspace_id(context: CopilotKitContext) -> UUID | None:
-    # Prefer properties.authorization, fallback to headers.authorization
-    token = context.get("properties", {}).get("authorization") or context.get("headers", {}).get("authorization")
-    if not token:
-        return None
-    if token.startswith("Bearer "):
-        token = token[len("Bearer ") :].strip()
-    assert 1 == 2
-
-
 async def _maybe_await[T](value: T | Awaitable[T]) -> T:
     return await value if inspect.isawaitable(value) else value  # type: ignore[return-value]
 
@@ -144,8 +134,9 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
 
     async def info(self, *, context: CopilotKitContext):
         token = _extract_bearer_token(context)
-        workspace_id = _extract_workspace_id(context)
-        if not token or not workspace_id:
+        workspace_slug = None
+        breakpoint()
+        if not token or not workspace_slug:
             raise HTTPException(status_code=401, detail="Missing token")
 
         agents_list: list[AgentDict] = []

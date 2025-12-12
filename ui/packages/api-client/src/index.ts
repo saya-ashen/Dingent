@@ -3,6 +3,7 @@ import type { ApiClientConfig } from "./config";
 import { AuthApi } from "./auth";
 import { AssistantsApi, WorkflowsApi, SettingsApi, LogsApi, MarketApi, OverviewApi, PluginsApi } from "./dashboard";
 import { WorkspaceApi } from "./workspace";
+import { ArtifactApi } from "./frontend";
 
 
 export * from "./types";
@@ -12,16 +13,15 @@ export class ApiClient {
   public http: any;
   public auth: AuthApi;
   public workspaces: WorkspaceApi;
+  public artifacts: ArtifactApi;
 
   constructor(config: ApiClientConfig, getToken: TokenProvider, on401?: UnauthorizeHandler) {
     this.http = createHttpClient(config, getToken, on401);
-
-    // 初始化子模块
     this.auth = new AuthApi(this.http);
     this.workspaces = new WorkspaceApi(this.http, "/workspaces");
+    this.artifacts = new ArtifactApi(this.http, "/artifacts");
   }
 
-  // 替代原来的 Proxy 写法，显式提供 Scope 方法
   public forWorkspace(slug: string) {
     const wsPath = `/${slug}`;
     return {
@@ -32,14 +32,8 @@ export class ApiClient {
       logs: new LogsApi(this.http, `${wsPath}/logs`),
       settings: new SettingsApi(this.http, `${wsPath}/settings`),
       market: new MarketApi(this.http, `${wsPath}/market`),
+      artifacts: new ArtifactApi(this.http, `${wsPath}/artifacts`),
     };
   }
 }
 
-export const getBaseUrl = () => {
-  if (typeof window !== 'undefined') return '/api/v1/';
-
-  if (process.env.API_BASE_URL) return process.env.API_BASE_URL; // 优先读取环境变量
-
-  return 'http://localhost:3001/api/v1/';
-};

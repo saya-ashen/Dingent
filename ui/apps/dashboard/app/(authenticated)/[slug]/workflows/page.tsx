@@ -5,7 +5,6 @@ import {
   Header,
   Main,
   LoadingSkeleton,
-  ProfileDropdown,
   Search,
   ThemeSwitch,
   ConfigDrawer,
@@ -59,7 +58,6 @@ export default function WorkflowsPage() {
         <div className="ms-auto flex items-center gap-4">
           <ThemeSwitch />
           <ConfigDrawer />
-          <ProfileDropdown />
         </div>
       </Header>
       <Main>

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -395,3 +395,15 @@ class UserProviderCredential(SQLModel, table=True):
 
     user: "User" = Relationship(back_populates="provider_credentials")
     provider: "LLMProvider" = Relationship(back_populates="user_credentials")
+
+
+class Conversation(SQLModel, table=True):
+    id: UUID = Field(primary_key=True, description="LangGraph thread_id")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+
+    # 身份标识
+    user_id: UUID | None = Field(default=None, foreign_key="user.id", index=True)
+    visitor_id: str | None = Field(default=None, index=True)
+
+    title: str = Field(default="New Chat")
+    created_at: datetime = Field(default_factory=datetime.utcnow)

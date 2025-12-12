@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCoAgent } from "@copilotkit/react-core";
 import { Widget } from "@repo/types";
-import { api, Artifact, DisplayItem } from "@repo/api-client";
-import { useActiveWorkflowId, useWorkflow } from "@repo/store";
+import { Artifact, DisplayItem } from "@repo/api-client";
+import { useWorkflow } from "@repo/store";
 
 type AgentState = { artifact_ids?: string[] };
 
@@ -116,8 +116,6 @@ export function useArtifactWidgets(
       });
 
       try {
-        // --- REFACTORED PART ---
-        // Use the API client, passing the abort signal for cancellation.
         const artifact = await api.frontend.artifacts.get(id, { signal: controller.signal });
 
         const widgets = buildWidgets(artifact, id);
@@ -212,9 +210,7 @@ export function useArtifactWidgets(
  * and uses useArtifactWidgets to fetch and display them.
  */
 export function useWidgets() {
-  const { data: activeId } = useActiveWorkflowId();
-  const { data: workflow } = useWorkflow(activeId ?? null);
-  const { state } = useCoAgent<AgentState>({ name: workflow?.name || "unknown" });
+  const { state } = useCoAgent<AgentState>({ name: "unknown" });
   const ids =
     state && Object.prototype.hasOwnProperty.call(state, "artifact_ids")
       ? state.artifact_ids

@@ -46,7 +46,7 @@ export class WorkspaceApi {
   }
 
   async list(): Promise<Workspace[]> {
-    const { data } = await this.http.get<Workspace[]>(this.url("/"));
+    const { data } = await this.http.get<Workspace[]>(this.url(""));
     return data;
   }
   async getBySlug(slug: string): Promise<Workspace> {

@@ -1,7 +1,6 @@
 "use client";
 import {
   AppSidebar,
-  WorkspaceSwitcher,
   NavGroup, NavGroupProps,
 } from "@repo/ui/components";
 import { sidebarData } from "./data/sidebar-data";

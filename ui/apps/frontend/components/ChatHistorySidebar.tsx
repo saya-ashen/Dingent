@@ -13,10 +13,17 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@repo/ui/components"; // 引入需要的子组件
+import { useParams } from "next/navigation";
+import { getClientApi } from "@/lib/api/client";
+import { useWorkspaceStore } from "@repo/store";
 
 export function ChatHistorySidebar() {
   const { threads, activeThreadId, setActiveThreadId, deleteAllThreads } = useThreadContext();
   const { isMobile, setOpenMobile } = useSidebar();
+  const params = useParams();
+  const api = getClientApi();
+  const slug = params.slug as string;
+  const workspaces = useWorkspaceStore((state) => state.workspaces);
 
   const handleNewChat = () => {
     setActiveThreadId(uuidv4());
@@ -55,7 +62,7 @@ export function ChatHistorySidebar() {
   );
 
   return (
-    <AppSidebar header={headerContent} footer={footerContent}>
+    <AppSidebar api={api} workspaces={workspaces} >
       {/* 这里是 children，也就是主要内容 */}
       <SidebarGroup>
         <SidebarGroupLabel>History</SidebarGroupLabel>

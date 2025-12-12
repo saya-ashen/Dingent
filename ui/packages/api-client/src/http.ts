@@ -1,9 +1,6 @@
-import axios, { type AxiosInstance, isAxiosError } from "axios";
+import axios, { type AxiosInstance } from "axios";
 import type { ApiClientConfig } from "./config";
-import { getCurrentSlug } from "@repo/store";
-import { toApiError } from "./errors";
 
-let isRedirecting = false;
 export type TokenProvider = () => string | Promise<string | null> | null;
 export type UnauthorizeHandler = () => void;
 

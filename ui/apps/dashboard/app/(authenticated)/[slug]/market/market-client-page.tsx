@@ -261,7 +261,6 @@ export function MarketPageContent() {
         <div className="ms-auto flex items-center gap-4">
           <ThemeSwitch />
           <ConfigDrawer />
-          <ProfileDropdown />
         </div>
       </Header>
 

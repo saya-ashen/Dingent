@@ -58,7 +58,6 @@ export default function DashboardPage() {
           <Search />
           <ThemeSwitch />
           <ConfigDrawer />
-          <ProfileDropdown />
         </div>
       </Header>
       <FloatingActionButtons>

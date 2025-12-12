@@ -1,58 +1,111 @@
-from __future__ import annotations
-
-import os
-
-from copilotkit import Agent
-from fastapi import APIRouter, FastAPI
-from sqlalchemy import Engine
+from typing import Annotated, Awaitable
+from dingent.core.db.crud.workflow import get_workflow_by_name
+from dingent.core.db.models import User, Workspace
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from sqlmodel import Session
 
-from dingent.core.db.models import User, Workflow
-from dingent.core.factories.graph_factory import GraphFactory
-from dingent.core.managers.llm_manager import LLMManager, get_llm_service
-from dingent.core.managers.resource_manager import ResourceManager
-from dingent.server.copilot.add_fastapi_endpoint import add_fastapi_endpoint
-
-from dingent.server.copilot.agents import FixedLangGraphAgent
-from dingent.server.copilot.async_copilotkit_remote_endpoint import AsyncCopilotKitRemoteEndpoint
+from dingent.core.db.models import User
+from dingent.server.api.schemas import AgentExecuteRequest, AgentStateRequest
+from dingent.server.services.copilotkit_service import AsyncCopilotKitRemoteEndpoint
+from dingent.server.api.dependencies import (
+    get_current_user,
+    get_db_session,
+    get_current_workspace,
+)
 
 router = APIRouter()
 
 
-def setup_copilot_router(app: FastAPI, graph_factory: GraphFactory, engine: Engine, checkpointer, resource_manager: ResourceManager):
-    """
-    Creates and configures the secure router for CopilotKit and adds it to the application.
+async def _maybe_await[T](value: T | Awaitable[T]) -> T:
+    return await value if inspect.isawaitable(value) else value  # type: ignore[return-value]
 
-    This function is called from within the lifespan manager after the SDK has been initialized.
-    """
-    print("--- Setting up CopilotKit Secure Router ---")
 
-    llm = get_llm_service()
+def get_copilot_sdk(request: Request) -> AsyncCopilotKitRemoteEndpoint:
+    return request.app.state.copilot_sdk
 
-    async def _agents_pipeline(workflow: Workflow, user: User, session: Session) -> Agent:
-        artifact = await graph_factory.build(
-            user.id,
-            session,
-            resource_manager,
-            workflow,
-            llm,
-            checkpointer,
-        )
-        return FixedLangGraphAgent(
-            name=workflow.name,
-            description=f"Agent for workflow '{workflow.name}'",
-            graph=artifact.graph,
-            langgraph_config={
-                "user": user,
-                "assistant_plugin_configs": artifact.assistant_plugin_configs,
-            },
-        )
 
-    sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=_agents_pipeline, engine=engine)
-    app.state.copilot_sdk = sdk
+CurrentUser = Annotated[User, Depends(get_current_user)]
+DbSession = Annotated[Session, Depends(get_db_session)]
+CopilotSDK = Annotated[AsyncCopilotKitRemoteEndpoint, Depends(get_copilot_sdk)]
+CurrentWorkspace = Annotated[Workspace, Depends(get_current_workspace)]
 
-    add_fastapi_endpoint(router, sdk, "/copilotkit")
 
-    app.include_router(router, prefix="/api/v1/frontend")
+@router.get("/", response_class=HTMLResponse)
+@router.post("/info")
+async def handle_info(
+    request: Request,
+    user: CurrentUser,
+    session: DbSession,
+    workspace: CurrentWorkspace,
+    sdk: CopilotSDK,
+):
+    """获取可用 Agent 列表"""
 
-    print("--- CopilotKit Secure Router has been added to the application ---")
+    agents = await sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
+
+    # 构造符合 CopilotKit 协议的返回
+    response_data = {
+        "agents": agents,
+        "actions": [],  # 暂时为空
+        "sdkVersion": "0.1.0",
+    }
+
+    accept_header = request.headers.get("accept", "")
+    if "text/html" in accept_header:
+        from copilotkit.html import generate_info_html
+
+        return HTMLResponse(content=generate_info_html(response_data))
+
+    return response_data
+
+
+@router.post("/agent/{name}")
+async def execute_agent(
+    name: str,
+    body: AgentExecuteRequest,
+    user: CurrentUser,
+    session: DbSession,
+    sdk: CopilotSDK,
+):
+    """执行 Agent"""
+    events = await sdk.execute_agent_with_user(
+        user=user,
+        session=session,
+        name=name,
+        thread_id=body.threadId,
+        state=body.state,
+        messages=body.messages,
+        actions=body.actions,
+        node_name=body.nodeName,
+        config=body.config,
+        meta_events=body.metaEvents,
+    )
+
+    return StreamingResponse(events, media_type="application/json")
+
+
+@router.post("/agent/{name}/state")
+async def get_agent_state(
+    name: str,
+    body: AgentStateRequest,
+    user: CurrentUser,
+    session: DbSession,
+    sdk: CopilotSDK,
+):
+    """获取 Agent 状态"""
+    workflow = get_workflow_by_name(session, name, user.id)
+    if not workflow:
+        raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
+    agent = await sdk._resolve_agent(workflow, user, session)
+
+    sdk._log_request_info(
+        title="Handling get agent state request (factory-based agents)",
+        data=[
+            ("Agent", agent.dict_repr()),
+            ("Thread ID", body.threadId),
+        ],
+    )
+
+    state = agent.get_state(thread_id=body.threadId)
+    return await _maybe_await(state)

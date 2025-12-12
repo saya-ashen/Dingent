@@ -75,7 +75,6 @@ export function UserAuthForm({
       setAuth(access_token, user);
 
       // 第三步：获取工作空间
-      // getClientApi 内部会读取刚才 setAuth 更新后的 Store/Cookie
       const workspaces = await api.workspaces.list(); // 假设 API 方法名为 list
 
       // 第四步：存入 Workspace Store
