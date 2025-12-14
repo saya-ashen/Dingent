@@ -5,7 +5,6 @@ import inspect
 from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
-from uuid import UUID
 
 from copilotkit.action import ActionDict
 from copilotkit.agent import Agent
@@ -134,15 +133,14 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
 
     async def info(self, *, context: CopilotKitContext):
         token = _extract_bearer_token(context)
-        workspace_slug = None
-        breakpoint()
+        workspace_slug = context.get("properties", {}).get("workspace_slug")
         if not token or not workspace_slug:
-            raise HTTPException(status_code=401, detail="Missing token")
+            raise HTTPException(status_code=401, detail="Missing token or workspace")
 
         agents_list: list[AgentDict] = []
         with self._with_session() as session:
             user = get_current_user_from_token(session, token)
-            workspace = get_specific_user_workspace(session, user.id, workspace_id)
+            workspace = get_specific_user_workspace(session, user.id, workspace_slug)
             assert workspace is not None, "User must have access to the specified workspace"
             # If token invalid, the above should raise. Keep the HTTPException behavior in that helper.
             workflows = list_workflows_by_workspace(session, workspace.id)

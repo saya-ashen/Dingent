@@ -4,8 +4,6 @@ from typing import Any
 from fastapi.exceptions import HTTPException
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
-
-
 from sqlmodel import Session
 from starlette import status
 

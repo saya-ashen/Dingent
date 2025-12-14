@@ -1,7 +1,7 @@
-from enum import Enum
 import re
 from collections.abc import Callable
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID

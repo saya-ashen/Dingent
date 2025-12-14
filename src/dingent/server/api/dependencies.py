@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import Depends, Header, Path, Request, status
+from fastapi import Depends, Path, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.security.oauth2 import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -14,9 +14,9 @@ from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.schemas import UserRead
 from dingent.server.auth.security import get_current_user_from_token, verify_password
+from dingent.server.services.user_plugin_service import UserPluginService
 from dingent.server.services.user_workspace_service import UserWorkspaceService
 from dingent.server.services.workspace_assistant_service import WorkspaceAssistantService
-from dingent.server.services.user_plugin_service import UserPluginService
 from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")

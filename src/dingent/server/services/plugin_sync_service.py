@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -7,15 +8,6 @@ from dingent.core.schemas import PluginManifest
 from dingent.core.services.plugin_registry import PluginRegistry  # 你的 Manifest 模型
 
 logger = logging.getLogger(__name__)
-
-
-import logging
-from typing import Dict, Any, List, Optional
-from sqlmodel import Session, select
-
-from dingent.core.db.models import Plugin
-from dingent.core.schemas import PluginManifest
-from dingent.core.services.plugin_registry import PluginRegistry
 
 
 class PluginSyncService:
@@ -36,11 +28,11 @@ class PluginSyncService:
 
         # 1. 获取期望状态 (Filesystem)
         fs_manifests = self.registry.get_all_manifests()
-        fs_manifests_map: Dict[str, PluginManifest] = {m.id: m for m in fs_manifests}
+        fs_manifests_map: dict[str, PluginManifest] = {m.id: m for m in fs_manifests}
 
         # 2. 获取当前状态 (Database)
         db_plugins = self.db.exec(select(Plugin)).all()
-        db_plugins_map: Dict[str, Plugin] = {p.registry_id: p for p in db_plugins}
+        db_plugins_map: dict[str, Plugin] = {p.registry_id: p for p in db_plugins}
 
         # 3. 同步处理
         self._process_upserts(fs_manifests_map, db_plugins_map)
@@ -54,7 +46,7 @@ class PluginSyncService:
     # 核心逻辑流程
     # --------------------------------------------------------------------------
 
-    def _process_upserts(self, fs_map: Dict[str, PluginManifest], db_map: Dict[str, Plugin]):
+    def _process_upserts(self, fs_map: dict[str, PluginManifest], db_map: dict[str, Plugin]):
         """处理新增 (Insert) 和 更新 (Update)"""
         for slug, manifest in fs_map.items():
             db_plugin = db_map.get(slug)
@@ -69,7 +61,7 @@ class PluginSyncService:
             else:
                 self._update_plugin_if_needed(db_plugin, manifest, standard_schema)
 
-    def _process_deletes(self, fs_map: Dict[str, PluginManifest], db_map: Dict[str, Plugin]):
+    def _process_deletes(self, fs_map: dict[str, PluginManifest], db_map: dict[str, Plugin]):
         """处理删除 (Delete)"""
         fs_slugs = set(fs_map.keys())
         db_slugs = set(db_map.keys())
@@ -82,7 +74,7 @@ class PluginSyncService:
     # CRUD 操作细节
     # --------------------------------------------------------------------------
 
-    def _create_plugin(self, slug: str, manifest: PluginManifest, schema: Dict[str, Any]):
+    def _create_plugin(self, slug: str, manifest: PluginManifest, schema: dict[str, Any]):
         """在数据库中创建新插件"""
         logger.info(f"New plugin found: '{slug}'. Adding to database.")
         new_plugin = Plugin(
@@ -94,7 +86,7 @@ class PluginSyncService:
         )
         self.db.add(new_plugin)
 
-    def _update_plugin_if_needed(self, db_plugin: Plugin, manifest: PluginManifest, new_schema: Dict[str, Any]):
+    def _update_plugin_if_needed(self, db_plugin: Plugin, manifest: PluginManifest, new_schema: dict[str, Any]):
         """检查并更新已存在的插件"""
         updates = {}
 
@@ -126,7 +118,7 @@ class PluginSyncService:
     # Schema 转换工具 (核心改进)
     # --------------------------------------------------------------------------
 
-    def _convert_to_json_schema(self, custom_fields: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _convert_to_json_schema(self, custom_fields: list[dict[str, Any]]) -> dict[str, Any]:
         """
         将自定义字段列表转换为标准 JSON Schema 格式。
         """

@@ -16,7 +16,7 @@ from dingent.core.schemas import (
     WorkflowUpdate,
 )
 from dingent.server.api.dependencies import get_workspace_workflow_service
-from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService, WorkflowRunRead
+from dingent.server.services.workspace_workflow_service import WorkflowRunRead, WorkspaceWorkflowService
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 

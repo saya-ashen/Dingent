@@ -1,18 +1,22 @@
 from __future__ import annotations
-from copilotkit.agent import Agent
+
 import asyncio
+from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Dict, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 from uuid import UUID
-from copilotkit.sdk import CopilotKitRemoteEndpoint, CopilotKitContext
-from copilotkit.types import Message, MetaEvent
+
 from copilotkit.action import ActionDict
+from copilotkit.agent import Agent
 from copilotkit.exc import AgentExecutionException, AgentNotFoundException
+from copilotkit.sdk import CopilotKitRemoteEndpoint
+from copilotkit.types import Message, MetaEvent
 from fastapi import HTTPException
 from sqlmodel import Session
-from dingent.core.db.models import User, Workflow
+
 from dingent.core.db.crud.workflow import get_workflow_by_name, list_workflows_by_workspace
 from dingent.core.db.crud.workspace import get_specific_user_workspace
+from dingent.core.db.models import User, Workflow
 
 # ---------- Types ----------
 
@@ -86,11 +90,11 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
         session: Session,
         name: str,
         thread_id: str,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         messages: list[Message],
         actions: list[ActionDict],
         node_name: str | None = None,
-        config: Dict[str, Any] | None = None,
+        config: dict[str, Any] | None = None,
         meta_events: list[MetaEvent] | None = None,
     ) -> Any:
         """

@@ -1,9 +1,10 @@
 from uuid import UUID
-from fastapi import HTTPException, status
-from sqlmodel import Session, select, col, func
 
-from dingent.core.db.models import Workspace, WorkspaceMember, User
-from dingent.core.schemas import WorkspaceCreate, WorkspaceUpdate, WorkspaceInvite, WorkspaceRead, WorkspaceMemberRead
+from fastapi import HTTPException
+from sqlmodel import Session, func, select
+
+from dingent.core.db.models import User, Workspace, WorkspaceMember
+from dingent.core.schemas import WorkspaceCreate, WorkspaceInvite, WorkspaceMemberRead, WorkspaceRead, WorkspaceUpdate
 
 
 class UserWorkspaceService:

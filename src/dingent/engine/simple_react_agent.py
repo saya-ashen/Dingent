@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import operator
 from typing import Annotated, Any, TypedDict
-from uuid import UUID
 
 from copilotkit.langgraph import copilotkit_emit_state
 from langchain.chat_models.base import BaseChatModel
@@ -13,8 +12,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.messages.tool import ToolCall
-from langchain_core.tools import BaseTool, StructuredTool
-from langchain_core.tools.base import _prep_run_args
+from langchain_core.tools import StructuredTool
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import RunnableConfig
 from langgraph.types import Command

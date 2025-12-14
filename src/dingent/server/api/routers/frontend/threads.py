@@ -1,18 +1,20 @@
-from typing import Annotated, Awaitable
-from dingent.core.db.crud.workflow import get_workflow_by_name
-from dingent.core.db.models import User, Workspace
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
+import inspect
+from collections.abc import Awaitable
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlmodel import Session
 
-from dingent.core.db.models import User
-from dingent.server.api.schemas import AgentExecuteRequest, AgentStateRequest
-from dingent.server.services.copilotkit_service import AsyncCopilotKitRemoteEndpoint
+from dingent.core.db.crud.workflow import get_workflow_by_name
+from dingent.core.db.models import User, Workspace
 from dingent.server.api.dependencies import (
     get_current_user,
-    get_db_session,
     get_current_workspace,
+    get_db_session,
 )
+from dingent.server.api.schemas import AgentExecuteRequest, AgentStateRequest
+from dingent.server.services.copilotkit_service import AsyncCopilotKitRemoteEndpoint
 
 router = APIRouter()
 

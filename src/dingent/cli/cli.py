@@ -13,10 +13,10 @@ import queue
 import re
 import subprocess
 import sys
+import tarfile
 import tempfile
 import threading
 import time
-import tarfile
 import webbrowser
 from pathlib import Path
 from typing import Annotated
@@ -153,7 +153,7 @@ def _ensure_project_root(explicit_dir: Path | None = None) -> bool:
         # 服务软件通常不需要动态的项目名，直接叫 dingent-service 即可
         config_content = DEFAULT_DINGENT_TOML.format(project_name="dingent-service")
         config_path.write_text(config_content, encoding="utf-8")
-        print(f"[bold green]✅ Configuration created.[/bold green]")
+        print("[bold green]✅ Configuration created.[/bold green]")
         return True
     except Exception as e:
         print(f"[bold red]❌ Failed to write config file: {e}[/bold red]")
@@ -420,7 +420,7 @@ def run(
         cli_ctx = CliContext()
 
     try:
-        node_bin = _resolve_node_binary()
+        _resolve_node_binary()
     except Exception as e:
         print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
         raise typer.Exit(1)

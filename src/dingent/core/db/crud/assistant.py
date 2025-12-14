@@ -1,22 +1,14 @@
+import ast
+import json
 from uuid import UUID
-from fastapi import HTTPException
-from jsonschema import validate, ValidationError
 
-from fastapi import status
-from fastapi.exceptions import HTTPException
+from fastapi import HTTPException, status
+from jsonschema import ValidationError, validate
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
 from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
-
-import json
-from fastapi import HTTPException
-
-
-import json
-import ast  # 引入 ast 库
-from fastapi import HTTPException
 
 
 def _preprocess_json_fields(config_data: dict, schema: dict | None):

@@ -44,7 +44,7 @@ async def update_assistant(
     assistant_id: UUID,
     assistant_update: AssistantUpdate,
     workspace_assistant_service: WorkspaceAssistantService = Depends(get_workspace_assistant_service),
-    current_workspace: Workspace = Depends(get_current_workspace),
+    _current_workspace: Workspace = Depends(get_current_workspace),  # For permission check
 ):
     updated_assistant = await workspace_assistant_service.update_assistant(assistant_id, assistant_update)
     return updated_assistant

@@ -1,7 +1,9 @@
 from uuid import UUID
+
 from fastapi import HTTPException
 from sqlmodel import Session, select
-from dingent.core.db.models import Workspace, WorkspaceMember, User
+
+from dingent.core.db.models import User, Workspace, WorkspaceMember
 
 
 def create_workspace_for_user(db: Session, *, user: User, name: str, description: str | None = None) -> Workspace:

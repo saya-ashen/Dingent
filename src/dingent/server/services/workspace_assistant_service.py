@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from dingent.core.db.crud import assistant as crud_assistant
-from dingent.core.db.models import Assistant, Workspace
+from dingent.core.db.models import Assistant
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginUpdateOnAssistant
