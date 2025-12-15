@@ -2,6 +2,7 @@ import React from "react";
 import { Handle, NodeProps, Position, Node } from "@xyflow/react";
 
 type AssistantData = {
+  assistantId: string;
   isStart?: boolean;
   name: string;
   description?: string;

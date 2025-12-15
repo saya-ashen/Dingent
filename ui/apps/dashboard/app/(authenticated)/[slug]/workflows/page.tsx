@@ -1,115 +1,60 @@
 "use client";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import {
-  Header,
-  Main,
-  LoadingSkeleton,
-  Search,
-  ThemeSwitch,
-  ConfigDrawer,
-} from "@repo/ui/components";
-import {
-  useAssistantsConfig,
-  useCreateWorkflow,
-  useDeleteWorkflow,
-  useSaveWorkflow,
-  useWorkflowsList,
-} from "@repo/store";
+import { useState } from "react";
+import { Header, Main, LoadingSkeleton } from "@repo/ui/components";
+import { useAssistantsConfig, useWorkflowsList, useSaveWorkflow } from "@repo/store";
 import { useParams } from "next/navigation";
 import { getClientApi } from "@/lib/api/client";
-import { WorkflowSummary } from "@repo/api-client";
-import { WorkflowsSidebar } from "../../../../components/workflows/WorkflowsSidebar";
-import { WorkflowEditorPanel } from "../../../../components/workflows/WorkflowEditorPanel";
+import { WorkflowProvider } from "@/components/workflows/WorkflowContext";
+import { WorkflowSidebar } from "@/components/workflows/WorkflowSidebar";
+import { WorkflowCanvas } from "@/components/workflows/WorkflowCanvas";
 
 export default function WorkflowsPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const api = getClientApi();
-  const wsApi = api.forWorkspace(slug);
-  const workflowApi = wsApi.workflows
-  const assistantsApi = wsApi.assistants;
-  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
-  const [nodeAssistantIds, setNodeAssistantIds] = useState<Set<string>>(new Set());
 
-  const workflowsQ = useWorkflowsList(workflowApi);
-  const assistantsQ = useAssistantsConfig(assistantsApi);
+  // API Setup
+  const api = getClientApi().forWorkspace(slug);
+  const workflowsQ = useWorkflowsList(api.workflows);
+  const assistantsQ = useAssistantsConfig(api.assistants);
+  const saveWorkflowMutation = useSaveWorkflow(api.workflows);
 
-  const createWorkflow = useCreateWorkflow(workflowApi);
-  const saveWorkflow = useSaveWorkflow(workflowApi);
-  const deleteWorkflow = useDeleteWorkflow(workflowApi);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const workflows = workflowsQ.data || [];
-  const allAssistants = assistantsQ.data || [];
+  if (workflowsQ.isLoading || assistantsQ.isLoading) return <LoadingSkeleton />;
 
-  const paletteAssistants = useMemo(() => {
-    return allAssistants.filter(a => !nodeAssistantIds.has(a.id));
-  }, [allAssistants, nodeAssistantIds]);
-
-  if (workflowsQ.isLoading || assistantsQ.isLoading)
-    return <LoadingSkeleton lines={5} />;
-  if (workflowsQ.error || assistantsQ.error)
-    return <div className="text-red-600">Failed to load data.</div>;
 
   return (
-    <>
-      <Header>
-        <Search />
-        <div className="ms-auto flex items-center gap-4">
-          <ThemeSwitch />
-          <ConfigDrawer />
-        </div>
-      </Header>
-      <Main>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Workflows</h1>
-          <p className="text-muted-foreground">
-            Design and manage task handoff workflows between assistants
-          </p>
-        </div>
-        <div className="mt-4 flex min-h-0 w-full flex-1 gap-8 px-4 md:px-8">
-          <WorkflowsSidebar
-            workflows={workflows}
-            selectedId={selectedWorkflowId}
-            onSelect={(wf: WorkflowSummary | null) =>
-              setSelectedWorkflowId(wf ? wf.id : null)
-            }
-            onCreateWorkflow={(input) =>
-              createWorkflow.mutate(input, {
-                onSuccess: (wf) => {
-                  toast.success("Workflow created");
-                  setSelectedWorkflowId(wf.id);
-                },
-                onError: e => toast.error(`Failed to create workflow: ${e?.message || e}`),
-              })
-            }
-            onDeleteWorkflow={(id) =>
-              deleteWorkflow.mutate(id, {
-                onSuccess: () => {
-                  toast.success("Workflow deleted");
-                  setSelectedWorkflowId((cur) => (cur === id ? null : cur));
-                },
-                onError: e => toast.error(`Failed to delete workflow: ${e?.message || e}`),
-              })
-            }
-            paletteAssistants={paletteAssistants}
+    <WorkflowProvider>
+      <div className="flex flex-col h-screen overflow-hidden">
+        <Header>
+          <span className="font-bold ml-4">Dingent Workflow Builder</span>
+        </Header>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* 左侧 */}
+          <WorkflowSidebar
+            workflows={workflowsQ.data || []}
+            assistants={assistantsQ.data || []}
+            selectedWorkflowId={selectedId}
+            onSelectWorkflow={setSelectedId}
+          // 传入 create/delete handlers
           />
 
-          <main className="min-h-0 flex-1">
-            <WorkflowEditorPanel
-              workflowId={selectedWorkflowId}
-              isSaving={saveWorkflow.isPending}
-              onSave={(wf) =>
-                saveWorkflow.mutate(wf, {
-                  onSuccess: () => toast.success("Workflow saved"),
-                  onError: e => toast.error(`Failed to save workflow: ${e?.message || e}`),
-                })
-              }
-              onNodeAssistantIdsChange={setNodeAssistantIds}
+          {/* 右侧画布 */}
+          <main className="flex-1 bg-background relative">
+            <WorkflowCanvas
+              workflowId={selectedId}
+              isSaving={saveWorkflowMutation.isPending}
+              onSave={(nodes, edges) => {
+                if (!selectedId) return;
+                const currentWorkflow = workflowsQ.data?.find(w => w.id === selectedId);
+                if (!currentWorkflow) return;
+                saveWorkflowMutation.mutate({ ...currentWorkflow, nodes, edges });
+              }}
             />
           </main>
         </div>
-      </Main>
-    </>
+      </div>
+    </WorkflowProvider>
   );
 }

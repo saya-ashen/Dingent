@@ -10,7 +10,7 @@ import {
   AlertDialogTrigger,
   Button,
   EmptyState,
-} from "../../";
+} from "@repo/ui/components";
 
 export function WorkflowList({
   workflows,

@@ -1,22 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useWorkspaceStore } from "@repo/store";
-import type { Workspace } from "@repo/api-client";
+import { useEffect } from "react";
 
-export function WorkspaceUpdater({ currentWorkspace, workspaces }: { currentWorkspace: Workspace, workspaces: Workspace[] }) {
-  const setCurrentWorkspace = useWorkspaceStore((s) => s.setCurrentWorkspace);
+import type { Workspace } from "@repo/api-client";
+import { useWorkspaceStore } from "@repo/store";
+
+interface WorkspaceUpdaterProps {
+  currentWorkspace: Workspace;
+  workspaces: Workspace[];
+}
+
+export function WorkspaceUpdater({ currentWorkspace, workspaces }: WorkspaceUpdaterProps) {
+  const setCurrentWorkspace = useWorkspaceStore((state) => state.setCurrentWorkspace);
   const setWorkspaces = useWorkspaceStore((state) => state.setWorkspaces);
+
   useEffect(() => {
     setWorkspaces(workspaces);
-  }, [workspaces, setWorkspaces]);
-
-
-  const lastId = useRef(currentWorkspace.id);
-
-  useEffect(() => {
     setCurrentWorkspace(currentWorkspace);
-  }, [currentWorkspace, setCurrentWorkspace]);
+  }, [workspaces, currentWorkspace]);
 
   return null;
 }

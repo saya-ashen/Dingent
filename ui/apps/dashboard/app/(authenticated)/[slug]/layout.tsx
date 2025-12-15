@@ -1,9 +1,12 @@
-import { AuthenticatedLayout } from "@repo/ui/components";
-import { WorkspaceUpdater } from "./workspace-updater";
 import { notFound } from "next/navigation";
-import { getServerApi } from "@/lib/api/server";
+
+import { AuthenticatedLayout } from "@repo/ui/components";
+
 import { Providers } from "@/app/providers";
 import { DashboardNavSidebar } from "@/components/NavSidebar";
+import { getServerApi } from "@/lib/api/server";
+
+import { WorkspaceUpdater } from "./workspace-updater";
 
 export default async function DashboardAppLayout({
   children,
@@ -11,18 +14,18 @@ export default async function DashboardAppLayout({
 }: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
-
 }) {
-  const api = await getServerApi();
-  let workspace;
-  const workspaces = await api.workspaces.list();
-  try {
-    const { slug } = await params;
-    workspace = await api.workspaces.getBySlug(slug);
+  const [api, { slug }] = await Promise.all([getServerApi(), params]);
 
-  } catch (error) {
+  const [workspaces, workspace] = await Promise.all([
+    api.workspaces.list(),
+    api.workspaces.getBySlug(slug).catch(() => null),
+  ]);
+
+  if (!workspace) {
     return notFound();
   }
+
   return (
     <Providers>
       <AuthenticatedLayout workspaces={workspaces} sidebar={<DashboardNavSidebar />}>

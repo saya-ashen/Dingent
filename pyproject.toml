@@ -33,7 +33,6 @@ dependencies = [
   "litellm>=1.76.1",
   "google-genai>=1.32.0",
   "fastapi[all]>=0.115.14",
-  # "passlib[bcrypt]>=1.7.4",
   "python-jose[cryptography]>=3.5.0",
   "sqlmodel>=0.0.25",
   "pycasbin>=2.2.0",
@@ -85,7 +84,6 @@ local_scheme = "no-local-version"
 
 
 [tool.basedpyright]
-# include = ["src/"]
 exclude = ["**/__pycache__"]
 reportMissingImports = "error"
 reportMissingTypeStubs = false
@@ -94,10 +92,6 @@ pythonPlatform = "Linux"
 typeCheckingMode = "standard"
 useLibraryCodeForTypes = true
 reportInvalidCast = "none"
-
-# [tool.uv]
-# link-mode = "symlink"
-# default-groups = "all"
 
 
 [dependency-groups]

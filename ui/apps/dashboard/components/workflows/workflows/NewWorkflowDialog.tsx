@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "../../";
+} from "@repo/ui/components";
 import { useState } from "react";
 import { Plus } from "lucide-react";
 type CreateWorkflowVars = {

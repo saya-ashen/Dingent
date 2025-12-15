@@ -21,7 +21,7 @@ export function useWorkflow(api: WorkflowsApi, id: string | null) {
     enabled: !!id,
     queryFn: async () => api.get(id!),
     placeholderData: () => {
-      const list = queryClient.getQueryData<WorkflowSummary[]>(workflowKeys.lists());
+      const list = queryClient.getQueryData<Workflow[]>(workflowKeys.lists());
       return list?.find((w) => w.id === id);
     },
   });
@@ -77,14 +77,12 @@ export function useSaveWorkflow(api: WorkflowsApi) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    // 显式定义参数，增加类型安全
     mutationFn: (data: Workflow) => api.update(data),
     onSuccess: (savedWf) => {
-      // 更新列表（可能改了名字）
       queryClient.invalidateQueries({ queryKey: workflowKeys.lists() });
-      // 更新详情
+
       if (savedWf?.id) {
-        queryClient.setQueryData(workflowKeys.detail(savedWf.id), savedWf);
+        queryClient.invalidateQueries({ queryKey: workflowKeys.detail(savedWf.id) });
       }
     },
   });
