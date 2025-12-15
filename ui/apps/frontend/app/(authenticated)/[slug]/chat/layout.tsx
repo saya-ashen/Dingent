@@ -1,44 +1,41 @@
 import { notFound } from "next/navigation";
-
 import { AuthenticatedLayout } from "@repo/ui/components";
-
 import { ChatHistorySidebar } from "@/components/ChatHistorySidebar";
 import { Providers } from "@/components/Providers";
 import { getServerApi } from "@/lib/api/server";
 
-/**
- * Chat layout component that provides workspace context and chat-specific UI structure.
- * Validates workspace existence and sets up the authenticated layout with chat sidebar.
- *
- * @param children - Child components to render within the layout
- * @param params - Route parameters containing the workspace slug
- * @returns The chat layout JSX element or triggers a 404 if workspace not found
- */
+interface ChatLayoutProps {
+  children: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}
+
 export default async function ChatLayout({
   children,
   params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ slug: string }>;
-}): Promise<React.JSX.Element> {
-  // Parallel data fetching for better performance
-  const [api, { slug }] = await Promise.all([getServerApi(), params]);
+}: ChatLayoutProps) {
+  // 1. Resolve params and get API client
+  const [api, resolvedParams] = await Promise.all([getServerApi(), params]);
+  const { slug } = resolvedParams;
 
-  // Fetch workspaces list and validate current workspace in parallel
-  // Using .catch() to handle potential API errors gracefully
+  // 2. Fetch data in parallel
+  // 使用 catch 处理 getBySlug 可能的 404 错误
   const [workspaces, workspace] = await Promise.all([
     api.workspaces.list(),
     api.workspaces.getBySlug(slug).catch(() => null),
   ]);
 
-  // Return 404 if workspace doesn't exist
+  // 3. Validate workspace
   if (!workspace) {
     notFound();
   }
 
+  // 4. Render
   return (
     <Providers>
-      <AuthenticatedLayout workspaces={workspaces} sidebar={<ChatHistorySidebar />}>
+      <AuthenticatedLayout
+        workspaces={workspaces}
+        sidebar={<ChatHistorySidebar />}
+      >
         {children}
       </AuthenticatedLayout>
     </Providers>
