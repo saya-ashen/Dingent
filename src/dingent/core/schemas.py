@@ -4,14 +4,13 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import toml
 from mcp.types import Tool
 from pydantic import ConfigDict, EmailStr, PrivateAttr
 from sqlmodel import Field, SQLModel
 
-from dingent.core.db.models import PluginConfigSchema
 from dingent.core.types import ExecutionModel
 from dingent.core.utils import to_camel
 
@@ -22,6 +21,15 @@ def generate_id_from_name(display_name: str) -> str:
     s = re.sub(r"[^\w\s-]", "", s)
     s = re.sub(r"[-\s]+", "-", s).strip("-")
     return s
+
+
+class PluginConfigSchema(SQLModel):
+    name: str = Field(..., description="配置项的名称 (环境变量名)")
+    type: Literal["string", "float", "integer", "bool", "dict", "object"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+    required: bool = Field(..., description="是否为必需项")
+    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
+    description: str | None = Field(None, description="该配置项的描述")
+    default: Any | None = Field(None, description="默认值 (如果存在)")
 
 
 class AssistantBase(SQLModel):
@@ -177,7 +185,6 @@ class WorkflowNodeBase(SQLModel):
         from_attributes=True,
     )
 
-    position: dict[str, float]
     is_start_node: bool = False
     type: str = "assistant"
 
@@ -331,6 +338,8 @@ class WorkflowReadBasic(WorkflowBase):
     不包含 nodes 和 edges，避免数据冗余。
     """
 
+    workspace_id: UUID
+
     id: UUID
     name: str
     created_at: datetime
@@ -342,6 +351,8 @@ class WorkflowRead(WorkflowReadBasic):
     用于读取单个工作流的完整信息，包含其所有的节点和边。
     前端在 GET /workflows/{workflow_id} 时会收到此模型。
     """
+
+    workspace_id: UUID
 
     nodes: list[WorkflowNodeRead] = []
     edges: list[WorkflowEdgeRead] = []
@@ -438,3 +449,50 @@ class WorkspaceInvite(SQLModel):
 class WorkspaceWithRole(WorkspaceRead):
     pass
     # permissions: list[str] = [] # 可选：更细粒度的权限列表
+
+
+class PluginSpec(SQLModel):
+    plugin_id: str
+    registry_id: str
+    config: dict[str, Any]
+
+
+class AssistantSpec(AssistantBase):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    plugins: list[PluginSpec] = []
+
+
+class NodeSpec(WorkflowNodeBase):
+    id: UUID = Field(default_factory=uuid4)
+    assistant: AssistantSpec
+
+
+class EdgeSpec(WorkflowEdgeBase):
+    id: UUID = Field(default_factory=uuid4)
+
+
+class WorkflowSpec(WorkflowBase):
+    """
+    这是传给 GraphFactory 的纯数据对象。
+    它不需要 workspace_id, user_id 等数据库外键。
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    start_node_name: str | None = None
+    nodes: list[NodeSpec] = []
+    edges: list[EdgeSpec] = []
+
+
+class ThreadBase(SQLModel):
+    id: str | UUID
+
+
+class ThreadRead(ThreadBase):
+    id: str | UUID
+    title: str
+    workspace_id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime

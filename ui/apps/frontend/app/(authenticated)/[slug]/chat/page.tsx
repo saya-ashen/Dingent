@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useLayoutEffect } from "react";
+import React, { useEffect, useRef, useState, useLayoutEffect, useContext } from "react";
 import { createPortal } from "react-dom"; // 引入 Portal
 import { useParams } from "next/navigation";
 import { ChevronDown, X, Info, Check, Workflow, Bot, Loader2 } from "lucide-react";
-import { CopilotKitCSSProperties, CopilotSidebar, useChatContext } from "@copilotkit/react-ui";
+import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
+import { CopilotSidebar, useAgent } from "@copilotkit/react-core/v2";
+
 
 import { MainContent } from "@/components/MainContent";
 import { useWidgets } from "@/hooks/useWidgets";
@@ -13,6 +15,8 @@ import { getClientApi } from "@/lib/api/client";
 
 import { useWorkflowsList, useActiveWorkflow } from "@repo/store";
 import { WorkflowSummary } from "@repo/api-client";
+import { useThreadContext } from "@/providers/ThreadProvider";
+import { useCopilotContext } from "@copilotkit/react-core";
 
 // --- Utility: Click Outside ---
 function useClickOutside(ref: React.RefObject<HTMLDivElement>, triggerRef: React.RefObject<HTMLButtonElement>, handler: () => void) {
@@ -212,10 +216,11 @@ const MyHeader = ({ className = "", }: MyHeaderProps) => {
   const params = useParams();
   const slug = params.slug as string;
   const api = getClientApi().forWorkspace(slug);
-  const { setOpen } = useChatContext();
+  // const { setOpen } = useChatContext();
+  const setOpen = {}
 
-  const workflowsQ = useWorkflowsList(api.workflows);
-  const { id: activeId, setActiveId, workflow } = useActiveWorkflow(api.workflows);
+  const workflowsQ = useWorkflowsList(api.workflows, slug);
+  const { id: activeId, setActiveId, workflow } = useActiveWorkflow(api.workflows, slug);
   const workflows = workflowsQ.data || [];
 
   return (
@@ -223,10 +228,6 @@ const MyHeader = ({ className = "", }: MyHeaderProps) => {
       flex flex-col border-b border-neutral-800 bg-neutral-950
       ${className}
     `}>
-      {/* 主行：固定高度，flex 居中
-        px-4: 左右间距适中
-        h-14: 56px 高度，标准 Header 高度
-      */}
       <div className="flex items-center justify-between px-4 h-14 w-full">
         {/* 左侧选择器 */}
         <div className="flex-1 min-w-0 mr-2">
@@ -261,25 +262,30 @@ const MyHeader = ({ className = "", }: MyHeaderProps) => {
 
 export default function CopilotKitPage() {
   const [themeColor] = useState("#6366f1");
-  const { widgets } = useWidgets();
+  // const { widgets } = useWidgets();
+  const widgets = [];
+  const params = useParams();
+  const slug = params.slug as string;
+  const api = getClientApi().forWorkspace(slug);
+  const { workflow } = useActiveWorkflow(api.workflows, slug);
+  const {
+    activeThreadId,
+    updateThreadTitle
+  } = useThreadContext();
+  const agent = useAgent({ agentId: workflow?.name })
+  const isLoading = agent.agent.isRunning;
+  useEffect(() => {
+    updateThreadTitle(activeThreadId || "")
+  }, [isLoading, activeThreadId, updateThreadTitle]);
+  if (!activeThreadId) return null;
 
-  useMessagesManager();
 
   return (
     <main style={{ "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties}>
       <div className="relative flex w-full h-full">
         <MainContent widgets={widgets} />
-        <CopilotSidebar
-          clickOutsideToClose={false}
-          defaultOpen={true}
-          imageUploadsEnabled={true}
-          inputFileAccept={"image/*"}
-          labels={{
-            title: "Dingent Assistant",
-            initial: "👋 Select a workflow to start working!",
-          }}
-          Header={MyHeader}
-        />
+        <CopilotSidebar header={MyHeader} agentId={workflow?.name} threadId={activeThreadId} />
+
       </div>
     </main>
   );

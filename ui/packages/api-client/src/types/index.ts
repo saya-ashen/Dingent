@@ -101,6 +101,7 @@ export type WorkflowEdge = Edge<{ mode?: "bidirectional" | "single" }>;
 export type Workflow = {
   id: string;
   name: string;
+  workspaceId?: string;
   description?: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -194,3 +195,9 @@ export interface WorkspaceInvitePayload {
   email: string;
   role?: WorkspaceRole; // 默认为 "member"
 }
+export type ChatThread = {
+  id: string; // UUID
+  title: string;
+  created_at: string; // ISO Date string
+  updated_at: string; // ISO Date string
+};

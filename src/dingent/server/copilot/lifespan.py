@@ -7,16 +7,14 @@ from sqlmodel import Session
 
 from dingent.core.db.session import engine
 from dingent.core.factories.assistant_factory import AssistantFactory
-from dingent.core.factories.graph_factory import GraphFactory
-from dingent.core.managers.llm_manager import get_llm_service
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.services.market_service import GitHubMarketBackend, MarketService
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.utils import find_project_root
-from dingent.server.copilot.agents import FixedLangGraphAgent
-from dingent.server.services.copilotkit_service import AsyncCopilotKitRemoteEndpoint
+from dingent.server.services.copilotkit_service import CopilotKitSdk
+from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.services.plugin_sync_service import PluginSyncService
 
 
@@ -42,29 +40,9 @@ def _setup_global_services(app: FastAPI) -> Path:
 
     market_backend = GitHubMarketBackend(log_manager)
     app.state.market_service = MarketService(project_root, log_manager, market_backend)
-    app.state.assistant_factory = AssistantFactory(app.state.plugin_manager, log_manager)
-    app.state.graph_factory = GraphFactory(app.state.assistant_factory)
+    app.state.assistant_factory = AssistantFactory(app.state.plugin_manager, app.state.log_manager)
 
     return project_root
-
-
-def _create_agent_factory(app: FastAPI, checkpointer):
-    """创建并返回闭包形式的 agent factory"""
-    llm = get_llm_service()  # 仅获取一次
-
-    async def factory(workflow, user, session):
-        artifact = await app.state.graph_factory.build(user.id, session, app.state.resource_manager, workflow, llm, checkpointer)
-        return FixedLangGraphAgent(
-            name=workflow.name,
-            description=f"Agent for workflow '{workflow.name}'",
-            graph=artifact.graph,
-            langgraph_config={
-                "user": user,
-                "assistant_plugin_configs": artifact.assistant_plugin_configs,
-            },
-        )
-
-    return factory
 
 
 def create_extended_lifespan(original_lifespan):
@@ -82,12 +60,14 @@ def create_extended_lifespan(original_lifespan):
             db_path = project_root / ".dingent/data/dingent.db"
 
             async with AsyncSqliteSaver.from_conn_string(db_path.as_posix()) as checkpointer:
+                # HACK:
+                checkpointer.conn.is_alive = lambda: True
                 # 构建 SDK 需要的 factory
-                agent_factory = _create_agent_factory(app, checkpointer)
+                graph_factory = GraphFactory(app.state.assistant_factory)
 
                 # 初始化 SDK 并挂载
-                sdk = AsyncCopilotKitRemoteEndpoint(agent_factory=agent_factory)
-                app.state.copilot_sdk = sdk  # 建议显式挂载，方便 Router 调用
+                sdk = CopilotKitSdk(graph_factory=graph_factory, checkpointer=checkpointer)
+                app.state.copilot_sdk = sdk
 
                 print("--- CopilotKit Extension Initialized ---")
                 yield

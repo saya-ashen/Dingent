@@ -3,7 +3,7 @@ import type { ApiClientConfig } from "./config";
 import { AuthApi } from "./auth";
 import { AssistantsApi, WorkflowsApi, SettingsApi, LogsApi, MarketApi, OverviewApi, PluginsApi } from "./dashboard";
 import { WorkspaceApi } from "./workspace";
-import { ArtifactApi } from "./frontend";
+import { ArtifactApi, ThreadsApi } from "./frontend";
 
 
 export * from "./types";
@@ -33,6 +33,7 @@ export class ApiClient {
       settings: new SettingsApi(this.http, `${wsPath}/settings`),
       market: new MarketApi(this.http, `${wsPath}/market`),
       artifacts: new ArtifactApi(this.http, `${wsPath}/artifacts`),
+      threads: new ThreadsApi(this.http, `${wsPath}/chat/threads`),
     };
   }
 }

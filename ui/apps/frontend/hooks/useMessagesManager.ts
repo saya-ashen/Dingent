@@ -10,8 +10,7 @@ import {
   Message,
   loadMessagesFromJsonRepresentation,
 } from "@copilotkit/runtime-client-gql";
-import { useThreadContext } from "../contexts/ThreadProvider";
-import { useWorkflow } from "@repo/store";
+import { useThreadContext } from "../providers/ThreadProvider";
 
 /**
  * 只负责消息获取与标题更新
@@ -20,7 +19,7 @@ export function useMessagesManager(): { messages: Message[] } {
   const { messages, setMessages } = useCopilotMessagesContext();
   const { threadId, agentSession, runtimeClient, } = useCopilotContext();
   const { threads, updateThreadTitle } = useThreadContext();
-  const { setState } = useCoAgent({ name: "default" });
+  const { setState } = useCoAgent({ name: "abcdefg" });
 
   const lastLoadedThreadId = useRef<string>("");
   const lastLoadedAgentName = useRef<string>("");

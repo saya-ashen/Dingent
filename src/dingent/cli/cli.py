@@ -32,16 +32,11 @@ from dingent.cli.context import CliContext
 
 app = typer.Typer(help="Dingent Agent Framework CLI")
 
-DEFAULT_GRAPH_SPEC = "dingent.engine.graph:make_graph"
-DEFAULT_API_SPEC = "dingent.server.main:app"
-ENV_GRAPH_SPEC = "DINGENT_GRAPH_SPEC"
-ENV_API_SPEC = "DINGENT_API_SPEC"
 
 PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
 # When running in development mode, this can point to a local repository for easier debugging
 DEV_REPO_URL = "/home/saya/Workspace/Dingent"
 
-AVAILABLE_TEMPLATES = ["basic"]
 IS_DEV_MODE = os.getenv("DINGENT_DEV")
 
 REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL

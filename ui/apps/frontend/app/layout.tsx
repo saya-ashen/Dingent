@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { RootLayout as SharedRootLayout } from "@repo/ui/components";
 
-// App-specific global styles
 import "./globals.css";
-import "@copilotkit/react-ui/styles.css"; // Keep app-specific CSS here
+// import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/v2/styles.css";
 
 export const metadata: Metadata = {
   title: "Dingent Frontend",

@@ -3,11 +3,14 @@ from enum import Enum
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
+from openai import conversations
 from pydantic import BaseModel
 from pydantic import Field as PydField
 from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
+
+from dingent.core.schemas import AssistantSpec, NodeSpec, PluginSpec, WorkflowSpec
 
 
 class WorkspaceRole(str, Enum):
@@ -106,6 +109,7 @@ class Workspace(SQLModel, table=True):
     assistants: list["Assistant"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     workflows: list["Workflow"] = Relationship(back_populates="workspace")
     resources: list["Resource"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    conversations: list["Conversation"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -186,15 +190,6 @@ class Assistant(SQLModel, table=True):
     workflow_nodes: list["WorkflowNode"] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
-class PluginConfigSchema(SQLModel):
-    name: str = Field(..., description="配置项的名称 (环境变量名)")
-    type: Literal["string", "float", "integer", "bool", "dict", "object"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
-    required: bool = Field(..., description="是否为必需项")
-    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
-    description: str | None = Field(None, description="该配置项的描述")
-    default: Any | None = Field(None, description="默认值 (如果存在)")
-
-
 class Plugin(SQLModel, table=True):
     """
     插件的全局定义：系统级资源；用户侧配置在 AssistantPluginLink 中。
@@ -242,6 +237,43 @@ class Workflow(SQLModel, table=True):
     # 关系
     nodes: list["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     edges: list["WorkflowEdge"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    def to_spec(self) -> WorkflowSpec:
+        """将数据库实体转化为纯业务 Spec"""
+        start_node = None
+        for n in self.nodes:
+            if n.is_start_node:
+                start_node = n
+
+        return WorkflowSpec(
+            id=self.id,
+            name=self.name,
+            start_node_name=start_node.name if start_node else None,
+            nodes=[
+                NodeSpec(
+                    id=n.id,
+                    is_start_node=n.is_start_node,
+                    assistant=AssistantSpec(
+                        id=n.assistant.id,
+                        name=n.assistant.name,
+                        version=n.assistant.version,
+                        description=n.assistant.description or "",
+                        spec_version=n.assistant.spec_version,
+                        enabled=n.assistant.enabled,
+                        plugins=[
+                            PluginSpec(
+                                plugin_id=l.plugin.registry_id,
+                                registry_id=l.plugin.registry_id,
+                                config=l.user_plugin_config or {},
+                            )
+                            for l in n.assistant.plugin_links
+                            if l.enabled
+                        ],
+                    ),
+                )
+                for n in self.nodes
+            ],
+        )
 
 
 class WorkflowNode(SQLModel, table=True):
@@ -398,12 +430,87 @@ class UserProviderCredential(SQLModel, table=True):
 
 
 class Conversation(SQLModel, table=True):
-    id: UUID = Field(primary_key=True, description="LangGraph thread_id")
+    """
+    业务层面的对话记录 (Thread)。
+    它是 Checkpoint 的父级，用于权限控制和列表展示。
+    """
+
+    # 对应 LangGraph 的 thread_id
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, description="即 LangGraph 的 thread_id")
+
     workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship()
 
     # 身份标识
     user_id: UUID | None = Field(default=None, foreign_key="user.id", index=True)
+    # 允许访客模式 (未登录用户)
     visitor_id: str | None = Field(default=None, index=True)
 
     title: str = Field(default="New Chat")
+
+    # 统计信息 (可选，但推荐)
+    message_count: int = Field(default=0)
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
+
+    # 关系：一个对话有多个 Checkpoints (历史状态)
+    checkpoints: list["LangGraphCheckpoint"] = Relationship(back_populates="conversation", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    # 关系：一个对话有多个 Writes (中间状态)
+    writes: list["LangGraphCheckpointWrite"] = Relationship(back_populates="conversation", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class LangGraphCheckpoint(SQLModel, table=True):
+    """
+    映射 LangGraph 标准表 `checkpoints`。
+    增加了 foreign_key 指向你的 Conversation 表，实现级联删除。
+    """
+
+    __tablename__ = "checkpoints"  # 强制使用 LangGraph 默认表名
+
+    thread_id: str = Field(primary_key=True, foreign_key="conversation.id")
+
+    # 复合主键 2: checkpoint_ns (命名空间，默认为空字符串)
+    checkpoint_ns: str = Field(default="", primary_key=True)
+
+    # 复合主键 3: checkpoint_id (UUID 字符串)
+    checkpoint_id: str = Field(primary_key=True)
+
+    # 上级指针
+    parent_checkpoint_id: str | None = Field(default=None)
+
+    type: str = Field(default="msgpack")
+
+    # 核心数据 (Pickle 序列化)
+    checkpoint: bytes = Field(sa_column=Column(LargeBinary))
+
+    # 元数据
+    metadata_: dict = Field(
+        default_factory=dict,
+        sa_column=Column("metadata", LargeBinary),  # 映射到数据库列名 "metadata"
+    )
+
+    # 关系回溯
+    conversation: Conversation = Relationship(back_populates="checkpoints")
+
+
+class LangGraphCheckpointWrite(SQLModel, table=True):
+    """
+    映射 LangGraph 标准表 `checkpoint_writes`。
+    """
+
+    __tablename__ = "writes"  # 强制使用 LangGraph 默认表名
+
+    thread_id: str = Field(primary_key=True, foreign_key="conversation.id")
+    checkpoint_ns: str = Field(default="", primary_key=True)
+    checkpoint_id: str = Field(primary_key=True)
+    task_id: str = Field(primary_key=True)
+    idx: int = Field(primary_key=True)
+
+    channel: str
+    type: str = Field(default="msgpack")
+
+    value: bytes = Field(sa_column=Column(LargeBinary))
+
+    conversation: Conversation = Relationship(back_populates="writes")

@@ -3,6 +3,8 @@ import { Dispatch, SetStateAction } from "react";
 export interface ChatThread {
   id: string;
   title: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ThreadContextType {
@@ -10,8 +12,9 @@ export interface ThreadContextType {
   threads: ChatThread[]; // Changed from threadIds: string[]
   activeThreadId: string | undefined;
   setActiveThreadId: Dispatch<SetStateAction<string>>;
-  updateThreadTitle: (id: string, title: string) => void;
+  updateThreadTitle: (id: string) => void;
   deleteAllThreads: () => void;
+  deleteThread: (id: string) => void;
 }
 
 export interface MarkdownPayload {

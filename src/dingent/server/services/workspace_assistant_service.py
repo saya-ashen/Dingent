@@ -14,11 +14,6 @@ from .converters import _build_assistant_read
 
 
 class WorkspaceAssistantService:
-    """
-    这是一个请求作用域的服务，负责为单个用户管理其Assistant的运行时实例。
-    它持有本次请求内的实例缓存。
-    """
-
     def __init__(
         self,
         workspace_id: UUID,

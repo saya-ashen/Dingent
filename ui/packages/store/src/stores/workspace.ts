@@ -34,7 +34,6 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
     const storedId = getCookie(WORKSPACE_ID_KEY);
 
-    // 优先级 1: 内存中已选中的，优先保留 (防止 SWR/ReactQuery 重新验证数据时重置用户选择)
     if (currentWorkspace && list.find((w) => w.id === currentWorkspace.id)) {
       nextWorkspace = currentWorkspace;
     }

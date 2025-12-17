@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 class LoginResponse(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: Literal["bearer"] = "bearer"
     user: UserRead
 
 

@@ -7,7 +7,7 @@ from dingent.core.db.models import Workspace
 from dingent.core.managers.resource_manager import ResourceManager
 from dingent.server.api.dependencies import get_current_workspace, get_db_session
 
-router = APIRouter()
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.get("/artifacts/{artifact_id}")

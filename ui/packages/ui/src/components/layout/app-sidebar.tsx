@@ -28,7 +28,7 @@ type AppSidebarProps = {
 
 export function AppSidebar({ children, workspaces, api }: AppSidebarProps) {
   return (
-    <Sidebar collapsible="icon" variant="inset">
+    <Sidebar collapsible="none" variant="inset" className="h-screen overflow-hidden flex flex-col">
       <SidebarHeader>
         <WorkspaceSwitcher workspaces={workspaces} api={api} user={user} />
       </SidebarHeader>

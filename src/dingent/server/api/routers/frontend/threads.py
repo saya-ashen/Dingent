@@ -1,40 +1,117 @@
-import inspect
-from collections.abc import Awaitable
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import uuid
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlmodel import Session
+from sqlmodel import Session, delete, select
 
 from dingent.core.db.crud.workflow import get_workflow_by_name
-from dingent.core.db.models import User, Workspace
+from dingent.core.db.models import Conversation, User, Workflow, Workspace
+from dingent.core.managers.llm_manager import get_llm_service
+from dingent.core.schemas import AssistantSpec, NodeSpec, ThreadRead, WorkflowSpec
+from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.server.api.dependencies import (
     get_current_user,
     get_current_workspace,
     get_db_session,
 )
-from dingent.server.api.schemas import AgentExecuteRequest, AgentStateRequest
-from dingent.server.services.copilotkit_service import AsyncCopilotKitRemoteEndpoint
 
-router = APIRouter()
+from dingent.server.copilot.agents import DingLangGraphAGUIAgent
+from dingent.server.services.copilotkit_service import CopilotKitSdk
 
-
-async def _maybe_await[T](value: T | Awaitable[T]) -> T:
-    return await value if inspect.isawaitable(value) else value  # type: ignore[return-value]
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-def get_copilot_sdk(request: Request) -> AsyncCopilotKitRemoteEndpoint:
+def get_copilot_sdk(request: Request) -> CopilotKitSdk:
     return request.app.state.copilot_sdk
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DbSession = Annotated[Session, Depends(get_db_session)]
-CopilotSDK = Annotated[AsyncCopilotKitRemoteEndpoint, Depends(get_copilot_sdk)]
+CopilotSDK = Annotated[CopilotKitSdk, Depends(get_copilot_sdk)]
 CurrentWorkspace = Annotated[Workspace, Depends(get_current_workspace)]
 
 
-@router.get("/", response_class=HTMLResponse)
+@dataclass
+class AgentContext:
+    """
+    这是一个上下文容器，包含执行 Agent 所需的所有准备工作。
+    """
+
+    session: DbSession
+    agent: DingLangGraphAGUIAgent
+    conversation: Conversation
+    encoder: EventEncoder
+    input_data: RunAgentInput
+
+
+async def get_workflow_spec(workflow: Workflow | None) -> WorkflowSpec:
+    if not workflow or not workflow.to_spec().start_node_name:
+        return get_fallback_workflow_spec()
+    return workflow.to_spec()
+
+
+async def get_agent_context(
+    agent_id: str,
+    input_data: RunAgentInput,
+    request: Request,
+    sdk: CopilotSDK,
+    session: DbSession,
+    user: CurrentUser,
+    workspace: CurrentWorkspace,
+) -> AgentContext:
+    # --- A. 验证 thread_id ---
+    try:
+        thread_uuid = uuid.UUID(input_data.thread_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid thread_id format")
+
+    # --- B. 获取或创建 Conversation (鉴权逻辑) ---
+    conversation = session.exec(select(Conversation).where(Conversation.id == thread_uuid)).first()
+
+    if conversation:
+        # 鉴权：所有权
+        if conversation.user_id != user.id:
+            raise HTTPException(status_code=403, detail="You do not have permission to access this conversation.")
+        # 鉴权：工作空间隔离
+        if conversation.workspace_id != workspace.id:
+            raise HTTPException(status_code=403, detail="This conversation belongs to a different workspace.")
+    else:
+        # 初始化：如果不存在，则创建新会话
+        # 注意：这里逻辑复用意味着 /connect 如果传入新 ID 也会创建空会话，这通常是可以接受的
+        new_conversation = Conversation(
+            id=thread_uuid,
+            user_id=user.id,
+            workspace_id=workspace.id,
+            title="New Chat",
+        )
+        session.add(new_conversation)
+        session.commit()
+        session.refresh(new_conversation)
+        conversation = new_conversation
+
+    # --- C. 解析 Agent ---
+    workflow = get_workflow_by_name(session, agent_id, workspace.id)
+    if not workflow and agent_id != "default":
+        raise HTTPException(status_code=404, detail=f"Workflow '{agent_id}' not found")
+
+    llm = get_llm_service()
+    spec = await get_workflow_spec(workflow)
+    agent = await sdk.resolve_agent(spec, llm)
+
+    # --- D. 准备 Encoder ---
+    accept_header = request.headers.get("accept")
+    encoder = EventEncoder(accept=accept_header)
+
+    return AgentContext(session=session, agent=agent, conversation=conversation, encoder=encoder, input_data=input_data)
+
+
 @router.post("/info")
+@router.get("", response_class=HTMLResponse)
 async def handle_info(
     request: Request,
     user: CurrentUser,
@@ -44,7 +121,7 @@ async def handle_info(
 ):
     """获取可用 Agent 列表"""
 
-    agents = await sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
+    agents = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
 
     # 构造符合 CopilotKit 协议的返回
     response_data = {
@@ -62,52 +139,98 @@ async def handle_info(
     return response_data
 
 
-@router.post("/agent/{name}")
-async def execute_agent(
-    name: str,
-    body: AgentExecuteRequest,
-    user: CurrentUser,
+@router.get("/info")
+async def get_agents(
     session: DbSession,
+    user: CurrentUser,
+    workspace: CurrentWorkspace,
     sdk: CopilotSDK,
 ):
-    """执行 Agent"""
-    events = await sdk.execute_agent_with_user(
-        user=user,
-        session=session,
-        name=name,
-        thread_id=body.threadId,
-        state=body.state,
-        messages=body.messages,
-        actions=body.actions,
-        node_name=body.nodeName,
-        config=body.config,
-        meta_events=body.metaEvents,
-    )
-
-    return StreamingResponse(events, media_type="application/json")
+    return sdk.list_agents_for_user(user, session, workspace.id)
 
 
-@router.post("/agent/{name}/state")
-async def get_agent_state(
-    name: str,
-    body: AgentStateRequest,
-    user: CurrentUser,
-    session: DbSession,
-    sdk: CopilotSDK,
+@router.post("/agent/{agent_id}/run")
+async def run(
+    ctx: AgentContext = Depends(get_agent_context),
 ):
-    """获取 Agent 状态"""
-    workflow = get_workflow_by_name(session, name, user.id)
-    if not workflow:
-        raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
-    agent = await sdk._resolve_agent(workflow, user, session)
+    async def event_generator():
+        async for event in ctx.agent.run(ctx.input_data):
+            yield ctx.encoder.encode(event)
 
-    sdk._log_request_info(
-        title="Handling get agent state request (factory-based agents)",
-        data=[
-            ("Agent", agent.dict_repr()),
-            ("Thread ID", body.threadId),
-        ],
+    if ctx.conversation.title == "New Chat":
+        ctx.conversation.title = ctx.input_data.messages[0].content[:10]
+
+    ctx.conversation.updated_at = datetime.now(timezone.utc)
+    ctx.session.add(ctx.conversation)
+    ctx.session.commit()
+
+    return StreamingResponse(event_generator(), media_type=ctx.encoder.get_content_type())
+
+
+@router.post("/agent/{agent_id}/connect")
+async def connect(
+    ctx: AgentContext = Depends(get_agent_context),
+):
+    async def event_generator():
+        async for event in ctx.agent.get_thread_messages(ctx.input_data.thread_id):
+            yield ctx.encoder.encode(event)
+
+    return StreamingResponse(event_generator(), media_type=ctx.encoder.get_content_type())
+
+
+@router.get("/threads", response_model=list[ThreadRead])
+async def list_threads(
+    user: CurrentUser,
+    workspace: CurrentWorkspace,
+    session: DbSession,
+):
+    statement = select(Conversation).where(
+        Conversation.workspace_id == workspace.id,
+        Conversation.user_id == user.id,
+    )
+    threads = session.exec(statement).all()
+    return threads
+
+
+@router.delete("/threads", status_code=200)
+async def delete_all_threads(
+    user: CurrentUser,
+    workspace: CurrentWorkspace,
+    session: DbSession,
+):
+    """
+    删除当前用户在当前工作空间下的所有对话
+    """
+    # 直接构建 DELETE 语句，效率更高，不需要先 fetch 数据
+    statement = delete(Conversation).where(
+        Conversation.workspace_id == workspace.id,
+        Conversation.user_id == user.id,
     )
 
-    state = agent.get_state(thread_id=body.threadId)
-    return await _maybe_await(state)
+    result = session.exec(statement)
+    session.commit()
+
+    return {"detail": f"Deleted all threads in workspace. Count: {result.rowcount}"}
+
+
+@router.delete("/threads/{thread_id}")
+async def delete_thread(
+    thread_id: uuid.UUID,
+    user: CurrentUser,
+    workspace: CurrentWorkspace,
+    session: DbSession,
+):
+    statement = select(Conversation).where(
+        Conversation.id == thread_id,
+        Conversation.workspace_id == workspace.id,
+        Conversation.user_id == user.id,
+    )
+    thread = session.exec(statement).first()
+
+    if not thread:
+        raise HTTPException(status_code=404, detail="Thread not found")
+
+    session.delete(thread)
+    session.commit()
+
+    return {"detail": "Thread deleted successfully"}

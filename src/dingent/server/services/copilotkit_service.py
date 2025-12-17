@@ -3,34 +3,22 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 from uuid import UUID
 
-from copilotkit.action import ActionDict
-from copilotkit.agent import Agent
-from copilotkit.exc import AgentExecutionException, AgentNotFoundException
+
+from copilotkit.exc import AgentNotFoundException
 from copilotkit.sdk import CopilotKitRemoteEndpoint
-from copilotkit.types import Message, MetaEvent
 from fastapi import HTTPException
 from sqlmodel import Session
 
-from dingent.core.db.crud.workflow import get_workflow_by_name, list_workflows_by_workspace
+from dingent.core.db.crud.workflow import list_workflows_by_workspace
 from dingent.core.db.crud.workspace import get_specific_user_workspace
 from dingent.core.db.models import User, Workflow
-
-# ---------- Types ----------
-
-
-@runtime_checkable
-class AgentFactory(Protocol):
-    def __call__(self, workflow: Workflow, user: User, session: Session) -> Agent | None | Awaitable[Agent | None]: ...
-
-
-@dataclass(frozen=True)
-class _AgentCacheKey:
-    # Consider scoping by user if your factory depends on auth/tenant-specific state.
-    name: str
-    # user_id: Optional[str] = None  # enable when your factory varies by user
+from dingent.core.managers.llm_manager import get_llm_service
+from dingent.core.schemas import WorkflowSpec
+from dingent.core.workflows.graph_factory import GraphFactory
+from dingent.server.copilot.agents import DingLangGraphAGUIAgent
 
 
 def _truncate(obj: Any, limit: int = 2048) -> Any:
@@ -52,79 +40,31 @@ def _truncate(obj: Any, limit: int = 2048) -> Any:
     return obj
 
 
-class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
+def fake_log_method(type, message: str, **kwargs: Any) -> None:
+    """A placeholder log method that does nothing."""
+    print(message, _truncate(kwargs))
+
+
+class CopilotKitSdk:
     """
     重构后的 Endpoint，更像是一个 Service。
     它不再负责 HTTP 解析，而是专注于业务逻辑：根据 User 和 Session 执行 Agent。
     """
 
-    def __init__(self, *, agent_factory: AgentFactory, enable_cache: bool = True):
-        super().__init__(actions=[], agents=[])
-        self._agent_factory = agent_factory
-        self._enable_cache = enable_cache
-        self._cache = {}
-        self._cache_lock = asyncio.Lock()
+    def __init__(self, *, graph_factory: GraphFactory, checkpointer):
+        self.graph_factory = graph_factory
+        self.checkpointer = checkpointer
 
-    async def _resolve_agent(self, workflow: Workflow, user: User, session: Session) -> Any:
-        name = workflow.name
-        key = _AgentCacheKey(name=name)
+    async def resolve_agent(self, workflow: WorkflowSpec, llm) -> DingLangGraphAGUIAgent:
+        graph_artifact = await self.graph_factory.build(workflow, llm, self.checkpointer, fake_log_method)
+        return DingLangGraphAGUIAgent(
+            name=workflow.name,
+            description=workflow.description or f"Agent for workflow '{workflow.name}'",
+            graph=graph_artifact.graph,
+        )
 
-        if self._enable_cache:
-            async with self._cache_lock:
-                cached = self._cache.get(key)
-                if cached is not None:
-                    return cached
-
-        agent = self._agent_factory(workflow, user, session)
-        if agent is None:
-            raise AgentNotFoundException(name)
-        if self._enable_cache:
-            async with self._cache_lock:
-                self._cache[key] = agent
-        return agent
-
-    async def execute_agent_with_user(
-        self,
-        *,
-        user: User,
-        session: Session,
-        name: str,
-        thread_id: str,
-        state: dict[str, Any],
-        messages: list[Message],
-        actions: list[ActionDict],
-        node_name: str | None = None,
-        config: dict[str, Any] | None = None,
-        meta_events: list[MetaEvent] | None = None,
-    ) -> Any:
-        """
-        新的入口方法：直接接收 User 和 Session，不再依赖 Context 里的 Token
-        """
-        workflow = get_workflow_by_name(session, name, user.id)
-        if not workflow:
-            raise HTTPException(status_code=404, detail=f"Workflow '{name}' not found")
-
-        agent = await self._resolve_agent(workflow, user, session)
-
-        try:
-            # 调用 Agent 执行
-            result = agent.execute(
-                thread_id=thread_id,
-                node_name=node_name,
-                state=state,
-                config=config,
-                messages=messages,
-                actions=actions,
-                meta_events=meta_events,
-            )
-            return result  # 这里如果是 generator 需要由 Router 处理为 StreamingResponse
-        except Exception as error:
-            raise AgentExecutionException(name, error) from error
-
-    async def list_agents_for_user(self, user: User, session: Session, workspace_id: UUID | None = None):
-        # 简化后的 info 逻辑
+    def list_agents_for_user(self, user: User, session: Session, workspace_id: UUID | None = None):
         if not workspace_id:
-            # 如果业务允许，可以返回空或者默认空间
             return []
 
         workspace = get_specific_user_workspace(session, user.id, workspace_id)
@@ -132,11 +72,28 @@ class AsyncCopilotKitRemoteEndpoint(CopilotKitRemoteEndpoint):
             raise HTTPException(status_code=403, detail="Workspace access denied")
 
         workflows = list_workflows_by_workspace(session, workspace.id)
-        return [
-            {
+        agents = {
+            wf.name: {
                 "name": wf.name,
-                "description": wf.description or "",
+                "className": wf.name,
                 "type": "langgraph",
+                "description": wf.description or "",
             }
             for wf in workflows
-        ]
+        }
+        default_agent = {
+            "default": {
+                "name": "unknown",
+                "className": "unknown",
+                "type": "unknown",
+                "description": "Unknown agent",
+            }
+        }
+        # HACK: 这里强制添加一个 default agent，避免前端报错，
+        # 但是主要需要限制用户创建这个名称的agent
+        agents.update(default_agent)
+        return {
+            "version": "1.0.0",
+            "audioFileTranscriptionEnabled": True,
+            "agents": agents,
+        }

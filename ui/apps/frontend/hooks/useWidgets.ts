@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useCoAgent } from "@copilotkit/react-core";
 import { Widget } from "@repo/types";
 import { Artifact, DisplayItem } from "@repo/api-client";
-import { useWorkflow } from "@repo/store";
 
 type AgentState = { artifact_ids?: string[] };
 

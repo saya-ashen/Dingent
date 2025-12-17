@@ -5,15 +5,18 @@ import { WorkflowList } from "./WorkflowList";
 import { Assistant } from "@repo/api-client";
 import { useWorkflowContext } from "./WorkflowContext";
 import { GripVertical } from "lucide-react";
+import { NewWorkflowDialog } from "./workflows/NewWorkflowDialog";
 
 interface SidebarProps {
   workflows: any[];
   assistants: Assistant[];
   selectedWorkflowId: string | null;
   onSelectWorkflow: (id: string | null) => void;
+  onCreateWorkflow: (input: { name: string; description?: string }) => void;
+  onDeleteWorkflow: (id: string) => void;
 }
 
-export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onSelectWorkflow }: SidebarProps) {
+export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onSelectWorkflow, onCreateWorkflow, onDeleteWorkflow }: SidebarProps) {
   const { setDraggedAssistant, usedAssistantIds } = useWorkflowContext();
   const [activeTab, setActiveTab] = useState("workflows");
 
@@ -42,11 +45,14 @@ export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onS
         </div>
 
         <TabsContent value="workflows" className="flex-1 overflow-auto p-4">
+          <div className="shrink-0">
+            <NewWorkflowDialog onCreateWorkflow={onCreateWorkflow} />
+          </div>
           <WorkflowList
             workflows={workflows}
             selectedWorkflow={workflows.find(w => w.id === selectedWorkflowId)}
             onSelect={handleSelect}
-            onDelete={() => { }} // 传入你的 delete
+            onDelete={() => { }}
           />
         </TabsContent>
 

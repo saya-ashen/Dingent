@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
 import { Header, Main, LoadingSkeleton } from "@repo/ui/components";
-import { useAssistantsConfig, useWorkflowsList, useSaveWorkflow } from "@repo/store";
+import { useAssistantsConfig, useWorkflowsList, useSaveWorkflow, useCreateWorkflow } from "@repo/store";
 import { useParams } from "next/navigation";
 import { getClientApi } from "@/lib/api/client";
 import { WorkflowProvider } from "@/components/workflows/WorkflowContext";
 import { WorkflowSidebar } from "@/components/workflows/WorkflowSidebar";
 import { WorkflowCanvas } from "@/components/workflows/WorkflowCanvas";
+import { toast } from "sonner";
 
 export default function WorkflowsPage() {
   const params = useParams();
@@ -17,6 +18,8 @@ export default function WorkflowsPage() {
   const workflowsQ = useWorkflowsList(api.workflows);
   const assistantsQ = useAssistantsConfig(api.assistants);
   const saveWorkflowMutation = useSaveWorkflow(api.workflows);
+  const createWorkflow = useCreateWorkflow(api.workflows);
+
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -37,7 +40,15 @@ export default function WorkflowsPage() {
             assistants={assistantsQ.data || []}
             selectedWorkflowId={selectedId}
             onSelectWorkflow={setSelectedId}
-          // 传入 create/delete handlers
+            onCreateWorkflow={(input) =>
+              createWorkflow.mutate(input, {
+                onSuccess: (wf) => {
+                  toast.success("Workflow created");
+                  setSelectedId(wf.id);
+                },
+                onError: e => toast.error(`Failed to create workflow: ${e?.message || e}`),
+              })}
+            onDeleteWorkflow={() => { console.error("Not implemented") }}
           />
 
           {/* 右侧画布 */}

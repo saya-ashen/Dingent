@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { AuthenticatedLayout } from "@repo/ui/components";
 import { ChatHistorySidebar } from "@/components/ChatHistorySidebar";
-import { Providers } from "@/components/Providers";
+import { CopilotKitWrapper } from "@/components/CopilotKitWrapper";
 import { getServerApi } from "@/lib/api/server";
 
 interface ChatLayoutProps {
@@ -31,13 +31,13 @@ export default async function ChatLayout({
 
   // 4. Render
   return (
-    <Providers>
+    <CopilotKitWrapper>
       <AuthenticatedLayout
         workspaces={workspaces}
         sidebar={<ChatHistorySidebar />}
       >
         {children}
       </AuthenticatedLayout>
-    </Providers>
+    </CopilotKitWrapper>
   );
 }

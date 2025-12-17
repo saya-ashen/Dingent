@@ -10,7 +10,7 @@ export class AuthApi {
     params.append("password", credentials.password);
 
     const { data } = await this.http.post<LoginResponse>("/auth/token", params);
-    return data; // 只返回数据，不操作 Store
+    return data;
   }
 
   async signup(payload: SignupRequest) {

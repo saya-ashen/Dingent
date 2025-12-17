@@ -2,7 +2,6 @@ import os
 from functools import lru_cache
 from typing import Any
 
-from langchain.chat_models.base import BaseChatModel
 from langchain_litellm import ChatLiteLLM
 from pydantic import SecretStr
 
@@ -16,7 +15,7 @@ def get_llm_service(**kwargs) -> ChatLiteLLM:
     return ChatLiteLLM(**kwargs, api_base=api_base, model=model)
 
 
-class LLMManager:
+class _LLMManager:
     """
     A class to manage and maintain instances of large language models (LLMs).
     This class responsibles for creating and caching LLM instances based on configuration,
@@ -24,7 +23,7 @@ class LLMManager:
     """
 
     def __init__(self, log_manager: LogManager | None = None):
-        self._llms: dict[Any, BaseChatModel] = {}
+        self._llms: dict[Any, Any] = {}
         self._log_manager = log_manager
 
     def get_llm(self, **kwargs):

@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from dingent.core.db.models import Assistant
-from dingent.core.schemas import RunnableTool
+from dingent.core.schemas import AssistantSpec, RunnableTool
 
 from ..managers.plugin_manager import PluginManager
 from .plugin import PluginRuntime
@@ -46,7 +46,6 @@ class AssistantRuntime:
         log_method: Callable,
         description: str,
         plugin_instances: dict[str, PluginRuntime],
-        plugin_configs: dict[str, dict[str, Any]] | None = None,
     ):
         """Initialize the runtime with metadata and plugin instances.
 
@@ -56,7 +55,6 @@ class AssistantRuntime:
             log_method: Logging callable used by this runtime.
             description: Optional textual description.
             plugin_instances: Mapping of registry_id -> PluginRuntime.
-            plugin_configs: Optional per-plugin config (not used here).
         """
         self.id = assistant_id
         self.name = name
@@ -64,14 +62,12 @@ class AssistantRuntime:
         self.plugin_instances = plugin_instances
         self.destinations: list[str] = []
         self._log_method = log_method
-        # NOTE: plugin_configs is accepted for future use but not stored to avoid
-        # duplicating configuration responsibilities at multiple layers.
 
     @classmethod
     async def create_runtime(
         cls,
         plugin_manager: PluginManager,
-        assistant: Assistant,
+        assistant: AssistantSpec,
         log_method: Callable,
     ) -> AssistantRuntime:
         """Factory: build a runtime by materializing enabled plugin instances.
@@ -92,18 +88,16 @@ class AssistantRuntime:
               bad plugin does not prevent the assistant from running.
         """
         plugin_instances: dict[str, PluginRuntime] = {}
-        enabled_plugins = [p for p in assistant.plugin_links if p.enabled]
-        for link in enabled_plugins:
-            manifest = link.plugin
+        for plugin_spec in assistant.plugins:
             try:
-                inst = await plugin_manager.get_or_create_runtime(manifest.registry_id)
-                plugin_instances[manifest.registry_id] = inst
+                inst = await plugin_manager.get_or_create_runtime(plugin_spec.registry_id)
+                plugin_instances[plugin_spec.registry_id] = inst
             except Exception as e:
                 # Log and continue; this isolates failures per plugin.
                 log_method(
                     "error",
                     "Create plugin instance failed (assistant={name} plugin={pid}): {e}",
-                    context={"name": assistant.name, "pid": link.plugin_id, "e": e},
+                    context={"name": assistant.name, "pid": plugin_spec.registry_id, "e": e},
                 )
                 continue
         return cls(

@@ -13,18 +13,14 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout({ workspaces, sidebar, children }: AuthenticatedLayoutProps) {
 
-  const defaultOpen = getCookie("sidebar_state") !== "false";
 
   return (
     <SearchProvider>
       <LayoutProvider>
         <WorkspaceInitializer workspaces={workspaces} />
-        <SidebarProvider defaultOpen={defaultOpen}>
+        <SidebarProvider>
           <SkipToMain />
-
-          {/* Render the sidebar that was passed in */}
           {sidebar}
-
           <SidebarInset
             id="main-content" // Good practice for the SkipToMain link
             className={cn(
