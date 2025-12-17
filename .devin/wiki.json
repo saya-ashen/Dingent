@@ -1,0 +1,151 @@
+{
+  "repo_notes": [
+    {
+      "content": ""
+    }
+  ],
+  "pages": [
+    {
+      "title": "Overview",
+      "purpose": "Introduce the Dingent framework, summarizing its purpose as an LLM Agent framework with integrated admin dashboard and plugin system",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Getting Started",
+      "purpose": "Guide users through installation, project initialization, and first steps with Dingent",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "System Architecture",
+      "purpose": "Explain the overall architecture, core managers, and how components interact",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Core Components",
+      "purpose": "Detail the main components that make up the Dingent system",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "CLI Commands",
+      "purpose": "Document all CLI commands, project lifecycle management, and service orchestration",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Backend Services",
+      "purpose": "Explain the FastAPI backend, routing, and core service managers",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "AI Engine and Workflows",
+      "purpose": "Detail the LangGraph-based AI engine, workflow orchestration, and agent systems",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Frontend Interface",
+      "purpose": "Document the chat interface, widgets, and user interactions",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Admin Dashboard",
+      "purpose": "Explain the React-based admin interface for managing assistants, workflows, and settings",
+      "parent": "Core Components",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Configuration and Templates",
+      "purpose": "Cover configuration files, project templates, and customization options",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Configuration System",
+      "purpose": "Detail the configuration management, dingent.toml, and settings persistence",
+      "parent": "Configuration and Templates",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Project Templates",
+      "purpose": "Explain the cookiecutter templates and project scaffolding system",
+      "parent": "Configuration and Templates",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Plugins and Extensions",
+      "purpose": "Document the MCP plugin system, marketplace, and how to create custom plugins",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Development and Deployment",
+      "purpose": "Cover development workflows, CI/CD pipelines, testing, and deployment procedures",
+      "page_notes": [
+        {
+          "content": ""
+        }
+      ]
+    },
+    {
+      "title": "Data Types and APIs",
+      "purpose": "Document core data types, resource management, and API interfaces",
+      "page_notes": [
+        {
+          "content": " "
+        }
+      ]
+    }
+  ]
+}
