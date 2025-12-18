@@ -1,10 +1,10 @@
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import uuid
-from ag_ui.core.types import RunAgentInput
-from ag_ui.encoder import EventEncoder
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Annotated
 
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlmodel import Session, delete, select
@@ -12,14 +12,13 @@ from sqlmodel import Session, delete, select
 from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.core.db.models import Conversation, User, Workflow, Workspace
 from dingent.core.managers.llm_manager import get_llm_service
-from dingent.core.schemas import PluginSpec, ThreadRead, WorkflowSpec
+from dingent.core.schemas import ThreadRead, WorkflowSpec
 from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.server.api.dependencies import (
     get_current_user,
     get_current_workspace,
     get_db_session,
 )
-
 from dingent.server.copilot.agents import DingLangGraphAGUIAgent
 from dingent.server.services.copilotkit_service import CopilotKitSdk
 
@@ -179,7 +178,7 @@ async def run(
     if ctx.conversation.title == "New Chat":
         ctx.conversation.title = ctx.input_data.messages[0].content[:10]
 
-    ctx.conversation.updated_at = datetime.now(timezone.utc)
+    ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
     ctx.session.commit()
 

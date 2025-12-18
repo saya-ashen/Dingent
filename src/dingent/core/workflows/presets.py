@@ -1,4 +1,3 @@
-from uuid import uuid4
 import uuid
 
 from dingent.core.schemas import AssistantSpec, NodeSpec, WorkflowSpec

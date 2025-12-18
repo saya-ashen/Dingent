@@ -1,13 +1,11 @@
-from typing import Any, Callable
+from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage, BaseMessage
-from langchain_core.messages.tool import ToolCall
-from langchain_core.tools import StructuredTool
 from langchain.chat_models.base import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import StructuredTool
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph, RunnableConfig
 from langgraph.types import Command
-from copilotkit.langgraph import copilotkit_emit_state
 
 from .state import SimpleAgentState
 

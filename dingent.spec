@@ -5,10 +5,10 @@ from PyInstaller.utils.hooks import collect_submodules
 from PyInstaller.utils.hooks import copy_metadata
 
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, Tree
-import platform 
+import platform
 
-system_name = platform.system().lower()  
-machine_name = platform.machine().lower() 
+system_name = platform.system().lower()
+machine_name = platform.machine().lower()
 exe_name = f"dingent-{system_name}-{machine_name}"
 
 if system_name == 'windows':

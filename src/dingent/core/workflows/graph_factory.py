@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any
 
+from langchain.chat_models.base import BaseChatModel
+from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph_swarm import create_swarm
@@ -16,21 +19,6 @@ from dingent.engine import (
     MainState,
     create_assistant_graphs,
 )
-
-
-import uuid
-from contextlib import AsyncExitStack
-from dataclasses import dataclass
-from typing import Any, Callable
-
-from langchain.chat_models.base import BaseChatModel
-from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
-from langgraph_swarm import create_swarm, SwarmState
-from langchain_core.messages import AIMessage
-
-from dingent.core.factories.assistant_factory import AssistantFactory
-from dingent.core.schemas import WorkflowSpec
 
 
 @dataclass

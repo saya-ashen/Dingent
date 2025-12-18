@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Any
 from uuid import UUID
 
-from dingent.core.db.models import Assistant
 from dingent.core.schemas import AssistantSpec, RunnableTool
 
 from ..managers.plugin_manager import PluginManager

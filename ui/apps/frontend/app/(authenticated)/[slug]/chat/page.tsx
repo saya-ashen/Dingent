@@ -36,7 +36,7 @@ export default function CopilotKitPage() {
   return (
     <main
       className="
-    flex flex-col h-screen w-full overflow-hidden 
+    flex flex-col h-screen w-full overflow-hidden
     text-zinc-200
     bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-zinc-950 to-black"
     >

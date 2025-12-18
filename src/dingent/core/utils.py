@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def find_project_root(marker: str = "dingent.toml") -> Path | None:

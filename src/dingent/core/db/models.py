@@ -1,9 +1,8 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID, uuid4
 
-from openai import conversations
 from pydantic import BaseModel
 from pydantic import Field as PydField
 from sqlalchemy import JSON, Column, LargeBinary, Text
@@ -262,12 +261,12 @@ class Workflow(SQLModel, table=True):
                         enabled=n.assistant.enabled,
                         plugins=[
                             PluginSpec(
-                                plugin_id=l.plugin.registry_id,
-                                registry_id=l.plugin.registry_id,
-                                config=l.user_plugin_config or {},
+                                plugin_id=pl.plugin.registry_id,
+                                registry_id=pl.plugin.registry_id,
+                                config=pl.user_plugin_config or {},
                             )
-                            for l in n.assistant.plugin_links
-                            if l.enabled
+                            for pl in n.assistant.plugin_links
+                            if pl.enabled
                         ],
                     ),
                 )

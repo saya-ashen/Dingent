@@ -56,7 +56,7 @@ assemble:
     @echo "Copying application server code..."
     @mkdir -p {{DEPLOY_DIR}}/apps/frontend
     @mkdir -p {{DEPLOY_DIR}}/apps/dashboard
-    
+
     # 复制 Frontend 代码 (根据实际生成的层级调整，通常在 standalone/ui/apps/frontend)
     @cp -r {{FE_DIR}}/.next/standalone/apps/frontend/* {{DEPLOY_DIR}}/apps/frontend/
     @cp {{FE_DIR}}/.next/standalone/apps/frontend/server.js {{DEPLOY_DIR}}/apps/frontend/ || echo "Warning: server.js not found in expected path, check standalone output structure."
@@ -68,12 +68,12 @@ assemble:
     # [3/4] 复制静态资源 (Static Assets & Public)
     # Standalone 不包含 .next/static 和 public，必须手动复制
     @echo "Injecting static assets..."
-    
+
     # Frontend 资源
     @mkdir -p {{DEPLOY_DIR}}/apps/frontend/.next/static
     @cp -r {{FE_DIR}}/.next/static/* {{DEPLOY_DIR}}/apps/frontend/.next/static/
     @cp -r {{FE_DIR}}/public {{DEPLOY_DIR}}/apps/frontend/
-    
+
     # Dashboard 资源
     @mkdir -p {{DEPLOY_DIR}}/apps/dashboard/.next/static
     @cp -r {{DB_DIR}}/.next/static/* {{DEPLOY_DIR}}/apps/dashboard/.next/static/
@@ -81,7 +81,7 @@ assemble:
 
     # [4/4] 复制根目录必要文件
     @cp package.json {{DEPLOY_DIR}}/ || true
-    
+
     @echo "✅ Assembly complete. Structure created at {{DEPLOY_DIR}}"
 
 # =====================

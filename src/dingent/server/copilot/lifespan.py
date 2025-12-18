@@ -13,8 +13,8 @@ from dingent.core.managers.resource_manager import ResourceManager
 from dingent.core.services.market_service import GitHubMarketBackend, MarketService
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.utils import find_project_root
-from dingent.server.services.copilotkit_service import CopilotKitSdk
 from dingent.core.workflows.graph_factory import GraphFactory
+from dingent.server.services.copilotkit_service import CopilotKitSdk
 from dingent.server.services.plugin_sync_service import PluginSyncService
 
 

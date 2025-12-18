@@ -1,10 +1,10 @@
 import json
-from typing import AsyncGenerator, cast
 import uuid
+from collections.abc import AsyncGenerator
 
+import ag_ui_langgraph
 from ag_ui.core import ActivityMessage, EventType, MessagesSnapshotEvent, RunAgentInput
 from ag_ui.core.events import RunStartedEvent
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from ag_ui_langgraph.agent import langchain_messages_to_agui
 from ag_ui_langgraph.utils import (
     AGUIAssistantMessage,
@@ -19,6 +19,7 @@ from ag_ui_langgraph.utils import (
     stringify_if_needed,
 )
 from copilotkit import LangGraphAGUIAgent
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
 
 class DingRunAgentInput(RunAgentInput):
@@ -98,8 +99,6 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
     return agui_messages
 
 
-import ag_ui_langgraph
-
 ag_ui_langgraph.agent.langchain_messages_to_agui = ding_langchain_messages_to_agui
 
 
@@ -108,7 +107,7 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
     自定义 Agent 类
     """
 
-    async def run(self, input: RunAgentInput, extra_config: dict | None = None) -> AsyncGenerator[str, None]:
+    async def run(self, input: RunAgentInput, extra_config: dict | None = None) -> AsyncGenerator[str]:
         # 1. 备份当前的 config
         # 我们只保存引用即可，因为后续我们是赋值新的字典给 self.config，而不是原地修改
         previous_config = self.config

@@ -1,5 +1,6 @@
 import json
-from typing import Annotated, Any, Callable, cast
+from collections.abc import Callable
+from typing import Annotated, Any, cast
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
@@ -8,7 +9,6 @@ from mcp.types import TextContent
 from pydantic import BaseModel, Field, create_model
 
 from dingent.core.schemas import RunnableTool
-from .messages import ActivityMessage
 
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {

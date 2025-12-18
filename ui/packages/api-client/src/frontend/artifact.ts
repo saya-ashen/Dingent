@@ -13,4 +13,3 @@ export class ArtifactApi {
     return data;
   }
 }
-

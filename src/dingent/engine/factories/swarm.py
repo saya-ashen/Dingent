@@ -1,10 +1,9 @@
-import re
+from collections.abc import Callable
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Callable
 
+from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import WorkflowSpec
-from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.utils import normalize_agent_name
 from dingent.engine.agents.simple_agent import build_simple_react_agent
 from dingent.engine.agents.tools import create_handoff_tool, mcp_tool_wrapper

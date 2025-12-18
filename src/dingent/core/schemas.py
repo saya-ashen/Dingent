@@ -6,13 +6,12 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from fastmcp.mcp_config import MCPConfig, MCPServerTypes
 import toml
+from fastmcp.mcp_config import MCPServerTypes
 from mcp.types import Tool
 from pydantic import ConfigDict, EmailStr, PrivateAttr, model_validator
 from sqlmodel import Field, SQLModel
 
-from dingent.core.types import ExecutionModel
 from dingent.core.utils import to_camel
 
 

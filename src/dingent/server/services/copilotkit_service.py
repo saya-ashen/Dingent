@@ -1,21 +1,14 @@
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Awaitable
-from dataclasses import dataclass
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Any
 from uuid import UUID
 
-
-from copilotkit.exc import AgentNotFoundException
-from copilotkit.sdk import CopilotKitRemoteEndpoint
 from fastapi import HTTPException
 from sqlmodel import Session
 
 from dingent.core.db.crud.workflow import list_workflows_by_workspace
 from dingent.core.db.crud.workspace import get_specific_user_workspace
-from dingent.core.db.models import User, Workflow
-from dingent.core.managers.llm_manager import get_llm_service
+from dingent.core.db.models import User
 from dingent.core.schemas import WorkflowSpec
 from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.copilot.agents import DingLangGraphAGUIAgent
@@ -42,7 +35,7 @@ def _truncate(obj: Any, limit: int = 2048) -> Any:
 
 def fake_log_method(type, message: str, **kwargs: Any) -> None:
     """A placeholder log method that does nothing."""
-    print(message, _truncate(kwargs))
+    print(type, message, _truncate(kwargs))
 
 
 class CopilotKitSdk:

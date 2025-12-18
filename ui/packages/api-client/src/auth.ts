@@ -23,4 +23,3 @@ export class AuthApi {
     return data;
   }
 }
-

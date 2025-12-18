@@ -1,14 +1,11 @@
 from collections.abc import Callable
-
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from fastmcp import Client, FastMCP
-from fastmcp.client import SSETransport, StreamableHttpTransport, UvStdioTransport
 from fastmcp.mcp_config import MCPConfig
-from pydantic import BaseModel, Field, SecretStr, create_model
 
-from ..schemas import PluginConfigSchema, PluginManifest
+from ..schemas import PluginManifest
 
 
 class PluginRuntime:
@@ -33,32 +30,12 @@ class PluginRuntime:
     @classmethod
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
         """Create a singleton PluginRuntime instance without user-specific configuration."""
-        env = {}
-        for key, server in manifest.servers.items():
+        for _, server in manifest.servers.items():
             args: list[str] = getattr(server, "args", [])
             for i, arg in enumerate(args):
                 if arg.endswith((".py", ".js")) and not Path(arg).is_absolute():
                     args[i] = str(Path(manifest.path) / arg)
         client = Client(MCPConfig(mcpServers=manifest.servers))
-
-        # if manifest.execution.mode == "remote":
-        #     assert manifest.execution.url is not None
-        #     if manifest.execution.url.endswith("sse"):
-        #         transport = SSETransport(url=manifest.execution.url, headers=env)
-        #     else:
-        #         transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
-        #     remote_proxy = FastMCP.as_proxy(transport)
-        # else:
-        #     assert manifest.execution.script_path
-        #     module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
-        #     transport = UvStdioTransport(
-        #         module_path,
-        #         module=True,
-        #         project_directory=manifest.path,
-        #         env_vars=env,
-        #         python_version=manifest.python_version,
-        #     )
-        #     remote_proxy = FastMCP.as_proxy(transport)
 
         _status = "inactive"
         try:
