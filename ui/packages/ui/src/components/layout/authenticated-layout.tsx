@@ -1,4 +1,3 @@
-import { getCookie } from "@repo/lib/cookies";
 import { cn } from "@repo/lib/utils";
 import { LayoutProvider, SearchProvider } from "@repo/ui/providers";
 import { SidebarInset, SidebarProvider, SkipToMain } from "@repo/ui/components";
@@ -18,15 +17,14 @@ export function AuthenticatedLayout({ workspaces, sidebar, children }: Authentic
     <SearchProvider>
       <LayoutProvider>
         <WorkspaceInitializer workspaces={workspaces} />
-        <SidebarProvider>
+        <SidebarProvider className="h-svh overflow-hidden">
           <SkipToMain />
           {sidebar}
           <SidebarInset
             id="main-content" // Good practice for the SkipToMain link
             className={cn(
-              "@container/content",
-              "has-[[data-layout=fixed]]:h-svh",
-              "peer-data-[variant=inset]:has-[[data-layout=fixed]]:h-[calc(100svh-(var(--spacing)*4))]",
+              "relative flex flex-col h-full min-h-0 overflow-hidden",
+              "@container/content"
             )}
           >
             {children}

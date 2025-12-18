@@ -70,23 +70,6 @@ class AssistantRuntime:
         assistant: AssistantSpec,
         log_method: Callable,
     ) -> AssistantRuntime:
-        """Factory: build a runtime by materializing enabled plugin instances.
-
-        Iterates over enabled plugin links, ensures a PluginRuntime exists for
-        each (via the PluginManager), and collects them into this runtime.
-
-        Args:
-            plugin_manager: Manager that creates/caches PluginRuntime objects.
-            assistant: Assistant ORM object including `plugin_links`.
-            log_method: Logging callable used for diagnostic messages.
-
-        Returns:
-            AssistantRuntime: A fully constructed runtime.
-
-        Notes:
-            - Failures to init a specific plugin are logged and skipped so one
-              bad plugin does not prevent the assistant from running.
-        """
         plugin_instances: dict[str, PluginRuntime] = {}
         for plugin_spec in assistant.plugins:
             try:
@@ -110,32 +93,6 @@ class AssistantRuntime:
 
     @asynccontextmanager
     async def load_tools(self):
-        """Temporarily load MCP tools as runnable callables.
-
-        Opens a short-lived MCP client per plugin only to enumerate tools, and
-        **re-opens** the connection on each tool invocation. Favor this if:
-        - you list tools and call only a few; or
-        - you want minimal connection residency.
-
-        Yields:
-            list[RunnableTool]: Each item wraps a tool spec and a `run(arguments)`
-            coroutine that re-opens the underlying MCP client.
-
-        Example:
-            >>> async with (
-            ...     runtime.load_tools() as tools
-            ... ):
-            ...     for t in tools:
-            ...         if (
-            ...             t.tool.name
-            ...             == "my_tool"
-            ...         ):
-            ...             result = await t.run(
-            ...                 {
-            ...                     "x": 1
-            ...                 }
-            ...             )
-        """
         runnable: list[RunnableTool] = []
         for inst in self.plugin_instances.values():
             # Short-lived open to enumerate tools; avoids holding many connections.
@@ -143,10 +100,8 @@ class AssistantRuntime:
                 tools = await client.list_tools()
 
             for t in tools:
-                # Bind `inst` and `t` at definition time via default args to avoid
-                # late-binding closure traps in loops.
+
                 async def call_tool(arguments: dict, _runtime=inst, _tool=t):
-                    # Re-open for the actual call; ensures fresh connection/state.
                     async with _runtime.mcp_client as tool_client:
                         return await tool_client.call_tool(_tool.name, arguments=arguments)
 

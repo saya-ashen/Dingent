@@ -12,7 +12,7 @@ from sqlmodel import Session, delete, select
 from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.core.db.models import Conversation, User, Workflow, Workspace
 from dingent.core.managers.llm_manager import get_llm_service
-from dingent.core.schemas import AssistantSpec, NodeSpec, ThreadRead, WorkflowSpec
+from dingent.core.schemas import PluginSpec, ThreadRead, WorkflowSpec
 from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.server.api.dependencies import (
     get_current_user,
@@ -47,6 +47,7 @@ class AgentContext:
     conversation: Conversation
     encoder: EventEncoder
     input_data: RunAgentInput
+    assistant_plugin_configs: dict[str, dict] | None
 
 
 async def get_workflow_spec(workflow: Workflow | None) -> WorkflowSpec:
@@ -106,8 +107,19 @@ async def get_agent_context(
     # --- D. 准备 Encoder ---
     accept_header = request.headers.get("accept")
     encoder = EventEncoder(accept=accept_header)
+    assistant_plugin_configs = {}
+    for node in spec.nodes:
+        for plugin in node.assistant.plugins:
+            assistant_plugin_configs[plugin.plugin_id] = plugin.model_dump()
 
-    return AgentContext(session=session, agent=agent, conversation=conversation, encoder=encoder, input_data=input_data)
+    return AgentContext(
+        session=session,
+        agent=agent,
+        conversation=conversation,
+        encoder=encoder,
+        input_data=input_data,
+        assistant_plugin_configs=assistant_plugin_configs,
+    )
 
 
 @router.post("/info")
@@ -154,7 +166,14 @@ async def run(
     ctx: AgentContext = Depends(get_agent_context),
 ):
     async def event_generator():
-        async for event in ctx.agent.run(ctx.input_data):
+        async for event in ctx.agent.run(
+            ctx.input_data,
+            extra_config={
+                "configurable": {
+                    "assistant_plugin_configs": ctx.assistant_plugin_configs,
+                },
+            },
+        ):
             yield ctx.encoder.encode(event)
 
     if ctx.conversation.title == "New Chat":
@@ -172,7 +191,7 @@ async def connect(
     ctx: AgentContext = Depends(get_agent_context),
 ):
     async def event_generator():
-        async for event in ctx.agent.get_thread_messages(ctx.input_data.thread_id):
+        async for event in ctx.agent.get_thread_messages(ctx.input_data.thread_id, ctx.input_data.run_id):
             yield ctx.encoder.encode(event)
 
     return StreamingResponse(event_generator(), media_type=ctx.encoder.get_content_type())

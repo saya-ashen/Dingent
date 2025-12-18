@@ -15,10 +15,10 @@ export default function WorkflowsPage() {
 
   // API Setup
   const api = getClientApi().forWorkspace(slug);
-  const workflowsQ = useWorkflowsList(api.workflows);
-  const assistantsQ = useAssistantsConfig(api.assistants);
-  const saveWorkflowMutation = useSaveWorkflow(api.workflows);
-  const createWorkflow = useCreateWorkflow(api.workflows);
+  const workflowsQ = useWorkflowsList(api.workflows, slug);
+  const assistantsQ = useAssistantsConfig(api.assistants, slug);
+  const saveWorkflowMutation = useSaveWorkflow(api.workflows, slug);
+  const createWorkflow = useCreateWorkflow(api.workflows, slug);
 
 
   const [selectedId, setSelectedId] = useState<string | null>(null);

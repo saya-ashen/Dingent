@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage, BaseMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage, BaseMessage
 from langchain_core.messages.tool import ToolCall
 from langchain_core.tools import StructuredTool
 from langchain.chat_models.base import BaseChatModel
@@ -21,6 +21,7 @@ def build_simple_react_agent(
     stop_when_no_tool: bool = True,
 ) -> CompiledStateGraph:
     name_to_tool = {t.name: t for t in tools}
+    LLM_SAFE_TYPES = (SystemMessage, HumanMessage, AIMessage, ToolMessage)
 
     async def model_node(state: SimpleAgentState) -> dict[str, Any]:
         iteration = state.get("iteration", 0)
@@ -28,9 +29,13 @@ def build_simple_react_agent(
         if iteration >= max_iterations:
             return {"messages": [AIMessage(content="Max iterations reached.")]}
 
-        messages = state.get("messages", [])
-        # 构造上下文：System Prompt + 历史消息
-        input_messages = [SystemMessage(content=system_prompt)] + messages if system_prompt else messages
+        all_messages = state.get("messages", [])
+        filtered_messages = [msg for msg in all_messages if isinstance(msg, LLM_SAFE_TYPES)]
+
+        if system_prompt:
+            input_messages = [SystemMessage(content=system_prompt)] + filtered_messages
+        else:
+            input_messages = filtered_messages
 
         response = await llm.bind_tools(tools).ainvoke(input_messages)
 
@@ -40,15 +45,14 @@ def build_simple_react_agent(
         }
 
     async def tools_node(state: SimpleAgentState, config: RunnableConfig) -> Command:
-        last_msg = state["messages"][-1]
+        last_msg = state.get("messages", [])[-1]
         if not isinstance(last_msg, AIMessage) or not last_msg.tool_calls:
             return Command(update={})
 
         # 获取插件配置
-        plugin_configs = config.get("configurable", {}).get("assistant_plugin_configs", {}).get(name, {})
+        plugin_configs = config.get("configurable", {}).get("assistant_plugin_configs", {})
 
         new_messages: list[BaseMessage] = []
-        new_artifact_ids: list[str] = []
         active_goto: Command | None = None
 
         for tc in last_msg.tool_calls:
@@ -62,20 +66,26 @@ def build_simple_react_agent(
 
             # 注入配置参数
             args = tc.get("args", {})
-            args["tool_call_id"] = tc["id"]
             if tool.tags and (plugin_name := tool.tags[0]):
                 if cfg := plugin_configs.get(plugin_name):
-                    args["plugin_config"] = cfg
+                    args["plugin_config"] = cfg.get("config")
 
             try:
                 # 执行工具 (兼容返回 Command 或 普通结果)
-                result = await tool.ainvoke(args)
+                result = await tool.ainvoke(
+                    {
+                        "id": tc["id"],
+                        "name": tool_name,
+                        "args": args,
+                        "tool_call_id": tc["id"],
+                        "type": "tool_call",
+                    }
+                )
 
                 if isinstance(result, Command):
                     # 处理 Command 类型返回 (来自 handoff 或 mcp wrapper)
                     if result.update:
                         new_messages.extend(result.update.get("messages", []))
-                        new_artifact_ids.extend(result.update.get("artifact_ids", []))
                     if result.goto:
                         active_goto = result  # 后续覆盖前者
                 else:
@@ -86,23 +96,12 @@ def build_simple_react_agent(
             except Exception as e:
                 new_messages.append(ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=tc["id"], is_error=True))
 
-        # --- CopilotKit 状态同步 ---
-        # 必须发送全量状态给前端/CopilotKit
-        full_messages = state["messages"] + new_messages
-        full_artifacts = state.get("artifact_ids", []) + new_artifact_ids
-
-        await copilotkit_emit_state(
-            config=config,
-            state={
-                "messages": full_messages,
-                "artifact_ids": full_artifacts,
-            },
-        )
-
-        # --- LangGraph 状态更新 ---
-        # !重要修复: 这里只返回增量 (new_messages)，因为 State 定义使用了 operator.add
         return Command(
-            goto=active_goto.goto if active_goto else None, graph=active_goto.graph if active_goto else None, update={"messages": new_messages, "artifact_ids": new_artifact_ids}
+            goto=active_goto.goto if active_goto else [],
+            graph=active_goto.graph if active_goto else None,
+            update={
+                "messages": new_messages,
+            },
         )
 
     def route_after_model(state: SimpleAgentState):

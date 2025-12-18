@@ -2,6 +2,7 @@ import re
 from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Callable
 
+from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import WorkflowSpec
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.utils import normalize_agent_name
@@ -16,7 +17,7 @@ async def create_assistant_graphs(
     llm,
     log_method: Callable,
 ):
-    assistants_runtime = {}
+    assistants_runtime: dict[str, AssistantRuntime] = {}
 
     # 1. 初始化 Runtime
     for node in workflow.nodes:

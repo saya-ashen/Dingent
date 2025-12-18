@@ -1,52 +1,20 @@
 from collections.abc import Callable
+
 from pathlib import Path
 from typing import Any, Literal
 
 from fastmcp import Client, FastMCP
 from fastmcp.client import SSETransport, StreamableHttpTransport, UvStdioTransport
+from fastmcp.mcp_config import MCPConfig
 from pydantic import BaseModel, Field, SecretStr, create_model
 
 from ..schemas import PluginConfigSchema, PluginManifest
 
 
-def _create_dynamic_config_model(
-    plugin_name: str,
-    config_schema: list[PluginConfigSchema],
-) -> type[BaseModel]:
-    field_definitions: dict[str, Any] = {}
-    type_map = {
-        "string": str,
-        "number": float,
-        "integer": int,
-        "boolean": bool,
-        "float": float,
-        "bool": bool,
-        "dict": dict,
-    }
-    for item in config_schema:
-        field_name = item.name
-        field_type = type_map.get(item.type, str)
-        if item.secret:
-            field_type = SecretStr
-        if item.required:
-            field_info = Field(..., description=item.description)
-        else:
-            field_info = Field(default=item.default, description=item.description)
-        field_definitions[field_name] = (field_type, field_info)
-    DynamicConfigModel = create_model(
-        f"{plugin_name.capitalize()}ConfigModel",
-        **field_definitions,
-    )
-    return DynamicConfigModel
-
-
 class PluginRuntime:
     mcp_client: Client
     name: str
-    # config_model: type[BaseModel] | None = None
     manifest: "PluginManifest"
-    _transport: StreamableHttpTransport | UvStdioTransport | None = None
-    _mcp: FastMCP | None
     _status: Literal["active", "inactive", "error"] = "inactive"
 
     def __init__(
@@ -56,48 +24,46 @@ class PluginRuntime:
         status: Literal["active", "inactive", "error"],
         manifest: "PluginManifest",
         mcp: FastMCP | None = None,
-        # config_model: type[BaseModel] | None = None,
-        transport=None,
     ):
         self.name = name
         self.mcp_client = mcp_client
-        self._mcp = mcp
         self._status = status
         self.manifest = manifest
-        self._transport = transport
-        # self.config_model = config_model
 
     @classmethod
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
         """Create a singleton PluginRuntime instance without user-specific configuration."""
         env = {}
+        for key, server in manifest.servers.items():
+            args: list[str] = getattr(server, "args", [])
+            for i, arg in enumerate(args):
+                if arg.endswith((".py", ".js")) and not Path(arg).is_absolute():
+                    args[i] = str(Path(manifest.path) / arg)
+        client = Client(MCPConfig(mcpServers=manifest.servers))
 
-        # config_model = None
-        # if manifest.config_schema:
-        #     config_model = _create_dynamic_config_model(manifest.display_name, manifest.config_schema)
-
-        if manifest.execution.mode == "remote":
-            assert manifest.execution.url is not None
-            if manifest.execution.url.endswith("sse"):
-                transport = SSETransport(url=manifest.execution.url, headers=env)
-            else:
-                transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
-            remote_proxy = FastMCP.as_proxy(transport)
-        else:
-            assert manifest.execution.script_path
-            module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
-            transport = UvStdioTransport(
-                module_path,
-                module=True,
-                project_directory=manifest.path.as_posix(),
-                env_vars=env,
-                python_version=manifest.python_version,
-            )
-            remote_proxy = FastMCP.as_proxy(transport)
+        # if manifest.execution.mode == "remote":
+        #     assert manifest.execution.url is not None
+        #     if manifest.execution.url.endswith("sse"):
+        #         transport = SSETransport(url=manifest.execution.url, headers=env)
+        #     else:
+        #         transport = StreamableHttpTransport(url=manifest.execution.url, headers=env, auth="oauth")
+        #     remote_proxy = FastMCP.as_proxy(transport)
+        # else:
+        #     assert manifest.execution.script_path
+        #     module_path = ".".join(Path(manifest.execution.script_path).with_suffix("").parts)
+        #     transport = UvStdioTransport(
+        #         module_path,
+        #         module=True,
+        #         project_directory=manifest.path,
+        #         env_vars=env,
+        #         python_version=manifest.python_version,
+        #     )
+        #     remote_proxy = FastMCP.as_proxy(transport)
 
         _status = "inactive"
         try:
-            await remote_proxy.get_tools()
+            async with client as mcp_client:
+                await mcp_client.list_tools()
             _status = "active"
         except Exception as e:
             _status = "error"
@@ -107,21 +73,15 @@ class PluginRuntime:
                 context={"plugin": manifest.display_name, "error_msg": f"{e}"},
             )
 
-        mcp_client = Client(remote_proxy)
-
         instance = cls(
             name=manifest.display_name,
-            mcp_client=mcp_client,
+            mcp_client=client,
             status=_status,
             manifest=manifest,
-            transport=transport,
-            # config_model=config_model,
         )
         return instance
 
     async def aclose(self):
-        if self._transport:
-            await self._transport.close()
         await self.mcp_client.close()
 
     @property

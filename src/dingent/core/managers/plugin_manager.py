@@ -23,25 +23,6 @@ class ConfigMiddleware(Middleware):
 
 
 class PluginManager:
-    """
-    Manages the discovery, database synchronization, and runtime lifecycle of plugins.
-    The PluginManager acts as the primary bridge between the static plugin code on the
-    filesystem and the application's runtime environment. It is not concerned with
-    how individual Assistants are configured, but rather with the availability and
-    operational state of the plugins themselves.
-
-    Its core responsibilities are:
-    1.  **Discovery:** Scans the plugin directory at startup to find all available
-        plugins by reading their `plugin.toml` manifest files.
-    2.  **Synchronization:** Synchronizes the discovered plugin manifests with the
-        `Plugin` table in the database, ensuring the application has a consistent
-        registry of all available plugins.
-    3.  **Instantiation (Factory):** Acts as a factory for creating `PluginRuntime`
-        objects. It takes per-assistant configuration (via an `AssistantPluginLink`)
-        and is responsible for launching local plugin processes or connecting
-        to remote plugin endpoints.
-    """
-
     def __init__(
         self,
         plugin_registry: PluginRegistry,

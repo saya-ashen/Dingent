@@ -142,6 +142,10 @@ class GraphFactory:
                 # 运行内部的 Swarm 图
                 return await compiled_swarm.ainvoke(state)
             except Exception as e:
+                import traceback
+
+                error_msg = traceback.format_exc()
+                print("捕获到的错误信息：\n", error_msg)
                 error_type = type(e).__name__
                 error_msg = f"Critical Swarm Error: {error_type}: {str(e)}"
 

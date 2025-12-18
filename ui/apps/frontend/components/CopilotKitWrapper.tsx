@@ -2,9 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
+import { z } from "zod";
+
 import { CopilotKitProvider } from "@copilotkit/react-core/v2"
 import { useAuthInterceptor, useAuthStore } from "@repo/store";
 import { ThreadProvider, useThreadContext } from "../providers/ThreadProvider";
+import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
+import { theme } from "./theme";
+
+export const dynamic = "force-dynamic";
+
 
 import { useParams } from "next/navigation";
 
@@ -15,10 +22,15 @@ function CopilotKitContent({ children, headers, slug, accessToken }: {
   accessToken: string | null
 }) {
   const { activeThreadId } = useThreadContext();
+  const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
+  const activityRenderers = [A2UIMessageRenderer];
+
+
 
 
   return (
     <CopilotKitProvider
+      renderActivityMessages={activityRenderers}
       runtimeUrl={`/api/v1/${slug}/chat`}
       headers={headers}
       properties={{

@@ -9,6 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@a2a-js/sdk": "^0.3.6",
+    "@a2ui/lit": "^0.8.1",
+    "@ag-ui/a2a": "^0.0.6",
+    "@copilotkit/a2ui-renderer": "^0.0.2",
     "@copilotkit/react-core": "^1.50.0",
     "@copilotkit/react-ui": "^1.50.0",
     "@copilotkit/runtime": "^1.50.0",

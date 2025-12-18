@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID, uuid4
 
+from fastmcp.mcp_config import MCPConfig, MCPServerTypes
 import toml
 from mcp.types import Tool
-from pydantic import ConfigDict, EmailStr, PrivateAttr
+from pydantic import ConfigDict, EmailStr, PrivateAttr, model_validator
 from sqlmodel import Field, SQLModel
 
 from dingent.core.types import ExecutionModel
@@ -55,7 +56,8 @@ class PluginManifest(PluginBase):
     id: str = Field(..., description="插件的本地标识符，从plugin.toml中读取,example: Weather_reporter")
     display_name: str = Field(..., description="插件的显示名称")
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
-    execution: ExecutionModel
+    servers: dict[str, MCPServerTypes] = Field(default_factory=dict, description="一组服务器配置")
+    server: MCPServerTypes | None = Field(default=None, description="单个服务器配置快捷方式")
     dependencies: list[str] | None = None
     python_version: str | None = None
     config_schema: list["PluginConfigSchema"] | None = None
@@ -83,6 +85,19 @@ class PluginManifest(PluginBase):
         manifest = cls(**final_meta)
         manifest._plugin_path = plugin_dir
         return manifest
+
+    @model_validator(mode="after")
+    def unify_servers_configuration(self) -> "PluginManifest":
+        if self.server is not None:
+            key_name = "default"
+
+            if key_name not in self.servers:
+                self.servers[key_name] = self.server
+
+        if not self.servers:
+            raise ValueError("Must provide either 'server' or 'servers' in configuration.")
+
+        return self
 
     @property
     def path(self) -> Path:
@@ -230,6 +245,7 @@ class WorkflowNodeRead(WorkflowNodeBase):
     name: str
     assistant_id: UUID
     workflow_id: UUID
+    position: dict[str, float]
 
 
 # ==============================================================================
@@ -482,7 +498,6 @@ class WorkflowSpec(WorkflowBase):
     name: str
     start_node_name: str | None = None
     nodes: list[NodeSpec] = []
-    edges: list[EdgeSpec] = []
 
 
 class ThreadBase(SQLModel):

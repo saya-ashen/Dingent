@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Any, Callable
+from typing import Annotated, Any, Callable, cast
 
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
@@ -8,6 +8,7 @@ from mcp.types import TextContent
 from pydantic import BaseModel, Field, create_model
 
 from dingent.core.schemas import RunnableTool
+from .messages import ActivityMessage
 
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {
@@ -51,7 +52,6 @@ def create_dynamic_pydantic_class(
     return create_model(name, __base__=base_class, __config__=model_config, **fields)
 
 
-# --- MCP Tool Wrapper (包含 Command 处理) ---
 def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> StructuredTool:
     tool_def = runnable_tool.tool
 
@@ -75,19 +75,18 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
             try:
                 # 尝试解析结构化数据中的 artifact
                 data = json.loads(raw_text) if raw_text else {}
-                artifact = data.get("display")
+                artifact = cast(dict[str, list[dict]], data.get("display"))
                 model_text = data.get("model_text", raw_text)
             except json.JSONDecodeError:
                 model_text = raw_text
-
-        tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id)
+        tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id, artifact=artifact)
+        tool_message.name = tool_def.name
 
         # 这里的 Command 只包含增量更新
         return Command(
             update={
                 "messages": [tool_message],
-                # "artifact_ids": [create_resource(artifact)] if artifact else [] # 伪代码：根据实际逻辑恢复
-            }
+            },
         )
 
     # 构建 Schema
