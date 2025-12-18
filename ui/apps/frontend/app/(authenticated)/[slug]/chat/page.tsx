@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useParams } from "next/navigation";
-import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 import { useAgent, CopilotChat } from "@copilotkit/react-core/v2";
 
 import { getClientApi } from "@/lib/api/client";
@@ -11,7 +10,6 @@ import { useThreadContext } from "@/providers/ThreadProvider";
 import { ChatHeader } from "@/components/chat-header"; // 假设你放在了这里
 
 export default function CopilotKitPage() {
-  const [themeColor] = useState("#6366f1"); // Indigo-500
   const params = useParams();
   const slug = params.slug as string;
 
@@ -20,7 +18,6 @@ export default function CopilotKitPage() {
 
   const { activeThreadId, updateThreadTitle } = useThreadContext();
 
-  // 安全地处理 agent hook，防止 workflow 未加载时报错
   const agentName = workflow?.name || "default";
   const agent = useAgent({ agentId: agentName });
   const isAgentRunning = agent.agent.isRunning;

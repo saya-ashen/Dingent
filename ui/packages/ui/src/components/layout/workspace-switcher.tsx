@@ -9,7 +9,7 @@ import {
   LogOut,
   Check,
 } from "lucide-react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,9 +59,11 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
   const { isMobile } = useSidebar();
   const [isDialogOpen, setIsDialogOpen] = React.useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleSwitch = (workspaceSlug: string) => {
-    router.push(`/${workspaceSlug}`);
+    const newPath = pathname.replace(new RegExp(`^/${slug}`), `/${workspaceSlug}`);
+    router.push(newPath);
   };
 
   // 工作区 Logo 的通用样式

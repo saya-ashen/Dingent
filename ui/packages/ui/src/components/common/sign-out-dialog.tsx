@@ -9,11 +9,11 @@ interface SignOutDialogProps {
 
 export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
   const router = useRouter();
-  const { reset } = useAuthStore();
+  const { logout } = useAuthStore();
 
   const handleSignOut = () => {
-    reset();
-    router.replace("auth/login");
+    logout();
+    router.replace("/auth/login");
   };
 
   return (

@@ -1,5 +1,5 @@
 import { ApiClient } from "@repo/api-client";
-import Cookies from "js-cookie"; // 需要安装 js-cookie
+import Cookies from "js-cookie";
 import { useAuthStore } from "@repo/store";
 
 // 客户端 Base URL
@@ -18,8 +18,7 @@ export function getClientApi() {
       return useAuthStore.getState().accessToken || Cookies.get("access_token") || null;
     },
     () => {
-      // 客户端 401 处理
-      useAuthStore.getState().reset(); // 清空状态
+      useAuthStore.getState().logout();
       if (typeof window !== "undefined") {
         window.location.href = "/auth/login";
       }

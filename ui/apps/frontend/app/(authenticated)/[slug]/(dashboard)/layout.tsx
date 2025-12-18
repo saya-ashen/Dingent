@@ -2,11 +2,10 @@ import { notFound } from "next/navigation";
 
 import { AuthenticatedLayout } from "@repo/ui/components";
 
-import { Providers } from "@/app/providers";
 import { DashboardNavSidebar } from "@/components/NavSidebar";
 import { getServerApi } from "@/lib/api/server";
+import { Providers } from "@/components/providers";
 
-import { WorkspaceUpdater } from "./workspace-updater";
 
 export default async function DashboardAppLayout({
   children,
@@ -29,9 +28,9 @@ export default async function DashboardAppLayout({
   return (
     <Providers>
       <AuthenticatedLayout workspaces={workspaces} sidebar={<DashboardNavSidebar />}>
-        <WorkspaceUpdater currentWorkspace={workspace} workspaces={workspaces} />
         {children}
       </AuthenticatedLayout>
     </Providers>
   );
 }
+

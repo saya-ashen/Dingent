@@ -8,7 +8,6 @@ export interface AuthHooks {
   getAccessToken?: () => string | undefined;
   resetAuthState?: () => void;
 }
-type Ref<T> = { current: T };
 
 export function createHttpClient(
   config: ApiClientConfig,
