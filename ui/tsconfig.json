@@ -1,20 +1,45 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "./packages/typescript-config/base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "incremental": false,
     "noEmit": true,
+    "jsx": "react-jsx",
     "paths": {
-      "@repo/*": ["./packages/*/src", "./packages/*/src/index"],
-      "@repo/ui/*": ["./packages/ui/src/*"],
-      "@repo/config/*": ["./packages/config/src/*"],
-      "@repo/lib/*": ["./packages/lib/src/*"],
-      "@repo/assets/*": ["./packages/assets/src/*"],
-      "@repo/store/*": ["./packages/store/src/*"],
-      "@repo/api-client/*": ["./packages/api-client/src/*"]
-    }
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "target": "ES2017",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "module": "esnext",
+    "esModuleInterop": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["packages/*/src/**/*", "apps/*/src/**/*"],
-  "exclude": ["node_modules", "dist", ".next", ".turbo"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".turbo"
+  ]
 }

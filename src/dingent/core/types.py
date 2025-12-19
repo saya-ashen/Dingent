@@ -133,10 +133,11 @@ class ToolResult(BaseModel):
 
 
 class ExecutionModel(BaseModel):
+    transport: Literal["http", "sse", "stdio"] = Field(..., description="传输方式: 'http'、'sse' 或 'stdio'")
     mode: Literal["local", "remote"] = Field(..., description="运行模式: 'local' 或 'remote'")
     url: str | None = None
-    script_path: str | None = Field(None, description="插件管理器需要运行的Python入口文件路径")
-    mcp_json_path: str | None = None
+    command: str | None = Field(None, description="插件管理器需要运行的命令")
+    args: list[str] = Field(default_factory=list, description="运行命令的参数列表")
 
     @model_validator(mode="after")
     def check_exclusive_execution_mode(self) -> "ExecutionModel":

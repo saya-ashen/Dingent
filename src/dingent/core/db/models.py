@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -8,6 +8,15 @@ from pydantic import Field as PydField
 from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
+
+from dingent.core.schemas import AssistantSpec, NodeSpec, PluginSpec, WorkflowSpec
+
+
+class WorkspaceRole(str, Enum):
+    OWNER = "owner"
+    MEMBER = "member"
+    ADMIN = "admin"
+    GUEST = "guest"
 
 
 class ToolOverrideConfig(BaseModel):
@@ -36,6 +45,18 @@ class Role(SQLModel, table=True):
     description: str | None = None
 
     users: list["User"] = Relationship(back_populates="roles", link_model=UserRoleLink)
+
+
+class WorkspaceMember(SQLModel, table=True):
+    """
+    用户与工作空间的多对多关联，包含用户在这个空间的角色（如管理员、普通成员）
+    """
+
+    workspace_id: UUID = Field(default_factory=uuid4, foreign_key="workspace.id", primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", primary_key=True)
+
+    role: WorkspaceRole = Field(default="member")
+    joined_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class User(SQLModel, table=True):
@@ -67,9 +88,29 @@ class User(SQLModel, table=True):
         return f"<User {self.username} ({self.email})>"
 
     # 关系
-    assistants: list["Assistant"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    workflows: list["Workflow"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    resources: list["Resource"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    resources: list["Resource"] = Relationship(back_populates="created_by", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    workspaces: list["Workspace"] = Relationship(back_populates="members", link_model=WorkspaceMember)
+
+
+class Workspace(SQLModel, table=True):
+    """
+    工作空间/团队：资源（Assistant/Workflow）的真正持有者
+    """
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
+    name: str = Field(index=True, description="工作空间的显示名称")
+    slug: str = Field(index=True, description="工作空间的唯一标识符，用于 URL 等")
+    avatar_url: str | None = Field(default=None, description="工作空间的头像地址")
+    description: str | None = None
+
+    members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
+
+    assistants: list["Assistant"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    workflows: list["Workflow"] = Relationship(back_populates="workspace")
+    resources: list["Resource"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    conversations: list["Conversation"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 # --- Assistant、Plugin 及其关联（多对多） ---
@@ -92,7 +133,6 @@ class AssistantPluginLink(SQLModel, table=True):
     )
 
     enabled: bool = True
-    # tools_default_enabled: bool = True
 
     # --- 针对单个工具的覆盖配置 ---
     # 存储一个列表，每个元素都是一个符合 ToolOverrideConfig 结构的字典
@@ -118,7 +158,7 @@ class Assistant(SQLModel, table=True):
     Assistant 模型：属于某个用户；可关联多个 Plugin（多对多）。
     """
 
-    __table_args__ = (UniqueConstraint("user_id", "name", name="unique_user_assistant_name"),)
+    __table_args__ = (UniqueConstraint("workspace_id", "name", name="unique_workspace_assistant_name"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str = Field(index=True)
@@ -131,8 +171,9 @@ class Assistant(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
 
     # 外键：多对一 -> User
-    user_id: UUID = Field(foreign_key="user.id", index=True)
-    user: User = Relationship(back_populates="assistants")
+    created_by_id: UUID | None = Field(default=None, foreign_key="user.id")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)  # <-- 新增这行
+    workspace: Workspace = Relationship(back_populates="assistants")
 
     # 多对多：通过 link_model
     plugins: list["Plugin"] = Relationship(
@@ -148,15 +189,6 @@ class Assistant(SQLModel, table=True):
     workflow_nodes: list["WorkflowNode"] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
-class PluginConfigSchema(SQLModel):
-    name: str = Field(..., description="配置项的名称 (环境变量名)")
-    type: Literal["string", "float", "integer", "bool"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
-    required: bool = Field(..., description="是否为必需项")
-    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
-    description: str | None = Field(None, description="该配置项的描述")
-    default: Any | None = Field(None, description="默认值 (如果存在)")
-
-
 class Plugin(SQLModel, table=True):
     """
     插件的全局定义：系统级资源；用户侧配置在 AssistantPluginLink 中。
@@ -169,7 +201,7 @@ class Plugin(SQLModel, table=True):
     description: str
     version: str = "0.1.0"
 
-    config_schema: list[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    config_schema: dict[str, Any] = Field(default=None, sa_column=Column(JSON))
 
     # 多对多
     assistants: list["Assistant"] = Relationship(
@@ -197,12 +229,50 @@ class Workflow(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
 
     # 外键：多对一 -> User
-    user_id: UUID = Field(foreign_key="user.id", index=True)
-    user: User = Relationship(back_populates="workflows")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship(back_populates="workflows")
+    created_by_id: UUID | None = Field(default=None, foreign_key="user.id")
 
     # 关系
     nodes: list["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     edges: list["WorkflowEdge"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    def to_spec(self) -> WorkflowSpec:
+        """将数据库实体转化为纯业务 Spec"""
+        start_node = None
+        for n in self.nodes:
+            if n.is_start_node:
+                start_node = n
+
+        return WorkflowSpec(
+            id=self.id,
+            name=self.name,
+            start_node_name=start_node.name if start_node else None,
+            nodes=[
+                NodeSpec(
+                    id=n.id,
+                    is_start_node=n.is_start_node,
+                    assistant=AssistantSpec(
+                        id=n.assistant.id,
+                        name=n.assistant.name,
+                        version=n.assistant.version,
+                        description=n.assistant.description or "",
+                        spec_version=n.assistant.spec_version,
+                        enabled=n.assistant.enabled,
+                        plugins=[
+                            PluginSpec(
+                                plugin_id=pl.plugin.registry_id,
+                                registry_id=pl.plugin.registry_id,
+                                config=pl.user_plugin_config or {},
+                            )
+                            for pl in n.assistant.plugin_links
+                            if pl.enabled
+                        ],
+                    ),
+                )
+                for n in self.nodes
+            ],
+        )
 
 
 class WorkflowNode(SQLModel, table=True):
@@ -264,10 +334,11 @@ class Resource(SQLModel, table=True):
     data: dict | str | list | None = Field(default=None, sa_column=Column(JSON))
 
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_by_id: UUID = Field(foreign_key="user.id", index=True)
+    created_by: User = Relationship(back_populates="resources")
 
-    # 所有权：多对一 -> User
-    user_id: UUID = Field(foreign_key="user.id", index=True)
-    user: User = Relationship(back_populates="resources")
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship(back_populates="resources")
 
 
 # --- 大模型 --
@@ -355,3 +426,90 @@ class UserProviderCredential(SQLModel, table=True):
 
     user: "User" = Relationship(back_populates="provider_credentials")
     provider: "LLMProvider" = Relationship(back_populates="user_credentials")
+
+
+class Conversation(SQLModel, table=True):
+    """
+    业务层面的对话记录 (Thread)。
+    它是 Checkpoint 的父级，用于权限控制和列表展示。
+    """
+
+    # 对应 LangGraph 的 thread_id
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True, description="即 LangGraph 的 thread_id")
+
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship()
+
+    # 身份标识
+    user_id: UUID | None = Field(default=None, foreign_key="user.id", index=True)
+    # 允许访客模式 (未登录用户)
+    visitor_id: str | None = Field(default=None, index=True)
+
+    title: str = Field(default="New Chat")
+
+    # 统计信息 (可选，但推荐)
+    message_count: int = Field(default=0)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
+
+    # 关系：一个对话有多个 Checkpoints (历史状态)
+    checkpoints: list["LangGraphCheckpoint"] = Relationship(back_populates="conversation", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    # 关系：一个对话有多个 Writes (中间状态)
+    writes: list["LangGraphCheckpointWrite"] = Relationship(back_populates="conversation", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class LangGraphCheckpoint(SQLModel, table=True):
+    """
+    映射 LangGraph 标准表 `checkpoints`。
+    增加了 foreign_key 指向你的 Conversation 表，实现级联删除。
+    """
+
+    __tablename__ = "checkpoints"  # 强制使用 LangGraph 默认表名
+
+    thread_id: str = Field(primary_key=True, foreign_key="conversation.id")
+
+    # 复合主键 2: checkpoint_ns (命名空间，默认为空字符串)
+    checkpoint_ns: str = Field(default="", primary_key=True)
+
+    # 复合主键 3: checkpoint_id (UUID 字符串)
+    checkpoint_id: str = Field(primary_key=True)
+
+    # 上级指针
+    parent_checkpoint_id: str | None = Field(default=None)
+
+    type: str = Field(default="msgpack")
+
+    # 核心数据 (Pickle 序列化)
+    checkpoint: bytes = Field(sa_column=Column(LargeBinary))
+
+    # 元数据
+    metadata_: dict = Field(
+        default_factory=dict,
+        sa_column=Column("metadata", LargeBinary),  # 映射到数据库列名 "metadata"
+    )
+
+    # 关系回溯
+    conversation: Conversation = Relationship(back_populates="checkpoints")
+
+
+class LangGraphCheckpointWrite(SQLModel, table=True):
+    """
+    映射 LangGraph 标准表 `checkpoint_writes`。
+    """
+
+    __tablename__ = "writes"  # 强制使用 LangGraph 默认表名
+
+    thread_id: str = Field(primary_key=True, foreign_key="conversation.id")
+    checkpoint_ns: str = Field(default="", primary_key=True)
+    checkpoint_id: str = Field(primary_key=True)
+    task_id: str = Field(primary_key=True)
+    idx: int = Field(primary_key=True)
+
+    channel: str
+    type: str = Field(default="msgpack")
+
+    value: bytes = Field(sa_column=Column(LargeBinary))
+
+    conversation: Conversation = Relationship(back_populates="writes")

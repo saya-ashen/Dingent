@@ -156,7 +156,6 @@ class LogManager:
         if correlation_id:
             extra["correlation_id"] = correlation_id
 
-        # Use bind().context() for cleaner loguru integration
         log = logger.opt(depth=1).bind(**extra)
         logger_method = getattr(log, level.lower())
         logger_method(message)

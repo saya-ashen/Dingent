@@ -17,24 +17,24 @@ from dingent.core.schemas import (
 # --- Workflow CRUD ---
 
 
-def get_workflow(db: Session, workflow_id: UUID, user_id: UUID) -> Workflow | None:
+def get_workflow(db: Session, workflow_id: UUID, workspace_id: UUID) -> Workflow | None:
     """
     Get a single workflow by ID, ensuring it belongs to the specified user.
     """
     statement = select(Workflow).where(
         Workflow.id == workflow_id,
-        Workflow.user_id == user_id,
+        Workflow.workspace_id == workspace_id,
     )
     return db.exec(statement).first()
 
 
-def get_workflow_by_name(db: Session, name: str, user_id: UUID) -> Workflow | None:
+def get_workflow_by_name(db: Session, name: str, workspace_id: UUID) -> Workflow | None:
     """
     Get a single workflow by name for a specific user.
     """
     statement = select(Workflow).where(
         Workflow.name == name,
-        Workflow.user_id == user_id,
+        Workflow.workspace_id == workspace_id,
     )
     return db.exec(statement).first()
 
@@ -115,19 +115,19 @@ def replace_workflow(db: Session, db_workflow: Workflow, wf_create: WorkflowRepl
     return db_workflow
 
 
-def list_workflows_by_user(db: Session, user_id: UUID) -> list[Workflow]:
+def list_workflows_by_workspace(db: Session, workspace_id: UUID) -> list[Workflow]:
     """
-    List all workflows for a specific user.
+    List all workflows for a specific WORKSPACE.
     """
-    statement = select(Workflow).where(Workflow.user_id == user_id)
-    return db.exec(statement).all()
+    statement = select(Workflow).where(Workflow.workspace_id == workspace_id)  # 变更
+    return list(db.exec(statement).all())
 
 
-def create_workflow(db: Session, wf_create: WorkflowCreate, user_id: UUID) -> Workflow:
+def create_workflow(db: Session, wf_create: WorkflowCreate, workspace_id: UUID, user_id: UUID) -> Workflow:
     """
     Create a new workflow record in the database.
     """
-    db_workflow = Workflow.model_validate(wf_create, update={"user_id": user_id})
+    db_workflow = Workflow.model_validate(wf_create, update={"workspace_id": workspace_id, "created_by_id": user_id})
     db.add(db_workflow)
     db.commit()
     db.refresh(db_workflow)

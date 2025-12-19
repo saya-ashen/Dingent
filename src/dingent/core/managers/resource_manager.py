@@ -78,7 +78,7 @@ class ResourceManager:
         )
         return resource_db
 
-    def get_resource(self, resource_id: UUID, user_id: UUID, session: Session) -> Resource | None:
+    def get_resource(self, resource_id: UUID, workspace_id: UUID, session: Session) -> Resource | None:
         """
         Retrieves a resource by its ID, ensuring it belongs to the specified user.
 
@@ -90,14 +90,14 @@ class ResourceManager:
         Returns:
             The Resource object if found and owned by the user, otherwise None.
         """
-        statement = select(Resource).where(Resource.id == resource_id, Resource.user_id == user_id)
+        statement = select(Resource).where(Resource.id == resource_id, Resource.workspace_id == workspace_id)
         resource = session.exec(statement).first()
 
         if not resource:
             self._log_manager.log_with_context(
                 "warning",
                 "Resource not found in DB or access denied.",
-                context={"resource_id": resource_id, "user_id": user_id},
+                context={"resource_id": resource_id, "user_id": workspace_id},
             )
         return resource
 

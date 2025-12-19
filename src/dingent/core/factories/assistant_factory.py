@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dingent.core.db.models import Assistant
 from dingent.core.runtime.assistant import AssistantRuntime
+from dingent.core.schemas import AssistantSpec
 
 
 class AssistantFactory:
@@ -14,7 +14,7 @@ class AssistantFactory:
         self._plugin_manager = plugin_manager
         self._log_manager = log_manager
 
-    async def create_runtime(self, assistant_config: Assistant) -> AssistantRuntime:
+    async def create_runtime(self, assistant_config: AssistantSpec) -> AssistantRuntime:
         """
         根据给定的助手配置，创建一个运行时实例。
         这是一个纯粹的构建过程，与用户或请求无关。

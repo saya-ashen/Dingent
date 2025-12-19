@@ -8,7 +8,7 @@ from .plugins import router as plugins_router
 from .settings import router as settings_router
 from .workflows import router as workflows_router
 
-api_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+api_router = APIRouter(prefix="", tags=["dashboard"])
 
 api_router.include_router(settings_router)
 api_router.include_router(assistants_router)

@@ -1,22 +1,23 @@
 from uuid import UUID
 
-from fastapi import Depends, Request, status
+from fastapi import Depends, Path, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.security.oauth2 import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from dingent.core.config import settings
 from dingent.core.db.crud import assistant as crud_assistant
 from dingent.core.db.crud.user import get_user
-from dingent.core.db.models import User
+from dingent.core.db.models import User, Workspace, WorkspaceMember
 from dingent.core.db.session import engine
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.schemas import UserRead
 from dingent.server.auth.security import get_current_user_from_token, verify_password
-from dingent.server.services.user_assistant_service import UserAssistantService
 from dingent.server.services.user_plugin_service import UserPluginService
-from dingent.server.services.user_workflow_service import UserWorkflowService
+from dingent.server.services.user_workspace_service import UserWorkspaceService
+from dingent.server.services.workspace_assistant_service import WorkspaceAssistantService
+from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
 
@@ -36,6 +37,31 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
 ):
     return get_current_user_from_token(session, token)
+
+
+def get_current_workspace(
+    # 1. 前端必须在 Header 中传递这个 ID
+    workspace_slug: str = Path(..., description="The unique slug of the workspace"),
+    current_user: User = Depends(get_current_user),
+    # 3. 获取数据库会话
+    session: Session = Depends(get_db_session),
+) -> Workspace:
+    """
+    验证用户是否是目标 Workspace 的成员。
+    如果是，返回 Workspace 对象；否则抛出 403。
+    """
+    # 查询关联表
+    statement = select(Workspace).where(Workspace.slug == workspace_slug)
+    workspace = session.exec(statement).first()
+    # 获取并返回 Workspace 对象
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    member_statement = select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace.id, WorkspaceMember.user_id == current_user.id)
+    member = session.exec(member_statement).first()
+    if not member:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this workspace or it does not exist.")
+
+    return workspace
 
 
 def get_log_manager(
@@ -62,16 +88,16 @@ def get_plugin_manager(
     return request.app.state.plugin_manager
 
 
-def get_user_assistant_service(
+def get_workspace_assistant_service(
     request: Request,
-    user: User = Depends(get_current_user),
     session: Session = Depends(get_db_session),
-) -> UserAssistantService:
+    workspace: Workspace = Depends(get_current_workspace),
+) -> WorkspaceAssistantService:
     """
     Dependency to get the AssistantRuntimeManager.
     """
     assistant_factory = request.app.state.assistant_factory
-    return UserAssistantService(user.id, session, assistant_factory)
+    return WorkspaceAssistantService(workspace.id, session, assistant_factory)
 
 
 def get_user_plugin_service(
@@ -87,13 +113,15 @@ def get_user_plugin_service(
     )
 
 
-def get_user_workflow_service(
+def get_workspace_workflow_service(
     user: User = Depends(get_current_user),
+    workspace: Workspace = Depends(get_current_workspace),
     session: Session = Depends(get_db_session),
-    assistant_service: UserAssistantService = Depends(get_user_assistant_service),
+    assistant_service: WorkspaceAssistantService = Depends(get_workspace_assistant_service),
     log_manager: LogManager = Depends(get_log_manager),
 ):
-    return UserWorkflowService(
+    return WorkspaceWorkflowService(
+        workspace_id=workspace.id,
         user_id=user.id,
         session=session,
         assistant_service=assistant_service,
@@ -122,10 +150,17 @@ def get_market_service(
     return request.app.state.market_service
 
 
+def get_user_workspace_service(
+    session: Session = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> UserWorkspaceService:
+    return UserWorkspaceService(session=session, user_id=user.id)
+
+
 def get_assistant_and_verify_ownership(
     assistant_id: UUID,
     db: Session = Depends(get_db_session),
-    current_user: User = Depends(get_current_user),
+    current_workspace: Workspace = Depends(get_current_workspace),
 ):
     """
     FastAPI Dependency:
@@ -145,7 +180,7 @@ def get_assistant_and_verify_ownership(
         )
 
     # 3. Check for ownership -- THIS IS THE KEY STEP
-    if assistant.user_id != current_user.id:
+    if assistant.workspace_id != current_workspace.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this assistant",

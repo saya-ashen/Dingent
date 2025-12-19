@@ -1,7 +1,9 @@
+import ast
+import json
 from uuid import UUID
 
-from fastapi import status
-from fastapi.exceptions import HTTPException
+from fastapi import HTTPException, status
+from jsonschema import ValidationError, validate
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -9,34 +11,123 @@ from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
 from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
 
 
+def _preprocess_json_fields(config_data: dict, schema: dict | None):
+    """
+    尝试解析 JSON 字符串。
+    策略：先尝试标准 JSON 解析，如果失败，再尝试 Python 字面量解析（支持单引号）。
+    """
+    if not schema or not config_data:
+        return
+
+    properties = schema.get("properties", {})
+
+    for key, value in config_data.items():
+        # 如果不是字符串，说明不需要解析，跳过
+        if not isinstance(value, str):
+            continue
+
+        field_def = properties.get(key)
+        if not field_def:
+            continue
+
+        expected_type = field_def.get("type")
+
+        # 针对 object (dict) 和 array (list) 类型尝试解析
+        if expected_type in ["object", "array"]:
+            parsed_value = None
+
+            # --- 方案 1: 尝试标准 JSON 解析 (最快，最标准) ---
+            try:
+                parsed_value = json.loads(value)
+            except json.JSONDecodeError as json_err:
+                # --- 方案 2: JSON 失败，尝试 Python 字面量解析 (支持单引号) ---
+                try:
+                    # ast.literal_eval 只能解析基础数据结构，非常安全，不会执行恶意代码
+                    parsed_value = ast.literal_eval(value)
+                except (ValueError, SyntaxError):
+                    # 如果两个都失败了，抛出原始的 JSON 错误，提示用户格式不对
+                    # 也可以把 json_err 和 ast 的错误一起 log 出来
+                    raise HTTPException(
+                        status_code=400, detail=(f"Field '{key}' invalid. Expected valid JSON (double quotes) or Python dict (single quotes). Error: {str(json_err)}")
+                    )
+
+            # --- 解析成功，检查类型是否匹配 ---
+            # json.loads 可能把 "123" 解析成 int，但我们需要 object/list
+            # 注意：Python 中 dict 对应 JSON object, list 对应 JSON array
+            if expected_type == "object" and not isinstance(parsed_value, dict):
+                raise HTTPException(status_code=400, detail=f"Field '{key}' parsed successfully but result is not a Dictionary.")
+
+            if expected_type == "array" and not isinstance(parsed_value, list):
+                raise HTTPException(status_code=400, detail=f"Field '{key}' parsed successfully but result is not a List.")
+
+            # --- 原地更新配置 ---
+            config_data[key] = parsed_value
+
+
 def get_assistant_by_id(*, db: Session, id: UUID):
     return db.get(Assistant, id)
 
 
-def get_assistant_by_name(db: Session, user_id: UUID, name: str):
-    return db.exec(select(Assistant).where(Assistant.user_id == user_id, Assistant.name == name)).first()
+def get_assistant_by_name(db: Session, workspace_id: UUID, name: str) -> Assistant | None:
+    """
+    修改：现在在 workspace 范围内查找同名 Assistant
+    """
+    return db.exec(select(Assistant).where(Assistant.workspace_id == workspace_id, Assistant.name == name)).first()
 
 
-def get_user_assistant(db: Session, assistant_id: UUID, user_id: UUID):
-    return db.exec(select(Assistant).where(Assistant.id == assistant_id, Assistant.user_id == user_id)).first()
+def get_workspace_assistant(db: Session, assistant_id: UUID, workspace_id: UUID) -> Assistant | None:
+    """
+    修改：验证 Assistant 是否属于该 Workspace
+    原名: get_user_assistant
+    """
+    return db.exec(select(Assistant).where(Assistant.id == assistant_id, Assistant.workspace_id == workspace_id)).first()
 
 
-def get_all_assistants(db: Session, user_id: UUID):
-    statement = select(Assistant).where(Assistant.user_id == user_id)
+def get_all_assistants(db: Session, workspace_id: UUID) -> list[Assistant]:
+    """
+    修改：获取该 Workspace 下的所有 Assistant
+    """
+    statement = select(Assistant).where(Assistant.workspace_id == workspace_id)
     results = db.exec(statement).all()
+    results = list(results)
     return results
+
+
+def create_assistant(db: Session, assistant_in: AssistantCreate, workspace_id: UUID, user_id: UUID) -> Assistant:
+    """
+    修改：
+    1. 接收 workspace_id 作为资源归属。
+    2. 接收 user_id 作为 created_by_id (审计用)。
+    """
+    # 构造数据：必须包含 workspace_id，可选包含 created_by_id
+    db_obj_data = assistant_in.model_dump()
+
+    new_assistant = Assistant(
+        **db_obj_data,
+        workspace_id=workspace_id,
+        created_by_id=user_id,  # 记录是谁创建的
+    )
+
+    db.add(new_assistant)
+    try:
+        db.commit()
+        db.refresh(new_assistant)
+    except IntegrityError:
+        db.rollback()
+        # 错误信息现在反映的是 Workspace 内的冲突
+        raise HTTPException(
+            status_code=409,
+            detail=f"Assistant with name '{assistant_in.name}' already exists in this workspace.",
+        )
+
+    return new_assistant
 
 
 def remove_assistant(db: Session, *, id: UUID) -> Assistant | None:
     """
-    Deletes an assistant from the database by its ID.
-
-    Args:
-        db: The database session.
-        id: The UUID of the assistant to delete.
-
-    Returns:
-        The deleted Assistant object, or None if not found.
+    保持不变。
+    注意：在调用此函数前的 API 层（Router），你应该先调用 get_workspace_assistant
+    来确保当前用户有权限删除这个 Workspace 下的 Assistant。
     """
     assistant_to_delete = db.get(Assistant, id)
 
@@ -49,59 +140,54 @@ def remove_assistant(db: Session, *, id: UUID) -> Assistant | None:
     return assistant_to_delete
 
 
-def create_assistant(db: Session, assistant_in: AssistantCreate, user_id: UUID):
-    new_assistant = Assistant(**assistant_in.model_dump(), user_id=user_id)
-    db.add(new_assistant)
-    try:
-        # 尝试提交事务，这里可能会触发 IntegrityError
-        db.commit()
-        # 成功后，刷新实例以从数据库获取最新状态（如默认值）
-        db.refresh(new_assistant)
-
-    except IntegrityError:
-        # 3. 如果发生完整性错误，必须回滚事务！
-        # 失败的 commit() 会让 session 进入一个不一致的状态，必须回滚才能继续使用。
-        db.rollback()
-
-        # 4. 抛出一个对 API 友好的异常
-        # HTTP 409 Conflict 是用于此类错误的标准化状态码
-        raise HTTPException(
-            status_code=409,
-            detail=f"Assistant with name '{assistant_in.name}' already exists.",
-        )
-
-    return new_assistant
-
-
 def update_assistant(
     db: Session,
     db_assistant: Assistant,
     assistant_in: AssistantUpdate,
-):
+) -> Assistant:
+    """
+    逻辑基本保持不变。
+    """
+    # 1. 更新 Assistant 基础字段
     update_data = assistant_in.model_dump(exclude={"plugins"}, exclude_unset=True)
     for k, v in update_data.items():
         setattr(db_assistant, k, v)
 
+    # 2. 更新 Plugins 配置 (复用你原本的优秀逻辑)
     if assistant_in.plugins:
-        # 先建一个索引：plugin_id -> link
+        # 建立索引：plugin_registry_id -> link 对象
         link_by_registry_id: dict[str, AssistantPluginLink] = {link.plugin.registry_id: link for link in db_assistant.plugin_links}
 
         for plugin_cfg in assistant_in.plugins:
             link = link_by_registry_id.get(plugin_cfg.registry_id)
-
             if link is None:
                 continue
 
             plugin_update_data = plugin_cfg.model_dump(exclude_unset=True)
 
+            # 更新 enabled 状态
+            if "enabled" in plugin_update_data:
+                link.enabled = plugin_cfg.enabled
+
+            # 处理 config 更新与验证
             if "config" in plugin_update_data:
                 new_conf = plugin_update_data["config"] or {}
 
-                # 在原有基础上 merge
-                if link.user_plugin_config is None:
-                    link.user_plugin_config = {}
-                link.user_plugin_config.update(new_conf)
-                link.enabled = plugin_cfg.enabled
+                schema = link.plugin.config_schema
+                _preprocess_json_fields(new_conf, schema)
+
+                current_conf = link.user_plugin_config or {}
+
+                merged_conf = current_conf.copy()
+                merged_conf.update(new_conf)
+
+                if schema:
+                    try:
+                        validate(instance=merged_conf, schema=schema)
+                    except ValidationError as e:
+                        raise HTTPException(status_code=400, detail=f"Plugin '{plugin_cfg.registry_id}' configuration error: {e.message}")
+
+                link.user_plugin_config = merged_conf
 
     db.add(db_assistant)
     db.commit()

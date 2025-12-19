@@ -1,17 +1,17 @@
 import re
 from collections.abc import Callable
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import toml
+from fastmcp.mcp_config import MCPServerTypes
 from mcp.types import Tool
-from pydantic import ConfigDict, EmailStr, PrivateAttr
+from pydantic import ConfigDict, EmailStr, PrivateAttr, model_validator
 from sqlmodel import Field, SQLModel
 
-from dingent.core.db.models import PluginConfigSchema
-from dingent.core.types import ExecutionModel
 from dingent.core.utils import to_camel
 
 
@@ -21,6 +21,15 @@ def generate_id_from_name(display_name: str) -> str:
     s = re.sub(r"[^\w\s-]", "", s)
     s = re.sub(r"[-\s]+", "-", s).strip("-")
     return s
+
+
+class PluginConfigSchema(SQLModel):
+    name: str = Field(..., description="配置项的名称 (环境变量名)")
+    type: Literal["string", "float", "integer", "bool", "dict", "object"] = Field(..., description="配置项的期望类型 (e.g., 'string', 'number')")
+    required: bool = Field(..., description="是否为必需项")
+    secret: bool = Field(False, description="是否为敏感信息 (如 API Key)")
+    description: str | None = Field(None, description="该配置项的描述")
+    default: Any | None = Field(None, description="默认值 (如果存在)")
 
 
 class AssistantBase(SQLModel):
@@ -46,7 +55,8 @@ class PluginManifest(PluginBase):
     id: str = Field(..., description="插件的本地标识符，从plugin.toml中读取,example: Weather_reporter")
     display_name: str = Field(..., description="插件的显示名称")
     spec_version: str | float = Field("2.0", description="插件规范版本 (遵循语义化版本)")
-    execution: ExecutionModel
+    servers: dict[str, MCPServerTypes] = Field(default_factory=dict, description="一组服务器配置")
+    server: MCPServerTypes | None = Field(default=None, description="单个服务器配置快捷方式")
     dependencies: list[str] | None = None
     python_version: str | None = None
     config_schema: list["PluginConfigSchema"] | None = None
@@ -75,6 +85,19 @@ class PluginManifest(PluginBase):
         manifest._plugin_path = plugin_dir
         return manifest
 
+    @model_validator(mode="after")
+    def unify_servers_configuration(self) -> "PluginManifest":
+        if self.server is not None:
+            key_name = "default"
+
+            if key_name not in self.servers:
+                self.servers[key_name] = self.server
+
+        if not self.servers:
+            raise ValueError("Must provide either 'server' or 'servers' in configuration.")
+
+        return self
+
     @property
     def path(self) -> Path:
         if self._plugin_path is None:
@@ -90,6 +113,8 @@ class ToolOverrideConfig(SQLModel):
 
 class PluginConfigItemRead(PluginConfigSchema):
     """Represents a single configuration item with its schema and value."""
+
+    title: str | None
 
     value: Any | None = Field(None, description="用户设置的当前值")
 
@@ -156,6 +181,7 @@ class PluginUpdateOnAssistant(SQLModel):
 
 class RunnableTool(SQLModel):
     tool: Tool
+    plugin_name: str
     run: Callable[[dict], Any]
 
 
@@ -173,7 +199,6 @@ class WorkflowNodeBase(SQLModel):
         from_attributes=True,
     )
 
-    position: dict[str, float]
     is_start_node: bool = False
     type: str = "assistant"
 
@@ -219,6 +244,7 @@ class WorkflowNodeRead(WorkflowNodeBase):
     name: str
     assistant_id: UUID
     workflow_id: UUID
+    position: dict[str, float]
 
 
 # ==============================================================================
@@ -327,6 +353,8 @@ class WorkflowReadBasic(WorkflowBase):
     不包含 nodes 和 edges，避免数据冗余。
     """
 
+    workspace_id: UUID
+
     id: UUID
     name: str
     created_at: datetime
@@ -338,6 +366,8 @@ class WorkflowRead(WorkflowReadBasic):
     用于读取单个工作流的完整信息，包含其所有的节点和边。
     前端在 GET /workflows/{workflow_id} 时会收到此模型。
     """
+
+    workspace_id: UUID
 
     nodes: list[WorkflowNodeRead] = []
     edges: list[WorkflowEdgeRead] = []
@@ -381,3 +411,102 @@ class UserCreate(SQLModel):
     username: str
     email: EmailStr
     password: str
+
+
+# --- Workspace Schemas ---
+
+
+class WorkspaceBase(SQLModel):
+    name: str
+    slug: str
+    description: str | None = None
+
+
+class WorkspaceCreate(WorkspaceBase):
+    pass
+
+
+class WorkspaceUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+
+
+class WorkspaceRole(str, Enum):
+    OWNER = "owner"
+    MEMBER = "member"
+    ADMIN = "admin"
+    GUEST = "guest"
+
+
+class WorkspaceMemberRead(SQLModel):
+    user_id: UUID
+    email: str
+    username: str
+    role: WorkspaceRole
+    joined_at: datetime
+    avatar_url: str | None = None
+
+
+class WorkspaceRead(WorkspaceBase):
+    id: UUID
+    role: WorkspaceRole
+    slug: str
+    created_at: datetime
+    # 简单的成员概览
+    member_count: int | None = None
+
+
+class WorkspaceInvite(SQLModel):
+    email: EmailStr
+    role: WorkspaceRole
+
+
+class WorkspaceWithRole(WorkspaceRead):
+    pass
+    # permissions: list[str] = [] # 可选：更细粒度的权限列表
+
+
+class PluginSpec(SQLModel):
+    plugin_id: str
+    registry_id: str
+    config: dict[str, Any]
+
+
+class AssistantSpec(AssistantBase):
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    plugins: list[PluginSpec] = []
+
+
+class NodeSpec(WorkflowNodeBase):
+    id: UUID = Field(default_factory=uuid4)
+    assistant: AssistantSpec
+
+
+class EdgeSpec(WorkflowEdgeBase):
+    id: UUID = Field(default_factory=uuid4)
+
+
+class WorkflowSpec(WorkflowBase):
+    """
+    这是传给 GraphFactory 的纯数据对象。
+    它不需要 workspace_id, user_id 等数据库外键。
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    start_node_name: str | None = None
+    nodes: list[NodeSpec] = []
+
+
+class ThreadBase(SQLModel):
+    id: str | UUID
+
+
+class ThreadRead(ThreadBase):
+    id: str | UUID
+    title: str
+    workspace_id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime

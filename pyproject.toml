@@ -18,7 +18,6 @@ dependencies = [
   "langchain>=0.3.23",
   "fastmcp>=2.2.0",
   "langchain-mcp-adapters>=0.0.11",
-  "langgraph>=0.3.31,<1.0.0",
   "langgraph-cli[inmem]>=0.1.73",
   "langgraph-swarm>=0.0.12",
   "langgraph-api>=0.0.21",
@@ -34,24 +33,11 @@ dependencies = [
   "litellm>=1.76.1",
   "google-genai>=1.32.0",
   "fastapi[all]>=0.115.14",
-  "passlib[bcrypt]>=1.7.4",
   "python-jose[cryptography]>=3.5.0",
   "sqlmodel>=0.0.25",
   "pycasbin>=2.2.0",
+  "pwdlib[argon2]>=0.3.0",
 ]
-dev = [
-  "ipython>=9.4.0",
-  "pytest-mock>=3.14.1",
-  "aiobotocore>=2.22.0",
-  "coverage<8.0.0,>=7.4.3",
-  "pre-commit<4.0.0,>=3.6.2",
-  "pytest<9.0.0,>=8.4.1",
-  "pytest-asyncio>=0.26.0",
-  "pytest-mock>=3.14.1",
-  "python-dotenv>=1.1.0",
-  "ipython>=9.4.0",
-]
-
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -89,7 +75,7 @@ exclude = [
   ".pytest_cache",
   "__pycache__",
 ]
-force-include = { "src/dingent/static" = "src/dingent/static" }
+# force-include = { "src/dingent/static" = "src/dingent/static" }
 [tool.hatch.version]
 source = "vcs"
 [tool.hatch.version.raw-options]
@@ -98,7 +84,6 @@ local_scheme = "no-local-version"
 
 
 [tool.basedpyright]
-# include = ["src/"]
 exclude = ["**/__pycache__"]
 reportMissingImports = "error"
 reportMissingTypeStubs = false
@@ -108,12 +93,19 @@ typeCheckingMode = "standard"
 useLibraryCodeForTypes = true
 reportInvalidCast = "none"
 
-# [tool.uv]
-# link-mode = "symlink"
-# default-groups = "all"
 
 [dependency-groups]
-dev = ["ipython>=9.4.0"]
+dev = [
+    "ipython>=9.4.0",
+    "pytest-mock>=3.14.1",
+    "aiobotocore>=2.22.0",
+    "coverage>=7.4.3,<8.0.0",
+    "pre-commit>=3.6.2,<4.0.0",
+    "pytest>=8.4.1,<9.0.0",
+    "pytest-asyncio>=0.26.0",
+    "python-dotenv>=1.1.0",
+    "pyinstaller>=6.17.0",
+]
 
 
 [project.scripts]
