@@ -16,79 +16,59 @@ VERBOSE           := "0"
 # 定义构建和输出路径
 DEPLOY_DIR := "build/deploy"
 FE_DIR := "ui/apps/frontend"
-DB_DIR := "ui/apps/dashboard"
+# [已删除] DB_DIR 变量
 
 install:
     @echo "Installing all monorepo dependencies..."
     @bun install --frozen-lockfile
 
 # =====================
-# 1. 构建 Dashboard (改为 Standalone 模式)
+# 1. 构建 Frontend (Standalone 模式)
 # =====================
-build-dashboard:
-    @echo "Building Dashboard (Standalone)..."
-    # 确保 next.config.ts 中已开启 output: "standalone" 且移除了 output: "export"
-    @(cd ui/ && bun install && bun run build --filter=dashboard)
-
-# =====================
-# 2. 构建 Frontend (Standalone 模式)
-# =====================
+# [已删除] build-dashboard 任务
 build-frontend:
     @echo "Building Frontend (Standalone)..."
+    # 确保 next.config.ts 中已开启 output: "standalone"
     @(cd ui/ && bun install && bun run build --filter=frontend)
 
 # =====================
-# 3. 核心：组装与合并 (Merge & Assemble)
+# 2. 组装 (Assemble) - 现已简化为单一应用提取
 # =====================
 assemble:
-    @echo "Starting assembly of merged standalone applications..."
+    @echo "Starting assembly of frontend application..."
     @rm -rf {{DEPLOY_DIR}}
     @mkdir -p {{DEPLOY_DIR}}/node_modules
-    @mkdir -p {{DEPLOY_DIR}}/apps
-
-    # [1/4] 合并 node_modules (先拷 frontend，再拷 dashboard 覆盖，利用 Common Dependencies)
-    @echo "Merging node_modules..."
-    @cp -r {{FE_DIR}}/.next/standalone/node_modules/* {{DEPLOY_DIR}}/node_modules/
-    @cp -r {{DB_DIR}}/.next/standalone/node_modules/* {{DEPLOY_DIR}}/node_modules/
-
-    # [2/4] 复制应用服务端代码 (Server Logic)
-    # 注意：Standalone 通常会保留 ui/apps/xxx 的完整目录结构，我们需要将其扁平化到 apps/ 下
-    @echo "Copying application server code..."
     @mkdir -p {{DEPLOY_DIR}}/apps/frontend
-    @mkdir -p {{DEPLOY_DIR}}/apps/dashboard
 
-    # 复制 Frontend 代码 (根据实际生成的层级调整，通常在 standalone/ui/apps/frontend)
+    # [1/3] 复制 node_modules
+    # 直接使用 frontend 产生的 standalone node_modules，无需合并
+    @echo "Copying node_modules..."
+    @cp -r {{FE_DIR}}/.next/standalone/node_modules/* {{DEPLOY_DIR}}/node_modules/
+
+    # [2/3] 复制应用服务端代码 (Server Logic)
+    @echo "Copying application server code..."
+    # Next.js standalone 在 monorepo 下通常会保留目录结构，如 .next/standalone/apps/frontend
     @cp -r {{FE_DIR}}/.next/standalone/apps/frontend/* {{DEPLOY_DIR}}/apps/frontend/
-    @cp {{FE_DIR}}/.next/standalone/apps/frontend/server.js {{DEPLOY_DIR}}/apps/frontend/ || echo "Warning: server.js not found in expected path, check standalone output structure."
+    @cp {{FE_DIR}}/.next/standalone/apps/frontend/server.js {{DEPLOY_DIR}}/apps/frontend/ || echo "Warning: server.js not found, check standalone output structure."
 
-    # 复制 Dashboard 代码
-    @cp -r {{DB_DIR}}/.next/standalone/apps/dashboard/* {{DEPLOY_DIR}}/apps/dashboard/
-    @cp {{DB_DIR}}/.next/standalone/apps/dashboard/server.js {{DEPLOY_DIR}}/apps/dashboard/ || echo "Warning: server.js not found."
-
-    # [3/4] 复制静态资源 (Static Assets & Public)
+    # [3/3] 复制静态资源 (Static Assets & Public)
     # Standalone 不包含 .next/static 和 public，必须手动复制
     @echo "Injecting static assets..."
 
-    # Frontend 资源
     @mkdir -p {{DEPLOY_DIR}}/apps/frontend/.next/static
     @cp -r {{FE_DIR}}/.next/static/* {{DEPLOY_DIR}}/apps/frontend/.next/static/
     @cp -r {{FE_DIR}}/public {{DEPLOY_DIR}}/apps/frontend/
 
-    # Dashboard 资源
-    @mkdir -p {{DEPLOY_DIR}}/apps/dashboard/.next/static
-    @cp -r {{DB_DIR}}/.next/static/* {{DEPLOY_DIR}}/apps/dashboard/.next/static/
-    @cp -r {{DB_DIR}}/public {{DEPLOY_DIR}}/apps/dashboard/
-
-    # [4/4] 复制根目录必要文件
+    # [可选] 复制根目录 package.json (如果 server.js 运行需要读取项目元数据)
     @cp package.json {{DEPLOY_DIR}}/ || true
 
     @echo "✅ Assembly complete. Structure created at {{DEPLOY_DIR}}"
 
 # =====================
-# 4. 裁剪 (Prune) - 针对合并后的 node_modules
+# 3. 裁剪 (Prune) - 保持不变，用于减小体积
 # =====================
 prune:
-    @echo "[prune] Pruning merged node_modules in {{DEPLOY_DIR}}..."
+    @echo "[prune] Pruning node_modules in {{DEPLOY_DIR}}..."
     @if [ ! -d {{DEPLOY_DIR}}/node_modules/next/dist/compiled ]; then \
         echo "[prune] Target directory not found. Run 'just assemble' first."; exit 1; \
     fi
@@ -120,16 +100,18 @@ prune:
     @du -sh {{DEPLOY_DIR}}
 
 # =====================
-# 5. 打包 (Package)
+# 4. 打包 (Package)
 # =====================
 package:
     @echo "Compressing artifacts to 'build/static.tar.gz'..."
+    # 确保 build 目录存在
+    @mkdir -p build
     @tar -czf build/static.tar.gz -C {{DEPLOY_DIR}} .
     @ls -lh build/static.tar.gz
     @echo "🚀 Ready for deployment!"
 
 # =====================
-# 总入口：构建 UI (Build -> Assemble -> Prune -> Package)
+# 总入口：构建 UI
 # =====================
-build-ui: build-dashboard build-frontend assemble prune package
-    @echo "🎉 All UI applications built, merged, and packaged."
+build-ui: build-frontend assemble prune package
+    @echo "🎉 Frontend application built, prepared, and packaged."
