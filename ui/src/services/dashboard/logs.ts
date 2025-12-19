@@ -1,5 +1,5 @@
+import { LogItem, LogStats } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import type { LogItem, LogStats } from "../types";
 
 export class LogsApi {
   constructor(private http: AxiosInstance, private basePath: string = "") { }

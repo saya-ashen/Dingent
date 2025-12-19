@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { ChevronDown, Workflow, Check, Bot, Loader2 } from "lucide-react";
-import { WorkflowSummary } from "@repo/api-client"; // 根据你的实际路径调整
 import { useClickOutside } from "@/hooks/use-click-outside";
+import { WorkflowSummary } from "@/types/entity";
 
 interface WorkflowSelectorProps {
   workflows: WorkflowSummary[];

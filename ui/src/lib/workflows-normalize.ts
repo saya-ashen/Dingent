@@ -1,4 +1,4 @@
-import type { Workflow, WorkflowNode, WorkflowEdge } from "@repo/api-client";
+import { Workflow, WorkflowNode, WorkflowEdge } from "@/types/entity";
 
 
 export function normalizeWorkflow(wf: Workflow | null) {

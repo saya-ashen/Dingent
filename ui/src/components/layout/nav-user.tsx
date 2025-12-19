@@ -6,24 +6,11 @@ import {
   CreditCard,
   LogOut,
 } from "lucide-react";
-import { useDialogState } from "../../hooks";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-  SignOutDialog,
-} from "@repo/ui/components";
+import { useDialogState } from "@/hooks/use-dialog-state";
+import { SignOutDialog } from "../common/sign-out-dialog";
+import { AvatarImage, AvatarFallback, Avatar } from "../ui/avatar";
+import { DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuGroup, DropdownMenuItem, DropdownMenu } from "../ui/dropdown-menu";
+import { useSidebar, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "../ui/sidebar";
 
 type NavUserProps = {
   user: {

@@ -1,5 +1,5 @@
+import { PluginManifest } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import { PluginManifest } from "../types";
 
 export class PluginsApi {
   constructor(private http: AxiosInstance, private basePath: string = "") { }

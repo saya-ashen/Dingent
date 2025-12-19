@@ -15,10 +15,8 @@ from langgraph_swarm import create_swarm
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.schemas import WorkflowSpec
 from dingent.core.utils import normalize_agent_name
-from dingent.engine import (
-    MainState,
-    create_assistant_graphs,
-)
+from dingent.engine import create_assistant_graphs
+from dingent.engine.agents.state import MainState
 
 
 @dataclass

@@ -1,6 +1,6 @@
 "use client";
+import { Assistant } from "@/types/entity";
 import { createContext, useContext, useState, ReactNode } from "react";
-import type { Assistant } from "@repo/api-client";
 
 interface WorkflowContextType {
   draggedAssistant: Assistant | null;

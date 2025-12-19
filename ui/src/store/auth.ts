@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { AuthUser } from "@repo/api-client";
 import Cookies from "js-cookie";
+import { AuthUser } from "@/types/entity";
 
 interface AuthState {
   user: AuthUser | null;

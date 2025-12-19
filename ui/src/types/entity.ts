@@ -198,4 +198,3 @@ export interface SignupRequest {
   password: string;
 }
 export type SignupResponse = AuthUser;
-

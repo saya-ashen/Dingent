@@ -6,7 +6,6 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true, // 关闭内置优化
   },
-  outputFileTracingRoot: path.join(__dirname, "../../"),
 
   output: "standalone",
   async rewrites() {

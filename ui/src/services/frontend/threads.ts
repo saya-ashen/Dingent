@@ -1,5 +1,5 @@
+import { ChatThread } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import { ChatThread } from "../types";
 
 type UpdateThreadDto = {
   title: string;

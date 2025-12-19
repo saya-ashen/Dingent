@@ -56,7 +56,7 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <div className="col-span-1 space-y-4 lg:col-span-4">
-              <AssistantsCard assistants={data.assistants} error={error} />
+              <AssistantsCard assistants={data.assistants} error={error.message} />
               <RecentLogsCard logs={data.logs} />
             </div>
 

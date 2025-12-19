@@ -1,5 +1,5 @@
+import { Workflow, WorkflowSummary, WorkflowNode, WorkflowEdge } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import type { Workflow, WorkflowEdge, WorkflowNode, WorkflowSummary } from "../types";
 
 // --- DTO Types (Internal) ---
 interface WorkflowNodeDTO {

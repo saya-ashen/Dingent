@@ -22,13 +22,11 @@ class CliContext:
     def backend_port(self) -> int | None:
         """This property now depends on the lazy _config property."""
         return 8000
-        return self._config.backend_port
 
     @property
     def frontend_port(self) -> int | None:
         """This property also depends on the lazy _config property."""
         return 3000
-        return self._config.frontend_port
 
     @property
     def frontend_path(self) -> Path:

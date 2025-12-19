@@ -1,5 +1,5 @@
+import { Assistant } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import type { Assistant } from "../types";
 
 export class AssistantsApi {
   constructor(

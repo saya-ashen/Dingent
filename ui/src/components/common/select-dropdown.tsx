@@ -1,13 +1,7 @@
 import { Loader } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  FormControl,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../";
+import { FormControl } from "../ui/form";
+import { SelectTrigger, SelectValue, SelectContent, SelectItem, Select } from "../ui/select";
 
 type SelectDropdownProps = {
   onValueChange?: (value: string) => void;

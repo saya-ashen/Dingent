@@ -10,8 +10,8 @@ import {
   type Edge,
 } from "@xyflow/react";
 import { toast } from "sonner";
-import { Assistant } from "@repo/api-client";
 import { AssistantNodeType } from "../components/nodes/AssistantNode";
+import { Assistant } from "@/types/entity";
 
 // 这里定义你的 Node 数据类型
 

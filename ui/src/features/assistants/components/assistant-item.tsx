@@ -18,8 +18,8 @@ interface AssistantItemProps {
     remove: (vars: { assistantId: string; pluginId: string }) => void;
     isAdding: boolean;
     isRemoving: boolean;
-    addingVars?: { pluginId: string };
-    removingVars?: { pluginId: string };
+    addingVars?: { assistantId: string; pluginId: string };
+    removingVars?: { assistantId: string; pluginId: string };
   };
 }
 

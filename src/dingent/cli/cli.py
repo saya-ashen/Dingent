@@ -415,7 +415,7 @@ def run(
         cli_ctx = CliContext()
 
     try:
-        _resolve_node_binary()
+        node_bin = _resolve_node_binary()
     except Exception as e:
         print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
         raise typer.Exit(1)
@@ -452,17 +452,17 @@ def run(
             cwd=cli_ctx.project_root,
             color="magenta",
         ),
-        # Service(
-        #     name="frontend",
-        #     command=[node_bin, "apps/frontend/server.js"],
-        #     cwd=static_path,
-        #     color="cyan",
-        #     env={
-        #         "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
-        #         "PORT": str(cli_ctx.frontend_port or 3000),
-        #     },
-        #     open_browser_hint=True,
-        # ),
+        Service(
+            name="frontend",
+            command=[node_bin, "frontend/server.js"],
+            cwd=static_path,
+            color="cyan",
+            env={
+                "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
+                "PORT": str(cli_ctx.frontend_port or 3000),
+            },
+            open_browser_hint=True,
+        ),
     ]
 
     supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)

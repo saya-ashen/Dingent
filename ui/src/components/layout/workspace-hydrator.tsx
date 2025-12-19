@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Workspace } from "@/services";
 import { useWorkspaceStore } from "@/store";
+import { Workspace } from "@/types/entity";
 
 interface WorkspaceHydratorProps {
   workspaces: Workspace[];

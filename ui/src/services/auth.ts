@@ -1,5 +1,5 @@
+import { LoginRequest, LoginResponse, SignupRequest } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import type { LoginRequest, LoginResponse, SignupRequest } from "./types";
 
 export class AuthApi {
   constructor(private http: AxiosInstance) { }

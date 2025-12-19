@@ -1,5 +1,5 @@
+import { AppSettings } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import type { AppSettings } from "../types";
 
 export class SettingsApi {
   constructor(private http: AxiosInstance, private basePath: string = "") { }

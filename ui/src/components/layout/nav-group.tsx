@@ -13,14 +13,13 @@ import {
   from "../ui/dropdown-menu";
 
 import {
+  NavGroupProps,
   type NavCollapsible,
   type NavItem,
   type NavLink,
-  type NavGroupProps,
 } from "./types";
 import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar } from "../ui/sidebar";
-import { Collapsible } from "radix-ui";
-import { CollapsibleTrigger, CollapsibleContent } from "../ui/collapsible";
+import { CollapsibleTrigger, CollapsibleContent, Collapsible } from "../ui/collapsible";
 
 export function NavGroup({ title, items }: NavGroupProps) {
   const { state, isMobile } = useSidebar();
@@ -65,7 +64,7 @@ function NavBadge({ children }: { children: ReactNode }) {
   return <Badge className="rounded-full px-1 py-0 text-xs">{children}</Badge>;
 }
 
-function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
+function SidebarMenuLink({ item, href }: { item: NavItem; href: string }) {
   const { setOpenMobile } = useSidebar();
   return (
     <SidebarMenuItem>
@@ -88,7 +87,7 @@ function SidebarMenuCollapsible({
   item,
   href,
 }: {
-  item: NavCollapsible;
+  item: NavItem;
   href: string;
 }) {
   const { setOpenMobile } = useSidebar();
@@ -134,7 +133,7 @@ function SidebarMenuCollapsedDropdown({
   item,
   href,
 }: {
-  item: NavCollapsible;
+  item: NavItem;
   href: string;
 }) {
   return (

@@ -1,5 +1,5 @@
+import { OverviewData, AnalyticsData } from "@/types/entity";
 import type { AxiosInstance } from "axios";
-import type { OverviewData, AnalyticsData } from "../types";
 
 export class OverviewApi {
   constructor(private http: AxiosInstance, private basePath: string = "") { }
