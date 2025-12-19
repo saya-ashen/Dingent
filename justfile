@@ -32,7 +32,8 @@ assemble:
 
 
     @echo "Copying application server code..."
-    @cp -r {{FE_DIR}}/.next/standalone/. {{DEPLOY_DIR}}/frontend/
+    @cp -r {{FE_DIR}}/.next/standalone/* {{DEPLOY_DIR}}/frontend/
+    @cp -r {{FE_DIR}}/.next/standalone/.next {{DEPLOY_DIR}}/frontend/
 
     @echo "Injecting static assets..."
 
