@@ -39,13 +39,16 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
                 )
             )
             if message.artifact:
-                agui_messages.append(
-                    ActivityMessage(
-                        activity_type="a2ui-surface",
-                        id=str(uuid.uuid4()),
-                        content=message.artifact,
+                try:
+                    agui_messages.append(
+                        ActivityMessage(
+                            activity_type="a2ui-surface",
+                            id=str(uuid.uuid4()),
+                            content=message.artifact,
+                        )
                     )
-                )
+                except Exception as e:
+                    print(f"Error processing artifact in ToolMessage: {e}")
         elif isinstance(message, HumanMessage):
             # Handle multimodal content
             if isinstance(message.content, list):

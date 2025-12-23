@@ -66,7 +66,8 @@ def build_simple_react_agent(
             args = tc.get("args", {})
             if tool.tags and (plugin_name := tool.tags[0]):
                 if cfg := plugin_configs.get(plugin_name):
-                    args["plugin_config"] = cfg.get("config")
+                    if len(cfg.get("config", {})) > 0:
+                        args["plugin_config"] = cfg.get("config")
 
             try:
                 # 执行工具 (兼容返回 Command 或 普通结果)

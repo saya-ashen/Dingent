@@ -20,7 +20,6 @@ export default function DashboardPage() {
   const { data, isLoading, error, refetch } = useOverviewQuery();
   const { api } = useWorkspaceApi();
 
-
   if (isLoading) {
     return (
       <>
@@ -47,16 +46,22 @@ export default function DashboardPage() {
         <Button onClick={() => refetch()} variant="outline" size="sm">
           Refresh
         </Button>
-      }>
-
-      <Tabs orientation="vertical" defaultValue="overview" className="space-y-4">
-
+      }
+    >
+      <Tabs
+        orientation="vertical"
+        defaultValue="overview"
+        className="space-y-4"
+      >
         <TabsContent value="overview" className="space-y-4">
           <DashboardStats stats={data} error={error !== null} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
             <div className="col-span-1 space-y-4 lg:col-span-4">
-              <AssistantsCard assistants={data.assistants} error={error.message} />
+              <AssistantsCard
+                assistants={data.assistants}
+                error={error?.message}
+              />
               <RecentLogsCard logs={data.logs} />
             </div>
 
@@ -72,6 +77,6 @@ export default function DashboardPage() {
           <AnalyticsTab wsApi={api} />
         </TabsContent>
       </Tabs>
-    </ PageContainer>
+    </PageContainer>
   );
 }

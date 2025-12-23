@@ -1,5 +1,5 @@
 {
-  "name": "mono",
+  "name": "ui",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -21,8 +21,7 @@
     "tap": "^21.5.0",
     "turbo": "^2.6.3",
     "tw-animate-css": "^1.4.0",
-    "typescript": "5.9.3",
-    "why-is-node-running": "^3.2.2"
+    "typescript": "5.9.3"
   },
   "engines": {
     "node": ">=18"
@@ -34,10 +33,6 @@
     "@types/react-dom": "^19.1.1"
   },
   "packageManager": "bun@1.2.20",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "trustedDependencies": [
     "@parcel/watcher",
     "esbuild",
