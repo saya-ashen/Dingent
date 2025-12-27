@@ -17,6 +17,7 @@ import tarfile
 import tempfile
 import threading
 import time
+import shutil
 import webbrowser
 from pathlib import Path
 from typing import Annotated
@@ -27,6 +28,7 @@ from cookiecutter.exceptions import RepositoryNotFound
 from cookiecutter.main import cookiecutter
 from rich import print
 from rich.text import Text
+import hashlib
 
 from dingent.cli.context import CliContext
 
@@ -60,50 +62,61 @@ def get_resource_path(relative_path: str | Path) -> Path:
 def _prepare_static_assets(cli_ctx: CliContext) -> Path:
     """
     根据运行模式准备静态资源路径。
-    - 开发模式：直接返回源码中的 static 目录。
-    - 打包模式：将内置的 tar.gz 解压到临时目录并返回该目录。
+    自动检测版本变更，如果有更新则重新解压。
     """
-    # ============================
-    # 场景 A: 打包模式 (Frozen/PyInstaller)
-    # ============================
-    if getattr(sys, "frozen", False):
-        # 1. 定位打包在 exe 内部的 tar.gz 文件
-        # 注意：这里假设你在 spec 文件中把 static.tar.gz 放到了 dingent 根目录下
-        # 例如 datas=[('src/dingent/static.tar.gz', 'dingent')]
-        bundle_dir = Path(sys._MEIPASS)
-        tar_source = bundle_dir / "static.tar.gz"
+    bundle_dir = Path(sys._MEIPASS)
+    tar_source = bundle_dir / "static.tar.gz"
 
-        # 2. 设定解压目标：系统的临时目录
-        # 使用临时目录可以避免权限问题，也不污染用户的工作目录
-        temp_dir = Path(tempfile.gettempdir()) / "dingent_runtime" / "static"
+    # 设定解压目标
+    temp_dir = Path(tempfile.gettempdir()) / "dingent_runtime" / "static"
+    version_file = temp_dir.parent / "static_version.txt"  # 用于记录指纹
 
-        # 3. 如果临时目录不存在，或者你希望每次启动都覆盖（为了更新），则解压
-        if not temp_dir.exists():
-            print(f"[bold blue]📦 Extracting embedded assets to {temp_dir}...[/bold blue]")
-            temp_dir.mkdir(parents=True, exist_ok=True)
+    # 1. 计算内置包的指纹 (MD5)
+    # 读取 tar.gz 的前 8KB 甚至整个文件做 hash 都可以，这里读整个文件确保准确
+    try:
+        with open(tar_source, "rb") as f:
+            current_hash = hashlib.md5(f.read()).hexdigest()
+    except Exception:
+        current_hash = "unknown"
+
+    # 2. 检查是否需要更新
+    need_update = True
+    if temp_dir.exists() and version_file.exists():
+        try:
+            cached_hash = version_file.read_text().strip()
+            if cached_hash == current_hash:
+                need_update = False
+        except Exception:
+            pass
+
+    # 3. 如果需要更新，先清理旧文件，再解压
+    if need_update:
+        print(f"[bold blue]📦 Detected update (Hash: {current_hash[:8]}). Extracting assets...[/bold blue]")
+
+        # 移除旧目录（如果存在）
+        if temp_dir.exists():
             try:
-                with tarfile.open(tar_source, "r:gz") as tar:
-                    tar.extractall(path=temp_dir, filter="data")
-            except Exception as e:
-                print(f"[bold red]❌ Failed to extract assets: {e}[/bold red]")
-                raise typer.Exit(1)
+                shutil.rmtree(temp_dir)
+            except OSError as e:
+                print(f"[bold yellow]⚠️ Warning: Could not clean old assets (Locked?): {e}[/bold yellow]")
+                # 如果删除失败（例如文件被占用），尝试直接覆盖，或者报错
 
-        return temp_dir
+        temp_dir.mkdir(parents=True, exist_ok=True)
 
-    # ============================
-    # 场景 B: 开发模式 (Development)
-    # ============================
-    else:
-        assert cli_ctx.project_root
-        dev_static_path = cli_ctx.project_root / "src" / "dingent" / "static"
+        try:
+            with tarfile.open(tar_source, "r:gz") as tar:
+                tar.extractall(path=temp_dir, filter="data")
 
-        if not dev_static_path.exists():
-            dev_static_path = Path(__file__).parents[2] / "dingent" / "static"
+            # 解压成功后，写入版本文件
+            version_file.write_text(current_hash)
 
-        if not dev_static_path.exists():
-            print(f"[bold yellow]⚠️ Warning: Static folder not found at {dev_static_path}[/bold yellow]")
+        except Exception as e:
+            print(f"[bold red]❌ Failed to extract assets: {e}[/bold red]")
+            raise typer.Exit(1)
+    # else:
+    # print("✅ Assets are up to date.")
 
-        return dev_static_path
+    return temp_dir
 
 
 def _ensure_project_root(explicit_dir: Path | None = None) -> bool:
@@ -437,14 +450,6 @@ def run(
             str(cli_ctx.backend_port),
         ]
     static_path = _prepare_static_assets(cli_ctx)
-    tar_path = get_resource_path("src/dingent/static.tar.gz")
-    if not static_path.exists():
-        static_path.mkdir(parents=True, exist_ok=True)
-
-        print("[bold blue]⏳ Extracting static assets...[/bold blue]")
-        with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=static_path, filter="data")
-
     services = [
         Service(
             name="backend",
