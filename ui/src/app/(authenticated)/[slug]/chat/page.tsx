@@ -22,6 +22,11 @@ export default function CopilotKitPage() {
   const agent = useAgent({ agentId: agentName });
   const isAgentRunning = agent.agent.isRunning;
 
+  // 输出调试信息
+  useEffect(() => {
+    console.log("Agent messages:", agent.agent.messages);
+  }, [agent.agent.messages]);
+
   useEffect(() => {
     if (activeThreadId) {
       updateThreadTitle();

@@ -9,6 +9,7 @@ from mcp.types import TextContent
 from pydantic import BaseModel, Field, create_model
 
 from dingent.core.schemas import RunnableTool
+from .messages import ActivityMessage
 
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {
@@ -21,6 +22,8 @@ JSON_TYPE_MAP = {
     "null": type(None),
     "any": Any,
 }
+
+from typing import Any, List, Dict
 
 
 def create_dynamic_pydantic_class(
@@ -82,7 +85,6 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id, artifact=artifact)
         tool_message.name = tool_def.name
 
-        # 这里的 Command 只包含增量更新
         return Command(
             update={
                 "messages": [tool_message],

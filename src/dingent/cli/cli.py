@@ -51,14 +51,6 @@ frontend_port = 3000
 # --------- Utility Functions ---------
 
 
-# --- 新增：资源路径获取函数 ---
-def get_resource_path(relative_path: str | Path) -> Path:
-    """获取资源绝对路径（兼容 PyInstaller 打包后的 _MEIPASS）"""
-    if hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS) / relative_path
-    return Path(relative_path)
-
-
 def _prepare_static_assets(cli_ctx: CliContext) -> Path:
     """
     根据运行模式准备静态资源路径。
@@ -449,7 +441,7 @@ def run(
             "--port",
             str(cli_ctx.backend_port),
         ]
-    static_path = _prepare_static_assets(cli_ctx)
+    # static_path = _prepare_static_assets(cli_ctx)
     services = [
         Service(
             name="backend",
@@ -457,17 +449,17 @@ def run(
             cwd=cli_ctx.project_root,
             color="magenta",
         ),
-        Service(
-            name="frontend",
-            command=[node_bin, "frontend/server.js"],
-            cwd=static_path,
-            color="cyan",
-            env={
-                "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
-                "PORT": str(cli_ctx.frontend_port or 3000),
-            },
-            open_browser_hint=True,
-        ),
+        # Service(
+        #     name="frontend",
+        #     command=[node_bin, "frontend/server.js"],
+        #     cwd=static_path,
+        #     color="cyan",
+        #     env={
+        #         "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
+        #         "PORT": str(cli_ctx.frontend_port or 3000),
+        #     },
+        #     open_browser_hint=True,
+        # ),
     ]
 
     supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)
