@@ -13,6 +13,10 @@ from .messages import ActivityMessage
 
 
 def mcp_artifact_to_agui_display(tool_name, query_args: dict, surface_base_id: str | list[str], artifact: List[Dict[str, Any]], update_data=False) -> Dict[str, List[Dict]]:
+    if not isinstance(artifact, list):
+        return [artifact]
+    else:
+        return artifact
     agui_display = {"operations": []}
 
     if isinstance(surface_base_id, list):
@@ -320,7 +324,7 @@ def build_simple_react_agent(
                                     artifact=artifact,
                                 )
                                 new_messages.append(msg)
-                                new_messages.append(ActivityMessage(content=[agui_display]))
+                                new_messages.append(ActivityMessage(content=agui_display))
                             else:
                                 new_messages.append(msg)
                     if result.goto:
