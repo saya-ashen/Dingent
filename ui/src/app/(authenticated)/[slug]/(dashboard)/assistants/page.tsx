@@ -27,37 +27,40 @@ import { PageContainer } from "@/components/common/page-container";
 
 // Hooks
 
-function CreateAssistantButton() {
-  const params = useParams();
-  const slug = params.slug as string;
+interface CreateAssistantButtonProps {
+  hasChanges: boolean;
+  onSave: () => Promise<void>;
+  isSaving: boolean;
+  slug: string;
+}
 
-  // 1. Data & API Logic
-  const { assistantsQuery, createMutation, updateBatchMutation } =
-    useAssistants(slug);
+// 移除内部的 useAssistants 和 useAssistantEditor 调用
+function CreateAssistantButton({
+  hasChanges,
+  onSave,
+  isSaving,
+  slug,
+}: CreateAssistantButtonProps) {
+  // 只保留用于“创建”的逻辑，因为这和当前的编辑器状态无关
+  const { createMutation } = useAssistants(slug);
 
-  // 2. Editor State Logic
-  const { hasChanges, getDirtyAssistants } = useAssistantEditor(
-    assistantsQuery.data,
-  );
-
-  // 3. UI State (Save Dialog)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
 
-  const handleSave = async () => {
-    await updateBatchMutation.mutateAsync(getDirtyAssistants());
+  const handleSaveClick = async () => {
+    await onSave();
     setSaveDialogOpen(false);
   };
+
   return (
     <FloatingActionButton>
-      {/* Create Dialog */}
       <CreateAssistantDialog
         isPending={createMutation.isPending}
         onCreate={createMutation.mutate}
       />
 
-      {/* Save Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
         <DialogTrigger asChild>
+          {/* 这里直接使用 props 传进来的 hasChanges */}
           <Button disabled={!hasChanges}>
             <Save className="mr-2 h-4 w-4" /> Save Changes
           </Button>
@@ -75,11 +78,9 @@ function CreateAssistantButton() {
                 <X className="mr-2 h-4 w-4" /> Cancel
               </Button>
             </DialogClose>
-            <Button
-              onClick={handleSave}
-              disabled={updateBatchMutation.isPending}
-            >
-              {updateBatchMutation.isPending ? (
+
+            <Button onClick={handleSaveClick} disabled={isSaving}>
+              {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Save className="mr-2 h-4 w-4" />
@@ -101,9 +102,8 @@ export default function AssistantsPage() {
   const {
     assistantsQuery,
     pluginsQuery,
-    createMutation,
     deleteMutation,
-    updateBatchMutation,
+    updateBatchMutation, // 获取 update mutation
     addPluginMutation,
     removePluginMutation,
   } = useAssistants(slug);
@@ -111,12 +111,24 @@ export default function AssistantsPage() {
   // 2. Editor State Logic
   const { editable, hasChanges, updateAssistant, getDirtyAssistants } =
     useAssistantEditor(assistantsQuery.data);
-
+  const handleBatchSave = async () => {
+    const dirtyData = getDirtyAssistants();
+    if (dirtyData.length > 0) {
+      await updateBatchMutation.mutateAsync(dirtyData);
+    }
+  };
   return (
     <PageContainer
       title="Assistant Configuration"
       description="Manage assistants, plugins, and tool configurations."
-      action={<CreateAssistantButton />}
+      action={
+        <CreateAssistantButton
+          hasChanges={hasChanges}
+          onSave={handleBatchSave}
+          isSaving={updateBatchMutation.isPending}
+          slug={slug}
+        />
+      }
     >
       {assistantsQuery.isLoading && <LoadingSkeleton lines={5} />}
       {assistantsQuery.isError && (
