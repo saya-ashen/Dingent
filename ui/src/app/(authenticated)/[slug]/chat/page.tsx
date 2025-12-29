@@ -2,12 +2,18 @@
 
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
-import { useAgent, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  useAgent,
+  CopilotChat,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
 
 import { getClientApi } from "@/lib/api/client";
 import { useThreadContext } from "@/providers/ThreadProvider";
 import { ChatHeader } from "@/features/chat/chat-header"; // 假设你放在了这里
 import { useActiveWorkflow } from "@/features/workflows/hooks";
+import { CopilotChatMessageViewNoActivity } from "@/components/CopilotChatMessageViewNoActivity";
+import { CopilotChatActivityList } from "@/components/CopilotChatActivityMessage";
 
 export default function CopilotKitPage() {
   const params = useParams();
@@ -21,11 +27,8 @@ export default function CopilotKitPage() {
   const agentName = workflow?.name || "default";
   const agent = useAgent({ agentId: agentName });
   const isAgentRunning = agent.agent.isRunning;
-
-  // 输出调试信息
-  useEffect(() => {
-    console.log("Agent messages:", agent.agent.messages);
-  }, [agent.agent.messages]);
+  const messages = agent.agent.messages;
+  const activityMessages = messages.filter((m) => m.role === "activity");
 
   useEffect(() => {
     if (activeThreadId) {
@@ -41,12 +44,19 @@ export default function CopilotKitPage() {
     flex flex-col h-screen w-full overflow-hidden
     bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-zinc-950 to-black"
     >
-      <ChatHeader className="flex-shrink-0" />
-
-      <CopilotChat
+      <div
+        className="
+        flex-shrink-0 w-full h-full max-w-7xl mx-auto px-4 sm:px-6 py-4
+         overflow-y-auto
+      "
+      >
+        <CopilotChatActivityList messages={activityMessages} />
+      </div>
+      <CopilotSidebar
         agentId={workflow?.name}
         threadId={activeThreadId}
-        className="h-full w-full relative flex-1 min-h-0 w-full max-w-7xl mx-auto border-x border-neutral-800/30 shadow-2xl shadow-black"
+        messageView={CopilotChatMessageViewNoActivity}
+        header={ChatHeader as any}
       />
     </main>
   );
