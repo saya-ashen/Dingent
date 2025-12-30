@@ -6,13 +6,77 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }} 🏗️
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-20.04, windows-latest]
+  # 🐧 Linux 构建任务：运行在 Ubuntu 20.04 容器中以确保兼容性
+  build-linux:
+    name: Build on Linux (Ubuntu 20.04 Container) 🏗️
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      # 避免 apt 安装时出现交互式提示
+      env:
+        DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y curl git unzip build-essential libffi-dev
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # 这里的 setup-python 会自动适配容器环境
+      - name: Set up Python 🐍
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Set up Bun ⚡
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-linux-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            bun-linux-
+
+      - name: Set up Just
+        uses: extractions/setup-just@v3
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Build UI
+        run: just build-ui
+
+      - name: Build a binary wheel and a source tarball
+        run: uv build
+
+      - name: Build executable with PyInstaller 🧊
+        run: uv run pyinstaller --clean dingent.spec --distpath dist_bin
+
+      - name: Store the executable artifact 📦
+        uses: actions/upload-artifact@v4
+        with:
+          name: dingent-executable-ubuntu-20.04
+          path: dist_bin/
+
+      - name: Store the distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  # 🪟 Windows 构建任务：保持原样，直接运行在 host 上
+  build-windows:
+    name: Build on Windows 🏗️
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,9 +98,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb') }}
+          key: bun-windows-${{ hashFiles('**/bun.lockb') }}
           restore-keys: |
-            bun-${{ runner.os }}-
+            bun-windows-
 
       - name: Set up Just
         uses: extractions/setup-just@v3
@@ -46,10 +110,10 @@ jobs:
 
       - name: Build UI
         run: just build-ui
+        shell: powershell
 
-      - name: Build a binary wheel and a source tarball
-        if: runner.os == 'Linux'
-        run: uv build
+      # Windows 不需要 build wheel/sdist，通常只需要 exe
+      # 如果你也需要在 Windows 上构建 wheel，可以把 uv build 加回来
 
       - name: Build executable with PyInstaller 🧊
         run: uv run pyinstaller --clean dingent.spec --distpath dist_bin
@@ -57,31 +121,24 @@ jobs:
       - name: Store the executable artifact 📦
         uses: actions/upload-artifact@v4
         with:
-          name: dingent-executable-${{ matrix.os }}
+          name: dingent-executable-windows-latest
           path: dist_bin/
-
-      - name: Store the distribution packages
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
 
   publish-to-github-release:
     name: Upload Assets to GitHub Release 🐙
-    needs: build
+    # ✅ 这里需要等待两个任务都完成
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # 必须有这个权限才能上传文件到 Release
+      contents: write
 
     steps:
       - name: Download all executable artifacts
         uses: actions/download-artifact@v4
         with:
-          # 下载名字匹配该模式的所有 artifact
           pattern: dingent-executable-*
           path: release_assets
-          merge-multiple: true # 将 Windows 和 Linux 的文件合并到同一目录
+          merge-multiple: true
 
       - name: Display structure of downloaded files
         run: ls -R release_assets
@@ -92,11 +149,10 @@ jobs:
           files: release_assets/*
 
   publish-to-pypi:
-    name: >-
-      Publish Python 🐍 distribution 📦 to PyPI
+    name: Publish Python 🐍 distribution 📦 to PyPI
     if: github.event_name == 'release' && !github.event.release.prerelease
-    needs:
-      - build
+    # ✅ 只需要依赖 Linux 构建（通常 wheel/sdist 只需要构建一次）
+    needs: [build-linux]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -115,14 +171,12 @@ jobs:
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
-    needs:
-      - build
+    # ✅ 只需要依赖 Linux 构建
+    needs: [build-linux]
     runs-on: ubuntu-latest
-
     environment:
       name: testpypi
       url: https://test.pypi.org/p/Dingent
-
     permissions:
       id-token: write
 
