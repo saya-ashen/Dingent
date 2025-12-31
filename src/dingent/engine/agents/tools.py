@@ -94,6 +94,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
     # 构建 Schema
     class ToolArgsSchema(BaseModel):
         tool_call_id: Annotated[str, InjectedToolCallId]
+        plugin_config: dict[str, Any] | None = None
 
     CombinedSchema = create_dynamic_pydantic_class(ToolArgsSchema, tool_def.inputSchema, name=f"Args_{tool_def.name}")
 
