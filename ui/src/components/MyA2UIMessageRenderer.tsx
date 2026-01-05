@@ -2,7 +2,7 @@ import { type ReactActivityMessageRenderer } from "@copilotkitnext/react";
 import { z } from "zod";
 import { useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react"; // Shadcn 常用图标库
+import { AlertCircle, ArrowUpDown } from "lucide-react"; // Shadcn 常用图标库
 import { Button } from "@/components/ui/button";
 import { DataTable } from "./A2UI/data-table"; // 引入上面写的组件
 
@@ -20,10 +20,18 @@ export function createA2UIMessageRenderer(
 
     render: ({ content }) => {
       const { columns: rawColumns, rows, title } = content;
+      if (!content || typeof content !== "object") {
+        return (
+          <div className="p-4 border border-red-200 rounded text-red-500 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            <span>Data format error: Content is missing or invalid.</span>
+          </div>
+        );
+      }
 
       // --- 核心逻辑：动态生成 Shadcn (TanStack) 需要的列定义 ---
       const columns = useMemo<ColumnDef<any>[]>(() => {
-        if (!rawColumns) return [];
+        if (!rawColumns || !Array.isArray(rawColumns)) return [];
 
         return rawColumns.map((colName) => ({
           accessorKey: colName, // 告诉 Table 数据里的 key 是什么 (例如 "Temperature")

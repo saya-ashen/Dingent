@@ -60,7 +60,11 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
 
     async def call_tool(tool_call_id: Annotated[str, InjectedToolCallId], **kwargs) -> Command:
         try:
-            response_raw = await runnable_tool.run(kwargs)
+            tool_args = kwargs
+            plugin_config = tool_args.get("plugin_config", None)
+            if not plugin_config:
+                tool_args.pop("plugin_config", None)
+            response_raw = await runnable_tool.run(tool_args)
             log_method("info", f"Tool Call Result: {response_raw}", context={"tool": tool_def.name, "id": tool_call_id})
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"

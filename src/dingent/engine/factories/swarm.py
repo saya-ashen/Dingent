@@ -6,6 +6,7 @@ from langchain_core.tools import BaseTool
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import AssistantSpec, ExecutableWorkflow
+from dingent.core.utils import normalize_agent_name
 from dingent.engine.agents.simple_agent import build_simple_react_agent
 from dingent.engine.agents.tools import create_handoff_tool, mcp_tool_wrapper
 
@@ -28,7 +29,10 @@ async def create_assistant_graphs(
 
             # 筛选相关的 Handoff 工具
             destinations = workflow.adjacency_map.get(name, [])
-            handoff_tools = [create_handoff_tool(dest, description=f"{workflow.assistant_configs[dest].description}", log_method=log_method) for dest in destinations]
+            handoff_tools = [
+                create_handoff_tool(normalize_agent_name(dest), description=f"{workflow.assistant_configs[normalize_agent_name(dest)].description}", log_method=log_method)
+                for dest in destinations
+            ]
 
             # 构建 Agent
             agent = build_simple_react_agent(
