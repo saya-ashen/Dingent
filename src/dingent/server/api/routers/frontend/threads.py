@@ -1,7 +1,7 @@
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from ag_ui.core.types import RunAgentInput
 from ag_ui.encoder import EventEncoder
@@ -12,7 +12,7 @@ from sqlmodel import Session, delete, select
 from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.core.db.models import Conversation, User, Workflow, Workspace
 from dingent.core.managers.llm_manager import get_llm_service
-from dingent.core.schemas import ThreadRead, WorkflowSpec
+from dingent.core.schemas import ThreadRead, ExecutableWorkflow
 from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.server.api.dependencies import (
     get_current_user,
@@ -49,8 +49,8 @@ class AgentContext:
     assistant_plugin_configs: dict[str, dict] | None
 
 
-async def get_workflow_spec(workflow: Workflow | None) -> WorkflowSpec:
-    if not workflow or not workflow.to_spec().start_node_name:
+async def get_workflow_spec(workflow: Workflow | None) -> ExecutableWorkflow:
+    if not workflow or not workflow.to_spec().start_node:
         return get_fallback_workflow_spec()
     return workflow.to_spec()
 
@@ -105,10 +105,10 @@ async def get_agent_context(
 
     # --- D. 准备 Encoder ---
     accept_header = request.headers.get("accept")
-    encoder = EventEncoder(accept=accept_header)
+    encoder = EventEncoder(accept=cast(str, accept_header))
     assistant_plugin_configs = {}
-    for node in spec.nodes:
-        for plugin in node.assistant.plugins:
+    for config in spec.assistant_configs.values():
+        for plugin in config.plugins:
             assistant_plugin_configs[plugin.plugin_id] = plugin.model_dump()
 
     return AgentContext(
@@ -145,7 +145,7 @@ async def handle_info(
     if "text/html" in accept_header:
         from copilotkit.html import generate_info_html
 
-        return HTMLResponse(content=generate_info_html(response_data))
+        return HTMLResponse(content=generate_info_html(cast(Any, response_data)))
 
     return response_data
 
@@ -173,10 +173,10 @@ async def run(
                 },
             },
         ):
-            yield ctx.encoder.encode(event)
+            yield ctx.encoder.encode(cast(Any, event))
 
     if ctx.conversation.title == "New Chat":
-        ctx.conversation.title = ctx.input_data.messages[0].content[:10]
+        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:10]
 
     ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
@@ -191,7 +191,7 @@ async def connect(
 ):
     async def event_generator():
         async for event in ctx.agent.get_thread_messages(ctx.input_data.thread_id, ctx.input_data.run_id):
-            yield ctx.encoder.encode(event)
+            yield ctx.encoder.encode(cast(Any, event))
 
     return StreamingResponse(event_generator(), media_type=ctx.encoder.get_content_type())
 

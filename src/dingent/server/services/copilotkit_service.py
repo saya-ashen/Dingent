@@ -9,7 +9,7 @@ from sqlmodel import Session
 from dingent.core.db.crud.workflow import list_workflows_by_workspace
 from dingent.core.db.crud.workspace import get_specific_user_workspace
 from dingent.core.db.models import User
-from dingent.core.schemas import WorkflowSpec
+from dingent.core.schemas import ExecutableWorkflow
 from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.copilot.agents import DingLangGraphAGUIAgent
 
@@ -48,7 +48,7 @@ class CopilotKitSdk:
         self.graph_factory = graph_factory
         self.checkpointer = checkpointer
 
-    async def resolve_agent(self, workflow: WorkflowSpec, llm) -> DingLangGraphAGUIAgent:
+    async def resolve_agent(self, workflow: ExecutableWorkflow, llm) -> DingLangGraphAGUIAgent:
         graph_artifact = await self.graph_factory.build(workflow, llm, self.checkpointer, fake_log_method)
         return DingLangGraphAGUIAgent(
             name=workflow.name,

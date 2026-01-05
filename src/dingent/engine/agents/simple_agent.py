@@ -276,19 +276,19 @@ def build_simple_react_agent(
         # 获取插件配置
         plugin_configs = config.get("configurable", {}).get("assistant_plugin_configs", {})
 
-        new_messages: list[BaseMessage] = []
-        active_goto: Command | None = None
+        # 用于收集本轮循环中产生的"普通"消息（非 Handoff）
+        collected_messages: list[BaseMessage] = []
 
         for tc in last_msg.tool_calls:
             tool_name = tc["name"]
             tool = name_to_tool.get(tool_name)
 
-            # 处理工具不存在的情况
+            # 1. 处理工具不存在的情况
             if not tool:
-                new_messages.append(ToolMessage(content=f"Error: Tool '{tool_name}' not found.", tool_call_id=tc["id"], is_error=True))
+                collected_messages.append(ToolMessage(content=f"Error: Tool '{tool_name}' not found.", tool_call_id=tc["id"], is_error=True))
                 continue
 
-            # 注入配置参数
+            # 2. 注入配置参数
             args = tc.get("args", {}).copy()
             if tool.tags and (plugin_name := tool.tags[0]):
                 if cfg := plugin_configs.get(plugin_name):
@@ -296,7 +296,7 @@ def build_simple_react_agent(
                         args["plugin_config"] = cfg.get("config")
 
             try:
-                # 执行工具
+                # 3. 执行工具
                 result = await tool.ainvoke(
                     {
                         "id": tc["id"],
@@ -307,40 +307,57 @@ def build_simple_react_agent(
                     }
                 )
 
-                if isinstance(result, Command):
-                    # 处理 Command 类型返回 (来自 handoff 或 mcp wrapper)
-                    if result.update:
-                        update_messages = result.update.get("messages", [])
-                        for msg in update_messages:
-                            if msg.type == "tool":
-                                artifact = msg.artifact
-                                if not artifact:
-                                    new_messages.append(msg)
-                                    continue
-                                agui_display = mcp_artifact_to_agui_display(
-                                    tool_name,
-                                    tc.get("args", {}),
-                                    surface_base_id=msg.tool_call_id,
-                                    artifact=artifact,
-                                )
-                                new_messages.append(msg)
-                                new_messages.append(ActivityMessage(content=agui_display))
-                            else:
-                                new_messages.append(msg)
-                    if result.goto:
-                        active_goto = result  # 后续覆盖前者
+                if not isinstance(result, Command):
+                    raise ValueError(f"Tool {tool_name} did not return a Command object.")
+
+                if result.graph:
+                    # 1. 获取当前所有的历史消息
+                    all_current_messages: list = list(state.get("messages", []))
+
+                    all_current_messages.extend(collected_messages)
+
+                    handoff_tool_msgs = result.update.get("messages", [])
+                    all_current_messages.extend(handoff_tool_msgs)
+
+                    return Command(
+                        goto=result.goto,
+                        graph=result.graph,
+                        update={
+                            "messages": all_current_messages,
+                        },
+                    )
+
                 else:
-                    raise ValueError("Tool did not return a Command object.")
+                    raw_updates = result.update.get("messages", [])
+                    for msg in raw_updates:
+                        if msg.type == "tool":
+                            # 处理 MCP Artifacts
+                            artifact = getattr(msg, "artifact", None)
+                            if not artifact:
+                                collected_messages.append(msg)
+                                continue
+
+                            # 生成 AGUI Display
+                            agui_display = mcp_artifact_to_agui_display(
+                                tool_name=tool_name,
+                                query_args=tc.get("args", {}),
+                                surface_base_id=msg.tool_call_id,
+                                artifact=artifact,
+                            )
+                            collected_messages.append(msg)
+                            collected_messages.append(ActivityMessage(content=agui_display))
+                        else:
+                            # 非 ToolMessage 直接添加 (例如额外的 AIMessage)
+                            collected_messages.append(msg)
 
             except Exception as e:
-                new_messages.append(ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=tc["id"], is_error=True))
+                collected_messages.append(ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=tc["id"], is_error=True))
 
+        # 循环结束，没有触发 Handoff，返回本轮所有工具的增量更新
         return Command(
-            goto=active_goto.goto if active_goto else [],
-            graph=active_goto.graph if active_goto else None,
             update={
-                "messages": new_messages,
-            },
+                "messages": collected_messages,
+            }
         )
 
     def route_after_model(state: SimpleAgentState):

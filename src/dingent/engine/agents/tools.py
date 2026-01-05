@@ -108,10 +108,16 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
 
 
 # --- Handoff Tool ---
-def create_handoff_tool(agent_name: str, description: str | None, log_method: Callable) -> BaseTool:
+def create_handoff_tool(agent_name: str, description: str | None, log_method: Callable) -> StructuredTool:
     tool_name = f"transfer_to_{agent_name}"
+    tool_description = (
+        f"Ask agent '{agent_name}' for help. "
+        f"Use this tool ONLY when the user's request is about {description}. "
+        f"This agent is a specialist in that domain. "
+        "Provide a clear instruction for what this agent needs to do."
+    )
 
-    @tool(tool_name, description=description)
+    @tool(tool_name, description=tool_description)
     async def handoff_tool(tool_call_id: Annotated[str, InjectedToolCallId]):
         log_method("info", f"Handoff to {agent_name}", context={"id": tool_call_id})
         return Command(
@@ -120,4 +126,4 @@ def create_handoff_tool(agent_name: str, description: str | None, log_method: Ca
             update={"messages": [ToolMessage(content=f"Transferred to {agent_name}", tool_call_id=tool_call_id, name=tool_name)]},
         )
 
-    return handoff_tool
+    return cast(StructuredTool, handoff_tool)

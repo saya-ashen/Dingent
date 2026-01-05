@@ -13,7 +13,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph_swarm import create_swarm
 
 from dingent.core.factories.assistant_factory import AssistantFactory
-from dingent.core.schemas import WorkflowSpec
+from dingent.core.schemas import ExecutableWorkflow
 from dingent.core.utils import normalize_agent_name
 from dingent.engine import create_assistant_graphs
 from dingent.engine.agents.state import MainState
@@ -39,7 +39,7 @@ class GraphFactory:
 
     async def build(
         self,
-        workflow: WorkflowSpec,
+        workflow: ExecutableWorkflow,
         llm: BaseChatModel,
         checkpointer: Any,
         log_method: Callable,
@@ -56,7 +56,7 @@ class GraphFactory:
 
     async def _build_full(
         self,
-        workflow: WorkflowSpec,
+        workflow: ExecutableWorkflow,
         stack: AsyncExitStack,
         llm: BaseChatModel,
         checkpointer: Any,
@@ -64,11 +64,10 @@ class GraphFactory:
     ) -> GraphArtifact:
         log_method("info", f"Building graph for workflow {workflow.id}")
 
-        if not workflow.start_node_name:
+        if not workflow.start_node:
             raise ValueError(f"Workflow '{workflow.id}' has no start node.")
 
-        # 1. 规范化起始 Agent 名称
-        default_active = normalize_agent_name(workflow.start_node_name)
+        default_active = workflow.start_node
 
         # 2. 创建所有子 Agent 图 (使用 AsyncExitStack 管理工具资源的生命周期)
         assistants_ctx = create_assistant_graphs(

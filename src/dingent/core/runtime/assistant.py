@@ -9,16 +9,6 @@ from dingent.core.schemas import AssistantSpec, RunnableTool
 from ..managers.plugin_manager import PluginManager
 from .plugin import PluginRuntime
 
-"""
-Assistant runtime container that wires together enabled plugin runtimes and
-exposes their MCP tools as lightweight, runnable callables.
-
-Design notes:
-- `load_tools()` opens and closes an MCP connection per call to keep resource
-  usage low when the caller enumerates tools then calls one occasionally.
-  context using `AsyncExitStack`, which is more efficient for burst workloads.
-"""
-
 
 class AssistantRuntime:
     """Holds assistant metadata and live plugin runtimes.
@@ -58,7 +48,6 @@ class AssistantRuntime:
         self.name = name
         self.description = description
         self.plugin_instances = plugin_instances
-        self.destinations: list[str] = []
         self._log_method = log_method
 
     @classmethod
@@ -82,11 +71,11 @@ class AssistantRuntime:
                 )
                 continue
         return cls(
-            assistant.id,
-            assistant.name,
-            log_method,
-            assistant.description or "",
-            plugin_instances,
+            assistant_id=assistant.id,
+            name=assistant.name,
+            log_method=log_method,
+            description=assistant.description or "",
+            plugin_instances=plugin_instances,
         )
 
     @asynccontextmanager

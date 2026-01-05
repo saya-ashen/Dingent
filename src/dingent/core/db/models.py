@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -9,7 +10,8 @@ from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
-from dingent.core.schemas import AssistantSpec, NodeSpec, PluginSpec, WorkflowSpec
+from dingent.core.schemas import AssistantSpec, ExecutableWorkflow, NodeSpec, PluginSpec
+from dingent.core.utils import normalize_agent_name
 
 
 class WorkspaceRole(str, Enum):
@@ -152,6 +154,13 @@ class AssistantPluginLink(SQLModel, table=True):
     assistant: "Assistant" = Relationship(back_populates="plugin_links")
     plugin: "Plugin" = Relationship(back_populates="assistant_links")
 
+    def to_spec(self) -> PluginSpec:
+        return PluginSpec(
+            plugin_id=self.plugin.registry_id,
+            registry_id=self.plugin.registry_id,
+            config=self.user_plugin_config or {},
+        )
+
 
 class Assistant(SQLModel, table=True):
     """
@@ -187,6 +196,14 @@ class Assistant(SQLModel, table=True):
 
     # 一个 Assistant 可被多个 WorkflowNode 引用
     workflow_nodes: list["WorkflowNode"] = Relationship(back_populates="assistant", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    def to_spec(self) -> AssistantSpec:
+        return AssistantSpec(
+            id=self.id,
+            name=normalize_agent_name(self.name),
+            description=self.description or "",
+            plugins=[pl.to_spec() for pl in self.plugin_links],
+        )
 
 
 class Plugin(SQLModel, table=True):
@@ -237,41 +254,24 @@ class Workflow(SQLModel, table=True):
     nodes: list["WorkflowNode"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     edges: list["WorkflowEdge"] = Relationship(back_populates="workflow", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
-    def to_spec(self) -> WorkflowSpec:
+    def to_spec(self) -> ExecutableWorkflow:
         """将数据库实体转化为纯业务 Spec"""
         start_node = None
         for n in self.nodes:
             if n.is_start_node:
                 start_node = n
+        assert start_node is not None, "Workflow must have a start node."
+        adjacency_map = defaultdict(list)
+        for edge in self.edges:
+            adjacency_map[edge.source_node.name].append(edge.target_node.name)
 
-        return WorkflowSpec(
+        return ExecutableWorkflow(
             id=self.id,
-            name=self.name,
-            start_node_name=start_node.name if start_node else None,
-            nodes=[
-                NodeSpec(
-                    id=n.id,
-                    is_start_node=n.is_start_node,
-                    assistant=AssistantSpec(
-                        id=n.assistant.id,
-                        name=n.assistant.name,
-                        version=n.assistant.version,
-                        description=n.assistant.description or "",
-                        spec_version=n.assistant.spec_version,
-                        enabled=n.assistant.enabled,
-                        plugins=[
-                            PluginSpec(
-                                plugin_id=pl.plugin.registry_id,
-                                registry_id=pl.plugin.registry_id,
-                                config=pl.user_plugin_config or {},
-                            )
-                            for pl in n.assistant.plugin_links
-                            if pl.enabled
-                        ],
-                    ),
-                )
-                for n in self.nodes
-            ],
+            name=normalize_agent_name(self.name),
+            start_node=normalize_agent_name(start_node.name),
+            description=self.description or "",
+            assistant_configs={normalize_agent_name(n.name): n.assistant.to_spec() for n in self.nodes},
+            adjacency_map=adjacency_map,
         )
 
 
@@ -308,6 +308,9 @@ class WorkflowEdge(SQLModel, table=True):
 
     source_node_id: UUID = Field(foreign_key="workflownode.id", index=True)
     target_node_id: UUID = Field(foreign_key="workflownode.id", index=True)
+
+    source_node: WorkflowNode = Relationship(sa_relationship_kwargs={"foreign_keys": "[WorkflowEdge.source_node_id]"})
+    target_node: WorkflowNode = Relationship(sa_relationship_kwargs={"foreign_keys": "[WorkflowEdge.target_node_id]"})
 
     # UI 相关
     source_handle: str | None = None
