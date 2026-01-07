@@ -105,8 +105,8 @@ export function ChatHistorySidebar() {
     }
   };
 
-  // Check if we're in guest mode
-  const isGuestMode = pathname.includes('/guest/');
+  // Check if we're in guest mode by checking if the path starts with /guest/
+  const isGuestMode = pathname.startsWith('/guest/');
 
   return (
     <AppSidebar api={api.workspaces} workspaces={workspaces}>

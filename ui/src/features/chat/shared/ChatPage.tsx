@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useAgent, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { Loader2 } from "lucide-react";
 
 import { useThreadContext } from "@/providers/ThreadProvider";
 import { ChatHeader } from "@/features/chat/chat-header";
@@ -21,7 +22,10 @@ export function ChatPage({ isGuest = false, visitorId }: ChatPageProps) {
   const slug = params.slug as string;
 
   // Use the appropriate API client based on mode
-  const api = getClientApi().forWorkspace(slug, isGuest ? { visitorId } : undefined);
+  const api = getClientApi().forWorkspace(
+    slug,
+    isGuest && visitorId ? { visitorId } : undefined
+  );
   const { workflow } = useActiveWorkflow(api.workflows, slug);
 
   const { activeThreadId, updateThreadTitle } = useThreadContext();
@@ -38,10 +42,16 @@ export function ChatPage({ isGuest = false, visitorId }: ChatPageProps) {
     }
   }, [isAgentRunning, activeThreadId, updateThreadTitle]);
 
-  if (!activeThreadId) return null;
-
   // Show loading for guest mode if visitor ID is not ready
-  if (isGuest && !visitorId) return null;
+  if (isGuest && !visitorId) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-zinc-900 via-zinc-950 to-black">
+        <Loader2 className="animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!activeThreadId) return null;
 
   return (
     <main
