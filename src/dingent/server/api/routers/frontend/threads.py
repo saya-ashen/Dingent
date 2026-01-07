@@ -53,6 +53,19 @@ class AgentContext:
     assistant_plugin_configs: dict[str, dict] | None
 
 
+def update_conversation_title(conversation: Conversation, input_data: RunAgentInput, max_length: int = 50) -> None:
+    """
+    Update conversation title based on first message if title is "New Chat".
+    
+    Args:
+        conversation: The conversation object to update
+        input_data: The input data containing messages
+        max_length: Maximum length for the title (default: 50)
+    """
+    if conversation.title == "New Chat" and input_data.messages:
+        conversation.title = cast(str, input_data.messages[0].content)[:max_length]
+
+
 async def get_workflow_spec(workflow: Workflow | None) -> ExecutableWorkflow:
     if not workflow or not workflow.to_spec().start_node:
         return get_fallback_workflow_spec()
@@ -228,7 +241,7 @@ async def handle_info(
 ):
     """获取可用 Agent 列表"""
 
-    # list_agents_for_user already returns full response structure
+    # Get response data from SDK (includes version, agents, etc.)
     response_data = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
     
     # Add additional fields required by CopilotKit protocol
@@ -269,9 +282,8 @@ async def run(
         ):
             yield ctx.encoder.encode(cast(Any, event))
 
-    # Update conversation title if it's new and messages exist
-    if ctx.conversation.title == "New Chat" and ctx.input_data.messages:
-        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:50]
+    # Update conversation title if needed
+    update_conversation_title(ctx.conversation, ctx.input_data)
 
     ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
@@ -363,7 +375,7 @@ async def handle_info_guest(
 ):
     """获取可用 Agent 列表 (游客模式)"""
     
-    # list_agents_for_user already returns full response structure
+    # Get response data from SDK (includes version, agents, etc.)
     response_data = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
     
     # Add additional fields required by CopilotKit protocol
@@ -395,9 +407,8 @@ async def run_guest(
         ):
             yield ctx.encoder.encode(cast(Any, event))
 
-    # Update conversation title if it's new and messages exist
-    if ctx.conversation.title == "New Chat" and ctx.input_data.messages:
-        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:50]
+    # Update conversation title if needed
+    update_conversation_title(ctx.conversation, ctx.input_data)
 
     ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
