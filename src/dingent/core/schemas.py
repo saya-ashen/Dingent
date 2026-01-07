@@ -515,6 +515,7 @@ class ThreadRead(ThreadBase):
     id: str | UUID
     title: str
     workspace_id: UUID
-    user_id: UUID
+    user_id: UUID | None
+    visitor_id: str | None
     created_at: datetime
     updated_at: datetime

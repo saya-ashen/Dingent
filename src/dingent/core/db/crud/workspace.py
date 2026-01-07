@@ -75,3 +75,15 @@ def get_specific_user_workspace(db: Session, user_id: UUID, workspace_id: UUID) 
     result = db.exec(statement).first()
 
     return result
+
+
+def get_workspace_allow_guest(db: Session, workspace_id: UUID) -> Workspace | None:
+    """
+    获取公开的 Workspace。
+    如果 Workspace 不存在或不是公开的，返回 None。
+    """
+    statement = select(Workspace).where(Workspace.id == workspace_id).where(Workspace.allow_guest_access == True)
+
+    result = db.exec(statement).first()
+
+    return result

@@ -35,13 +35,8 @@ export default function GuestLayout({
   }
 
   return (
-    <ChatProviders
-      visitorId={visitorId}
-      sidebar={<GuestChatSidebar />}
-    >
-      <CopilotKitWrapper>
-        {children}
-      </CopilotKitWrapper>
+    <ChatProviders visitorId={visitorId} sidebar={<GuestChatSidebar />}>
+      <CopilotKitWrapper isGuest={true}>{children}</CopilotKitWrapper>
     </ChatProviders>
   );
 }

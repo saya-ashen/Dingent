@@ -51,6 +51,7 @@ class UserWorkspaceService:
                     created_at=ws.created_at,
                     role=role,
                     member_count=member_count,
+                    allow_guest_access=ws.allow_guest_access,
                 )
             )
         return workspaces
@@ -97,6 +98,7 @@ class UserWorkspaceService:
             created_at=workspace.created_at,
             role=member.role,
             member_count=count,
+            allow_guest_access=workspace.allow_guest_access,
         )
 
     def update_workspace(self, slug: str, payload: WorkspaceUpdate) -> WorkspaceRead:

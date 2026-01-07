@@ -11,21 +11,11 @@ export interface AuthHooks {
 
 export function createHttpClient(
   config: ApiClientConfig,
-  getToken: TokenProvider,
-  onUnauthorized?: UnauthorizeHandler
+  onUnauthorized?: UnauthorizeHandler,
 ): AxiosInstance {
   const instance = axios.create({
     baseURL: config.baseURL,
     timeout: config.timeoutMs ?? 120_000,
-  });
-
-  instance.interceptors.request.use(async (req) => {
-    const token = await getToken();
-    if (token) {
-      req.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return req;
   });
 
   instance.interceptors.response.use(
@@ -35,7 +25,7 @@ export function createHttpClient(
         onUnauthorized();
       }
       return Promise.reject(err);
-    }
+    },
   );
 
   return instance;

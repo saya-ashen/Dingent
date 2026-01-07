@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useParams } from "next/navigation";
-import { Settings, Home } from "lucide-react"; // 假设你需要这些图标
+import { usePathname } from "next/navigation";
+import { Settings } from "lucide-react";
 import { getClientApi } from "@/lib/api/client";
-import { useWorkspaceStore } from "@/store";
 import { sidebarData } from "./sidebar-data";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import {
@@ -18,25 +17,31 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { useWorkspaceApi } from "@/hooks/use-workspace-api";
+import { Workspace } from "@/types/entity";
 
-export function DashboardNavSidebar() {
+interface DashboardNavSidebarProps {
+  workspaces: Workspace[];
+  currentSlug: string;
+  isGuest?: boolean;
+}
+
+export function DashboardNavSidebar({
+  workspaces,
+  currentSlug,
+  isGuest = false,
+}: DashboardNavSidebarProps) {
   const pathname = usePathname();
-  const workspaces = useWorkspaceStore((state) => state.workspaces);
-  const { slug } = useWorkspaceApi();
-  const api = getClientApi();
 
   const dynamicNavGroups = sidebarData.navGroups.map((group) => ({
     ...group,
     items: group.items.map((item) => ({
       ...item,
-      url: `/${slug}${item.url}`,
+      url: `/${currentSlug}${item.url}`,
     })),
   }));
 
   return (
-    <AppSidebar api={api.workspaces} workspaces={workspaces}>
-
+    <AppSidebar workspaces={workspaces} isGuest={isGuest}>
       {/* --- 区域 2: 内容区 (导航菜单) --- */}
       <SidebarContent className="px-2 scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
         {dynamicNavGroups.map((group) => (
@@ -51,7 +56,9 @@ export function DashboardNavSidebar() {
               <SidebarMenu>
                 {group.items.map((item) => {
                   // 简单的 isActive 判断
-                  const isActive = pathname === item.url || pathname.startsWith(`${item.url}/`);
+                  const isActive =
+                    pathname === item.url ||
+                    pathname.startsWith(`${item.url}/`);
                   const Icon = item.icon; // 假设 sidebarData 里存的是 Icon 组件
 
                   return (
@@ -82,7 +89,7 @@ export function DashboardNavSidebar() {
           <SidebarSeparator className="my-2 opacity-50" />
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
-              <Link href={`/${slug}/chat`}>
+              <Link href={`/${currentSlug}/chat`}>
                 <Settings className="size-4" />
                 <span>Go To Chat</span>
               </Link>

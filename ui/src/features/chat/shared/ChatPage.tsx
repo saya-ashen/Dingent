@@ -21,11 +21,7 @@ export function ChatPage({ isGuest = false, visitorId }: ChatPageProps) {
   const params = useParams();
   const slug = params.slug as string;
 
-  // Use the appropriate API client based on mode
-  const api = getClientApi().forWorkspace(
-    slug,
-    isGuest && visitorId ? { visitorId } : undefined
-  );
+  const api = getClientApi().forWorkspace(slug, { isGuest, visitorId });
   const { workflow } = useActiveWorkflow(api.workflows, slug);
 
   const { activeThreadId, updateThreadTitle } = useThreadContext();

@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import { getServerApi } from "@/lib/api/server";
-import { WorkspaceHydrator } from "@/components/layout/workspace-hydrator";
 import Providers from "./providers";
-
 
 export default async function DashboardAppLayout({
   children,
@@ -13,10 +11,8 @@ export default async function DashboardAppLayout({
   params: Promise<{ slug: string }>;
   sidebar: React.ReactNode;
 }) {
-
   const [api, { slug }] = await Promise.all([getServerApi(), params]);
-  const [workspaces, workspace] = await Promise.all([
-    api.workspaces.list(),
+  const [workspace] = await Promise.all([
     api.workspaces.getBySlug(slug).catch(() => null),
   ]);
 
@@ -26,10 +22,7 @@ export default async function DashboardAppLayout({
 
   return (
     <main>
-      <Providers sidebar={sidebar}>
-        <WorkspaceHydrator workspaces={workspaces} />
-        {children}
-      </Providers>
+      <Providers sidebar={sidebar}>{children}</Providers>
     </main>
   );
 }

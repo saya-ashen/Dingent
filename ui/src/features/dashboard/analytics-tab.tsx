@@ -1,7 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { StatCard } from "../overview/components/stat-card";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewApi } from "@/services";
 import { AnalyticsData } from "@/types/entity";
@@ -15,10 +21,9 @@ function useAnalytics({ wsApi }: { wsApi: { overview: OverviewApi } }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    wsApi.overview.getBudget()
+    wsApi.overview
+      .getBudget()
       .then((apiData) => {
-        // 1. Set the data on success
-        console.log("data", apiData);
         setData(apiData);
       })
       .catch((err) => {

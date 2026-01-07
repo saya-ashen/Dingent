@@ -15,15 +15,12 @@ from dingent.core.schemas import (
     WorkflowReplace,
     WorkflowUpdate,
 )
-from dingent.server.api.dependencies import get_workspace_workflow_service
-from dingent.server.services.workspace_workflow_service import WorkflowRunRead, WorkspaceWorkflowService
+from dingent.server.api.dependencies import CurrentWorkspaceAllowGuest, get_workspace_workflow_service
+from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
 
 
-# -----------------------------
-# CRUD: Workflows
-# -----------------------------
 @router.get("", response_model=list[WorkflowReadBasic])
 async def list_workflows(
     workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
@@ -98,50 +95,50 @@ async def delete_workflow(
     return None
 
 
-# -----------------------------
-# Lifecycle: start / status / stop
-# -----------------------------
-@router.post("/{workflow_id}/start", response_model=WorkflowRunRead)
-async def start_workflow(
-    workflow_id: UUID,
-    include_self_loops: bool = False,
-    honor_bidirectional: bool = True,
-    reset_existing: bool = True,
-    mutate_assistant_destinations: bool = True,
-    workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
-) -> WorkflowRunRead:
-    try:
-        run = await workspace_workflow_service.start_workflow(
-            workflow_id,
-            include_self_loops=include_self_loops,
-            honor_bidirectional=honor_bidirectional,
-            reset_existing=reset_existing,
-            mutate_assistant_destinations=mutate_assistant_destinations,
-        )
-        return WorkflowRunRead(workflow_id=run.workflow_id, status=run.status, message=run.message)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+# # -----------------------------
+# # Lifecycle: start / status / stop
+# # -----------------------------
+# @router.post("/{workflow_id}/start", response_model=WorkflowRunRead)
+# async def start_workflow(
+#     workflow_id: UUID,
+#     include_self_loops: bool = False,
+#     honor_bidirectional: bool = True,
+#     reset_existing: bool = True,
+#     mutate_assistant_destinations: bool = True,
+#     workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
+# ) -> WorkflowRunRead:
+#     try:
+#         run = await workspace_workflow_service.start_workflow(
+#             workflow_id,
+#             include_self_loops=include_self_loops,
+#             honor_bidirectional=honor_bidirectional,
+#             reset_existing=reset_existing,
+#             mutate_assistant_destinations=mutate_assistant_destinations,
+#         )
+#         return WorkflowRunRead(workflow_id=run.workflow_id, status=run.status, message=run.message)
+#     except Exception as e:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+#
+#
+# @router.get("/{workflow_id}/status", response_model=WorkflowRunRead)
+# async def get_workflow_status(
+#     workflow_id: UUID,
+#     workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
+# ) -> WorkflowRunRead:
+#     try:
+#         run = workspace_workflow_service.get_workflow_status(workflow_id)
+#         return WorkflowRunRead(workflow_id=run.workflow_id, status=run.status, message=run.message)
+#     except Exception as e:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.get("/{workflow_id}/status", response_model=WorkflowRunRead)
-async def get_workflow_status(
-    workflow_id: UUID,
-    workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
-) -> WorkflowRunRead:
-    try:
-        run = workspace_workflow_service.get_workflow_status(workflow_id)
-        return WorkflowRunRead(workflow_id=run.workflow_id, status=run.status, message=run.message)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-
-@router.post("/{workflow_id}/stop", response_model=WorkflowRunRead)
-async def stop_workflow(
-    workflow_id: UUID,
-    workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
-) -> WorkflowRunRead:
-    run = await workspace_workflow_service.stop_workflow(workflow_id)
-    return WorkflowRunRead(workflow_id=run.workflow_id, status=run.status, message=run.message)
+# @router.post("/{workflow_id}/stop", response_model=WorkflowRunRead)
+# async def stop_workflow(
+#     workflow_id: UUID,
+#     workspace_workflow_service: WorkspaceWorkflowService = Depends(get_workspace_workflow_service),
+# ) -> WorkflowRunRead:
+#     run = await workspace_workflow_service.stop_workflow(workflow_id)
+#     return WorkflowRunRead(workflow_id=run.workflow_id, status=run.status, message=run.message)
 
 
 # -----------------------------
