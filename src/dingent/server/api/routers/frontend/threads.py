@@ -56,7 +56,7 @@ class AgentContext:
 def update_conversation_title(conversation: Conversation, input_data: RunAgentInput, max_length: int = 50) -> None:
     """
     Update conversation title based on first message if title is "New Chat".
-    
+
     Args:
         conversation: The conversation object to update
         input_data: The input data containing messages
@@ -173,7 +173,7 @@ async def get_agent_context_allow_guest(
                 raise HTTPException(status_code=400, detail="Guest users must provide X-Visitor-ID header")
             if conversation.visitor_id != visitor_id:
                 raise HTTPException(status_code=403, detail="You do not have permission to access this conversation.")
-        
+
         # 工作空间隔离验证（对所有用户适用）
         if conversation.workspace_id != workspace.id:
             raise HTTPException(status_code=403, detail="This conversation belongs to a different workspace.")
@@ -243,7 +243,7 @@ async def handle_info(
 
     # Get response data from SDK (includes version, agents, etc.)
     response_data = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
-    
+
     # Add additional fields required by CopilotKit protocol
     response_data["actions"] = []  # 暂时为空
     response_data["sdkVersion"] = "0.1.0"
@@ -374,10 +374,10 @@ async def handle_info_guest(
     sdk: CopilotSDK,
 ):
     """获取可用 Agent 列表 (游客模式)"""
-    
+
     # Get response data from SDK (includes version, agents, etc.)
     response_data = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
-    
+
     # Add additional fields required by CopilotKit protocol
     response_data["actions"] = []  # 暂时为空
     response_data["sdkVersion"] = "0.1.0"
@@ -396,6 +396,7 @@ async def run_guest(
     ctx: AgentContext = Depends(get_agent_context_allow_guest),
 ):
     """运行 Agent (游客模式)"""
+
     async def event_generator():
         async for event in ctx.agent.run(
             ctx.input_data,
@@ -422,6 +423,7 @@ async def connect_guest(
     ctx: AgentContext = Depends(get_agent_context_allow_guest),
 ):
     """连接到已存在的对话 (游客模式)"""
+
     async def event_generator():
         async for event in ctx.agent.get_thread_messages(ctx.input_data.thread_id, ctx.input_data.run_id):
             yield ctx.encoder.encode(cast(Any, event))
@@ -437,6 +439,7 @@ async def list_threads_guest(
     visitor_id: str | None = Header(None, alias="X-Visitor-ID"),
 ):
     """列出游客的对话历史"""
+    breakpoint()
     if user:
         # 已登录用户
         statement = select(Conversation).where(
@@ -451,7 +454,7 @@ async def list_threads_guest(
             Conversation.workspace_id == workspace.id,
             Conversation.visitor_id == visitor_id,
         )
-    
+
     threads = session.exec(statement).all()
     return threads
 
@@ -481,7 +484,7 @@ async def delete_thread_guest(
             Conversation.workspace_id == workspace.id,
             Conversation.visitor_id == visitor_id,
         )
-    
+
     thread = session.exec(statement).first()
 
     if not thread:

@@ -8,8 +8,8 @@ type UpdateThreadDto = {
 export class ThreadsApi {
   constructor(
     private http: AxiosInstance,
-    private basePath: string = "/threads"
-  ) { }
+    private basePath: string = "/threads",
+  ) {}
 
   /**
    * 辅助方法：拼接 URL

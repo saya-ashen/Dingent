@@ -81,12 +81,13 @@ export function SettingsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTitle></DialogTitle>
       <DialogContent className="!max-w-none w-[90vw] h-[85vh] p-0 gap-0 overflow-hidden flex bg-background sm:rounded-xl">
-
         {/* === 左侧侧边栏 === */}
         <div className="w-64 bg-muted/30 border-r flex flex-col h-full">
           {/* 侧边栏头部 - 模拟 Notion 左上角的 User 区域 */}
           <div className="p-4 text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <div className="size-6 bg-primary/10 rounded-full flex items-center justify-center text-xs">S</div>
+            <div className="size-6 bg-primary/10 rounded-full flex items-center justify-center text-xs">
+              S
+            </div>
             <span className="truncate">user@example.com</span>
           </div>
 
@@ -102,10 +103,11 @@ export function SettingsDialog({
                       <button
                         key={item.id}
                         onClick={() => setActiveTab(item.id)}
-                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-sm transition-colors ${activeTab === item.id
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                          }`}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-sm font-medium rounded-sm transition-colors ${
+                          activeTab === item.id
+                            ? "bg-muted text-foreground"
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                        }`}
                       >
                         <item.icon className="size-4" />
                         {item.title}
@@ -119,17 +121,22 @@ export function SettingsDialog({
 
           {/* 底部升级按钮 */}
           <div className="p-4 border-t">
-            <Button variant="outline" className="w-full justify-start gap-2 text-blue-600 border-blue-200 hover:bg-blue-50">
-              <span className="size-4 rounded-full border border-blue-600 flex items-center justify-center text-[10px]">↑</span>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+            >
+              <span className="size-4 rounded-full border border-blue-600 flex items-center justify-center text-[10px]">
+                ↑
+              </span>
               Upgrade Plan
             </Button>
           </div>
         </div>
 
         <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {activeTab === 'general' ? (
+          {activeTab === "general" ? (
             <GeneralSettingsContent />
-          ) : activeTab === 'people' ? (
+          ) : activeTab === "people" ? (
             <PeopleSettingsContent />
           ) : (
             <div className="p-8 flex items-center justify-center h-full text-muted-foreground">
@@ -137,7 +144,6 @@ export function SettingsDialog({
             </div>
           )}
         </div>
-
       </DialogContent>
     </Dialog>
   );
@@ -162,18 +168,18 @@ function GeneralSettingsContent() {
 
   const guestLink = React.useMemo(() => {
     if (!currentWorkspace) return "";
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    // Get the base path from current location (handles subdirectory deployments)
-    const basePath = typeof window !== 'undefined' ? window.location.pathname.split('/').slice(0, -1).join('/') : '';
-    return `${baseUrl}${basePath ? basePath : ''}/${currentWorkspace.slug}/chat`;
+
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+    return `${origin}/guest/${currentWorkspace.slug}/chat`;
   }, [currentWorkspace]);
 
   const handleToggleGuestAccess = async (enabled: boolean) => {
     if (!currentWorkspace || !workspacesApi) return;
-    
+
     setIsUpdating(true);
     try {
-      await workspacesApi.updateWorkspace(currentWorkspace.id, {
+      await workspacesApi.update(currentWorkspace.slug, {
         allow_guest_access: enabled,
       });
       // Only update local state after API confirms success
@@ -211,10 +217,10 @@ function GeneralSettingsContent() {
 
   const handleSaveBasicInfo = async () => {
     if (!currentWorkspace || !workspacesApi) return;
-    
+
     setIsUpdating(true);
     try {
-      await workspacesApi.updateWorkspace(currentWorkspace.id, {
+      await workspacesApi.update(currentWorkspace.slug, {
         name: workspaceName,
         description: workspaceDescription,
       });
@@ -241,7 +247,9 @@ function GeneralSettingsContent() {
       <div className="px-8 pt-8 pb-4">
         <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
           General
-          <span className="text-muted-foreground cursor-help text-xs border rounded-full size-4 flex items-center justify-center">?</span>
+          <span className="text-muted-foreground cursor-help text-xs border rounded-full size-4 flex items-center justify-center">
+            ?
+          </span>
         </h2>
         <p className="text-sm text-muted-foreground">
           Manage your workspace settings and guest access
@@ -306,7 +314,9 @@ function GeneralSettingsContent() {
                 <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
                   <div className="flex items-center gap-2">
                     <ExternalLink className="size-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">Shareable Guest Link</span>
+                    <span className="text-sm font-medium">
+                      Shareable Guest Link
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
@@ -327,8 +337,9 @@ function GeneralSettingsContent() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Share this link with anyone you want to grant guest access to your workspace.
-                    Guests can chat with AI agents but cannot access workspace settings or member information.
+                    Share this link with anyone you want to grant guest access
+                    to your workspace. Guests can chat with AI agents but cannot
+                    access workspace settings or member information.
                   </p>
                 </div>
 
@@ -337,8 +348,8 @@ function GeneralSettingsContent() {
                     Security Note
                   </div>
                   <p className="text-blue-800 dark:text-blue-200 text-xs">
-                    Guest conversations are isolated and guests cannot access other users' data.
-                    You can disable guest access at any time.
+                    Guest conversations are isolated and guests cannot access
+                    other users' data. You can disable guest access at any time.
                   </p>
                 </div>
               </div>
@@ -358,20 +369,26 @@ function PeopleSettingsContent() {
       <div className="px-8 pt-8 pb-4">
         <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
           People
-          <span className="text-muted-foreground cursor-help text-xs border rounded-full size-4 flex items-center justify-center">?</span>
+          <span className="text-muted-foreground cursor-help text-xs border rounded-full size-4 flex items-center justify-center">
+            ?
+          </span>
         </h2>
       </div>
 
       <ScrollArea className="flex-1 px-8 pb-8">
         {/* 邀请链接区域 */}
         <div className="mb-8">
-          <div className="text-sm font-medium mb-2">Invite link to add members</div>
+          <div className="text-sm font-medium mb-2">
+            Invite link to add members
+          </div>
           <div className="flex items-center justify-between p-3 border rounded-md bg-card">
             <div className="text-xs text-muted-foreground">
               Only people with permission to invite members can see this.
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" size="sm" className="h-7 text-xs">Copy link</Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs">
+                Copy link
+              </Button>
               <Switch defaultChecked />
             </div>
           </div>
@@ -402,8 +419,13 @@ function PeopleSettingsContent() {
             </TabsList>
 
             <div className="flex items-center gap-2 py-2">
-              <Input placeholder="Filter by name..." className="h-8 w-[150px] lg:w-[200px]" />
-              <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700">Add members</Button>
+              <Input
+                placeholder="Filter by name..."
+                className="h-8 w-[150px] lg:w-[200px]"
+              />
+              <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700">
+                Add members
+              </Button>
             </div>
           </div>
 
@@ -412,13 +434,24 @@ function PeopleSettingsContent() {
             <div className="space-y-1">
               <div className="flex items-center justify-between py-3 border-b border-border/50 group hover:bg-muted/30 px-2 -mx-2 rounded">
                 <div className="flex items-center gap-3">
-                  <div className="size-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">S</div>
+                  <div className="size-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                    S
+                  </div>
                   <div>
-                    <div className="text-sm font-medium">Saya's Notion <span className="ml-2 text-xs text-muted-foreground">(You)</span></div>
-                    <div className="text-xs text-muted-foreground">c3313433633@gmail.com</div>
+                    <div className="text-sm font-medium">
+                      Saya's Notion{" "}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        (You)
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      c3313433633@gmail.com
+                    </div>
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground">Workspace Owner</div>
+                <div className="text-xs text-muted-foreground">
+                  Workspace Owner
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -432,5 +465,5 @@ function PeopleSettingsContent() {
         </Tabs>
       </ScrollArea>
     </div>
-  )
+  );
 }
