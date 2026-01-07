@@ -8,7 +8,7 @@ import { useActiveWorkflow, useWorkflowsList } from "@/features/workflows/hooks"
 
 interface ChatHeaderProps {
   className?: string;
-  onClose?: () => void; // 变为可选，使其更通用
+  onClose?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({ className = "", onClose }) => {
