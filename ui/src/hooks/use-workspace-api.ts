@@ -11,5 +11,10 @@ export function useWorkspaceApi() {
     return client.forWorkspace(slug);
   }, [slug]);
 
-  return { api, slug };
+  const workspacesApi = useMemo(() => {
+    const client = getClientApi();
+    return client.workspaces;
+  }, []);
+
+  return { api, workspacesApi, slug };
 }

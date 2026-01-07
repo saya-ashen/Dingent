@@ -89,7 +89,7 @@ def get_current_workspace_allow_guest(
     """
     Get workspace allowing both authenticated users and guests.
     For authenticated users, verifies workspace membership.
-    For guests, just retrieves the workspace (allowing public access).
+    For guests, checks if workspace allows guest access.
     """
     # 查询工作空间
     statement = select(Workspace).where(Workspace.slug == workspace_slug)
@@ -110,8 +110,14 @@ def get_current_workspace_allow_guest(
                 status_code=status.HTTP_403_FORBIDDEN, 
                 detail="You do not have access to this workspace or it does not exist."
             )
+    else:
+        # 游客模式：检查工作空间是否允许游客访问
+        if not workspace.allow_guest_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This workspace does not allow guest access. Please sign in or contact the workspace owner."
+            )
     
-    # 游客模式：允许访问任何工作空间进行对话
     return workspace
 
 
