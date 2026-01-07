@@ -50,6 +50,7 @@ When building LLM applications, developers often spend a significant amount of t
   * **Integrated Admin Dashboard**: A powerful, React-based web interface to visually manage your assistants, workflows, plugins, and settings.
   * **Bundled Frontend**: A pre-built, standalone Next.js chat interface is included out-of-the-box. No need for manual setup or compilation.
   * **Lightweight and Easy to Use**: A clean design and a gentle learning curve let you focus on business logic rather than tedious configuration.
+  * **Guest Mode Support**: Allow unauthenticated users to chat with AI agents without requiring registration. See [Guest Mode Documentation](./GUEST_MODE.md) for details.
 
 ## 🚀 Quick Start
 

@@ -104,6 +104,7 @@ class Workspace(SQLModel, table=True):
     slug: str = Field(index=True, description="工作空间的唯一标识符，用于 URL 等")
     avatar_url: str | None = Field(default=None, description="工作空间的头像地址")
     description: str | None = None
+    allow_guest_access: bool = Field(default=False, index=True, description="是否允许游客访问此工作空间")
 
     members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
 

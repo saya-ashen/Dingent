@@ -1,0 +1,308 @@
+<!-- 
+  Example Guest Chat Component for Dingent
+  游客聊天组件示例
+  
+  This example shows how to integrate guest mode with your frontend.
+  此示例展示如何在前端集成游客模式。
+-->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dingent Guest Chat Example - 游客聊天示例</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .chat-container {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            text-align: right;
+        }
+        .assistant-message {
+            background-color: #e9ecef;
+            color: black;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .info {
+            background-color: #d1ecf1;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            color: #0c5460;
+        }
+        .code {
+            font-family: monospace;
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 Dingent Guest Chat Example</h1>
+    <p>游客聊天示例 - 无需登录即可对话</p>
+    
+    <div class="info">
+        <strong>Visitor ID (访客 ID):</strong> <span class="code" id="visitorId"></span>
+        <br>
+        <small>This ID is stored in your browser and identifies your chat sessions. 
+        此 ID 存储在您的浏览器中，用于识别您的聊天会话。</small>
+    </div>
+
+    <div class="chat-container">
+        <div class="messages" id="messages"></div>
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="输入消息... Type your message..."
+                onkeypress="if(event.key === 'Enter') sendMessage()"
+            >
+            <button onclick="sendMessage()" id="sendBtn">Send 发送</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - 配置
+        const WORKSPACE_SLUG = 'default';  // Change to your workspace slug
+        const AGENT_ID = 'default';        // Change to your agent ID
+        const API_BASE_URL = 'http://localhost:8000/api/v1';
+
+        // State - 状态
+        let threadId = null;
+        let isProcessing = false;
+
+        // Get or create visitor ID - 获取或创建访客 ID
+        function getVisitorId() {
+            let visitorId = localStorage.getItem('dingent_visitor_id');
+            
+            if (!visitorId) {
+                visitorId = crypto.randomUUID();
+                localStorage.setItem('dingent_visitor_id', visitorId);
+                console.log('New visitor ID created:', visitorId);
+            }
+            
+            return visitorId;
+        }
+
+        // Initialize - 初始化
+        const visitorId = getVisitorId();
+        document.getElementById('visitorId').textContent = visitorId;
+
+        // Create new thread - 创建新对话
+        function createNewThread() {
+            threadId = crypto.randomUUID();
+            console.log('New thread created:', threadId);
+            return threadId;
+        }
+
+        // Add message to UI - 在界面添加消息
+        function addMessageToUI(role, content) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}-message`;
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Send message - 发送消息
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || isProcessing) return;
+
+            // Create thread if needed
+            if (!threadId) {
+                threadId = createNewThread();
+            }
+
+            // Disable input
+            isProcessing = true;
+            document.getElementById('sendBtn').disabled = true;
+            input.disabled = true;
+
+            // Add user message to UI
+            addMessageToUI('user', message);
+            input.value = '';
+
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/${WORKSPACE_SLUG}/chat/guest/agent/${AGENT_ID}/run`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Visitor-ID': visitorId,
+                            'Accept': 'text/event-stream'
+                        },
+                        body: JSON.stringify({
+                            thread_id: threadId,
+                            run_id: crypto.randomUUID(),
+                            messages: [
+                                {
+                                    id: crypto.randomUUID(),
+                                    role: 'user',
+                                    content: message
+                                }
+                            ],
+                            state: {},
+                            forwarded_props: {}
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Process SSE stream - 处理服务器推送事件流
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let assistantMessage = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                // Handle different event types
+                                if (data.type === 'messages_snapshot') {
+                                    // Initial messages - 初始消息
+                                    console.log('Messages snapshot:', data);
+                                } else if (data.type === 'text_message_stream' && data.content) {
+                                    // Streaming assistant response - 流式助手响应
+                                    assistantMessage += data.content;
+                                } else if (data.type === 'run_finished') {
+                                    // Run completed - 运行完成
+                                    console.log('Run finished');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e);
+                            }
+                        }
+                    }
+                }
+
+                // Add final assistant message
+                if (assistantMessage) {
+                    addMessageToUI('assistant', assistantMessage);
+                }
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                addMessageToUI('assistant', `错误 Error: ${error.message}`);
+            } finally {
+                // Re-enable input
+                isProcessing = false;
+                document.getElementById('sendBtn').disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        // Load conversation history - 加载对话历史
+        async function loadConversationHistory() {
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/${WORKSPACE_SLUG}/chat/guest/threads`,
+                    {
+                        headers: {
+                            'X-Visitor-ID': visitorId
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const threads = await response.json();
+                    console.log('Your conversation history:', threads);
+                    
+                    if (threads.length > 0) {
+                        // You can implement a UI to select and load previous conversations
+                        // 您可以实现一个界面来选择和加载之前的对话
+                        console.log('You have', threads.length, 'previous conversations');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading conversation history:', error);
+            }
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            loadConversationHistory();
+            document.getElementById('messageInput').focus();
+        });
+
+        // Instructions
+        console.log('='.repeat(50));
+        console.log('Dingent Guest Chat Example');
+        console.log('='.repeat(50));
+        console.log('Your Visitor ID:', visitorId);
+        console.log('To test:');
+        console.log('1. Make sure Dingent server is running on http://localhost:8000');
+        console.log('2. Type a message and press Enter or click Send');
+        console.log('3. Check the Network tab to see API calls');
+        console.log('='.repeat(50));
+    </script>
+</body>
+</html>

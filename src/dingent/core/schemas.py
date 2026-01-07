@@ -420,6 +420,7 @@ class WorkspaceBase(SQLModel):
     name: str
     slug: str
     description: str | None = None
+    allow_guest_access: bool = False
 
 
 class WorkspaceCreate(WorkspaceBase):
@@ -429,6 +430,7 @@ class WorkspaceCreate(WorkspaceBase):
 class WorkspaceUpdate(SQLModel):
     name: str | None = None
     description: str | None = None
+    allow_guest_access: bool | None = None
 
 
 class WorkspaceRole(str, Enum):

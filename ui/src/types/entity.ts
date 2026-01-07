@@ -120,6 +120,7 @@ export interface Workspace {
   name: string;
   slug: string;
   description?: string;
+  allow_guest_access?: boolean;
   role?: "owner" | "admin" | "member";
 }
 
@@ -146,6 +147,7 @@ export interface WorkspaceCreatePayload {
 export interface WorkspaceUpdatePayload {
   name?: string;
   description?: string;
+  allow_guest_access?: boolean;
 }
 
 export interface WorkspaceInvitePayload {

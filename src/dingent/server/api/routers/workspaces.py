@@ -9,7 +9,7 @@ from dingent.core.schemas import (
     WorkspaceMemberRead,
     WorkspaceRead,
     WorkspaceUpdate,
-    WorkspaceWithRole,  # 👈 引入这个新模型
+    WorkspaceWithRole,
 )
 from dingent.server.api.dependencies import get_user_workspace_service
 from dingent.server.services.user_workspace_service import UserWorkspaceService

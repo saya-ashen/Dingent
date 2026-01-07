@@ -26,17 +26,30 @@ type AppSidebarProps = {
   children: React.ReactNode;
   workspaces: Workspace[];
   api: WorkspaceApi;
+  isGuest?: boolean;
 };
 
-export function AppSidebar({ children, workspaces, api }: AppSidebarProps) {
+export function AppSidebar({
+  children,
+  workspaces,
+  api,
+  isGuest = false,
+}: AppSidebarProps) {
   return (
-    <Sidebar collapsible="none" variant="inset" className="h-screen overflow-hidden flex flex-col">
+    <Sidebar
+      collapsible="none"
+      variant="inset"
+      className="h-screen overflow-hidden flex flex-col"
+    >
       <SidebarHeader>
-        <WorkspaceSwitcher workspaces={workspaces} api={api} user={user} />
+        {isGuest ? (
+          <div>Guest Mode</div>
+        ) : (
+          <WorkspaceSwitcher workspaces={workspaces} api={api} user={user} />
+        )}
       </SidebarHeader>
 
       <SidebarContent>{children}</SidebarContent>
-
 
       <SidebarRail />
     </Sidebar>
