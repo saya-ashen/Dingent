@@ -163,7 +163,9 @@ function GeneralSettingsContent() {
   const guestLink = React.useMemo(() => {
     if (!currentWorkspace) return "";
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${baseUrl}/${currentWorkspace.slug}/chat`;
+    // Get the base path from current location (handles subdirectory deployments)
+    const basePath = typeof window !== 'undefined' ? window.location.pathname.split('/').slice(0, -1).join('/') : '';
+    return `${baseUrl}${basePath ? basePath : ''}/${currentWorkspace.slug}/chat`;
   }, [currentWorkspace]);
 
   const handleToggleGuestAccess = async (enabled: boolean) => {
@@ -174,19 +176,37 @@ function GeneralSettingsContent() {
       await workspacesApi.updateWorkspace(currentWorkspace.id, {
         allow_guest_access: enabled,
       });
+      // Only update local state after API confirms success
       setGuestAccessEnabled(enabled);
       toast.success(enabled ? "Guest access enabled" : "Guest access disabled");
     } catch (error) {
       console.error("Failed to update workspace:", error);
       toast.error("Failed to update workspace settings");
+      // State remains unchanged on error
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(guestLink);
-    toast.success("Guest link copied to clipboard");
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(guestLink);
+      toast.success("Guest link copied to clipboard");
+    } catch (error) {
+      console.error("Failed to copy link:", error);
+      // Fallback: create a temporary input element
+      const input = document.createElement("input");
+      input.value = guestLink;
+      document.body.appendChild(input);
+      input.select();
+      try {
+        document.execCommand("copy");
+        toast.success("Guest link copied to clipboard");
+      } catch (fallbackError) {
+        toast.error("Failed to copy link. Please copy manually.");
+      }
+      document.body.removeChild(input);
+    }
   };
 
   const handleSaveBasicInfo = async () => {
@@ -293,12 +313,14 @@ function GeneralSettingsContent() {
                       value={guestLink}
                       readOnly
                       className="font-mono text-xs flex-1"
+                      aria-label="Shareable guest link for workspace access"
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleCopyLink}
                       className="shrink-0"
+                      aria-label="Copy guest link to clipboard"
                     >
                       <Copy className="size-4 mr-1" />
                       Copy
