@@ -233,6 +233,37 @@ WHERE visitor_id = :old_visitor_id;
 3. **Feature Restrictions**: Consider limiting guest access to certain features or agents
    功能限制：考虑限制游客访问某些功能或代理
 
+4. **Workspace Access Control**: By default, guests can access any workspace. In production, consider:
+   - Adding a `allow_guest_access` boolean field to the Workspace model
+   - Checking this field in `get_current_workspace_allow_guest`
+   - Only allowing guest access to workspaces explicitly marked as public
+   工作空间访问控制：默认情况下，游客可以访问任何工作空间。在生产环境中，考虑：
+   - 在 Workspace 模型中添加 `allow_guest_access` 布尔字段
+   - 在 `get_current_workspace_allow_guest` 中检查此字段
+   - 仅允许游客访问明确标记为公开的工作空间
+
+Example workspace access control implementation:
+```python
+# Add to Workspace model
+allow_guest_access: bool = Field(default=False, description="允许游客访问此工作空间")
+
+# Update get_current_workspace_allow_guest dependency
+def get_current_workspace_allow_guest(...):
+    workspace = session.exec(statement).first()
+    
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    # For guests, verify workspace allows guest access
+    if not current_user and not workspace.allow_guest_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="This workspace does not allow guest access"
+        )
+    
+    # ... rest of the logic
+```
+
 Example rate limiting (FastAPI):
 ```python
 from fastapi_limiter.depends import RateLimiter

@@ -228,14 +228,12 @@ async def handle_info(
 ):
     """获取可用 Agent 列表"""
 
-    agents = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
-
-    # 构造符合 CopilotKit 协议的返回
-    response_data = {
-        "agents": agents,
-        "actions": [],  # 暂时为空
-        "sdkVersion": "0.1.0",
-    }
+    # list_agents_for_user already returns full response structure
+    response_data = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
+    
+    # Add additional fields required by CopilotKit protocol
+    response_data["actions"] = []  # 暂时为空
+    response_data["sdkVersion"] = "0.1.0"
 
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header:
@@ -271,8 +269,9 @@ async def run(
         ):
             yield ctx.encoder.encode(cast(Any, event))
 
-    if ctx.conversation.title == "New Chat":
-        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:10]
+    # Update conversation title if it's new and messages exist
+    if ctx.conversation.title == "New Chat" and ctx.input_data.messages:
+        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:50]
 
     ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
@@ -364,15 +363,12 @@ async def handle_info_guest(
 ):
     """获取可用 Agent 列表 (游客模式)"""
     
-    # 对于游客，使用 None 作为用户
-    agents = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
-
-    # 构造符合 CopilotKit 协议的返回
-    response_data = {
-        "agents": agents,
-        "actions": [],  # 暂时为空
-        "sdkVersion": "0.1.0",
-    }
+    # list_agents_for_user already returns full response structure
+    response_data = sdk.list_agents_for_user(user, session, workspace_id=workspace.id)
+    
+    # Add additional fields required by CopilotKit protocol
+    response_data["actions"] = []  # 暂时为空
+    response_data["sdkVersion"] = "0.1.0"
 
     accept_header = request.headers.get("accept", "")
     if "text/html" in accept_header:
@@ -399,8 +395,9 @@ async def run_guest(
         ):
             yield ctx.encoder.encode(cast(Any, event))
 
-    if ctx.conversation.title == "New Chat":
-        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:10]
+    # Update conversation title if it's new and messages exist
+    if ctx.conversation.title == "New Chat" and ctx.input_data.messages:
+        ctx.conversation.title = cast(str, ctx.input_data.messages[0].content)[:50]
 
     ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
