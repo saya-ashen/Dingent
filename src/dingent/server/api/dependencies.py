@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import Depends, Path, Request, status
+from fastapi import Depends, Header, Path, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.security.oauth2 import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -20,6 +20,7 @@ from dingent.server.services.workspace_assistant_service import WorkspaceAssista
 from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token", auto_error=False)
 
 
 def get_db_session():
@@ -37,6 +38,22 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
 ):
     return get_current_user_from_token(session, token)
+
+
+async def get_current_user_optional(
+    session: Session = Depends(get_db_session),
+    token: str | None = Depends(oauth2_scheme_optional),
+) -> User | None:
+    """
+    Optional authentication dependency for guest support.
+    Returns User if authenticated, None if not authenticated.
+    """
+    if not token:
+        return None
+    try:
+        return get_current_user_from_token(session, token)
+    except HTTPException:
+        return None
 
 
 def get_current_workspace(
@@ -61,6 +78,40 @@ def get_current_workspace(
     if not member:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this workspace or it does not exist.")
 
+    return workspace
+
+
+def get_current_workspace_allow_guest(
+    workspace_slug: str = Path(..., description="The unique slug of the workspace"),
+    current_user: User | None = Depends(get_current_user_optional),
+    session: Session = Depends(get_db_session),
+) -> Workspace:
+    """
+    Get workspace allowing both authenticated users and guests.
+    For authenticated users, verifies workspace membership.
+    For guests, just retrieves the workspace (allowing public access).
+    """
+    # 查询工作空间
+    statement = select(Workspace).where(Workspace.slug == workspace_slug)
+    workspace = session.exec(statement).first()
+    
+    if not workspace:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    
+    # 如果用户已登录，验证成员资格
+    if current_user:
+        member_statement = select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace.id, 
+            WorkspaceMember.user_id == current_user.id
+        )
+        member = session.exec(member_statement).first()
+        if not member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="You do not have access to this workspace or it does not exist."
+            )
+    
+    # 游客模式：允许访问任何工作空间进行对话
     return workspace
 
 
