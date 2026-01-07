@@ -38,7 +38,9 @@ interface ExtendedThreadContextType extends ThreadContextType {
   refreshThreads: () => Promise<void>; // 新增：手动刷新列表
 }
 
-export const ThreadContext = createContext<ExtendedThreadContextType | undefined>(undefined);
+export const ThreadContext = createContext<
+  ExtendedThreadContextType | undefined
+>(undefined);
 
 export const useThreadContext = () => {
   const context = useContext(ThreadContext);
@@ -48,26 +50,27 @@ export const useThreadContext = () => {
   return context;
 };
 
-export function ThreadProvider({ children }: { children: ReactNode }) {
+interface ThreadProviderProps {
+  children: React.ReactNode;
+  visitorId?: string;
+}
+
+export function ThreadProvider({ children, visitorId }: ThreadProviderProps) {
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(true);
   const params = useParams();
   const slug = params.slug as string;
-  const api = getClientApi().forWorkspace(slug);
+  const api = getClientApi().forWorkspace(slug, { visitorId });
 
   const fetchThreads = useCallback(async () => {
     try {
-      // 直接调用封装好的 SDK
       const threads = await api.threads.list();
-
-      // 【关键】: 如果前端组件强依赖 camelCase (createdAt)，在这里做一层映射
-      // 如果前端可以直接改用 snake_case，则不需要这步
-      return threads.map(t => ({
+      return threads.map((t) => ({
         id: t.id,
         title: t.title,
         createdAt: new Date(t.created_at), // 转换字符串为 Date 对象
-        updatedAt: new Date(t.updated_at)
+        updatedAt: new Date(t.updated_at),
       }));
     } catch (error) {
       console.error("Failed to fetch threads", error);
@@ -131,7 +134,6 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
     }
   }, [activeThreadId]);
 
-
   const createThread = useCallback(() => {
     createNewLocalThread();
   }, [createNewLocalThread]);
@@ -139,30 +141,32 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
   const updateThreadTitle = useCallback(async () => {
     const latestThreads = await fetchThreads();
     setThreads(latestThreads);
-
   }, []);
 
-  const deleteThread = useCallback(async (id: string) => {
-    // 1. 乐观更新 UI (先删界面，显得快)
-    const oldThreads = [...threads];
-    setThreads((prev) => prev.filter((t) => t.id !== id));
+  const deleteThread = useCallback(
+    async (id: string) => {
+      // 1. 乐观更新 UI (先删界面，显得快)
+      const oldThreads = [...threads];
+      setThreads((prev) => prev.filter((t) => t.id !== id));
 
-    // 切换选中状态逻辑
-    if (id === activeThreadId) {
-      const remaining = oldThreads.filter(t => t.id !== id);
-      if (remaining.length > 0) {
-        setActiveThreadId(remaining[0]!.id);
-      } else {
-        createNewLocalThread();
+      // 切换选中状态逻辑
+      if (id === activeThreadId) {
+        const remaining = oldThreads.filter((t) => t.id !== id);
+        if (remaining.length > 0) {
+          setActiveThreadId(remaining[0]!.id);
+        } else {
+          createNewLocalThread();
+        }
       }
-    }
 
-    try {
-      await api.threads.delete(id);
-    } catch (error) {
-      setThreads(oldThreads);
-    }
-  }, [threads, activeThreadId, createNewLocalThread]);
+      try {
+        await api.threads.delete(id);
+      } catch (error) {
+        setThreads(oldThreads);
+      }
+    },
+    [threads, activeThreadId, createNewLocalThread],
+  );
 
   const deleteAllThreads = useCallback(async () => {
     setThreads([]);
@@ -183,7 +187,7 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
       refreshThreads: async () => {
         const data = await fetchThreads();
         setThreads(data);
-      }
+      },
     }),
     [
       isInitializing,
@@ -193,8 +197,8 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
       updateThreadTitle,
       deleteThread,
       deleteAllThreads,
-      fetchThreads
-    ]
+      fetchThreads,
+    ],
   );
 
   return (

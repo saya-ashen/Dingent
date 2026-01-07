@@ -51,14 +51,6 @@ frontend_port = 3000
 # --------- Utility Functions ---------
 
 
-# --- 新增：资源路径获取函数 ---
-def get_resource_path(relative_path: str | Path) -> Path:
-    """获取资源绝对路径（兼容 PyInstaller 打包后的 _MEIPASS）"""
-    if hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS) / relative_path
-    return Path(relative_path)
-
-
 def _prepare_static_assets(cli_ctx: CliContext) -> Path:
     """
     根据运行模式准备静态资源路径。
@@ -418,10 +410,12 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
 def run(
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the frontend page in a browser automatically."),
     data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d", help="Specify a custom data directory for config and logs.")] = None,
+    dev: bool = typer.Option(False, "--dev", help="Run in development mode (Backend only, skips built-in Frontend)."),
 ):
     """
     Concurrently starts the backend and frontend services.
     """
+    is_dev_runtime = dev or bool(IS_DEV_MODE)
     cli_ctx = CliContext()
     was_created = _ensure_project_root(data_dir)
     if was_created:
@@ -449,7 +443,8 @@ def run(
             "--port",
             str(cli_ctx.backend_port),
         ]
-    static_path = _prepare_static_assets(cli_ctx)
+        if is_dev_runtime:
+            backend_cmd.append("--reload")
     services = [
         Service(
             name="backend",
@@ -457,20 +452,42 @@ def run(
             cwd=cli_ctx.project_root,
             color="magenta",
         ),
-        Service(
-            name="frontend",
-            command=[node_bin, "frontend/server.js"],
-            cwd=static_path,
-            color="cyan",
-            env={
-                "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
-                "PORT": str(cli_ctx.frontend_port or 3000),
-            },
-            open_browser_hint=True,
-        ),
     ]
+    if is_dev_runtime:
+        print("[bold yellow]🚧 Development mode detected: Skipping built-in Frontend service.[/bold yellow]")
+        print(f"[dim]ℹ️  Backend is running on port {cli_ctx.backend_port}. Please run your frontend separately (e.g., npm run dev).[/dim]")
+    else:
+        # 非开发模式：执行正常的静态资源准备和 Node 启动流程
+        try:
+            node_bin = _resolve_node_binary()
+        except Exception as e:
+            print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
+            raise typer.Exit(1)
 
-    supervisor = ServiceSupervisor(services, auto_open_frontend=not no_browser)
+        # 解压静态资源
+        static_path = _prepare_static_assets(cli_ctx)
+
+        # 添加前端服务
+        services.append(
+            Service(
+                name="frontend",
+                command=[node_bin, "frontend/server.js"],
+                cwd=static_path,
+                color="cyan",
+                env={
+                    "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
+                    "PORT": str(cli_ctx.frontend_port or 3000),
+                },
+                open_browser_hint=True,
+            )
+        )
+
+    # 4. 启动服务管理器
+    # 如果是开发模式，通常不需要自动打开浏览器指向 built-in 端口，因为你可能在用 localhost:3000 (Next.js dev server)
+    # 但如果用户坚持要打开也可以，这里根据逻辑判断一下
+    should_open_browser = (not no_browser) and (not is_dev_runtime)
+
+    supervisor = ServiceSupervisor(services, auto_open_frontend=should_open_browser)
     supervisor.start_all()
 
 

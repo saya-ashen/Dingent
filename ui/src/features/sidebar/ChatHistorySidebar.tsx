@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import {
   Trash2,
   Plus,
@@ -93,15 +93,6 @@ export function ChatHistorySidebar() {
     if (isMobile) setOpenMobile(false);
   };
 
-  const goToDashboard = () => {
-    const parts = pathname.split('/');
-    if (parts.length >= 2) {
-      router.push(`/${parts[1]}/overview`);
-    } else {
-      router.push('/');
-    }
-  };
-
   const handleSelectThread = (id: string) => {
     setActiveThreadId(id);
     if (isMobile) setOpenMobile(false);
@@ -170,7 +161,11 @@ export function ChatHistorySidebar() {
                             <span className="sr-only">More</span>
                           </SidebarMenuAction>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-48" align="start" side="right">
+                        <DropdownMenuContent
+                          className="w-48"
+                          align="start"
+                          side="right"
+                        >
                           <DropdownMenuItem>
                             <Settings className="mr-2 size-4 text-muted-foreground" />
                             <span>Rename</span>
@@ -215,9 +210,7 @@ export function ChatHistorySidebar() {
           <SidebarSeparator className="my-2 opacity-50" />
 
           <SidebarMenuItem>
-            <SidebarMenuButton
-              className="text-sidebar-foreground/80"
-            >
+            <SidebarMenuButton className="text-sidebar-foreground/80">
               <LayoutDashboard className="size-4" />
               <Link href={`/${slug}/overview`}>
                 <span>Go To Dashboard</span>

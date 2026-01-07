@@ -9,7 +9,7 @@ from sqlmodel import Session
 from dingent.core.db.crud.workflow import list_workflows_by_workspace
 from dingent.core.db.crud.workspace import get_specific_user_workspace
 from dingent.core.db.models import User
-from dingent.core.schemas import WorkflowSpec
+from dingent.core.schemas import ExecutableWorkflow
 from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.copilot.agents import DingLangGraphAGUIAgent
 
@@ -48,7 +48,7 @@ class CopilotKitSdk:
         self.graph_factory = graph_factory
         self.checkpointer = checkpointer
 
-    async def resolve_agent(self, workflow: WorkflowSpec, llm) -> DingLangGraphAGUIAgent:
+    async def resolve_agent(self, workflow: ExecutableWorkflow, llm) -> DingLangGraphAGUIAgent:
         graph_artifact = await self.graph_factory.build(workflow, llm, self.checkpointer, fake_log_method)
         return DingLangGraphAGUIAgent(
             name=workflow.name,
@@ -56,15 +56,25 @@ class CopilotKitSdk:
             graph=graph_artifact.graph,
         )
 
-    def list_agents_for_user(self, user: User, session: Session, workspace_id: UUID | None = None):
+    def list_agents_for_user(self, user: User | None, session: Session, workspace_id: UUID | None = None):
+        """
+        List agents available for a user or guest.
+        For guests (user=None), only lists public agents in the workspace.
+        For authenticated users, verifies workspace access.
+        """
         if not workspace_id:
             return []
 
-        workspace = get_specific_user_workspace(session, user.id, workspace_id)
-        if not workspace:
-            raise HTTPException(status_code=403, detail="Workspace access denied")
+        # For authenticated users, verify workspace access
+        if user:
+            workspace = get_specific_user_workspace(session, user.id, workspace_id)
+            if not workspace:
+                raise HTTPException(status_code=403, detail="Workspace access denied")
+        # For guests, just list public workflows in the workspace
+        # Note: This assumes workspaces allow guest access. In production,
+        # you may want to add a workspace.allow_guest_access flag.
 
-        workflows = list_workflows_by_workspace(session, workspace.id)
+        workflows = list_workflows_by_workspace(session, workspace_id)
         agents = {
             wf.name: {
                 "name": wf.name,

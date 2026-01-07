@@ -1,11 +1,12 @@
 import json
+import types
 import uuid
 from collections.abc import AsyncGenerator
 
 import ag_ui_langgraph
-from ag_ui.core import ActivityMessage, EventType, MessagesSnapshotEvent, RunAgentInput
+from ag_ui.core import ActivityMessage, CustomEvent, EventType, MessagesSnapshotEvent, RunAgentInput, RunFinishedEvent
 from ag_ui.core.events import RunStartedEvent
-from ag_ui_langgraph.agent import langchain_messages_to_agui
+from ag_ui_langgraph.agent import Command, dump_json_safe, get_stream_payload_input
 from ag_ui_langgraph.utils import (
     AGUIAssistantMessage,
     AGUIFunctionCall,
@@ -14,12 +15,16 @@ from ag_ui_langgraph.utils import (
     AGUIToolCall,
     AGUIToolMessage,
     AGUIUserMessage,
+    agui_messages_to_langchain,
+    convert_agui_multimodal_to_langchain,
     convert_langchain_multimodal_to_agui,
     resolve_message_content,
     stringify_if_needed,
 )
 from copilotkit import LangGraphAGUIAgent
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from dingent.engine.agents import messages as DingMessages
+import ag_ui_langgraph.utils
 
 
 class DingRunAgentInput(RunAgentInput):
@@ -38,17 +43,17 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
                     tool_call_id=message.tool_call_id,
                 )
             )
-            if message.artifact:
-                try:
-                    agui_messages.append(
-                        ActivityMessage(
-                            activity_type="a2ui-surface",
-                            id=str(uuid.uuid4()),
-                            content=message.artifact,
-                        )
+        elif message.type == "activity":
+            try:
+                agui_messages.append(
+                    ActivityMessage(
+                        activity_type="a2ui-surface",
+                        id=str(uuid.uuid4()),
+                        content=message.content[0],
                     )
-                except Exception as e:
-                    print(f"Error processing artifact in ToolMessage: {e}")
+                )
+            except Exception as e:
+                print(f"Error processing artifact in ToolMessage: {e}")
         elif isinstance(message, HumanMessage):
             # Handle multimodal content
             if isinstance(message.content, list):
@@ -102,7 +107,86 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
     return agui_messages
 
 
+def ding_agui_messages_to_langchain(messages: list[AGUIMessage]) -> list[BaseMessage]:
+    langchain_messages = []
+    for message in messages:
+        role = message.role
+        if role == "user":
+            # Handle multimodal content
+            if isinstance(message.content, str):
+                content = message.content
+            elif isinstance(message.content, list):
+                content = convert_agui_multimodal_to_langchain(message.content)
+            else:
+                content = str(message.content)
+
+            langchain_messages.append(
+                HumanMessage(
+                    id=message.id,
+                    content=content,
+                    name=message.name,
+                )
+            )
+        elif role == "assistant":
+            tool_calls = []
+            if hasattr(message, "tool_calls") and message.tool_calls:
+                for tc in message.tool_calls:
+                    tool_calls.append(
+                        {
+                            "id": tc.id,
+                            "name": tc.function.name,
+                            "args": json.loads(tc.function.arguments) if hasattr(tc, "function") and tc.function.arguments else {},
+                            "type": "tool_call",
+                        }
+                    )
+            langchain_messages.append(
+                AIMessage(
+                    id=message.id,
+                    content=message.content or "",
+                    tool_calls=tool_calls,
+                    name=message.name,
+                )
+            )
+        elif role == "system":
+            langchain_messages.append(
+                SystemMessage(
+                    id=message.id,
+                    content=message.content,
+                    name=message.name,
+                )
+            )
+        elif role == "tool":
+            langchain_messages.append(
+                ToolMessage(
+                    id=message.id,
+                    content=message.content,
+                    tool_call_id=message.tool_call_id,
+                )
+            )
+        elif role == "activity":
+            langchain_messages.append(
+                DingMessages.ActivityMessage(
+                    id=message.id,
+                    content=message.content,
+                    name=message.name,
+                )
+            )
+        else:
+            raise ValueError(f"Unsupported message role: {role}")
+    return langchain_messages
+
+
 ag_ui_langgraph.agent.langchain_messages_to_agui = ding_langchain_messages_to_agui
+ag_ui_langgraph.utils.agui_messages_to_langchain = ding_agui_messages_to_langchain
+
+
+async def graph_aget_state(self, config, *, subgraphs: bool = False):
+    """
+    替换原有的 graph.get_state 方法，去掉ActivityMessage
+    """
+    state = await self._original_aget_state(config, subgraphs=subgraphs)
+    state.values["messages"] = [msg for msg in state.values.get("messages", []) if not msg.type == "activity"]
+    return state
 
 
 class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
@@ -160,5 +244,84 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
             )
         )
         yield self._dispatch_event(
-            MessagesSnapshotEvent(type=EventType.MESSAGES_SNAPSHOT, messages=langchain_messages_to_agui(messages)),
+            MessagesSnapshotEvent(type=EventType.MESSAGES_SNAPSHOT, messages=ag_ui_langgraph.agent.langchain_messages_to_agui(messages)),
         )
+
+    async def prepare_stream(self, input: RunAgentInput, agent_state, config):
+        state_input = input.state or {}
+        messages = input.messages or []
+        forwarded_props = input.forwarded_props or {}
+        thread_id = input.thread_id
+
+        state_input["messages"] = agent_state.values.get("messages", [])
+        self.active_run["current_graph_state"] = agent_state.values.copy()
+        langchain_messages = agui_messages_to_langchain(messages)
+        state = self.langgraph_default_merge_state(state_input, langchain_messages, input)
+        self.active_run["current_graph_state"].update(state)
+        config["configurable"]["thread_id"] = thread_id
+        interrupts = agent_state.tasks[0].interrupts if agent_state.tasks and len(agent_state.tasks) > 0 else []
+        has_active_interrupts = len(interrupts) > 0
+        resume_input = forwarded_props.get("command", {}).get("resume", None)
+
+        self.active_run["schema_keys"] = self.get_schema_keys(config)
+
+        non_system_messages = [msg for msg in langchain_messages if not isinstance(msg, SystemMessage)]
+        messages_without_activities = [msg for msg in agent_state.values.get("messages", []) if not msg.type == "activity"]
+        if len(messages_without_activities) > len(non_system_messages):
+            # Find the last user message by working backwards from the last message
+            last_user_message = None
+            for i in range(len(langchain_messages) - 1, -1, -1):
+                if isinstance(langchain_messages[i], HumanMessage):
+                    last_user_message = langchain_messages[i]
+                    break
+
+            if last_user_message:
+                return await self.prepare_regenerate_stream(input=input, message_checkpoint=last_user_message, config=config)
+
+        events_to_dispatch = []
+        if has_active_interrupts and not resume_input:
+            events_to_dispatch.append(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=self.active_run["id"]))
+
+            for interrupt in interrupts:
+                events_to_dispatch.append(
+                    CustomEvent(
+                        type=EventType.CUSTOM,
+                        name=ag_ui_langgraph.LangGraphEventTypes.OnInterrupt.value,
+                        value=dump_json_safe(interrupt.value),
+                        raw_event=interrupt,
+                    )
+                )
+
+            events_to_dispatch.append(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=self.active_run["id"]))
+            return {
+                "stream": None,
+                "state": None,
+                "config": None,
+                "events_to_dispatch": events_to_dispatch,
+            }
+
+        if self.active_run["mode"] == "continue":
+            await self.graph.aupdate_state(config, state, as_node=self.active_run.get("node_name"))
+
+        if resume_input:
+            stream_input = Command(resume=resume_input)
+        else:
+            payload_input = get_stream_payload_input(
+                mode=self.active_run["mode"],
+                state=state,
+                schema_keys=self.active_run["schema_keys"],
+            )
+            stream_input = {**forwarded_props, **payload_input} if payload_input else None
+
+        subgraphs_stream_enabled = input.forwarded_props.get("stream_subgraphs") if input.forwarded_props else False
+
+        kwargs = self.get_stream_kwargs(
+            input=stream_input,
+            config=config,
+            subgraphs=bool(subgraphs_stream_enabled),
+            version="v2",
+        )
+
+        stream = self.graph.astream_events(**kwargs)
+
+        return {"stream": stream, "state": state, "config": config}

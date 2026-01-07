@@ -9,6 +9,7 @@ from mcp.types import TextContent
 from pydantic import BaseModel, Field, create_model
 
 from dingent.core.schemas import RunnableTool
+from .messages import ActivityMessage
 
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {
@@ -21,6 +22,8 @@ JSON_TYPE_MAP = {
     "null": type(None),
     "any": Any,
 }
+
+from typing import Any, List, Dict
 
 
 def create_dynamic_pydantic_class(
@@ -57,7 +60,11 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
 
     async def call_tool(tool_call_id: Annotated[str, InjectedToolCallId], **kwargs) -> Command:
         try:
-            response_raw = await runnable_tool.run(kwargs)
+            tool_args = kwargs
+            plugin_config = tool_args.get("plugin_config", None)
+            if not plugin_config:
+                tool_args.pop("plugin_config", None)
+            response_raw = await runnable_tool.run(tool_args)
             log_method("info", f"Tool Call Result: {response_raw}", context={"tool": tool_def.name, "id": tool_call_id})
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
@@ -82,7 +89,6 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id, artifact=artifact)
         tool_message.name = tool_def.name
 
-        # 这里的 Command 只包含增量更新
         return Command(
             update={
                 "messages": [tool_message],
@@ -92,6 +98,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
     # 构建 Schema
     class ToolArgsSchema(BaseModel):
         tool_call_id: Annotated[str, InjectedToolCallId]
+        plugin_config: dict[str, Any] | None = None
 
     CombinedSchema = create_dynamic_pydantic_class(ToolArgsSchema, tool_def.inputSchema, name=f"Args_{tool_def.name}")
 
@@ -105,10 +112,16 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
 
 
 # --- Handoff Tool ---
-def create_handoff_tool(agent_name: str, description: str | None, log_method: Callable) -> BaseTool:
+def create_handoff_tool(agent_name: str, description: str | None, log_method: Callable) -> StructuredTool:
     tool_name = f"transfer_to_{agent_name}"
+    tool_description = (
+        f"Ask agent '{agent_name}' for help. "
+        f"Use this tool ONLY when the user's request is about {description}. "
+        f"This agent is a specialist in that domain. "
+        "Provide a clear instruction for what this agent needs to do."
+    )
 
-    @tool(tool_name, description=description)
+    @tool(tool_name, description=tool_description)
     async def handoff_tool(tool_call_id: Annotated[str, InjectedToolCallId]):
         log_method("info", f"Handoff to {agent_name}", context={"id": tool_call_id})
         return Command(
@@ -117,4 +130,4 @@ def create_handoff_tool(agent_name: str, description: str | None, log_method: Ca
             update={"messages": [ToolMessage(content=f"Transferred to {agent_name}", tool_call_id=tool_call_id, name=tool_name)]},
         )
 
-    return handoff_tool
+    return cast(StructuredTool, handoff_tool)

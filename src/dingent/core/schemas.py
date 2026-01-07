@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import toml
 from fastmcp.mcp_config import MCPServerTypes
 from mcp.types import Tool
-from pydantic import ConfigDict, EmailStr, PrivateAttr, model_validator
+from pydantic import ConfigDict, EmailStr, PrivateAttr, computed_field, model_validator
 from sqlmodel import Field, SQLModel
 
 from dingent.core.utils import to_camel
@@ -420,6 +420,7 @@ class WorkspaceBase(SQLModel):
     name: str
     slug: str
     description: str | None = None
+    allow_guest_access: bool = False
 
 
 class WorkspaceCreate(WorkspaceBase):
@@ -429,6 +430,7 @@ class WorkspaceCreate(WorkspaceBase):
 class WorkspaceUpdate(SQLModel):
     name: str | None = None
     description: str | None = None
+    allow_guest_access: bool | None = None
 
 
 class WorkspaceRole(str, Enum):
@@ -472,22 +474,26 @@ class PluginSpec(SQLModel):
     config: dict[str, Any]
 
 
-class AssistantSpec(AssistantBase):
+class AssistantSpec(SQLModel):
     id: UUID = Field(default_factory=uuid4)
     name: str
     plugins: list[PluginSpec] = []
+    description: str
 
 
 class NodeSpec(WorkflowNodeBase):
     id: UUID = Field(default_factory=uuid4)
-    assistant: AssistantSpec
+    name: str
+    description: str
 
 
-class EdgeSpec(WorkflowEdgeBase):
+class EdgeSpec(SQLModel):
     id: UUID = Field(default_factory=uuid4)
+    source_name: str
+    target_name: str
 
 
-class WorkflowSpec(WorkflowBase):
+class ExecutableWorkflow(SQLModel):
     """
     这是传给 GraphFactory 的纯数据对象。
     它不需要 workspace_id, user_id 等数据库外键。
@@ -495,8 +501,10 @@ class WorkflowSpec(WorkflowBase):
 
     id: UUID = Field(default_factory=uuid4)
     name: str
-    start_node_name: str | None = None
-    nodes: list[NodeSpec] = []
+    start_node: str
+    description: str | None = None
+    assistant_configs: dict[str, AssistantSpec] = {}
+    adjacency_map: dict[str, list[str]]
 
 
 class ThreadBase(SQLModel):

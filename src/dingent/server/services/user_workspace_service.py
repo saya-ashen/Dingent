@@ -100,7 +100,6 @@ class UserWorkspaceService:
         )
 
     def update_workspace(self, slug: str, payload: WorkspaceUpdate) -> WorkspaceRead:
-        # ✅ 获取上下文
         workspace, member = self._get_workspace_context(slug)
 
         # 鉴权
@@ -111,14 +110,13 @@ class UserWorkspaceService:
             workspace.name = payload.name
         if payload.description is not None:
             workspace.description = payload.description
-        # 如果你允许修改 slug，需要在这里处理并检查唯一性，通常建议不允许修改 slug 或者很谨慎地修改
+        if payload.allow_guest_access is not None:
+            workspace.allow_guest_access = payload.allow_guest_access
 
         self.session.add(workspace)
         self.session.commit()
         self.session.refresh(workspace)
 
-        # 复用 get_workspace 逻辑或者直接构造返回
-        # 为了性能，直接构造返回，避免再次查询 count
         return self.get_workspace(slug)
 
     def invite_member(self, slug: str, payload: WorkspaceInvite) -> WorkspaceMemberRead:
