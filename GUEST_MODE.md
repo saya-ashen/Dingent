@@ -2,9 +2,39 @@
 
 ## Overview (概述)
 
-Dingent now supports guest-level conversations, allowing users to interact with your AI agents without requiring authentication or creating an account. This is ideal for public-facing applications or demos.
+Dingent now supports guest-level conversations, allowing users to interact with your AI agents without requiring authentication or creating an account. Workspace owners can control which workspaces allow guest access via the admin UI.
 
-现在 Dingent 支持游客级别的对话功能，允许用户无需身份验证或创建账户即可与您的 AI 代理进行交互。这非常适合面向公众的应用程序或演示。
+现在 Dingent 支持游客级别的对话功能，允许用户无需身份验证或创建账户即可与您的 AI 代理进行交互。工作空间所有者可以通过管理界面控制哪些工作空间允许游客访问。
+
+## Workspace Access Control (工作空间访问控制)
+
+### Enabling Guest Access (启用游客访问)
+
+Workspace owners can enable guest access through the admin UI:
+
+工作空间所有者可以通过管理界面启用游客访问：
+
+1. Open workspace settings (设置图标)
+2. Navigate to "General" tab (导航到"常规"选项卡)
+3. Toggle "Guest Access" switch (切换"游客访问"开关)
+4. Copy the shareable link (复制可分享链接)
+5. Share the link with guests (与游客分享链接)
+
+**Shareable Link Format:** `https://your-domain.com/{workspace-slug}/chat`
+
+**可分享链接格式：** `https://your-domain.com/{workspace-slug}/chat`
+
+### Access Control (访问控制)
+
+- Only workspaces with `allow_guest_access=true` accept guest users
+- Guests attempting to access restricted workspaces receive a 403 error
+- Workspace owners can disable guest access at any time
+- Disabling guest access does not delete existing guest conversations
+
+- 只有 `allow_guest_access=true` 的工作空间才接受游客用户
+- 尝试访问受限工作空间的游客会收到 403 错误
+- 工作空间所有者可以随时禁用游客访问
+- 禁用游客访问不会删除现有的游客对话
 
 ## How It Works (工作原理)
 
