@@ -8,7 +8,7 @@ set windows-shell := ["sh", "-c"]
 # 变量定义
 # =====================
 
-# Node 版本 
+# Node 版本
 NODE_VERSION := "v20.11.0"
 
 # 根据操作系统判断 Node 下载地址和文件名
@@ -53,10 +53,10 @@ assemble:
 get-node:
     @echo "Downloading Node.js binary ({{NODE_VERSION}}) for {{os()}}..."
     @mkdir -p build/tmp_node
-    
+
     # 1. 下载
     @curl -L -o build/node_dist.archive {{NODE_DIST_URL}}
-    
+
     # 2. 解压并提取 (根据不同系统处理)
     @if [ "{{os()}}" = "windows" ]; then \
         echo "Extracting Windows binary..."; \
@@ -67,7 +67,7 @@ get-node:
         tar -xzf build/node_dist.archive -C build/tmp_node; \
         mv build/tmp_node/node-*/bin/node {{DEPLOY_DIR}}/; \
     fi
-    
+
     # 3. 清理
     @rm -rf build/tmp_node build/node_dist.archive
     @echo "✅ Node binary placed in {{DEPLOY_DIR}}"

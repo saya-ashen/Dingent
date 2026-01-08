@@ -4,19 +4,18 @@ from fastapi import FastAPI
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from sqlmodel import Session
 
-from dingent.core.config import settings
 from dingent.core.db.session import engine
 from dingent.core.factories.assistant_factory import AssistantFactory
 from dingent.core.managers.log_manager import LogManager
 from dingent.core.managers.plugin_manager import PluginManager
 from dingent.core.managers.resource_manager import ResourceManager
+from dingent.core.paths import paths
 from dingent.core.services.market_service import MarketService
 from dingent.core.services.plugin_registry import PluginRegistry
 from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.api.schemas import GitHubMarketBackend
 from dingent.server.services.copilotkit_service import CopilotKitSdk
 from dingent.server.services.plugin_sync_service import PluginSyncService
-from dingent.core.paths import paths
 
 
 def _setup_global_services(app: FastAPI):

@@ -1,6 +1,7 @@
-import sys
 import os
+import sys
 from pathlib import Path
+
 from platformdirs import PlatformDirs
 
 APP_NAME = "dingent"

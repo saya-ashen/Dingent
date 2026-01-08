@@ -90,11 +90,11 @@ coll = COLLECT(
     exe_folder,
     a.binaries,
     a.zipfiles,
-    a.datas , 
+    a.datas ,
     strip=False,
     upx=True,
     upx_exclude=[],
-    name=dir_name_onefolder, 
+    name=dir_name_onefolder,
 )
 
 # =============================================================================

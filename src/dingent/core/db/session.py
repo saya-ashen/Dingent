@@ -1,9 +1,7 @@
-from pathlib import Path
-
 from sqlalchemy import create_engine, event
 from sqlmodel import Session, SQLModel, select
-from ..config import settings
 
+from ..config import settings
 from .models import *  # noqa: F403
 from .models import Role
 

@@ -67,17 +67,17 @@ jobs:
           DIR_NAME=$(ls -d *_dir)
           # 2. 提取基础名称 (例如 dingent-linux-x86_64)
           BASE_NAME=$(basename "$DIR_NAME" _dir)
-          
+
           # 3. 将文件夹重命名为简洁的 'dingent'，这样用户解压后看到的是干净的文件夹名
           #    注意：这里不会和同级目录下的单文件 dingent-linux-x86_64 冲突
           mv "$DIR_NAME" dingent
-          
+
           # 4. 打包成 tar.gz
           tar -czvf "${BASE_NAME}.tar.gz" dingent
-          
+
           # 5. 删除未压缩的原始目录，这样 upload-artifact 就只上传 exe 和 tar.gz
           rm -rf dingent
-          
+
           # 打印一下结果，方便调试
           echo "Build artifacts ready:"
           ls -lh
@@ -145,16 +145,16 @@ jobs:
           $dir = Get-ChildItem -Directory -Filter "*_dir"
           # 2. 计算基础名称 (去掉 _dir)
           $baseName = $dir.Name -replace "_dir",""
-          
+
           # 3. 将文件夹重命名为 'dingent'
           Rename-Item -Path $dir.Name -NewName "dingent"
-          
+
           # 4. 压缩为 Zip，添加 -folder 后缀
           Compress-Archive -Path "dingent" -DestinationPath "${baseName}-folder.zip"
-          
+
           # 5. 删除原始文件夹
           Remove-Item -Path "dingent" -Recurse -Force
-          
+
           Write-Host "Build artifacts ready:"
           Get-ChildItem
 

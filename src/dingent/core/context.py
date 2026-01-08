@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dingent.core.managers.user_secret_manager import UserSecretManager
 from dingent.core.config import settings
+from dingent.core.managers.user_secret_manager import UserSecretManager
 from dingent.core.paths import paths
 
 

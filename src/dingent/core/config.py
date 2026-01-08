@@ -1,6 +1,8 @@
 from functools import lru_cache
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from dingent.core.paths import paths  # 导入上面的 paths
 
 

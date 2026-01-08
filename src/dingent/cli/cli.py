@@ -18,18 +18,16 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.request
 import webbrowser
 from pathlib import Path
 from typing import Annotated
-import urllib.request
-import urllib.error
-
 
 import psutil
 import typer
 from rich import print
 from rich.text import Text
-
 
 app = typer.Typer(help="Dingent Agent Framework CLI")
 
@@ -102,6 +100,8 @@ class ServiceSupervisor:
                 print("\n[bold yellow]Received signal.  Shutting down.. .[/bold yellow]")
                 self.stop_all()
                 sys.exit(0)
+            if signum and frame:
+                pass
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -299,8 +299,8 @@ def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_di
         os.environ["DINGENT_HOME"] = str(data_dir.resolve())
 
     # 2. 现在安全导入
-    from dingent.core.paths import paths
     from dingent.cli.assets import asset_manager
+    from dingent.core.paths import paths
 
     print("[cyan]🔍 Checking runtime environment...[/cyan]")
 
