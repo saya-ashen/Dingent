@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { ApiClient } from "@/services";
 
 const getBaseUrl = () =>
@@ -12,6 +13,8 @@ export async function getServerApi() {
     { baseURL: getBaseUrl() },
     cookieStore.get("access_token")?.value,
     cookieStore.get("visitor_id")?.value,
-    () => {},
+    () => {
+      redirect("/auth/login");
+    },
   );
 }

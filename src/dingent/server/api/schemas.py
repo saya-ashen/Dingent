@@ -1,7 +1,15 @@
+from enum import Enum
+import os
 import uuid
-from typing import Any
+from typing import Any, Protocol
 
-from pydantic import BaseModel, Field
+import asyncio
+import fsspec
+import toml
+from pathlib import Path
+from async_lru import alru_cache
+from packaging.version import InvalidVersion, Version
+from pydantic import BaseModel, Field, model_validator
 
 # --- Admin Response Models ---
 
@@ -39,17 +47,6 @@ class SetActiveWorkflowRequest(BaseModel):
     workflow_id: str
 
 
-class MarketDownloadRequest(BaseModel):
-    item_id: str
-    category: str  # "plugin" | "assistant" | "workflow"
-
-
-class MarketDownloadResponse(BaseModel):
-    success: bool
-    message: str
-    installed_path: str | None = None
-
-
 class AgentExecuteRequest(BaseModel):
     threadId: str = Field(default_factory=lambda: str(uuid.uuid4()))
     state: dict[str, Any] = {}
@@ -67,3 +64,251 @@ class ActionExecuteRequest(BaseModel):
 
 class AgentStateRequest(BaseModel):
     threadId: str
+
+
+# --- Market Models ---
+MARKET_REPO_OWNER = "saya-ashen"
+MARKET_REPO_NAME = "dingent-hub"
+GITHUB_API_BASE = "https://api.github.com"
+GITHUB_CONTENT_BASE = "https://ghfast.top/https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
+
+
+MARKET_REPO_OWNER = "saya-ashen"
+MARKET_REPO_NAME = "dingent-hub"
+MARKET_BRANCH = "main"
+
+
+class MarketDownloadRequest(BaseModel):
+    item_id: str
+    category: str  # "plugin" | "assistant" | "workflow"
+
+
+class MarketDownloadResponse(BaseModel):
+    success: bool
+    message: str
+    installed_path: str | None = None
+
+
+class MarketItemCategory(str, Enum):
+    """Enumeration for different categories of items in the Dingent Hub."""
+
+    PLUGIN = "plugin"
+    ASSISTANT = "assistant"
+    WORKFLOW = "workflow"
+    ALL = "all"
+
+    def __str__(self) -> str:
+        """Return the string value of the enum member."""
+        return self.value
+
+
+class MarketMetadata(BaseModel):
+    version: str
+    updated_at: str
+    categories: dict[str, int]
+
+
+class MarketItem(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    version: str | None = None
+    author: str | None = None
+    category: MarketItemCategory
+    tags: list[str] = []
+    license: str | None = None
+    readme: str | None = None
+    downloads: int | None = None
+    rating: float | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    is_installed: bool = False
+    installed_version: str | None = None
+    update_available: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_name_field(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            source_for_display_name = data.get("display_name") or data.get("name")
+            if source_for_display_name:
+                data["name"] = source_for_display_name
+
+        return data
+
+
+class MarketBackend(Protocol):
+    async def get_metadata(self) -> MarketMetadata: ...
+    async def list_items(
+        self,
+        category: MarketItemCategory,
+        installed_map_tuple: tuple[tuple[str, str], ...],
+    ) -> list[MarketItem]: ...
+    async def get_readme(self, item_id: str, category: MarketItemCategory) -> str | None: ...
+    async def download_item(self, item_id: str, category: MarketItemCategory, target_dir: Path) -> None: ...
+
+
+class GitHubMarketBackend:
+    """
+    使用 fsspec 重构的市场后端。
+    """
+
+    # 目录映射
+    CATEGORY_DIR_MAP = {
+        MarketItemCategory.PLUGIN: "plugins",
+        MarketItemCategory.ASSISTANT: "assistants",
+        MarketItemCategory.WORKFLOW: "workflows",
+    }
+
+    def __init__(self, log_manager):
+        self._log_manager = log_manager
+
+        # 初始化 GitHub 文件系统
+        # 这里的 username/token 用于解决 API 限流问题
+        self.fs = fsspec.filesystem("github", org=MARKET_REPO_OWNER, repo=MARKET_REPO_NAME, sha=MARKET_BRANCH, username=os.getenv("GITHUB_USER"), token=os.getenv("GITHUB_TOKEN"))
+
+    # --- 核心辅助：将 fsspec 的同步操作转为异步 ---
+    async def _run_fs(self, func, *args, **kwargs):
+        """在线程池中运行 fsspec 的同步操作，避免阻塞 Event Loop"""
+        return await asyncio.to_thread(func, *args, **kwargs)
+
+    # --- API 实现 ---
+
+    @alru_cache(maxsize=1)
+    async def get_metadata(self) -> MarketMetadata:
+        try:
+            # 直接读取文件内容，就像读本地文件一样
+            if await self._run_fs(self.fs.exists, "market.json"):
+                content = await self._run_fs(self.fs.cat_file, "market.json")
+                return MarketMetadata.model_validate_json(content)
+        except Exception as e:
+            self._log_manager.log_with_context("error", "Metadata parse error", context={"error": str(e)})
+
+        return MarketMetadata(version="0.0.0", updated_at="", categories={})
+
+    async def get_readme(self, item_id: str, category: MarketItemCategory) -> str | None:
+        repo_dir = self.CATEGORY_DIR_MAP.get(category, f"{category.value}s")
+        path = f"{repo_dir}/{item_id}/README.md"
+
+        try:
+            if await self._run_fs(self.fs.exists, path):
+                # fsspec 默认读取为 bytes，需要 decode
+                content_bytes = await self._run_fs(self.fs.cat_file, path)
+                return content_bytes.decode("utf-8")
+        except Exception:
+            pass  # File not found or error
+        return None
+
+    async def download_item(self, item_id: str, category: MarketItemCategory, target_dir: Path) -> None:
+        repo_dir = self.CATEGORY_DIR_MAP.get(category, f"{category.value}s")
+        remote_path = f"{repo_dir}/{item_id}"
+
+        # 确保目标目录存在
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            await self._run_fs(self.fs.get, remote_path, str(target_dir), recursive=True)
+        except Exception as e:
+            self._log_manager.log_with_context("error", "fsspec download failed", context={"remote": remote_path, "error": str(e)})
+            raise
+
+    # --- 列表获取逻辑 ---
+
+    async def list_items(
+        self,
+        category: MarketItemCategory,
+        installed_map_tuple: tuple[tuple[str, str], ...],
+    ) -> list[MarketItem]:
+        categories = [c for c in MarketItemCategory if c != MarketItemCategory.ALL] if category == MarketItemCategory.ALL else [category]
+
+        tasks = [self._process_category(cat, installed_map_tuple) for cat in categories]
+        results = await asyncio.gather(*tasks)
+        return [item for sublist in results for item in sublist]
+
+    @alru_cache(maxsize=16)
+    async def _process_category(self, category: MarketItemCategory, installed_map_tuple: tuple[tuple[str, str], ...]) -> list[MarketItem]:
+        repo_dir = self.CATEGORY_DIR_MAP.get(category, f"{category.value}s")
+        installed_map = dict(installed_map_tuple)
+
+        try:
+            # fs.ls 列出目录内容
+            # detail=False 返回路径列表 ['owner/repo/plugins/plugin-a', ...]
+            paths = await self._run_fs(self.fs.ls, repo_dir, detail=False)
+        except FileNotFoundError:
+            return []
+
+        items = []
+        for path in paths:
+            # fsspec 返回的 path 通常是完整的，需要取最后一部分作为 ID
+            # 这里的 path 可能是 "plugins/plugin-a"
+            item_id = path.rstrip("/").split("/")[-1]
+
+            # 过滤掉非文件夹（如果 fs.ls 返回了文件）
+            if "." in item_id:
+                continue
+
+            # 获取详情 (并发处理)
+            items.append(self._fetch_item_details(category, item_id, path, installed_map.get(item_id)))
+
+        # 并发读取所有 items 的配置文件
+        return [i for i in await asyncio.gather(*items) if i is not None]
+
+    async def _fetch_item_details(self, category: MarketItemCategory, item_id: str, remote_path: str, local_version: str | None) -> MarketItem | None:
+        try:
+            meta = {}
+
+            # 定义需要读取的配置文件路径
+            configs_to_read = []
+            if category == MarketItemCategory.PLUGIN:
+                configs_to_read = [f"{remote_path}/pyproject.toml", f"{remote_path}/plugin.toml"]
+
+            # 并发读取配置文件内容
+            read_tasks = [self._run_fs(self._safe_read_toml, p) for p in configs_to_read]
+            config_contents = await asyncio.gather(*read_tasks)
+
+            # 合并配置
+            for data in config_contents:
+                if not data:
+                    continue
+                # 简单的合并策略：扁平化
+                meta.update(data.get("project", {}))  # pyproject standard
+                meta.update(data.get("plugin", data))  # plugin.toml custom structure
+
+            # 如果没有读到任何配置，回退到默认值
+            remote_version = str(meta.get("version", "0.0.0"))
+
+            # 版本比较
+            update_available = False
+            if local_version:
+                try:
+                    update_available = Version(remote_version) > Version(local_version)
+                except InvalidVersion:
+                    pass
+
+            return MarketItem(
+                id=item_id,
+                name=meta.get("name", item_id),
+                description=meta.get("description"),
+                version=remote_version,
+                author=meta.get("author") or (meta.get("authors", [{}])[0].get("name") if "authors" in meta else None),
+                category=category,
+                tags=meta.get("tags", []),
+                license=str(meta.get("license", {}).get("text", "Unknown")),
+                is_installed=bool(local_version),
+                installed_version=local_version,
+                update_available=update_available,
+            )
+
+        except Exception as e:
+            self._log_manager.log_with_context("warning", "Item details error", context={"id": item_id, "error": str(e)})
+            return None
+
+    def _safe_read_toml(self, path: str) -> dict | None:
+        """同步辅助函数：安全读取并解析 TOML"""
+        try:
+            if self.fs.exists(path):
+                content = self.fs.cat_file(path)
+                return toml.loads(content.decode("utf-8"))
+        except Exception:
+            pass
+        return None

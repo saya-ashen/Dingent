@@ -4,6 +4,12 @@ import { useCallback, useTransition } from "react";
 export type CategoryFilter = "all" | "plugin" | "assistant" | "workflow";
 export type SortOption = "asc" | "desc";
 
+export interface MarketFilters {
+  search: string;
+  category: CategoryFilter;
+  sort: SortOption;
+}
+
 export function useMarketFilters() {
   const router = useRouter();
   const pathname = usePathname();
@@ -28,7 +34,7 @@ export function useMarketFilters() {
       }
       return params.toString();
     },
-    [searchParams]
+    [searchParams],
   );
 
   const setFilter = (key: string, value: string | null) => {
@@ -45,7 +51,8 @@ export function useMarketFilters() {
     filters,
     isPending,
     setSearch: (val: string) => setFilter("filter", val),
-    setCategory: (val: CategoryFilter) => setFilter("type", val === "all" ? null : val),
+    setCategory: (val: CategoryFilter) =>
+      setFilter("type", val === "all" ? null : val),
     setSort: (val: SortOption) => setFilter("sort", val),
   };
 }

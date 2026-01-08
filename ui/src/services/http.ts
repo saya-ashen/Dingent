@@ -8,6 +8,24 @@ export interface AuthHooks {
   getAccessToken?: () => string | undefined;
   resetAuthState?: () => void;
 }
+/**
+ * 辅助函数：给任意 Axios 实例绑定 401 拦截器
+ */
+export function attachAuthInterceptor(
+  instance: AxiosInstance,
+  onUnauthorized?: UnauthorizeHandler,
+) {
+  instance.interceptors.response.use(
+    (res) => res,
+    (err) => {
+      // 检查是否是 401 错误，并且是否存在回调函数
+      if (err.response?.status === 401 && onUnauthorized) {
+        onUnauthorized();
+      }
+      return Promise.reject(err);
+    },
+  );
+}
 
 export function createHttpClient(
   config: ApiClientConfig,
@@ -18,15 +36,7 @@ export function createHttpClient(
     timeout: config.timeoutMs ?? 120_000,
   });
 
-  instance.interceptors.response.use(
-    (res) => res,
-    (err) => {
-      if (err.response?.status === 401 && onUnauthorized) {
-        onUnauthorized();
-      }
-      return Promise.reject(err);
-    },
-  );
+  attachAuthInterceptor(instance, onUnauthorized);
 
   return instance;
 }

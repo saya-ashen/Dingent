@@ -41,15 +41,13 @@ hiddenimports += tmp_ret[2]
 dingent_hidden_imports = collect_submodules('dingent')
 hiddenimports += dingent_hidden_imports
 
-static = [('static.tar.gz','build/static.tar.gz','DATA')]
+static = [('build/runtime.tar.gz', '.')]
 
-# --- 1. 共享分析 (Analysis) ---
-# 这一步对于两种模式是通用的，只需要执行一次
 a = Analysis(
     ["src/dingent/cli/cli.py"],
     pathex=[],
     binaries=binaries,
-    datas=datas,
+    datas=datas + static,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
@@ -92,11 +90,11 @@ coll = COLLECT(
     exe_folder,
     a.binaries,
     a.zipfiles,
-    a.datas + static, # 静态资源在这里添加
+    a.datas , 
     strip=False,
     upx=True,
     upx_exclude=[],
-    name=dir_name_onefolder, # 生成的文件夹名称 (dist/dingent-xxx_dir)
+    name=dir_name_onefolder, 
 )
 
 # =============================================================================
@@ -109,7 +107,7 @@ exe_file = EXE(
     a.scripts,
     a.binaries,       # 包含二进制
     a.zipfiles,       # 包含 zip
-    a.datas + static, # 包含数据
+    a.datas , # 包含数据
     [],
     name=exe_name_onefile, # 生成的单文件名 (dist/dingent-xxx.exe)
     debug=False,

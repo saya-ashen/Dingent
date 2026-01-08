@@ -32,14 +32,15 @@ export function getClientApi() {
       () => {
         useAuthStore.getState().logout();
         if (typeof window !== "undefined") {
-          window.location.href = "/auth/login";
+          if (!window.location.pathname.startsWith("/auth/login")) {
+            const currentPath = encodeURIComponent(
+              window.location.pathname + window.location.search,
+            );
+            window.location.href = `/auth/login?redirect=${currentPath}`;
+          }
         }
       },
     );
-
-    console.log("[ApiClient] Recreated instance due to credential change", {
-      visitorId,
-    });
   }
 
   return clientInstance;

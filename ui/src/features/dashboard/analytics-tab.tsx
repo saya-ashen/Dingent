@@ -9,8 +9,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OverviewApi } from "@/services";
 import { AnalyticsData } from "@/types/entity";
+import { OverviewApi } from "@/services/dashboard";
 
 function useAnalytics({ wsApi }: { wsApi: { overview: OverviewApi } }) {
   // The type here should match what your API function returns.

@@ -112,7 +112,7 @@ export default function WorkflowsPage() {
               onSelectWorkflow={handleSelectWorkflow}
               onCreateWorkflow={(input) =>
                 createWorkflow.mutate(input, {
-                  onSuccess: (wf) => {
+                  onSuccess: (wf: Workflow) => {
                     toast.success("Workflow created");
                     handleSelectWorkflow(wf.id);
                   },

@@ -8,230 +8,39 @@ Commands:
 
 from __future__ import annotations
 
-import hashlib
+import atexit
 import os
 import queue
 import re
-import shutil
+import signal
 import subprocess
 import sys
-import tarfile
 import tempfile
 import threading
 import time
 import webbrowser
 from pathlib import Path
 from typing import Annotated
+import urllib.request
+import urllib.error
+
 
 import psutil
 import typer
-from cookiecutter.exceptions import RepositoryNotFound
-from cookiecutter.main import cookiecutter
 from rich import print
 from rich.text import Text
 
-from dingent.cli.context import CliContext
 
 app = typer.Typer(help="Dingent Agent Framework CLI")
 
 
-PROD_REPO_URL = "https://github.com/saya-ashen/Dingent.git"
-# When running in development mode, this can point to a local repository for easier debugging
-DEV_REPO_URL = "/home/saya/Workspace/Dingent"
-
 IS_DEV_MODE = os.getenv("DINGENT_DEV")
 
-REPO_URL = DEV_REPO_URL if IS_DEV_MODE else PROD_REPO_URL
-
-DEFAULT_DINGENT_TOML = """
-backend_port = 8000
-frontend_port = 3000
-"""
 
 # --------- Utility Functions ---------
 
 
-def _prepare_static_assets() -> Path:
-    """
-    根据运行模式准备静态资源路径。
-    自动检测版本变更，如果有更新则重新解压。
-    """
-    bundle_dir = Path(sys._MEIPASS)
-    tar_source = bundle_dir / "static.tar.gz"
-
-    # 设定解压目标
-    temp_dir = Path(tempfile.gettempdir()) / "dingent_runtime" / "static"
-    version_file = temp_dir.parent / "static_version.txt"  # 用于记录指纹
-
-    # 1. 计算内置包的指纹 (MD5)
-    # 读取 tar.gz 的前 8KB 甚至整个文件做 hash 都可以，这里读整个文件确保准确
-    try:
-        with open(tar_source, "rb") as f:
-            current_hash = hashlib.md5(f.read()).hexdigest()
-    except Exception:
-        current_hash = "unknown"
-
-    # 2. 检查是否需要更新
-    need_update = True
-    if temp_dir.exists() and version_file.exists():
-        try:
-            cached_hash = version_file.read_text().strip()
-            if cached_hash == current_hash:
-                need_update = False
-        except Exception:
-            pass
-
-    # 3. 如果需要更新，先清理旧文件，再解压
-    if need_update:
-        print(f"[bold blue]📦 Detected update (Hash: {current_hash[:8]}). Extracting assets...[/bold blue]")
-
-        # 移除旧目录（如果存在）
-        if temp_dir.exists():
-            try:
-                shutil.rmtree(temp_dir)
-            except OSError as e:
-                print(f"[bold yellow]⚠️ Warning: Could not clean old assets (Locked?): {e}[/bold yellow]")
-                # 如果删除失败（例如文件被占用），尝试直接覆盖，或者报错
-
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        try:
-            with tarfile.open(tar_source, "r:gz") as tar:
-                tar.extractall(path=temp_dir, filter="data")
-
-            # 解压成功后，写入版本文件
-            version_file.write_text(current_hash)
-
-        except Exception as e:
-            print(f"[bold red]❌ Failed to extract assets: {e}[/bold red]")
-            raise typer.Exit(1)
-    # else:
-    # print("✅ Assets are up to date.")
-
-    return temp_dir
-
-
-def _ensure_project_root(explicit_dir: Path | None = None) -> bool:
-    """
-    Ensure the application is running in the correct data directory.
-    For a service/software, we use the OS standard AppData folder.
-    """
-    APP_NAME = "dingent"
-    if explicit_dir:
-        # 如果用户指定了目录，将其转换为绝对路径
-        app_dir = explicit_dir.resolve()
-        print(f"[bold blue]📂 Using custom data directory: {app_dir}[/bold blue]")
-    else:
-        # 否则使用系统标准目录
-        app_dir = Path(typer.get_app_dir(APP_NAME))
-        # 只有在默认模式下才打印这个，避免 verbose
-        # print(f"[bold blue]📂 Using system data directory: {app_dir}[/bold blue]")
-
-    # 2. 确保目录存在
-    if not app_dir.exists():
-        try:
-            app_dir.mkdir(parents=True, exist_ok=True)
-            print(f"[bold blue]📂 Created application data directory: {app_dir}[/bold blue]")
-        except Exception as e:
-            print(f"[bold red]❌ Failed to create app directory {app_dir}: {e}[/bold red]")
-            raise typer.Exit(1)
-
-    # 3. [关键步骤] 强制将当前工作目录 (CWD) 切换到这个数据目录
-    # 这样后续所有的 CliContext 读取、日志生成、临时文件都会在这个安全目录下进行
-    os.chdir(app_dir)
-
-    # 4. 检查并创建配置文件
-    config_path = app_dir / "dingent.toml"
-
-    if config_path.exists():
-        # 如果文件已存在，直接返回，不需要重新加载
-        return False
-
-    # --- 文件不存在，创建默认配置 ---
-    print(f"[bold blue]ℹ️ Initializing configuration in {config_path}...[/bold blue]")
-    try:
-        # 服务软件通常不需要动态的项目名，直接叫 dingent-service 即可
-        config_content = DEFAULT_DINGENT_TOML.format(project_name="dingent-service")
-        config_path.write_text(config_content, encoding="utf-8")
-        print("[bold green]✅ Configuration created.[/bold green]")
-        return True
-    except Exception as e:
-        print(f"[bold red]❌ Failed to write config file: {e}[/bold red]")
-        raise typer.Exit(1)
-
-
-def _resolve_node_binary() -> str:
-    """
-    Gets the node executable path using nodejs_wheel.
-    """
-    try:
-        from nodejs_wheel import node
-
-        cp = node(
-            args=["-e", "console.log(process.execPath)"],
-            return_completed_process=True,
-            capture_output=True,
-            text=True,
-        )
-        if isinstance(cp, subprocess.CompletedProcess) and cp.returncode == 0 and cp.stdout:
-            return cp.stdout.strip()
-        raise RuntimeError("nodejs_wheel returned an exception")
-    except Exception as e:
-        raise RuntimeError(f"Could not resolve Node executable: {e}")
-
-
-def import_json_dumps(obj) -> str:
-    import json
-
-    return json.dumps(obj, ensure_ascii=False, indent=2)
-
-
 _TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # Prevent cleanup by garbage collector
-
-
-class ProjectInitializer:
-    """Handles the logic for the 'init' command."""
-
-    def __init__(self, project_name, template, checkout):
-        self.project_name = project_name
-        self.template = template
-        self.checkout = checkout
-        self.project_path = None
-
-    def run(self):
-        """Executes the entire project initialization workflow."""
-        try:
-            self._create_from_template()
-            self._print_final_summary()
-        except RepositoryNotFound:
-            print(f"[bold red]\n❌ Error: Repository not found at {REPO_URL}[/bold red]")
-            print("[bold red]\nPlease check the URL and your network connection.[/bold red]")
-            raise typer.Exit()
-        except Exception as e:
-            print(f"[bold red]\nAn unexpected error occurred: {e}[/bold red]")
-            raise typer.Exit()
-
-    def _create_from_template(self):
-        """Builds the project using Cookiecutter."""
-        print(f"[bold green]🚀 Initializing project from Git repository: {REPO_URL}[/bold green]")
-        template_dir = f"templates/{self.template}"
-        created_path = cookiecutter(
-            REPO_URL,
-            directory=template_dir,
-            checkout=self.checkout,
-            extra_context={"project_slug": self.project_name},
-            output_dir=".",
-        )
-        self.project_path = Path(created_path)
-        print(f"[bold green]✅ Project created at {self.project_path}[/bold green]")
-
-    def _print_final_summary(self):
-        """Prints the final success message and next steps."""
-        final_project_name = self.project_path.name
-        print("[bold green]\n🎉 Project initialized successfully![/bold green]")
-        print("\nNext steps:")
-        print(f"  1. Change into the project directory: cd {final_project_name}")
-        print("  2. Start all services: dingent run")
 
 
 class Service:
@@ -243,6 +52,8 @@ class Service:
         color: str,
         env: dict[str, str] | None = None,
         open_browser_hint: bool = False,
+        health_check_url: str | None = None,
+        depends_on: list[str] | None = None,
     ):
         self.name = name
         self.command = command
@@ -251,6 +62,24 @@ class Service:
         self.env = env or {}
         self.open_browser_hint = open_browser_hint
         self.process: subprocess.Popen | None = None
+        self.is_ready = threading.Event()
+        self.health_check_url = health_check_url
+        self.depends_on = depends_on or []
+
+
+def _wait_for_health(url: str, timeout: float = 60, interval: float = 0.5) -> bool:
+    """等待服务健康检查通过"""
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            req = urllib.request.Request(url, method="GET")
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                if resp.status == 200:
+                    return True
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError):
+            pass
+        time.sleep(interval)
+    return False
 
 
 class ServiceSupervisor:
@@ -260,36 +89,67 @@ class ServiceSupervisor:
         self.log_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self._browser_opened = False
         self._stop_event = threading.Event()
+        self._shutting_down = False
+
+        atexit.register(self._cleanup_on_exit)
+
+    def _setup_signal_handlers(self):
+        """设置信号处理器"""
+
+        def signal_handler(signum, frame):
+            if not self._shutting_down:
+                self._shutting_down = True
+                print("\n[bold yellow]Received signal.  Shutting down.. .[/bold yellow]")
+                self.stop_all()
+                sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        if os.name == "posix":
+            signal.signal(signal.SIGHUP, signal_handler)
 
     def start_all(self):
         print("[bold cyan]🚀 Starting services...[/bold cyan]")
+
+        started_services: dict[str, Service] = {}
+        self._setup_signal_handlers()
+
         for svc in self.services:
+            # 等待依赖服务就绪
+            for dep_name in svc.depends_on:
+                dep_svc = started_services.get(dep_name)
+                if dep_svc:
+                    print(f"[cyan]⏳ Waiting for {dep_name} to be ready...[/cyan]")
+                    if not dep_svc.is_ready.wait(timeout=60):
+                        print(f"[bold red]❌ Timeout waiting for {dep_name}[/bold red]")
+                        self.stop_all()
+                        raise typer.Exit(1)
+
             self._start_service(svc)
+            started_services[svc.name] = svc
+
+            # 如果有健康检查，启动后台线程等待
+            if svc.health_check_url:
+                threading.Thread(target=self._health_check_worker, args=(svc,), daemon=True).start()
+            else:
+                # 没有健康检查的服务直接标记为就绪
+                svc.is_ready.set()
 
         t = threading.Thread(target=self._log_loop, daemon=True)
         t.start()
 
-        print("[bold green]✓ All services started. Real-time logs below (Ctrl+C to exit).[/bold green]")
+        print("[bold green]✓ All services started.[/bold green]")
+
         try:
             while not self._stop_event.is_set():
                 for svc in self.services:
                     if svc.process and svc.process.poll() is not None:
-                        print(f"\n[bold red]Service {svc.name} has exited with code {svc.process.returncode}. Shutting down other services...[/bold red]")
+                        print(f"\n[bold red]Service {svc.name} exited.[/bold red]")
                         self.stop_all()
                         raise typer.Exit(1)
                 time.sleep(0.3)
         except KeyboardInterrupt:
-            if not hasattr(self, "_shutting_down"):
-                self._shutting_down = True
-                print("\n[bold yellow]Received interrupt signal. Shutting down services (press Ctrl+C again to force quit)...[/bold yellow]")
-                try:
-                    self.stop_all()
-                except KeyboardInterrupt:
-                    print("\n[bold red]Second interrupt: Forcibly terminating all processes now.[/bold red]")
-                    self.stop_all(force=True)
-            else:
-                print("\n[bold red]Received interrupt again, force quitting...[/bold red]")
-                self.stop_all(force=True)
+            pass  # 由信号处理器处理
 
     def stop_all(self, force: bool = False):
         self._stop_event.set()
@@ -363,143 +223,161 @@ class ServiceSupervisor:
                     except Exception:
                         print("[yellow]⚠️ Could not open browser automatically.[/yellow]")
 
+    def _cleanup_on_exit(self):
+        """确保退出时清理所有子进程"""
+        if not self._shutting_down:
+            self._shutting_down = True
+            self.stop_all(force=True)
+
+    def _health_check_worker(self, svc: Service):
+        """后台健康检查"""
+        if _wait_for_health(svc.health_check_url or "", timeout=60):
+            print(f"[bold green]✓ {svc.name} is ready![/bold green]")
+            svc.is_ready.set()
+        else:
+            print(f"[bold red]❌ {svc.name} health check failed[/bold red]")
+
 
 def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = False):
-    """
-    Recursively terminates a process and all its descendants using psutil.
-    """
+    """改进的进程终止函数"""
     if proc.poll() is not None:
         return
 
-    print(f"[yellow]Stopping {name} (PID {proc.pid}) ...[/yellow]", end="")
+    print(f"[yellow]Stopping {name} (PID {proc.pid}) .. .[/yellow]", end="")
 
     try:
         main_proc = psutil.Process(proc.pid)
+    except psutil.NoSuchProcess:
+        print("[green] ✓ (already gone)[/green]")
+        return
+
+    # 先收集所有子进程
+    try:
         children = main_proc.children(recursive=True)
+    except psutil.NoSuchProcess:
+        children = []
 
-        if not force:
-            main_proc.terminate()
-            for child in children:
-                try:
-                    child.terminate()
-                except psutil.NoSuchProcess:
-                    pass
+    procs_to_kill = children + [main_proc]  # 先杀子进程，再杀父进程
 
-            _, alive = psutil.wait_procs([main_proc] + children, timeout=8)
-            if not alive:
-                print("[green] ✓[/green]")
-                return
-
-        main_proc.kill()
-        for child in children:
+    if not force:
+        # 优雅终止
+        for p in procs_to_kill:
             try:
-                child.kill()
+                p.terminate()
             except psutil.NoSuchProcess:
                 pass
 
-        psutil.wait_procs([main_proc] + children, timeout=5)
-        print("[yellow] (force/kill) ✓[/yellow]")
+        _, alive = psutil.wait_procs(procs_to_kill, timeout=5)
 
-    except psutil.NoSuchProcess:
-        print("[green] ✓ (already terminated)[/green]")
-    except Exception as e:
-        print(f"[red] Failed: {e}[/red]")
+        if alive:
+            # 强制终止存活的进程
+            for p in alive:
+                try:
+                    p.kill()
+                except psutil.NoSuchProcess:
+                    pass
+            psutil.wait_procs(alive, timeout=3)
+    else:
+        # 直接强制终止
+        for p in procs_to_kill:
+            try:
+                p.kill()
+            except psutil.NoSuchProcess:
+                pass
+        psutil.wait_procs(procs_to_kill, timeout=3)
+
+    print("[green] ✓[/green]")
 
 
 @app.command()
-def run(
-    no_browser: bool = typer.Option(False, "--no-browser", help="Do not open the frontend page in a browser automatically."),
-    data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d", help="Specify a custom data directory for config and logs.")] = None,
-    dev: bool = typer.Option(False, "--dev", help="Run in development mode (Backend only, skips built-in Frontend)."),
-):
+def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d")] = None, dev: bool = False):
     """
     Concurrently starts the backend and frontend services.
     """
-    is_dev_runtime = dev or bool(IS_DEV_MODE)
-    cli_ctx = CliContext()
-    was_created = _ensure_project_root(data_dir)
-    if was_created:
-        cli_ctx = CliContext()
+    # 1. 注入环境变量 (必须在导入 paths/settings 之前)
+    if data_dir:
+        os.environ["DINGENT_HOME"] = str(data_dir.resolve())
 
-    try:
-        node_bin = _resolve_node_binary()
-    except Exception as e:
-        print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
-        raise typer.Exit(1)
+    # 2. 现在安全导入
+    from dingent.core.paths import paths
+    from dingent.cli.assets import asset_manager
 
-    if getattr(sys, "frozen", False):
+    print("[cyan]🔍 Checking runtime environment...[/cyan]")
+
+    # 3. 准备资源
+    asset_paths = asset_manager.ensure_assets()
+    node_bin = asset_paths["node_bin"]
+    frontend_dir = asset_paths["frontend_dir"]
+    frontend_script = asset_paths["frontend_script"]
+
+    # 4. 构建启动命令
+    if paths.is_frozen:
+        # 生产环境：使用 sys.executable 调用 internal-backend
         backend_cmd = [
             sys.executable,
             "internal-backend",
             "localhost",
-            str(cli_ctx.backend_port),
+            str(port),
         ]
+        # 生产环境 Backend 不需要特定的 CWD，或者指向 bundle_dir 即可
+        backend_cwd = paths.bundle_dir
     else:
+        # 开发环境
         backend_cmd = [
             "uvicorn",
             "dingent.server.main:app",
             "--host",
             "localhost",
             "--port",
-            str(cli_ctx.backend_port),
+            str(port),
+            "--reload",
         ]
-        if is_dev_runtime:
-            backend_cmd.append("--reload")
+        # 开发环境 CWD 必须是项目根目录
+        backend_cwd = paths.bundle_dir
+
     services = [
         Service(
             name="backend",
             command=backend_cmd,
-            cwd=cli_ctx.project_root,
+            cwd=backend_cwd,
             color="magenta",
+            env={**os.environ},
+            health_check_url=f"http://localhost:{port}/api/v1/health",
         ),
     ]
-    if is_dev_runtime:
-        print("[bold yellow]🚧 Development mode detected: Skipping built-in Frontend service.[/bold yellow]")
-        print(f"[dim]ℹ️  Backend is running on port {cli_ctx.backend_port}. Please run your frontend separately (e.g., npm run dev).[/dim]")
-    else:
-        # 非开发模式：执行正常的静态资源准备和 Node 启动流程
-        try:
-            node_bin = _resolve_node_binary()
-        except Exception as e:
-            print(f"[bold red]❌ Failed to resolve Node: {e}[/bold red]")
-            raise typer.Exit(1)
 
-        # 解压静态资源
-        static_path = _prepare_static_assets()
-
-        # 添加前端服务
+    # 5. 前端服务
+    if not dev:
         services.append(
             Service(
                 name="frontend",
-                command=[node_bin, "frontend/server.js"],
-                cwd=static_path,
+                command=[node_bin, frontend_script],
+                cwd=frontend_dir,
                 color="cyan",
                 env={
-                    "DING_BACKEND_URL": f"http://localhost:{cli_ctx.backend_port}",
-                    "PORT": str(cli_ctx.frontend_port or 3000),
+                    "DING_BACKEND_URL": f"http://localhost:{port}",
+                    "PORT": str(ui_port),
+                    "HOSTNAME": "localhost",
                 },
                 open_browser_hint=True,
+                depends_on=["backend"],
             )
         )
 
-    # 4. 启动服务管理器
-    # 如果是开发模式，通常不需要自动打开浏览器指向 built-in 端口，因为你可能在用 localhost:3000 (Next.js dev server)
-    # 但如果用户坚持要打开也可以，这里根据逻辑判断一下
-    should_open_browser = (not no_browser) and (not is_dev_runtime)
+    should_open_browser = (not no_browser) and (not dev)
 
     supervisor = ServiceSupervisor(services, auto_open_frontend=should_open_browser)
     supervisor.start_all()
 
 
 @app.command(hidden=True)
-def internal_backend(host: str, port: int, app_str: str = "dingent.server.main:app"):
+def internal_backend(host: str, port: int):
     """
     (Internal) 仅供打包后的 EXE 内部调用，用于启动 Uvicorn
     """
     import uvicorn
 
-    # 动态导入 app 对象，或者直接传字符串（uvicorn 只是在 EXE 内调用 python 模块）
-    uvicorn.run(app_str, host=host, port=port)
+    uvicorn.run("dingent.server.main:app", host=host, port=port)
 
 
 @app.command()
