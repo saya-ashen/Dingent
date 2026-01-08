@@ -6,13 +6,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 🐧 Linux 构建任务：运行在 Ubuntu 20.04 容器中以确保兼容性
+  # 🐧 Linux 构建任务
   build-linux:
     name: Build on Linux (Ubuntu 20.04 Container) 🏗️
     runs-on: ubuntu-latest
     container:
       image: ubuntu:20.04
-      # 避免 apt 安装时出现交互式提示
       env:
         DEBIAN_FRONTEND: noninteractive
     steps:
@@ -26,7 +25,6 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      # 这里的 setup-python 会自动适配容器环境
       - name: Set up Python 🐍
         uses: actions/setup-python@v6
         with:
@@ -61,10 +59,33 @@ jobs:
       - name: Build executable with PyInstaller 🧊
         run: uv run pyinstaller --clean dingent.spec --distpath dist_bin
 
+      # ✅ 新增：处理 Linux 产物（重命名文件夹并打包）
+      - name: Compress OneFolder package 📦
+        run: |
+          cd dist_bin
+          # 1. 找到以 _dir 结尾的目录名 (例如 dingent-linux-x86_64_dir)
+          DIR_NAME=$(ls -d *_dir)
+          # 2. 提取基础名称 (例如 dingent-linux-x86_64)
+          BASE_NAME=$(basename "$DIR_NAME" _dir)
+          
+          # 3. 将文件夹重命名为简洁的 'dingent'，这样用户解压后看到的是干净的文件夹名
+          #    注意：这里不会和同级目录下的单文件 dingent-linux-x86_64 冲突
+          mv "$DIR_NAME" dingent
+          
+          # 4. 打包成 tar.gz
+          tar -czvf "${BASE_NAME}.tar.gz" dingent
+          
+          # 5. 删除未压缩的原始目录，这样 upload-artifact 就只上传 exe 和 tar.gz
+          rm -rf dingent
+          
+          # 打印一下结果，方便调试
+          echo "Build artifacts ready:"
+          ls -lh
+
       - name: Store the executable artifact 📦
         uses: actions/upload-artifact@v4
         with:
-          name: dingent-executable-ubuntu-20.04
+          name: dingent-artifacts-linux
           path: dist_bin/
 
       - name: Store the distribution packages
@@ -73,7 +94,7 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-  # 🪟 Windows 构建任务：保持原样，直接运行在 host 上
+  # 🪟 Windows 构建任务
   build-windows:
     name: Build on Windows 🏗️
     runs-on: windows-latest
@@ -112,21 +133,39 @@ jobs:
         run: just build-ui
         shell: powershell
 
-      # Windows 不需要 build wheel/sdist，通常只需要 exe
-      # 如果你也需要在 Windows 上构建 wheel，可以把 uv build 加回来
-
       - name: Build executable with PyInstaller 🧊
         run: uv run pyinstaller --clean dingent.spec --distpath dist_bin
+
+      # ✅ 新增：处理 Windows 产物（重命名文件夹并打包）
+      - name: Compress OneFolder package 📦
+        shell: powershell
+        run: |
+          cd dist_bin
+          # 1. 获取 _dir 结尾的目录对象
+          $dir = Get-ChildItem -Directory -Filter "*_dir"
+          # 2. 计算基础名称 (去掉 _dir)
+          $baseName = $dir.Name -replace "_dir",""
+          
+          # 3. 将文件夹重命名为 'dingent'
+          Rename-Item -Path $dir.Name -NewName "dingent"
+          
+          # 4. 压缩为 Zip，添加 -folder 后缀
+          Compress-Archive -Path "dingent" -DestinationPath "${baseName}-folder.zip"
+          
+          # 5. 删除原始文件夹
+          Remove-Item -Path "dingent" -Recurse -Force
+          
+          Write-Host "Build artifacts ready:"
+          Get-ChildItem
 
       - name: Store the executable artifact 📦
         uses: actions/upload-artifact@v4
         with:
-          name: dingent-executable-windows-latest
+          name: dingent-artifacts-windows
           path: dist_bin/
 
   publish-to-github-release:
     name: Upload Assets to GitHub Release 🐙
-    # ✅ 这里需要等待两个任务都完成
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
@@ -136,7 +175,8 @@ jobs:
       - name: Download all executable artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: dingent-executable-*
+          # 修改 pattern 以匹配上面步骤定义的新名称
+          pattern: dingent-artifacts-*
           path: release_assets
           merge-multiple: true
 
@@ -151,7 +191,6 @@ jobs:
   publish-to-pypi:
     name: Publish Python 🐍 distribution 📦 to PyPI
     if: github.event_name == 'release' && !github.event.release.prerelease
-    # ✅ 只需要依赖 Linux 构建（通常 wheel/sdist 只需要构建一次）
     needs: [build-linux]
     runs-on: ubuntu-latest
     environment:
@@ -171,7 +210,6 @@ jobs:
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
-    # ✅ 只需要依赖 Linux 构建
     needs: [build-linux]
     runs-on: ubuntu-latest
     environment:
