@@ -1,22 +1,15 @@
-from pathlib import Path
-
 from sqlalchemy import create_engine, event
 from sqlmodel import Session, SQLModel, select
 
+from ..config import settings
 from .models import *  # noqa: F403
 from .models import Role
 
-# --- 1. Configuration ---
-DB_PATH = Path(".dingent/data/dingent.db").resolve()
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-DATABASE_URL = f"sqlite:///{DB_PATH}"
-
-# --- 2. Engine Creation ---
 engine = create_engine(
-    DATABASE_URL,
+    settings.DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
-    # connect_args={"check_same_thread": False},  # 如确实需要跨线程复用连接再开启
+    # connect_args={"check_same_thread": False},
 )
 
 

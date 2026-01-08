@@ -10,7 +10,6 @@ import {
   LayoutDashboard, // 替换 Settings 图标用于 Go to Dashboard
 } from "lucide-react";
 import { useThreadContext } from "@/providers/ThreadProvider";
-import { getClientApi } from "@/lib/api/client";
 import {
   SidebarContent,
   SidebarFooter,
@@ -25,7 +24,6 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useWorkspaceStore } from "@/store";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import {
   DropdownMenu,
@@ -37,6 +35,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useWorkspaceApi } from "@/hooks/use-workspace-api";
+import { Workspace } from "@/types/entity";
 
 // --- 辅助函数：按时间分组 (保持不变) ---
 const groupThreadsByDate = (threads: any[]) => {
@@ -71,7 +70,11 @@ const groupThreadsByDate = (threads: any[]) => {
   return Object.entries(groups).filter(([_, items]) => items.length > 0);
 };
 
-export function ChatHistorySidebar() {
+interface ChatHistorySidebarProps {
+  workspaces: Workspace[];
+}
+
+export function ChatHistorySidebar({ workspaces }: ChatHistorySidebarProps) {
   const {
     threads,
     activeThreadId,
@@ -81,9 +84,6 @@ export function ChatHistorySidebar() {
     deleteAllThreads,
   } = useThreadContext();
   const { isMobile, setOpenMobile } = useSidebar();
-  const api = getClientApi();
-  const workspaces = useWorkspaceStore((state) => state.workspaces);
-  const router = useRouter();
   const pathname = usePathname();
 
   const groupedThreads = useMemo(() => groupThreadsByDate(threads), [threads]);
@@ -105,8 +105,11 @@ export function ChatHistorySidebar() {
     }
   };
 
+  // Check if we're in guest mode by checking if the path starts with /guest/
+  const isGuestMode = pathname.startsWith("/guest/");
+
   return (
-    <AppSidebar api={api.workspaces} workspaces={workspaces}>
+    <AppSidebar workspaces={workspaces} isGuest={isGuestMode}>
       {/* --- 区域 1: 头部 --- */}
       <SidebarHeader className="p-4 pb-0">
         <SidebarMenu>
@@ -207,16 +210,20 @@ export function ChatHistorySidebar() {
             </SidebarMenuItem>
           )}
 
-          <SidebarSeparator className="my-2 opacity-50" />
+          {!isGuestMode && (
+            <>
+              <SidebarSeparator className="my-2 opacity-50" />
 
-          <SidebarMenuItem>
-            <SidebarMenuButton className="text-sidebar-foreground/80">
-              <LayoutDashboard className="size-4" />
-              <Link href={`/${slug}/overview`}>
-                <span>Go To Dashboard</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton className="text-sidebar-foreground/80">
+                  <LayoutDashboard className="size-4" />
+                  <Link href={`/${slug}/overview`}>
+                    <span>Go To Dashboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
+          )}
         </SidebarMenu>
       </SidebarFooter>
     </AppSidebar>

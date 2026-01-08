@@ -1,10 +1,16 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import { StatCard } from "../overview/components/stat-card";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { OverviewApi } from "@/services";
 import { AnalyticsData } from "@/types/entity";
+import { OverviewApi } from "@/services/dashboard";
 
 function useAnalytics({ wsApi }: { wsApi: { overview: OverviewApi } }) {
   // The type here should match what your API function returns.
@@ -15,10 +21,9 @@ function useAnalytics({ wsApi }: { wsApi: { overview: OverviewApi } }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    wsApi.overview.getBudget()
+    wsApi.overview
+      .getBudget()
       .then((apiData) => {
-        // 1. Set the data on success
-        console.log("data", apiData);
         setData(apiData);
       })
       .catch((err) => {

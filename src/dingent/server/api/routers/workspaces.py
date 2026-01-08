@@ -33,8 +33,8 @@ async def create_workspace(payload: WorkspaceCreate, service: UserWorkspaceServi
 # --- Single Resource Operations (核心修改) ---
 
 
-@router.get("/{slug}", response_model=WorkspaceWithRole)  # 👈 返回模型变了
-async def get_workspace(slug: str, service: UserWorkspaceService = Depends(get_user_workspace_service)):  # 👈 参数变了
+@router.get("/{slug}", response_model=WorkspaceWithRole)
+async def get_workspace(slug: str, service: UserWorkspaceService = Depends(get_user_workspace_service)):
     """
     Get workspace by slug.
     Implicitly checks if current user is a member.

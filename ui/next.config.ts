@@ -1,10 +1,8 @@
 import type { NextConfig } from "next";
-const path = require("path");
 
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
-    unoptimized: true, // 关闭内置优化
+    unoptimized: true,
   },
 
   output: "standalone",
@@ -13,12 +11,11 @@ const nextConfig: NextConfig = {
 
     return [
       {
-        source: '/api/v1/:path*',
+        source: "/api/v1/:path*",
         destination: `${backendUrl}/api/v1/:path*`,
       },
     ];
   },
-
 };
 
 export default nextConfig;

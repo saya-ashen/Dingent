@@ -26,8 +26,8 @@ import {
 import { Button } from "../ui/button"; // 【假设】我们需要引入 Button 组件用于顶部的两个按钮
 import { CreateWorkspaceDialog } from "../common/create-workspace-dialog";
 import { SettingsDialog } from "./settings-dialog";
-import { WorkspaceApi } from "@/services/workspace";
 import { Workspace } from "@/types/entity";
+import { useWorkspaceApi } from "@/hooks/use-workspace-api";
 
 // 定义 User 类型
 type UserData = {
@@ -38,11 +38,14 @@ type UserData = {
 
 interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
-  api: WorkspaceApi;
   user: UserData;
 }
 
-export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherProps) {
+export function WorkspaceSwitcher({
+  workspaces,
+  user,
+}: WorkspaceSwitcherProps) {
+  const { workspacesApi } = useWorkspaceApi();
   const params = useParams();
   const slug = params.slug as string;
   const activeWorkspace = workspaces.find((w) => w.slug === slug);
@@ -54,7 +57,6 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
     setIsSettingsOpen(true);
   };
 
-  // 【模拟】Notion 风格的元数据，实际应从 activeWorkspace 获取
   const workspaceMeta = "测试版 · 1 位成员";
 
   const { isMobile } = useSidebar();
@@ -63,13 +65,24 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
   const pathname = usePathname();
 
   const handleSwitch = (workspaceSlug: string) => {
-    const newPath = pathname.replace(new RegExp(`^/${slug}`), `/${workspaceSlug}`);
+    const newPath = pathname.replace(
+      new RegExp(`^/${slug}`),
+      `/${workspaceSlug}`,
+    );
     router.push(newPath);
   };
 
   // 工作区 Logo 的通用样式
-  const WorkspaceLogo = ({ name, className }: { name: string; className?: string }) => (
-    <div className={`bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square items-center justify-center rounded-md border ${className}`}>
+  const WorkspaceLogo = ({
+    name,
+    className,
+  }: {
+    name: string;
+    className?: string;
+  }) => (
+    <div
+      className={`bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square items-center justify-center rounded-md border ${className}`}
+    >
       {name.charAt(0).toUpperCase()}
     </div>
   );
@@ -86,7 +99,9 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
               <WorkspaceLogo name={activeName} className="size-8" />
               <div className="grid flex-1 text-start text-sm leading-tight">
                 <span className="truncate font-semibold">{activeName}</span>
-                <span className="truncate text-xs text-muted-foreground">{workspaceMeta}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {workspaceMeta}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4 opacity-50" />
             </SidebarMenuButton>
@@ -106,7 +121,9 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
                 <WorkspaceLogo name={activeName} className="size-10 text-lg" />
                 <div>
                   <div className="font-medium text-sm">{activeName}</div>
-                  <div className="text-xs text-muted-foreground">{workspaceMeta}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {workspaceMeta}
+                  </div>
                 </div>
               </div>
 
@@ -149,10 +166,17 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
                   onClick={() => handleSwitch(workspace.slug)}
                   className="gap-2 p-2 focus:bg-accent"
                 >
-                  <WorkspaceLogo name={workspace.name} className="size-6 text-xs" />
-                  <span className="flex-1 truncate text-sm">{workspace.name}</span>
+                  <WorkspaceLogo
+                    name={workspace.name}
+                    className="size-6 text-xs"
+                  />
+                  <span className="flex-1 truncate text-sm">
+                    {workspace.name}
+                  </span>
                   {/* 选中状态打勾 */}
-                  {isActive && <Check className="ml-auto size-4 text-muted-foreground" />}
+                  {isActive && (
+                    <Check className="ml-auto size-4 text-muted-foreground" />
+                  )}
                 </DropdownMenuItem>
               );
             })}
@@ -175,23 +199,26 @@ export function WorkspaceSwitcher({ workspaces, api, user }: WorkspaceSwitcherPr
 
             {/* === 第三部分：底部操作 === */}
             {/* Notion 的底部通常是登出，或者添加其他账号 */}
-            <DropdownMenuItem onClick={() => console.log("Logout")} className="gap-2 p-2 text-muted-foreground focus:text-foreground">
+            <DropdownMenuItem
+              onClick={() => console.log("Logout")}
+              className="gap-2 p-2 text-muted-foreground focus:text-foreground"
+            >
               <div className="flex size-6 items-center justify-center">
                 <LogOut className="size-4" />
               </div>
               <span>登出</span>
             </DropdownMenuItem>
-
           </DropdownMenuContent>
         </DropdownMenu>
         <SettingsDialog
           open={isSettingsOpen}
           onOpenChange={setIsSettingsOpen}
           defaultTab={settingsDefaultTab}
+          workspace={activeWorkspace}
         />
 
         <CreateWorkspaceDialog
-          api={api}
+          api={workspacesApi}
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
         />

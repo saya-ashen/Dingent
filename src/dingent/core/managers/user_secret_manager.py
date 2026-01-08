@@ -1,3 +1,5 @@
+import base64
+import hashlib
 import logging
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -17,15 +19,17 @@ class UserSecretManager:
     使用一个应用级别的主密钥来加密和解密每个用户自己的数据加密密钥(DEK)。
     """
 
-    def __init__(self, master_key: str | bytes):
+    def __init__(self, master_password: str | bytes):
         """
         使用应用主密钥初始化管理器。
 
         Args:
             master_key: 应用的主加密密钥，从环境变量或安全存储中获取。
         """
-        if isinstance(master_key, str):
-            master_key = master_key.encode()
+        if isinstance(master_password, bytes):
+            master_password = master_password.decode()
+        digest = hashlib.sha256(master_password.encode()).digest()
+        master_key = base64.urlsafe_b64encode(digest)
 
         try:
             self._master_fernet = Fernet(master_key)

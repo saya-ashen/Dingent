@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/auth", "/api", "/public", "/guest"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("access_token")?.value;
 
@@ -21,10 +21,6 @@ export function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
 
-  if (token) {
-    requestHeaders.set("Authorization", `Bearer ${token}`);
-  }
-
   return NextResponse.next({
     request: {
       headers: requestHeaders,
@@ -33,7 +29,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // 匹配所有路径，除了静态资源
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],

@@ -1,14 +1,22 @@
-"use client";
-import { DashboardNavSidebar } from "@/features/sidebar/DashboardNavSidebar";
-import { ChatHistorySidebar } from "@/features/sidebar/ChatHistorySidebar";
-import { usePathname } from 'next/navigation'
+import { getServerApi } from "@/lib/api/server";
+import { ClientSidebarSwitcher } from "@/features/sidebar/ClientSidebarSwitcher";
 
-export default function SidebarSwitcher() {
-  const pathname = usePathname()
+export default async function SidebarPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const api = await getServerApi();
 
-  if (pathname.endsWith('/chat')) {
-    return <ChatHistorySidebar />
-  }
+  const [workspaces] = await Promise.all([api.workspaces.list()]);
 
-  return <DashboardNavSidebar />
+  const user = {
+    name: "Demo User",
+    email: "demo@example.com",
+    avatar: "/avatar.png",
+  };
+
+  // 2. 将数据作为 Props 传递给 Client Switcher
+  return <ClientSidebarSwitcher workspaces={workspaces} currentSlug={slug} />;
 }

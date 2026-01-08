@@ -1,10 +1,11 @@
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from dingent.core.db.models import User, Workspace, WorkspaceMember
 from dingent.core.schemas import WorkspaceCreate, WorkspaceInvite, WorkspaceMemberRead, WorkspaceRead, WorkspaceUpdate
+from dingent.core.types import WorkspaceRole
 
 
 class UserWorkspaceService:
@@ -20,7 +21,7 @@ class UserWorkspaceService:
         """
         statement = (
             select(Workspace, WorkspaceMember)
-            .join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id)
+            .join(WorkspaceMember, col(Workspace.id) == WorkspaceMember.workspace_id)
             .where(Workspace.slug == slug, WorkspaceMember.user_id == self.user_id)
         )
         result = self.session.exec(statement).first()
@@ -34,13 +35,13 @@ class UserWorkspaceService:
 
     def list_workspaces(self) -> list[WorkspaceRead]:
         """列出当前用户加入的所有工作空间"""
-        statement = select(Workspace, WorkspaceMember.role).join(WorkspaceMember, Workspace.id == WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == self.user_id)
+        statement = select(Workspace, WorkspaceMember.role).join(WorkspaceMember, col(Workspace.id) == WorkspaceMember.workspace_id).where(WorkspaceMember.user_id == self.user_id)
         results = self.session.exec(statement).all()
 
         workspaces = []
         for ws, role in results:
             # 统计成员数量
-            member_count = self.session.exec(select(func.count(WorkspaceMember.user_id)).where(WorkspaceMember.workspace_id == ws.id)).one()
+            member_count = self.session.exec(select(func.count()).select_from(WorkspaceMember).where(WorkspaceMember.workspace_id == ws.id)).one()
 
             workspaces.append(
                 WorkspaceRead(
@@ -49,8 +50,9 @@ class UserWorkspaceService:
                     slug=ws.slug,  # ✅ 新增
                     description=ws.description,
                     created_at=ws.created_at,
-                    role=role,
+                    role=WorkspaceRole(role),
                     member_count=member_count,
+                    allow_guest_access=ws.allow_guest_access,
                 )
             )
         return workspaces
@@ -74,20 +76,20 @@ class UserWorkspaceService:
         self.session.flush()  # 获取 ID
 
         # 2. 添加 Owner
-        member = WorkspaceMember(workspace_id=workspace.id, user_id=self.user_id, role="owner")
+        member = WorkspaceMember(workspace_id=workspace.id, user_id=self.user_id, role=WorkspaceRole.OWNER)
         self.session.add(member)
         self.session.commit()
         self.session.refresh(workspace)
 
         return WorkspaceRead(
-            id=workspace.id, name=workspace.name, slug=workspace.slug, description=workspace.description, created_at=workspace.created_at, role="owner", member_count=1
+            id=workspace.id, name=workspace.name, slug=workspace.slug, description=workspace.description, created_at=workspace.created_at, role=WorkspaceRole.OWNER, member_count=1
         )
 
     def get_workspace(self, slug: str) -> WorkspaceRead:
         workspace, member = self._get_workspace_context(slug)
 
         # 统计成员数
-        count = self.session.exec(select(func.count(WorkspaceMember.user_id)).where(WorkspaceMember.workspace_id == workspace.id)).one()
+        count = self.session.exec(select(func.count()).select_from(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace.id)).one()
 
         return WorkspaceRead(
             id=workspace.id,
@@ -97,6 +99,7 @@ class UserWorkspaceService:
             created_at=workspace.created_at,
             role=member.role,
             member_count=count,
+            allow_guest_access=workspace.allow_guest_access,
         )
 
     def update_workspace(self, slug: str, payload: WorkspaceUpdate) -> WorkspaceRead:
@@ -138,7 +141,7 @@ class UserWorkspaceService:
 
         # 3. 添加成员
         new_member = WorkspaceMember(
-            workspace_id=workspace.id,  # ✅ 使用从 context 中拿到的 ID
+            workspace_id=workspace.id,
             user_id=target_user.id,
             role=payload.role,
         )
@@ -153,7 +156,12 @@ class UserWorkspaceService:
         workspace, _ = self._get_workspace_context(slug)  # 鉴权
 
         statement = (
-            select(WorkspaceMember, User).join(User, WorkspaceMember.user_id == User.id).where(WorkspaceMember.workspace_id == workspace.id)  # ✅ 使用 workspace.id
+            select(WorkspaceMember, User)
+            .join(
+                User,
+                col(WorkspaceMember.user_id) == User.id,
+            )
+            .where(WorkspaceMember.workspace_id == workspace.id)
         )
         results = self.session.exec(statement).all()
 
@@ -185,7 +193,9 @@ class UserWorkspaceService:
         # 4. 防止删除最后一个 Owner
         if target_member.role == "owner":
             # 统计该空间下的 owner 数量
-            owner_count = self.session.exec(select(func.count(WorkspaceMember.user_id)).where(WorkspaceMember.workspace_id == workspace.id, WorkspaceMember.role == "owner")).one()
+            owner_count = self.session.exec(
+                select(func.count()).select_from(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace.id, WorkspaceMember.role == "owner")
+            ).one()
 
             if owner_count <= 1:
                 raise HTTPException(status_code=400, detail="Cannot remove the last owner of a workspace")

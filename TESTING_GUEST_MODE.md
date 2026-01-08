@@ -238,19 +238,19 @@ After running tests, you can verify the data in the database:
 sqlite3 path/to/your/database.db
 
 # Check guest conversations
-SELECT id, user_id, visitor_id, workspace_id, title, created_at 
-FROM conversation 
+SELECT id, user_id, visitor_id, workspace_id, title, created_at
+FROM conversation
 WHERE visitor_id IS NOT NULL;
 
 # Verify user_id is NULL for guest conversations
-SELECT COUNT(*) FROM conversation 
+SELECT COUNT(*) FROM conversation
 WHERE visitor_id IS NOT NULL AND user_id IS NOT NULL;
 -- Should return 0
 
 # Check workspace isolation
-SELECT workspace_id, COUNT(*) 
-FROM conversation 
-WHERE visitor_id IS NOT NULL 
+SELECT workspace_id, COUNT(*)
+FROM conversation
+WHERE visitor_id IS NOT NULL
 GROUP BY workspace_id;
 ```
 
@@ -268,7 +268,7 @@ def test_guest_conversation_creation(client: TestClient):
     visitor_id = str(uuid.uuid4())
     thread_id = str(uuid.uuid4())
     run_id = str(uuid.uuid4())
-    
+
     response = client.post(
         "/api/v1/default/chat/guest/agent/default/run",
         headers={
@@ -287,7 +287,7 @@ def test_guest_conversation_creation(client: TestClient):
             ]
         }
     )
-    
+
     assert response.status_code == 200
 
 def test_guest_missing_visitor_id(client: TestClient):
@@ -301,7 +301,7 @@ def test_guest_missing_visitor_id(client: TestClient):
             "messages": [{"id": str(uuid.uuid4()), "role": "user", "content": "Test"}]
         }
     )
-    
+
     assert response.status_code == 400
     assert "X-Visitor-ID" in response.json()["detail"]
 
@@ -310,7 +310,7 @@ def test_guest_data_isolation(client: TestClient):
     visitor_1 = str(uuid.uuid4())
     visitor_2 = str(uuid.uuid4())
     thread_id = str(uuid.uuid4())
-    
+
     # Create conversation as visitor 1
     client.post(
         "/api/v1/default/chat/guest/agent/default/run",
@@ -321,7 +321,7 @@ def test_guest_data_isolation(client: TestClient):
             "messages": [{"id": str(uuid.uuid4()), "role": "user", "content": "Test"}]
         }
     )
-    
+
     # Try to access as visitor 2
     response = client.post(
         "/api/v1/default/chat/guest/agent/default/connect",
@@ -331,7 +331,7 @@ def test_guest_data_isolation(client: TestClient):
             "run_id": str(uuid.uuid4())
         }
     )
-    
+
     assert response.status_code == 403
 ```
 

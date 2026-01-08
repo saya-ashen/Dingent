@@ -1,8 +1,9 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { useAuthStore } from "@/store/auth";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 export function safeBool(v: unknown, def = false): boolean {
@@ -54,7 +55,6 @@ function statusLevelFromText(
   return "unknown";
 }
 
-
 export function effectiveStatusForItem(
   raw: string | undefined,
   enabled: boolean,
@@ -95,4 +95,15 @@ export function getErrorMessage(
 }
 export function toStr(v: unknown): string {
   return v == null ? "" : String(v);
+}
+
+export function getOrSetVisitorId(): string {
+  const state = useAuthStore.getState();
+  if (typeof window === "undefined") return "";
+  let id = state.visitorId;
+  if (!id) {
+    id = crypto.randomUUID();
+    state.setVisitorId(id);
+  }
+  return id;
 }

@@ -4,19 +4,12 @@ import * as React from "react";
 import {
   Bell,
   Briefcase,
-  Check,
-  ChevronRight,
   Copy,
   CreditCard,
   ExternalLink,
   Globe,
-  Key,
   Link,
   Lock,
-  LogOut,
-  Mail,
-  MessageSquare,
-  Palette,
   Settings,
   Shield,
   User,
@@ -29,9 +22,9 @@ import { Switch } from "../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { useWorkspaceStore } from "@/store/workspace";
 import { useWorkspaceApi } from "@/hooks/use-workspace-api";
 import { toast } from "sonner";
+import { Workspace } from "@/types/entity";
 
 // 模拟的设置侧边栏菜单结构
 const sidebarNavItems = [
@@ -61,12 +54,14 @@ interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultTab?: string; // 允许打开时直接定位到某个 Tab（比如 "people"）
+  workspace: Workspace;
 }
 
 export function SettingsDialog({
   open,
   onOpenChange,
   defaultTab = "people",
+  workspace,
 }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = React.useState(defaultTab);
 
@@ -135,7 +130,7 @@ export function SettingsDialog({
 
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {activeTab === "general" ? (
-            <GeneralSettingsContent />
+            <GeneralSettingsContent workspace={workspace} />
           ) : activeTab === "people" ? (
             <PeopleSettingsContent />
           ) : (
@@ -148,10 +143,12 @@ export function SettingsDialog({
     </Dialog>
   );
 }
+interface GeneralSettingsContentProps {
+  workspace: Workspace;
+}
 
 // === General Settings Content ===
-function GeneralSettingsContent() {
-  const { currentWorkspace } = useWorkspaceStore();
+function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
   const { workspacesApi } = useWorkspaceApi();
   const [guestAccessEnabled, setGuestAccessEnabled] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
@@ -159,27 +156,27 @@ function GeneralSettingsContent() {
   const [workspaceDescription, setWorkspaceDescription] = React.useState("");
 
   React.useEffect(() => {
-    if (currentWorkspace) {
-      setGuestAccessEnabled(currentWorkspace.allow_guest_access ?? false);
-      setWorkspaceName(currentWorkspace.name);
-      setWorkspaceDescription(currentWorkspace.description ?? "");
+    if (workspace) {
+      setGuestAccessEnabled(workspace.allow_guest_access ?? false);
+      setWorkspaceName(workspace.name);
+      setWorkspaceDescription(workspace.description ?? "");
     }
-  }, [currentWorkspace]);
+  }, [workspace]);
 
   const guestLink = React.useMemo(() => {
-    if (!currentWorkspace) return "";
+    if (!workspace) return "";
 
     const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-    return `${origin}/guest/${currentWorkspace.slug}/chat`;
-  }, [currentWorkspace]);
+    return `${origin}/guest/${workspace.slug}/chat`;
+  }, [workspace]);
 
   const handleToggleGuestAccess = async (enabled: boolean) => {
-    if (!currentWorkspace || !workspacesApi) return;
+    if (!workspace || !workspacesApi) return;
 
     setIsUpdating(true);
     try {
-      await workspacesApi.update(currentWorkspace.slug, {
+      await workspacesApi.update(workspace.slug, {
         allow_guest_access: enabled,
       });
       // Only update local state after API confirms success
@@ -216,11 +213,11 @@ function GeneralSettingsContent() {
   };
 
   const handleSaveBasicInfo = async () => {
-    if (!currentWorkspace || !workspacesApi) return;
+    if (!workspace || !workspacesApi) return;
 
     setIsUpdating(true);
     try {
-      await workspacesApi.update(currentWorkspace.slug, {
+      await workspacesApi.update(workspace.slug, {
         name: workspaceName,
         description: workspaceDescription,
       });
@@ -233,7 +230,7 @@ function GeneralSettingsContent() {
     }
   };
 
-  if (!currentWorkspace) {
+  if (!workspace) {
     return (
       <div className="p-8 flex items-center justify-center h-full text-muted-foreground">
         No workspace selected

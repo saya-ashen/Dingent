@@ -1,3 +1,4 @@
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Header, Path, Request, status
@@ -94,30 +95,21 @@ def get_current_workspace_allow_guest(
     # 查询工作空间
     statement = select(Workspace).where(Workspace.slug == workspace_slug)
     workspace = session.exec(statement).first()
-    
+
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    
+
     # 如果用户已登录，验证成员资格
     if current_user:
-        member_statement = select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace.id, 
-            WorkspaceMember.user_id == current_user.id
-        )
+        member_statement = select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace.id, WorkspaceMember.user_id == current_user.id)
         member = session.exec(member_statement).first()
         if not member:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, 
-                detail="You do not have access to this workspace or it does not exist."
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have access to this workspace or it does not exist.")
     else:
         # 游客模式：检查工作空间是否允许游客访问
         if not workspace.allow_guest_access:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This workspace does not allow guest access. Please sign in or contact the workspace owner."
-            )
-    
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This workspace does not allow guest access. Please sign in or contact the workspace owner.")
+
     return workspace
 
 
@@ -145,10 +137,15 @@ def get_plugin_manager(
     return request.app.state.plugin_manager
 
 
+CurrentUserOptional = Annotated[User | None, Depends(get_current_user_optional)]
+DbSession = Annotated[Session, Depends(get_db_session)]
+CurrentWorkspaceAllowGuest = Annotated[Workspace, Depends(get_current_workspace_allow_guest)]
+
+
 def get_workspace_assistant_service(
     request: Request,
+    workspace: CurrentWorkspaceAllowGuest,
     session: Session = Depends(get_db_session),
-    workspace: Workspace = Depends(get_current_workspace),
 ) -> WorkspaceAssistantService:
     """
     Dependency to get the AssistantRuntimeManager.
@@ -170,19 +167,31 @@ def get_user_plugin_service(
     )
 
 
+async def get_visitor_id(x_visitor_id: str | None = Header(default=None, alias="X-Visitor-Id")) -> str | None:
+    if x_visitor_id:
+        try:
+            return str(UUID(x_visitor_id))
+        except ValueError:
+            return None
+    return None
+
+
 def get_workspace_workflow_service(
-    user: User = Depends(get_current_user),
-    workspace: Workspace = Depends(get_current_workspace),
+    user: CurrentUserOptional,
+    workspace: CurrentWorkspaceAllowGuest,
     session: Session = Depends(get_db_session),
     assistant_service: WorkspaceAssistantService = Depends(get_workspace_assistant_service),
     log_manager: LogManager = Depends(get_log_manager),
+    visitor_id: UUID | None = Depends(get_visitor_id),
 ):
+    current_user_id = user.id if user else None
     return WorkspaceWorkflowService(
         workspace_id=workspace.id,
-        user_id=user.id,
+        user_id=current_user_id,
         session=session,
         assistant_service=assistant_service,
         log_manager=log_manager,
+        visitor_id=visitor_id,
     )
 
 

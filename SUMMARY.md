@@ -188,7 +188,7 @@ def test_guest_conversation_creation(client):
 1. **速率限制 (Rate Limiting)**
    ```python
    from fastapi_limiter.depends import RateLimiter
-   
+
    @router.post("/guest/agent/{agent_id}/run",
                 dependencies=[Depends(RateLimiter(times=10, seconds=60))])
    async def run_guest(...):
@@ -199,7 +199,7 @@ def test_guest_conversation_creation(client):
    ```python
    # 添加到 Workspace 模型
    allow_guest_access: bool = Field(default=False)
-   
+
    # 在依赖函数中检查
    if not user and not workspace.allow_guest_access:
        raise HTTPException(403, "Guest access not allowed")
@@ -249,10 +249,10 @@ def test_guest_conversation_creation(client):
 
 ```sql
 -- 将游客对话转移到注册用户
-UPDATE conversation 
-SET user_id = :new_user_id, 
-    visitor_id = NULL 
-WHERE visitor_id = :old_visitor_id 
+UPDATE conversation
+SET user_id = :new_user_id,
+    visitor_id = NULL
+WHERE visitor_id = :old_visitor_id
   AND workspace_id = :workspace_id;
 ```
 

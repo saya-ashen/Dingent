@@ -10,50 +10,47 @@ import { theme } from "./theme";
 export const dynamic = "force-dynamic";
 
 import { useParams } from "next/navigation";
-function getOrSetVisitorId(): string {
-  if (typeof window === "undefined") return "";
-  let id = localStorage.getItem("dingent_visitor_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("dingent_visitor_id", id);
-  }
-  return id;
-}
+import { getOrSetVisitorId } from "@/lib/utils";
 
 function CopilotKitContent({
   children,
   slug,
   accessToken,
+  isGuest = false,
 }: {
   children: React.ReactNode;
   slug: string;
   accessToken: string | null;
+  isGuest: boolean;
 }) {
-  const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
-  const activityRenderers = [A2UIMessageRenderer];
-  const [visitorId, setVisitorId] = useState<string>("");
-  useEffect(() => {
-    setVisitorId(getOrSetVisitorId());
+  const activityRenderers = useMemo(() => {
+    return [createA2UIMessageRenderer({ theme })];
   }, []);
-  const isGuest = !accessToken;
-  const runtimeUrl = isGuest
-    ? `/api/v1/${slug}/chat/guest`
-    : `/api/v1/${slug}/chat`;
+  const runtimeUrl = `/api/v1/${slug}/chat`;
+  const storedVisitorId = useAuthStore((state) => state.visitorId);
+  useEffect(() => {
+    if (isGuest && !storedVisitorId) {
+      getOrSetVisitorId();
+    }
+  }, [isGuest, storedVisitorId]);
+  const visitorId = isGuest ? storedVisitorId : null;
+
   const headers = useMemo(() => {
     if (isGuest) {
-      // 游客模式：只传 X-Visitor-ID
+      // 游客模式
       return {
         "X-Visitor-ID": visitorId,
         WorkspaceSlug: slug,
       };
     } else {
-      // 用户模式：传 Authorization
+      // 用户模式
       return {
         Authorization: `Bearer ${accessToken}`,
         WorkspaceSlug: slug,
       };
     }
-  }, [isGuest, accessToken, visitorId, slug]);
+  }, [isGuest, accessToken, slug, visitorId]);
+
   if (isGuest && !visitorId) return null;
 
   return (
@@ -72,9 +69,13 @@ function CopilotKitContent({
   );
 }
 
-export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
-  // useAuthInterceptor();
-
+export function CopilotKitWrapper({
+  children,
+  isGuest = false,
+}: {
+  children: React.ReactNode;
+  isGuest?: boolean;
+}) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const params = useParams();
   const slug = params.slug as string;
@@ -84,20 +85,12 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
     setIsMounted(true);
   }, []);
 
-  // const headers = useMemo(
-  //   () => ({
-  //     Authorization: `Bearer ${accessToken || "None"}`,
-  //     WorkspaceSlug: slug,
-  //   }),
-  //   [accessToken, slug],
-  // );
-
   if (!isMounted) {
     return null;
   }
 
   return (
-    <CopilotKitContent slug={slug} accessToken={accessToken}>
+    <CopilotKitContent slug={slug} accessToken={accessToken} isGuest={isGuest}>
       {children}
     </CopilotKitContent>
   );

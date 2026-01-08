@@ -1,27 +1,47 @@
 import { ApiClient } from "@/services";
 import Cookies from "js-cookie";
 import { useAuthStore } from "@/store";
+import { getOrSetVisitorId } from "../utils";
 
 const getBaseUrl = () => "/api/v1";
 
 let clientInstance: ApiClient | null = null;
+let cachedToken: string | null = null;
+let cachedVisitorId: string | null = null;
 
 export function getClientApi() {
-  if (clientInstance) return clientInstance;
+  const state = useAuthStore.getState();
+  const token = state.accessToken || Cookies.get("access_token") || null;
+  let visitorId = state.visitorId || Cookies.get("visitor_id") || null;
+  if (!token && !visitorId) {
+    visitorId = getOrSetVisitorId();
+  }
 
-  clientInstance = new ApiClient(
-    { baseURL: getBaseUrl() },
-    () => {
-      // 优先从 Store 读，Store 没有则读 Cookie
-      return useAuthStore.getState().accessToken || Cookies.get("access_token") || null;
-    },
-    () => {
-      useAuthStore.getState().logout();
-      if (typeof window !== "undefined") {
-        window.location.href = "/auth/login";
-      }
-    }
-  );
+  if (
+    !clientInstance ||
+    token !== cachedToken ||
+    visitorId !== cachedVisitorId
+  ) {
+    cachedToken = token;
+    cachedVisitorId = visitorId;
+
+    clientInstance = new ApiClient(
+      { baseURL: getBaseUrl() },
+      token,
+      visitorId,
+      () => {
+        useAuthStore.getState().logout();
+        if (typeof window !== "undefined") {
+          if (!window.location.pathname.startsWith("/auth/login")) {
+            const currentPath = encodeURIComponent(
+              window.location.pathname + window.location.search,
+            );
+            window.location.href = `/auth/login?redirect=${currentPath}`;
+          }
+        }
+      },
+    );
+  }
 
   return clientInstance;
 }

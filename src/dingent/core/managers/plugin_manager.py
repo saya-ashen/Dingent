@@ -40,7 +40,6 @@ class PluginManager:
         (Permission logic is a placeholder for now.)
         """
         manifests = self.registry.get_all_manifests()
-        # TODO: apply permission filter by user_id if needed
         return manifests
 
     async def get_or_create_runtime(self, plugin_registry_id: str) -> PluginRuntime:
@@ -82,3 +81,6 @@ class PluginManager:
             # self.log_manager.log_with_context("warning", "Plugin with ID '{id}' not found in PluginManager.", context={"id": plugin_id})
             removed = False
         return removed
+
+    async def reload_plugins(self):
+        self.registry.reload_plugins()

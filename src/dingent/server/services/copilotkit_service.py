@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlmodel import Session
 
 from dingent.core.db.crud.workflow import list_workflows_by_workspace
-from dingent.core.db.crud.workspace import get_specific_user_workspace
+from dingent.core.db.crud.workspace import get_specific_user_workspace, get_workspace_allow_guest
 from dingent.core.db.models import User
 from dingent.core.schemas import ExecutableWorkflow
 from dingent.core.workflows.graph_factory import GraphFactory
@@ -59,20 +59,26 @@ class CopilotKitSdk:
     def list_agents_for_user(self, user: User | None, session: Session, workspace_id: UUID | None = None):
         """
         List agents available for a user or guest.
-        For guests (user=None), only lists public agents in the workspace.
         For authenticated users, verifies workspace access.
+        For guests, checks if the workspace allows guest access.
         """
         if not workspace_id:
-            return []
+            return {
+                "version": "1.0.0",
+                "audioFileTranscriptionEnabled": True,
+                "agents": [],
+            }
 
         # For authenticated users, verify workspace access
         if user:
             workspace = get_specific_user_workspace(session, user.id, workspace_id)
             if not workspace:
                 raise HTTPException(status_code=403, detail="Workspace access denied")
-        # For guests, just list public workflows in the workspace
-        # Note: This assumes workspaces allow guest access. In production,
-        # you may want to add a workspace.allow_guest_access flag.
+        else:
+            workspace = get_workspace_allow_guest(session, workspace_id)
+
+        if not workspace:
+            raise HTTPException(status_code=403, detail="Workspace access denied")
 
         workflows = list_workflows_by_workspace(session, workspace_id)
         agents = {

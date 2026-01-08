@@ -16,7 +16,14 @@ interface SidebarProps {
   onDeleteWorkflow: (id: string) => void;
 }
 
-export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onSelectWorkflow, onCreateWorkflow, onDeleteWorkflow }: SidebarProps) {
+export function WorkflowSidebar({
+  workflows,
+  assistants,
+  selectedWorkflowId,
+  onSelectWorkflow,
+  onCreateWorkflow,
+  onDeleteWorkflow,
+}: SidebarProps) {
   const { setDraggedAssistant, usedAssistantIds } = useWorkflowContext();
   const [activeTab, setActiveTab] = useState("workflows");
 
@@ -25,6 +32,10 @@ export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onS
     onSelectWorkflow(wf.id);
     setActiveTab("components");
   };
+  const handleDeleteWorkflow = (id: string) => {
+    onDeleteWorkflow(id);
+  };
+
   const availableAssistants = useMemo(() => {
     return assistants.filter((a) => !usedAssistantIds.has(a.id));
   }, [assistants, usedAssistantIds]);
@@ -36,11 +47,17 @@ export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onS
 
   return (
     <div className="flex w-80 flex-col border-r bg-muted/10 h-full">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="flex flex-col h-full"
+      >
         <div className="px-4 pt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="workflows">Workflows</TabsTrigger>
-            <TabsTrigger value="components" disabled={!selectedWorkflowId}>Components</TabsTrigger>
+            <TabsTrigger value="components" disabled={!selectedWorkflowId}>
+              Components
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -50,14 +67,19 @@ export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onS
           </div>
           <WorkflowList
             workflows={workflows}
-            selectedWorkflow={workflows.find(w => w.id === selectedWorkflowId)}
+            selectedWorkflow={workflows.find(
+              (w) => w.id === selectedWorkflowId,
+            )}
             onSelect={handleSelect}
-            onDelete={() => { }}
+            onDelete={handleDeleteWorkflow}
           />
         </TabsContent>
 
         {/* Tab 2: Components (Draggable) */}
-        <TabsContent value="components" className="flex-1 overflow-auto p-4 space-y-3">
+        <TabsContent
+          value="components"
+          className="flex-1 overflow-auto p-4 space-y-3"
+        >
           <div className="text-sm text-muted-foreground mb-4">
             Drag assistants to the canvas to build your flow.
           </div>
@@ -72,7 +94,9 @@ export function WorkflowSidebar({ workflows, assistants, selectedWorkflowId, onS
                 <GripVertical className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <div className="font-medium text-sm">{assistant.name}</div>
-                  <div className="text-xs text-muted-foreground line-clamp-1">{assistant.description || "No description"}</div>
+                  <div className="text-xs text-muted-foreground line-clamp-1">
+                    {assistant.description || "No description"}
+                  </div>
                 </div>
               </div>
             ))

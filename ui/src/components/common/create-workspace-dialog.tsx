@@ -6,14 +6,26 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { ApiClient } from "@/services";
-import { useWorkspaceStore } from "@/store";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../ui/form";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { WorkspaceApi } from "@/services/workspace";
-
 
 const formSchema = z.object({
   name: z.string().min(1, "工作空间名称不能为空").max(50, "名称太长了"),
@@ -39,9 +51,6 @@ export function CreateWorkspaceDialog({
   onOpenChange,
 }: CreateWorkspaceDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
-
-  // 从 Store 获取 action
-  const { addWorkspace } = useWorkspaceStore();
 
   // 3. 初始化表单
   const form = useForm<CreateWorkspaceValues>({
@@ -71,9 +80,6 @@ export function CreateWorkspaceDialog({
         slug: data.slug,
       });
 
-      // 更新本地 Store (不需要重新 fetch list)
-      addWorkspace(newWorkspace);
-
       return newWorkspace;
     };
 
@@ -86,7 +92,6 @@ export function CreateWorkspaceDialog({
       },
       error: (err) => {
         setIsLoading(false);
-        // 如果后端返回了具体的 slug 重复错误，可以在这里 setError
         if (err.message?.includes("slug")) {
           form.setError("slug", { message: "该标识符已被占用" });
         }
@@ -106,8 +111,10 @@ export function CreateWorkspaceDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4">
-
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="grid gap-4 py-4"
+          >
             {/* Name 字段 */}
             <FormField
               control={form.control}

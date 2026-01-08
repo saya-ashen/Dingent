@@ -3,13 +3,12 @@ from collections.abc import Callable
 from typing import Annotated, Any, cast
 
 from langchain_core.messages import ToolMessage
-from langchain_core.tools import BaseTool, InjectedToolCallId, StructuredTool, tool
+from langchain_core.tools import InjectedToolCallId, StructuredTool, tool
 from langgraph.types import Command
 from mcp.types import TextContent
 from pydantic import BaseModel, Field, create_model
 
 from dingent.core.schemas import RunnableTool
-from .messages import ActivityMessage
 
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {
@@ -22,8 +21,6 @@ JSON_TYPE_MAP = {
     "null": type(None),
     "any": Any,
 }
-
-from typing import Any, List, Dict
 
 
 def create_dynamic_pydantic_class(

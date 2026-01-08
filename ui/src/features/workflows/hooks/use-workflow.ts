@@ -1,18 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { AssistantsApi, WorkflowsApi } from "@/services";
 import { Workflow } from "@/types/entity";
 import { useWorkflowStore } from "@/store/workflow";
+import { AssistantsApi, WorkflowsApi } from "@/services/dashboard";
 
 export const workflowKeys = {
-  all: ['workflows'] as const,
-  lists: (workspaceId: string | undefined) => [...workflowKeys.all, 'list', workspaceId] as const,
-  details: () => [...workflowKeys.all, 'detail'] as const,
+  all: ["workflows"] as const,
+  lists: (workspaceId: string | undefined) =>
+    [...workflowKeys.all, "list", workspaceId] as const,
+  details: () => [...workflowKeys.all, "detail"] as const,
   detail: (id: string) => [...workflowKeys.details(), id] as const,
-  assistants: (workspaceId: string | undefined) => [...workflowKeys.all, 'assistants', workspaceId] as const,
+  assistants: (workspaceId: string | undefined) =>
+    [...workflowKeys.all, "assistants", workspaceId] as const,
 };
 
-export function useWorkflowsList(api: WorkflowsApi, workspaceId: string | undefined) {
+export function useWorkflowsList(
+  api: WorkflowsApi,
+  workspaceId: string | undefined,
+) {
   return useQuery({
     queryKey: workflowKeys.lists(workspaceId),
     enabled: !!workspaceId,
@@ -20,7 +25,11 @@ export function useWorkflowsList(api: WorkflowsApi, workspaceId: string | undefi
   });
 }
 
-export function useWorkflow(api: WorkflowsApi, id: string | null, workspaceId?: string) {
+export function useWorkflow(
+  api: WorkflowsApi,
+  id: string | null,
+  workspaceId?: string,
+) {
   const queryClient = useQueryClient();
 
   return useQuery({
@@ -29,13 +38,18 @@ export function useWorkflow(api: WorkflowsApi, id: string | null, workspaceId?: 
     queryFn: async () => api.get(id!),
     placeholderData: () => {
       if (!workspaceId) return undefined;
-      const list = queryClient.getQueryData<Workflow[]>(workflowKeys.lists(workspaceId));
+      const list = queryClient.getQueryData<Workflow[]>(
+        workflowKeys.lists(workspaceId),
+      );
       return list?.find((w) => w.id === id);
     },
   });
 }
 
-export function useAssistantsConfig(api: AssistantsApi, workspaceId: string | undefined) {
+export function useAssistantsConfig(
+  api: AssistantsApi,
+  workspaceId: string | undefined,
+) {
   return useQuery({
     queryKey: workflowKeys.assistants(workspaceId),
     enabled: !!workspaceId,
@@ -43,11 +57,17 @@ export function useAssistantsConfig(api: AssistantsApi, workspaceId: string | un
   });
 }
 
-
-export function useActiveWorkflow(api: WorkflowsApi, workspaceId: string | undefined) {
+export function useActiveWorkflow(
+  api: WorkflowsApi,
+  workspaceId: string | undefined,
+) {
   const { activeId, setActiveId } = useWorkflowStore();
 
-  const { data: workflow, isLoading, isError } = useWorkflow(api, activeId, workspaceId);
+  const {
+    data: workflow,
+    isLoading,
+    isError,
+  } = useWorkflow(api, activeId, workspaceId);
 
   useEffect(() => {
     if (workspaceId && workflow && workflow.workspaceId !== workspaceId) {
@@ -69,18 +89,29 @@ export function useActiveWorkflow(api: WorkflowsApi, workspaceId: string | undef
 
 // --- Mutations ---
 
-export function useCreateWorkflow(api: WorkflowsApi, workspaceId: string | undefined) {
+export function useCreateWorkflow(
+  api: WorkflowsApi,
+  workspaceId: string | undefined,
+) {
   const queryClient = useQueryClient();
   const { setActiveId } = useWorkflowStore();
 
   return useMutation({
-    mutationFn: ({ name, description }: { name: string; description?: string }) => {
+    mutationFn: ({
+      name,
+      description,
+    }: {
+      name: string;
+      description?: string;
+    }) => {
       if (!workspaceId) throw new Error("No workspace selected");
       return api.create({ name, description });
     },
-    onSuccess: (newWf) => {
+    onSuccess: (newWf: Workflow) => {
       // 1. 仅使得当前 Workspace 的列表过期
-      queryClient.invalidateQueries({ queryKey: workflowKeys.lists(workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: workflowKeys.lists(workspaceId),
+      });
 
       // 2. 写入详情缓存
       queryClient.setQueryData(workflowKeys.detail(newWf.id), newWf);
@@ -91,23 +122,33 @@ export function useCreateWorkflow(api: WorkflowsApi, workspaceId: string | undef
   });
 }
 
-export function useSaveWorkflow(api: WorkflowsApi, workspaceId: string | undefined) {
+export function useSaveWorkflow(
+  api: WorkflowsApi,
+  workspaceId: string | undefined,
+) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (data: Workflow) => api.update(data),
     onSuccess: (savedWf) => {
       // 更新当前 Workspace 的列表缓存（例如名称变更）
-      queryClient.invalidateQueries({ queryKey: workflowKeys.lists(workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: workflowKeys.lists(workspaceId),
+      });
 
       if (savedWf?.id) {
-        queryClient.invalidateQueries({ queryKey: workflowKeys.detail(savedWf.id) });
+        queryClient.invalidateQueries({
+          queryKey: workflowKeys.detail(savedWf.id),
+        });
       }
     },
   });
 }
 
-export function useDeleteWorkflow(api: WorkflowsApi, workspaceId: string | undefined) {
+export function useDeleteWorkflow(
+  api: WorkflowsApi,
+  workspaceId: string | undefined,
+) {
   const queryClient = useQueryClient();
   const { activeId, setActiveId } = useWorkflowStore();
 
@@ -115,7 +156,9 @@ export function useDeleteWorkflow(api: WorkflowsApi, workspaceId: string | undef
     mutationFn: (id: string) => api.delete(id),
     onSuccess: (_ok, deletedId) => {
       // 更新当前 Workspace 的列表
-      queryClient.invalidateQueries({ queryKey: workflowKeys.lists(workspaceId) });
+      queryClient.invalidateQueries({
+        queryKey: workflowKeys.lists(workspaceId),
+      });
       queryClient.removeQueries({ queryKey: workflowKeys.detail(deletedId) });
 
       if (activeId === deletedId) {

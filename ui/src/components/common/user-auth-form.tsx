@@ -7,8 +7,15 @@ import { Loader2, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ApiClient } from "@/services";
-import { useAuthStore, useWorkspaceStore } from "@/store";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
+import { useAuthStore } from "@/store";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../ui/form";
 import { Input } from "../ui/input";
 import { PasswordInput } from "./password-input";
 import { Button } from "../ui/button";
@@ -38,7 +45,6 @@ export function UserAuthForm({
 }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { setAuth } = useAuthStore();
-  const { setWorkspaces } = useWorkspaceStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,25 +58,12 @@ export function UserAuthForm({
     setIsLoading(true);
 
     const handleLoginFlow = async () => {
-
-
-      // 第一步：登录
-      // 注意：这里的 api.auth 对应我们在 @repo/api 中定义的 AuthApi 类
       const { access_token, user } = await api.auth.login({
         email: data.email,
         password: data.password,
       });
 
-      // 第二步：更新状态 (这一步至关重要)
-      // 我们需要先将 Token 写入 Store/Cookie，后续的 API 请求才能带上 Token
-      // 假设 setAuth = (token, user) => { Cookie.set(...); set({ token, user }) }
       setAuth(access_token, user);
-
-      // 第三步：获取工作空间
-      const workspaces = await api.workspaces.list(); // 假设 API 方法名为 list
-
-      // 第四步：存入 Workspace Store
-      setWorkspaces(workspaces);
 
       return { user, access_token };
     };
@@ -143,9 +136,7 @@ export function UserAuthForm({
             <span className="w-full border-t" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background text-muted-foreground px-2">
-              Or
-            </span>
+            <span className="bg-background text-muted-foreground px-2">Or</span>
           </div>
         </div>
 
