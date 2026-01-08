@@ -171,13 +171,13 @@ DELETE /api/v1/{workspace_slug}/chat/guest/threads/{thread_id}
 // Get or create visitor ID
 function getVisitorId() {
   let visitorId = localStorage.getItem('dingent_visitor_id');
-  
+
   if (!visitorId) {
     // Generate new UUID
     visitorId = crypto.randomUUID();
     localStorage.setItem('dingent_visitor_id', visitorId);
   }
-  
+
   return visitorId;
 }
 
@@ -210,7 +210,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 
 function GuestChat() {
   const visitorId = getVisitorId();
-  
+
   return (
     <CopilotKit
       runtimeUrl={`/api/v1/my-workspace/chat/guest`}
@@ -234,8 +234,8 @@ When a guest user signs up or logs in, you may want to transfer their conversati
 
 ```sql
 -- Example migration query
-UPDATE conversation 
-SET user_id = :new_user_id, visitor_id = NULL 
+UPDATE conversation
+SET user_id = :new_user_id, visitor_id = NULL
 WHERE visitor_id = :old_visitor_id;
 ```
 
@@ -280,17 +280,17 @@ allow_guest_access: bool = Field(default=False, description="允许游客访问�
 # Update get_current_workspace_allow_guest dependency
 def get_current_workspace_allow_guest(...):
     workspace = session.exec(statement).first()
-    
+
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    
+
     # For guests, verify workspace allows guest access
     if not current_user and not workspace.allow_guest_access:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="This workspace does not allow guest access"
         )
-    
+
     # ... rest of the logic
 ```
 
@@ -298,7 +298,7 @@ Example rate limiting (FastAPI):
 ```python
 from fastapi_limiter.depends import RateLimiter
 
-@router.post("/guest/agent/{agent_id}/run", 
+@router.post("/guest/agent/{agent_id}/run",
              dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 async def run_guest(...):
     ...
@@ -317,10 +317,10 @@ def cleanup_old_guest_conversations(session: Session, days: int = 30):
         Conversation.updated_at < cutoff_date
     )
     old_conversations = session.exec(statement).all()
-    
+
     for conv in old_conversations:
         session.delete(conv)
-    
+
     session.commit()
 ```
 

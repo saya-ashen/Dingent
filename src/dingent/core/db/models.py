@@ -10,15 +10,9 @@ from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
-from dingent.core.schemas import AssistantSpec, ExecutableWorkflow, NodeSpec, PluginSpec
+from dingent.core.schemas import AssistantSpec, ExecutableWorkflow, PluginSpec
+from dingent.core.types import WorkspaceRole
 from dingent.core.utils import normalize_agent_name
-
-
-class WorkspaceRole(str, Enum):
-    OWNER = "owner"
-    MEMBER = "member"
-    ADMIN = "admin"
-    GUEST = "guest"
 
 
 class ToolOverrideConfig(BaseModel):

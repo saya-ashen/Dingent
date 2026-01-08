@@ -1,19 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
 from threading import RLock
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, select
 
 from dingent.core.db.crud import workflow as crud_workflow
 from dingent.core.db.models import Workflow, WorkflowNode
 
 # --- New dependencies provided by user ---
-from dingent.core.runtime.assistant import AssistantRuntime
 from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
 from dingent.server.services.workspace_assistant_service import WorkspaceAssistantService
 
@@ -121,8 +118,6 @@ class WorkspaceWorkflowService:
         if wf is None:
             return False
         crud_workflow.delete_workflow(self.session, db_workflow=wf)
-        # Also mark stopped in registry
-        key = (self.workspace_id, workflow_id)
         return True
 
     # ---------------------------------------------------------------------

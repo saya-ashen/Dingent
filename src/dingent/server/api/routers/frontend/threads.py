@@ -6,23 +6,18 @@ from typing import Annotated, Any, cast
 from ag_ui.core.types import RunAgentInput
 from ag_ui.encoder import EventEncoder
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from sqlmodel import Session, delete, select
+from fastapi.responses import StreamingResponse
+from sqlmodel import col, delete, select
 
 from dingent.core.db.crud.workflow import get_workflow_by_name
-from dingent.core.db.models import Conversation, User, Workflow, Workspace
+from dingent.core.db.models import Conversation, Workflow
 from dingent.core.managers.llm_manager import get_llm_service
-from dingent.core.schemas import ThreadRead, ExecutableWorkflow
+from dingent.core.schemas import ExecutableWorkflow, ThreadRead
 from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.server.api.dependencies import (
     CurrentUserOptional,
     CurrentWorkspaceAllowGuest,
     DbSession,
-    get_current_user,
-    get_current_user_optional,
-    get_current_workspace,
-    get_current_workspace_allow_guest,
-    get_db_session,
     get_visitor_id,
 )
 from dingent.server.copilot.agents import DingLangGraphAGUIAgent
@@ -169,7 +164,6 @@ async def get_agents(
     user: CurrentUserOptional,
     workspace: CurrentWorkspaceAllowGuest,
     session: DbSession,
-    visitor_id: str | None = Header(None, alias="X-Visitor-ID"),
 ):
     return sdk.list_agents_for_user(user, session, workspace.id)
 
@@ -225,8 +219,8 @@ async def list_threads(
     elif visitor_id:
         # 查询属于该游客的
         query = query.where(Conversation.visitor_id == visitor_id)
-        # 且确保不包含已绑定用户的会话 (防御性编程)
-        query = query.where(Conversation.user_id == None)
+        # 且确保不包含已绑定用户的会话
+        query = query.where(col(Conversation.user_id).is_(None))
     else:
         return []
 
@@ -247,13 +241,13 @@ async def delete_all_threads(
     # 直接构建 DELETE 语句，效率更高，不需要先 fetch 数据
     if user:
         statement = delete(Conversation).where(
-            Conversation.workspace_id == workspace.id,
-            Conversation.user_id == user.id,
+            col(Conversation.workspace_id) == workspace.id,
+            col(Conversation.user_id) == user.id,
         )
     elif visitor_id:
         statement = delete(Conversation).where(
-            Conversation.workspace_id == workspace.id,
-            Conversation.visitor_id == visitor_id,
+            col(Conversation.workspace_id) == workspace.id,
+            col(Conversation.visitor_id) == visitor_id,
         )
     else:
         raise Exception("Cannot delete threads without user or visitor_id")

@@ -1,7 +1,6 @@
 import re
 from collections.abc import Callable
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -9,9 +8,10 @@ from uuid import UUID, uuid4
 import toml
 from fastmcp.mcp_config import MCPServerTypes
 from mcp.types import Tool
-from pydantic import ConfigDict, EmailStr, PrivateAttr, computed_field, model_validator
+from pydantic import ConfigDict, EmailStr, PrivateAttr, model_validator
 from sqlmodel import Field, SQLModel
 
+from dingent.core.types import WorkspaceRole
 from dingent.core.utils import to_camel
 
 
@@ -431,13 +431,6 @@ class WorkspaceUpdate(SQLModel):
     name: str | None = None
     description: str | None = None
     allow_guest_access: bool | None = None
-
-
-class WorkspaceRole(str, Enum):
-    OWNER = "owner"
-    MEMBER = "member"
-    ADMIN = "admin"
-    GUEST = "guest"
 
 
 class WorkspaceMemberRead(SQLModel):

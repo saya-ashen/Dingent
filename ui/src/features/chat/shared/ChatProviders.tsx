@@ -14,8 +14,8 @@ interface ChatProvidersProps {
   className?: string;
 }
 
-export default function ChatProviders({ 
-  children, 
+export default function ChatProviders({
+  children,
   sidebar,
   visitorId,
   className

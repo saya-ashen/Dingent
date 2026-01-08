@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Literal, TypeVar
 
 from pydantic import BaseModel, Field, FilePath, model_validator
@@ -146,3 +147,10 @@ class ExecutionModel(BaseModel):
 
 class ToolConfigModel(BaseModel):
     schema_path: FilePath = Field(..., description="指向一个包含用户配置Pydantic类的Python文件")
+
+
+class WorkspaceRole(str, Enum):
+    OWNER = "owner"
+    MEMBER = "member"
+    ADMIN = "admin"
+    GUEST = "guest"

@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List
+from typing import Any
 
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
@@ -8,11 +8,11 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph, RunnableConfig
 from langgraph.types import Command
 
-from .state import SimpleAgentState
 from .messages import ActivityMessage
+from .state import SimpleAgentState
 
 
-def mcp_artifact_to_agui_display(tool_name, query_args: dict, surface_base_id: str | list[str], artifact: List[Dict[str, Any]], update_data=False) -> Dict[str, List[Dict]]:
+def mcp_artifact_to_agui_display(tool_name, query_args: dict, surface_base_id: str | list[str], artifact: list[dict[str, Any]], update_data=False) -> dict[str, list[dict]]:
     if not isinstance(artifact, list):
         return [artifact]
     else:
@@ -211,7 +211,7 @@ def mcp_artifact_to_agui_display(tool_name, query_args: dict, surface_base_id: s
     return agui_display
 
 
-def _transform_rows_to_a2ui(columns: list[str], rows: List[list[str | int | Any]]) -> List[Dict]:
+def _transform_rows_to_a2ui(columns: list[str], rows: list[list[str | int | Any]]) -> list[dict]:
     """
     辅助函数：将 [{'id': 1, 'name': 'A'}] 转换为 A2UI 的 valueMap 结构
     A2UI 数组本质上是一个 Map，Key 是索引字符串 "0", "1", ...
@@ -220,12 +220,12 @@ def _transform_rows_to_a2ui(columns: list[str], rows: List[list[str | int | Any]
     for idx, row_data in enumerate(rows):
         # 构建每一行的数据对象
         row_fields = []
-        for k, v in zip(columns, row_data):
+        for k, v in zip(columns, row_data, strict=False):
             entry: dict[str, Any] = {"key": k}
             # 根据类型填充 valueString, valueNumber 等
             if isinstance(v, bool):
                 entry["valueBoolean"] = v
-            elif isinstance(v, (int, float)):
+            elif isinstance(v, int | float):
                 entry["valueNumber"] = v
             else:
                 entry["valueString"] = str(v)
@@ -376,7 +376,7 @@ def build_simple_react_agent(
 
         return END
 
-    async def ui_node(state: SimpleAgentState, config: RunnableConfig) -> Command:
+    async def ui_node(state: SimpleAgentState) -> Command:
         action = state.get("a2ui_action", {})
         user_action = action.get("userAction", {})
         if not user_action:

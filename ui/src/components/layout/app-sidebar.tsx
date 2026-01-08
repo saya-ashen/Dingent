@@ -34,7 +34,7 @@ export function AppSidebar({
     >
       <SidebarHeader>
         {isGuest ? (
-          <div>Guest Mode</div>
+          <div></div>
         ) : (
           <WorkspaceSwitcher workspaces={workspaces} user={user} />
         )}

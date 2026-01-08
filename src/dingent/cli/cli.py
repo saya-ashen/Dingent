@@ -8,16 +8,17 @@ Commands:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
 import threading
 import time
-import shutil
 import webbrowser
 from pathlib import Path
 from typing import Annotated
@@ -28,7 +29,6 @@ from cookiecutter.exceptions import RepositoryNotFound
 from cookiecutter.main import cookiecutter
 from rich import print
 from rich.text import Text
-import hashlib
 
 from dingent.cli.context import CliContext
 
@@ -51,7 +51,7 @@ frontend_port = 3000
 # --------- Utility Functions ---------
 
 
-def _prepare_static_assets(cli_ctx: CliContext) -> Path:
+def _prepare_static_assets() -> Path:
     """
     根据运行模式准备静态资源路径。
     自动检测版本变更，如果有更新则重新解压。
@@ -465,7 +465,7 @@ def run(
             raise typer.Exit(1)
 
         # 解压静态资源
-        static_path = _prepare_static_assets(cli_ctx)
+        static_path = _prepare_static_assets()
 
         # 添加前端服务
         services.append(

@@ -1,9 +1,9 @@
 import json
-import types
 import uuid
 from collections.abc import AsyncGenerator
 
 import ag_ui_langgraph
+import ag_ui_langgraph.utils
 from ag_ui.core import ActivityMessage, CustomEvent, EventType, MessagesSnapshotEvent, RunAgentInput, RunFinishedEvent
 from ag_ui.core.events import RunStartedEvent
 from ag_ui_langgraph.agent import Command, dump_json_safe, get_stream_payload_input
@@ -23,8 +23,8 @@ from ag_ui_langgraph.utils import (
 )
 from copilotkit import LangGraphAGUIAgent
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+
 from dingent.engine.agents import messages as DingMessages
-import ag_ui_langgraph.utils
 
 
 class DingRunAgentInput(RunAgentInput):

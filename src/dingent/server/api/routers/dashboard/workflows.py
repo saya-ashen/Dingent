@@ -15,7 +15,7 @@ from dingent.core.schemas import (
     WorkflowReplace,
     WorkflowUpdate,
 )
-from dingent.server.api.dependencies import CurrentWorkspaceAllowGuest, get_workspace_workflow_service
+from dingent.server.api.dependencies import get_workspace_workflow_service
 from dingent.server.services.workspace_workflow_service import WorkspaceWorkflowService
 
 router = APIRouter(prefix="/workflows", tags=["Workflows"])
