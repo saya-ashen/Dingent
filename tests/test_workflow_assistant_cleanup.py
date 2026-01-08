@@ -17,8 +17,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from dingent.core.config_manager import ConfigManager
 from dingent.core.settings import AppSettings
-from dingent.core.types import AssistantCreate, WorkflowCreate, WorkflowEdge, WorkflowEdgeData, WorkflowNode, WorkflowNodeData
 from dingent.core.workflow_manager import WorkflowManager
+
+from dingent.core.types import AssistantCreate, WorkflowCreate, WorkflowEdge, WorkflowEdgeData, WorkflowNode, WorkflowNodeData
 
 
 def test_workflow_cleanup_on_assistant_deletion():
