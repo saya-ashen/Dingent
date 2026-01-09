@@ -1,6 +1,9 @@
+import json
 from typing import Any
 
 from sqlalchemy.types import TEXT, TypeDecorator
+
+from dingent.core.secrets import get_secret_manager
 
 
 class EncryptedString(TypeDecorator):
