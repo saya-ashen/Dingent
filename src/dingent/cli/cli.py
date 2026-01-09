@@ -290,7 +290,14 @@ def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = Fal
 
 
 @app.command()
-def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d")] = None, dev: bool = False):
+def run(
+    host: str = "localhost",
+    port: int = 8000,
+    ui_port: int = 3000,
+    no_browser: bool = False,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d")] = None,
+    dev: bool = False,
+):
     """
     Concurrently starts the backend and frontend services.
     """
@@ -316,7 +323,7 @@ def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_di
         backend_cmd = [
             sys.executable,
             "internal-backend",
-            "localhost",
+            host,
             str(port),
         ]
         # 生产环境 Backend 不需要特定的 CWD，或者指向 bundle_dir 即可
@@ -326,7 +333,7 @@ def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_di
         backend_cmd = [
             "uvicorn",
             "dingent.server.main:app",
-            "--host",
+            host,
             "localhost",
             "--port",
             str(port),
@@ -342,7 +349,7 @@ def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_di
             cwd=backend_cwd,
             color="magenta",
             env={**os.environ},
-            health_check_url=f"http://localhost:{port}/api/v1/health",
+            health_check_url=f"http://{host}:{port}/api/v1/health",
         ),
     ]
 
@@ -355,9 +362,9 @@ def run(port: int = 8000, ui_port: int = 3000, no_browser: bool = False, data_di
                 cwd=frontend_dir,
                 color="cyan",
                 env={
-                    "DING_BACKEND_URL": f"http://localhost:{port}",
+                    "DING_BACKEND_URL": f"http://{host}:{port}",
                     "PORT": str(ui_port),
-                    "HOSTNAME": "localhost",
+                    "HOSTNAME": host,
                 },
                 open_browser_hint=True,
                 depends_on=["backend"],
