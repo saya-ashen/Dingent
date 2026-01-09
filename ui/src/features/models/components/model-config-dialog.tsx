@@ -108,10 +108,13 @@ export function ModelConfigDialog({
         message: result.message,
         latency: result.latency_ms,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Connection test failed";
       setTestResult({
         status: "error",
-        message: error.message || "Connection test failed",
+        message: errorMessage,
       });
     }
   };

@@ -26,6 +26,11 @@ export default function ModelsPage() {
     return result;
   };
 
+  // Safely extract the model ID being deleted
+  const deletingModelId = deleteMutation.isPending && typeof deleteMutation.variables === 'string' 
+    ? deleteMutation.variables 
+    : undefined;
+
   return (
     <PageContainer
       title="Model Configuration"
@@ -61,7 +66,7 @@ export default function ModelsPage() {
           onTestConnection={handleTestConnection}
           isUpdating={updateMutation.isPending}
           isDeleting={deleteMutation.isPending}
-          deletingId={deleteMutation.isPending ? (deleteMutation.variables as string) : undefined}
+          deletingId={deletingModelId}
         />
       )}
     </PageContainer>
