@@ -54,12 +54,6 @@ export function ModelSelector({
     setOpen(false);
   };
 
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedValue(null);
-    onChange(null);
-  };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -90,7 +84,13 @@ export function ModelSelector({
             <CommandEmpty>No model found.</CommandEmpty>
             <CommandGroup>
               {allowClear && selectedValue && (
-                <CommandItem onSelect={handleClear}>
+                <CommandItem 
+                  onSelect={() => {
+                    setSelectedValue(null);
+                    onChange(null);
+                    setOpen(false);
+                  }}
+                >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",

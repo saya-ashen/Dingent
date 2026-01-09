@@ -37,9 +37,23 @@ export default function WorkflowsPage() {
 
   const workflowsQ = useWorkflowsList(api.workflows, slug);
   const assistantsQ = useAssistantsConfig(api.assistants, slug);
+  const modelsQ = useQuery({
+    queryKey: ["models", slug],
+    queryFn: async () => (await api.models.list()) ?? [],
+    staleTime: 30_000,
+  });
   const saveWorkflowMutation = useSaveWorkflow(api.workflows, slug);
   const createWorkflow = useCreateWorkflow(api.workflows, slug);
   const deleteWorkflow = useDeleteWorkflow(api.workflows, slug);
+  const updateWorkflowMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: any }) =>
+      api.workflows.update(id, updates),
+    onSuccess: () => {
+      toast.success("Workflow updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["workflows", slug] });
+    },
+    onError: (e: any) => toast.error(e.message || "Update workflow failed"),
+  });
 
   // Helper: 处理 ID 变更，同步到 URL
   const handleSelectWorkflow = useCallback(

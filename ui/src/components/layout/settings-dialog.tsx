@@ -297,9 +297,6 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
               >
                 Save Changes
               </Button>
-            </div>
-          </div>
-
           {/* Default Model Configuration */}
           <div className="space-y-4 pt-6 border-t">
             <h3 className="text-sm font-semibold">Default Model Configuration</h3>
@@ -324,14 +321,18 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
                   )}
                 </React.Suspense>
               </div>
-              <Button
-                onClick={handleSaveBasicInfo}
-                disabled={isUpdating}
-                size="sm"
-              >
-                Save Changes
-              </Button>
             </div>
+          </div>
+
+          {/* Save Changes Button - applies to all settings above */}
+          <div className="pt-6">
+            <Button
+              onClick={handleSaveBasicInfo}
+              disabled={isUpdating}
+              size="sm"
+            >
+              Save All Changes
+            </Button>
           </div>
 
           {/* Guest Access Section */}
