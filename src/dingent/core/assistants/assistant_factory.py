@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from .assistant import AssistantRuntime
-
 from .schemas import AssistantSpec
 
 

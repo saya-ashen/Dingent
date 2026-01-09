@@ -1,8 +1,7 @@
 from dingent.core.assistants.assistant import AssistantRuntime
 from dingent.core.assistants.schemas import AssistantRead
-from dingent.core.plugins.plugin import PluginRuntime
-
 from dingent.core.db.models import Assistant, AssistantPluginLink
+from dingent.core.plugins.plugin import PluginRuntime
 from dingent.core.plugins.schemas import PluginConfigItemRead, PluginRead, ToolConfigItemRead
 
 
@@ -128,4 +127,5 @@ async def _build_assistant_read(assistant: Assistant, runtime_assistant: Assista
         version=assistant.version,
         spec_version=assistant.spec_version,
         enabled=assistant.enabled,
+        model_config_id=assistant.model_config_id,
     )

@@ -3,10 +3,9 @@ import shutil
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from .schemas import PluginConfigSchema, PluginManifest
-from .plugin_registry import PluginRegistry
 from .plugin import PluginRuntime
-
+from .plugin_registry import PluginRegistry
+from .schemas import PluginConfigSchema, PluginManifest
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 

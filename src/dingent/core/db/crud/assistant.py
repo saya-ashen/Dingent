@@ -7,8 +7,8 @@ from jsonschema import ValidationError, validate
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
 from dingent.core.assistants.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
+from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
 
 
 def _preprocess_json_fields(config_data: dict, schema: dict | None):

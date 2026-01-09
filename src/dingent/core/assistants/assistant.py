@@ -4,11 +4,10 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from .schemas import AssistantSpec
-
-from ..plugins.plugin_manager import PluginManager
 from ..plugins.plugin import PluginRuntime
+from ..plugins.plugin_manager import PluginManager
 from ..plugins.schemas import RunnableTool
+from .schemas import AssistantSpec
 
 
 class AssistantRuntime:

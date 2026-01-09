@@ -10,19 +10,25 @@ import { NewWorkflowDialog } from "./workflows/NewWorkflowDialog";
 interface SidebarProps {
   workflows: any[];
   assistants: Assistant[];
+  models?: any[];
   selectedWorkflowId: string | null;
   onSelectWorkflow: (id: string | null) => void;
   onCreateWorkflow: (input: { name: string; description?: string }) => void;
   onDeleteWorkflow: (id: string) => void;
+  onUpdateWorkflow?: (id: string, updates: any) => void;
+  isUpdatingWorkflow?: boolean;
 }
 
 export function WorkflowSidebar({
   workflows,
   assistants,
+  models = [],
   selectedWorkflowId,
   onSelectWorkflow,
   onCreateWorkflow,
   onDeleteWorkflow,
+  onUpdateWorkflow,
+  isUpdatingWorkflow,
 }: SidebarProps) {
   const { setDraggedAssistant, usedAssistantIds } = useWorkflowContext();
   const [activeTab, setActiveTab] = useState("workflows");
@@ -70,8 +76,11 @@ export function WorkflowSidebar({
             selectedWorkflow={workflows.find(
               (w) => w.id === selectedWorkflowId,
             )}
+            models={models}
             onSelect={handleSelect}
             onDelete={handleDeleteWorkflow}
+            onUpdateWorkflow={onUpdateWorkflow}
+            isUpdating={isUpdatingWorkflow}
           />
         </TabsContent>
 

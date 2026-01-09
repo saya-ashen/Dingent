@@ -5,14 +5,14 @@ import litellm
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from dingent.core.db.models import LLMModelConfig, User, Workspace
-from dingent.server.api.dependencies import get_current_user, get_current_workspace, get_db_session
+from dingent.core.db.models import LLMModelConfig, Workspace
+from dingent.server.api.dependencies import get_current_workspace, get_db_session
 from dingent.server.api.schemas import LLMModelConfigCreate, LLMModelConfigRead, LLMModelConfigUpdate, TestConnectionRequest, TestConnectionResponse
 
 router = APIRouter(prefix="/llms", tags=["LLMs"])
 
 
-@router.get("/", response_model=list[LLMModelConfigRead])
+@router.get("", response_model=list[LLMModelConfigRead])
 async def list_models(
     workspace: Workspace = Depends(get_current_workspace),
     session: Session = Depends(get_db_session),
@@ -25,17 +25,15 @@ async def list_models(
     return [LLMModelConfigRead(**m.model_dump(), has_api_key=m.encrypted_api_key is not None) for m in results]
 
 
-@router.post("/", response_model=LLMModelConfigRead)
+@router.post("", response_model=LLMModelConfigRead)
 async def create_model(
     config_in: LLMModelConfigCreate,
     workspace: Workspace = Depends(get_current_workspace),
     session: Session = Depends(get_db_session),
 ):
     """创建一个新的模型配置"""
-    # 1. 处理加密
-    encrypted_key = None
-    if config_in.api_key:
-        encrypted_key = encrypt_text(config_in.api_key)
+    # EncryptedString type automatically encrypts the value when saved to database
+    encrypted_key = config_in.api_key
 
     # 2. 创建 DB 对象
     db_obj = LLMModelConfig(
@@ -65,15 +63,12 @@ async def update_model(
 
     update_data = config_in.model_dump(exclude_unset=True)
 
-    # 特殊处理 API Key：只有当用户传了新 Key 时才更新
+    # Special handling for API Key: EncryptedString type automatically encrypts at database layer
     if "api_key" in update_data:
         raw_key = update_data.pop("api_key")
         if raw_key:
-            db_obj.encrypted_api_key = encrypt_text(raw_key)
-        else:
-            # 如果传了空字符串或 None，可能意味着清空 Key？视业务逻辑而定
-            # 这里假设传 None 是不修改，传空串是删除
-            pass
+            db_obj.encrypted_api_key = raw_key
+        # If empty string or None passed, keep existing key (don't modify)
 
     for key, value in update_data.items():
         setattr(db_obj, key, value)
@@ -106,7 +101,6 @@ async def delete_model(
 @router.post("/test", response_model=TestConnectionResponse)
 async def test_connection(
     test_data: TestConnectionRequest,
-    user: User = Depends(get_current_user),
 ):
     """
     无状态测试：前端把填好的表单发过来（含明文 Key），
@@ -123,7 +117,7 @@ async def test_connection(
             model_name = f"{test_data.provider}/{test_data.model}"
 
         # 准备一次极简的调用
-        response = await litellm.acompletion(
+        await litellm.acompletion(
             model=model_name,
             messages=[{"role": "user", "content": "Hello"}],
             api_key=test_data.api_key,

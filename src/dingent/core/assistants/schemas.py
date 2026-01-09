@@ -12,6 +12,7 @@ class AssistantBase(SQLModel):
     version: str | float = Field("0.2.0", description="Assistant version.")
     spec_version: str | float = Field("2.0", description="Specification version.")
     enabled: bool = Field(True, description="Enable or disable the assistant.")
+    model_config_id: UUID | None = Field(None, description="Override model configuration for this assistant.")
 
 
 class AssistantRead(AssistantBase):

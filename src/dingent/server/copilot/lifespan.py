@@ -4,12 +4,12 @@ from fastapi import FastAPI
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from sqlmodel import Session
 
-from dingent.core.db.session import engine
 from dingent.core.assistants.assistant_factory import AssistantFactory
+from dingent.core.db.session import engine
 from dingent.core.logs.log_manager import LogManager
-from dingent.core.plugins.plugin_manager import PluginManager
 from dingent.core.paths import paths
 from dingent.core.plugins.market_service import MarketService
+from dingent.core.plugins.plugin_manager import PluginManager
 from dingent.core.plugins.plugin_registry import PluginRegistry
 from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.api.schemas import GitHubMarketBackend

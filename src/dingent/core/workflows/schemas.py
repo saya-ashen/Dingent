@@ -164,6 +164,7 @@ class WorkflowUpdate(WorkflowBase):
     """
 
     name: str | None = None
+    model_config_id: UUID | None = None
 
 
 class WorkflowReadBasic(WorkflowBase):
@@ -176,6 +177,7 @@ class WorkflowReadBasic(WorkflowBase):
 
     id: UUID
     name: str
+    model_config_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

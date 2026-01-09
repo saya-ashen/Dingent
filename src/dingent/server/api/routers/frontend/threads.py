@@ -138,7 +138,16 @@ async def get_agent_context(
     if not workflow and agent_id != "default":
         raise HTTPException(status_code=404, detail=f"Workflow '{agent_id}' not found")
 
-    llm = get_llm_service()
+    # Use context-aware model resolution with cascading strategy
+    from dingent.core.llms.service import get_llm_for_context
+
+    workflow_id = workflow.id if workflow else None
+    llm = get_llm_for_context(
+        session=session,
+        workflow_id=workflow_id,
+        workspace_id=workspace.id,
+    )
+
     spec = await get_workflow_spec(workflow)
     agent = await sdk.resolve_agent(spec, llm)
 

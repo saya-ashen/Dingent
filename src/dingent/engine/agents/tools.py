@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field, create_model
 
 from dingent.core.plugins.schemas import RunnableTool
 
-
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {
     "string": str,
