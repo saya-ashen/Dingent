@@ -46,8 +46,8 @@ export default function WorkflowsPage() {
   const createWorkflow = useCreateWorkflow(api.workflows, slug);
   const deleteWorkflow = useDeleteWorkflow(api.workflows, slug);
   const updateWorkflowMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: any }) =>
-      api.workflows.update(id, updates),
+    mutationFn: ({ updates }: { updates: any }) =>
+      api.workflows.update(updates),
     onSuccess: () => {
       toast.success("Workflow updated successfully");
       queryClient.invalidateQueries({ queryKey: ["workflows", slug] });
@@ -147,7 +147,9 @@ export default function WorkflowsPage() {
                   },
                 });
               }}
-              onUpdateWorkflow={(id, updates) => updateWorkflowMutation.mutate({ id, updates })}
+              onUpdateWorkflow={(updates) =>
+                updateWorkflowMutation.mutate({ updates })
+              }
               isUpdatingWorkflow={updateWorkflowMutation.isPending}
             />
 
