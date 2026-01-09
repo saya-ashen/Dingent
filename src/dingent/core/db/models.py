@@ -101,6 +101,9 @@ class Workspace(SQLModel, table=True):
     avatar_url: str | None = Field(default=None, description="工作空间的头像地址")
     description: str | None = None
     allow_guest_access: bool = Field(default=False, index=True, description="是否允许游客访问此工作空间")
+    
+    # 默认模型配置 (级联策略的最低优先级)
+    default_model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
 
     members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
 
@@ -173,6 +176,9 @@ class Assistant(SQLModel, table=True):
     version: str = "0.2.0"
     spec_version: str = "3.0"
     enabled: bool = True
+    
+    # 模型配置 (级联策略的最高优先级)
+    model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
@@ -239,6 +245,9 @@ class Workflow(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str
     description: str | None = None
+    
+    # 模型配置 (级联策略的中等优先级)
+    model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
