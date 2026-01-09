@@ -32,7 +32,7 @@ async def create_model(
     session: Session = Depends(get_db_session),
 ):
     """创建一个新的模型配置"""
-    # 1. 处理加密 - EncryptedString 类型会自动加密
+    # EncryptedString type automatically encrypts the value when saved to database
     encrypted_key = config_in.api_key
 
     # 2. 创建 DB 对象
@@ -63,16 +63,12 @@ async def update_model(
 
     update_data = config_in.model_dump(exclude_unset=True)
 
-    # 特殊处理 API Key：只有当用户传了新 Key 时才更新
-    # EncryptedString 类型会自动加密
+    # Special handling for API Key: EncryptedString type automatically encrypts at database layer
     if "api_key" in update_data:
         raw_key = update_data.pop("api_key")
         if raw_key:
             db_obj.encrypted_api_key = raw_key
-        else:
-            # 如果传了空字符串或 None，可能意味着清空 Key？视业务逻辑而定
-            # 这里假设传 None 是不修改，传空串是删除
-            pass
+        # If empty string or None passed, keep existing key (don't modify)
 
     for key, value in update_data.items():
         setattr(db_obj, key, value)

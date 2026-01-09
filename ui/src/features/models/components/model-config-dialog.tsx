@@ -173,7 +173,9 @@ export function ModelConfigDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>API Key {model ? "(leave empty to keep existing)" : ""}</Label>
+            <Label>
+              {model ? "API Key (leave empty to keep existing)" : "API Key"}
+            </Label>
             <Input
               type="password"
               value={data.api_key || ""}

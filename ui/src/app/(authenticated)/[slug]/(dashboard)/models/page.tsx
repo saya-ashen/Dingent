@@ -61,7 +61,7 @@ export default function ModelsPage() {
           onTestConnection={handleTestConnection}
           isUpdating={updateMutation.isPending}
           isDeleting={deleteMutation.isPending}
-          deletingId={deleteMutation.variables}
+          deletingId={deleteMutation.isPending ? (deleteMutation.variables as string) : undefined}
         />
       )}
     </PageContainer>
