@@ -12,7 +12,7 @@ from dingent.server.api.schemas import LLMModelConfigCreate, LLMModelConfigRead,
 router = APIRouter(prefix="/llms", tags=["LLMs"])
 
 
-@router.get("/", response_model=list[LLMModelConfigRead])
+@router.get("", response_model=list[LLMModelConfigRead])
 async def list_models(
     workspace: Workspace = Depends(get_current_workspace),
     session: Session = Depends(get_db_session),
@@ -25,7 +25,7 @@ async def list_models(
     return [LLMModelConfigRead(**m.model_dump(), has_api_key=m.encrypted_api_key is not None) for m in results]
 
 
-@router.post("/", response_model=LLMModelConfigRead)
+@router.post("", response_model=LLMModelConfigRead)
 async def create_model(
     config_in: LLMModelConfigCreate,
     workspace: Workspace = Depends(get_current_workspace),

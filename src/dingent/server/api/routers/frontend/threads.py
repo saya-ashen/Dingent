@@ -13,6 +13,7 @@ from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.core.db.models import Conversation, Workflow
 
 # from dingent.core.managers.llm_manager import get_llm_service
+from dingent.core.llms.service import get_llm
 from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.core.workflows.schemas import ExecutableWorkflow
 from dingent.core.workspaces.schemas import ThreadRead
@@ -138,7 +139,7 @@ async def get_agent_context(
     if not workflow and agent_id != "default":
         raise HTTPException(status_code=404, detail=f"Workflow '{agent_id}' not found")
 
-    llm = get_llm_service()
+    llm = get_llm()
     spec = await get_workflow_spec(workflow)
     agent = await sdk.resolve_agent(spec, llm)
 
