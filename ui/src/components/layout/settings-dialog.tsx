@@ -154,12 +154,24 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [workspaceName, setWorkspaceName] = React.useState("");
   const [workspaceDescription, setWorkspaceDescription] = React.useState("");
+  const [defaultModelConfigId, setDefaultModelConfigId] = React.useState<string | null>(null);
+  const [availableModels, setAvailableModels] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     if (workspace) {
       setGuestAccessEnabled(workspace.allow_guest_access ?? false);
       setWorkspaceName(workspace.name);
       setWorkspaceDescription(workspace.description ?? "");
+      setDefaultModelConfigId(workspace.default_model_config_id ?? null);
+      
+      // Fetch available models
+      import("@/lib/api/client").then(({ getClientApi }) => {
+        getClientApi()
+          .forWorkspace(workspace.slug)
+          .models.list()
+          .then((models) => setAvailableModels(models || []))
+          .catch((err) => console.error("Failed to load models:", err));
+      });
     }
   }, [workspace]);
 
@@ -220,6 +232,7 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
       await workspacesApi.update(workspace.slug, {
         name: workspaceName,
         description: workspaceDescription,
+        default_model_config_id: defaultModelConfigId,
       });
       toast.success("Workspace updated successfully");
     } catch (error) {
@@ -276,6 +289,40 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
                   onChange={(e) => setWorkspaceDescription(e.target.value)}
                   placeholder="Enter workspace description (optional)"
                 />
+              </div>
+              <Button
+                onClick={handleSaveBasicInfo}
+                disabled={isUpdating}
+                size="sm"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+
+          {/* Default Model Configuration */}
+          <div className="space-y-4 pt-6 border-t">
+            <h3 className="text-sm font-semibold">Default Model Configuration</h3>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Set a default LLM model for this workspace. This will be used by workflows and assistants that don't specify their own model.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="default-model">Default Model</Label>
+                {/* Dynamic import for ModelSelector to avoid SSR issues */}
+                <React.Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded" />}>
+                  {availableModels.length > 0 ? (
+                    <ModelSelectorWrapper
+                      models={availableModels}
+                      value={defaultModelConfigId}
+                      onChange={setDefaultModelConfigId}
+                    />
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      No models configured. <a href={`/${workspace.slug}/models`} className="text-primary underline">Configure models</a> first.
+                    </div>
+                  )}
+                </React.Suspense>
               </div>
               <Button
                 onClick={handleSaveBasicInfo}
@@ -355,6 +402,31 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+// Wrapper component for ModelSelector to handle dynamic import
+function ModelSelectorWrapper({ models, value, onChange }: any) {
+  const [ModelSelector, setModelSelector] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    import("@/components/common/model-selector").then((mod) => {
+      setModelSelector(() => mod.ModelSelector);
+    });
+  }, []);
+
+  if (!ModelSelector) {
+    return <div className="h-10 bg-muted animate-pulse rounded" />;
+  }
+
+  return (
+    <ModelSelector
+      models={models}
+      value={value}
+      onChange={onChange}
+      placeholder="Use environment default"
+      allowClear={true}
+    />
   );
 }
 

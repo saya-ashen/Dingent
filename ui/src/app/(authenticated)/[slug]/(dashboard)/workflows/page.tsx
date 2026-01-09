@@ -15,6 +15,7 @@ import { WorkflowCanvas } from "@/features/workflows/components";
 import { toast } from "sonner";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { PageContainer } from "@/components/common/page-container";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -26,6 +27,7 @@ export default function WorkflowsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.slug as string;
+  const queryClient = useQueryClient();
 
   // 1. URL Sync: 从 URL 获取选中 ID
   const selectedId = searchParams.get("workflowId");
@@ -108,6 +110,7 @@ export default function WorkflowsPage() {
             <WorkflowSidebar
               workflows={workflowsQ.data || []}
               assistants={assistantsQ.data || []} // 建议 Sidebar 内部处理 assistants 为空的情况
+              models={modelsQ.data || []}
               selectedWorkflowId={selectedId}
               onSelectWorkflow={handleSelectWorkflow}
               onCreateWorkflow={(input) =>
@@ -130,6 +133,8 @@ export default function WorkflowsPage() {
                   },
                 });
               }}
+              onUpdateWorkflow={(id, updates) => updateWorkflowMutation.mutate({ id, updates })}
+              isUpdatingWorkflow={updateWorkflowMutation.isPending}
             />
 
             <main className="flex-1 bg-background relative flex flex-col">

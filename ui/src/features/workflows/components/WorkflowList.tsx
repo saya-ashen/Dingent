@@ -1,19 +1,26 @@
 import { EmptyState } from "@/components/common/empty-state";
 import { AlertDialogTrigger, AlertDialogContent, AlertDialogTitle, AlertDialogDescription, AlertDialogCancel, AlertDialogAction, AlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { WorkflowSummary } from "@/types/entity";
+import { WorkflowSummary, LLMModelConfig } from "@/types/entity";
 import { Trash2 } from "lucide-react";
+import { WorkflowSettingsDialog } from "./workflows/WorkflowSettingsDialog";
 
 export function WorkflowList({
   workflows,
   selectedWorkflow,
+  models = [],
   onSelect,
   onDelete,
+  onUpdateWorkflow,
+  isUpdating,
 }: {
   workflows: WorkflowSummary[];
   selectedWorkflow: WorkflowSummary | null;
+  models?: LLMModelConfig[];
   onSelect: (workflow: WorkflowSummary) => void;
   onDelete: (workflowId: string) => void;
+  onUpdateWorkflow?: (workflowId: string, updates: any) => void;
+  isUpdating?: boolean;
 }) {
   return (
     <div>
@@ -43,7 +50,18 @@ export function WorkflowList({
                     </div>
                   )}
                 </div>
-                <AlertDialog>
+                <div className="flex items-center gap-1">
+                  {onUpdateWorkflow && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <WorkflowSettingsDialog
+                        workflow={workflow as any}
+                        models={models}
+                        onSave={(updates) => onUpdateWorkflow(workflow.id, updates)}
+                        isSaving={isUpdating || false}
+                      />
+                    </div>
+                  )}
+                  <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="ghost"
