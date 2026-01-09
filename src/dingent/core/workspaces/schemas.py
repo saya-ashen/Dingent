@@ -36,6 +36,7 @@ class WorkspaceUpdate(SQLModel):
     name: str | None = None
     description: str | None = None
     allow_guest_access: bool | None = None
+    default_model_config_id: UUID | None = None
 
 
 class WorkspaceMemberRead(SQLModel):
@@ -52,6 +53,7 @@ class WorkspaceRead(WorkspaceBase):
     role: WorkspaceRole
     slug: str
     created_at: datetime
+    default_model_config_id: UUID | None = None
     # 简单的成员概览
     member_count: int | None = None
 

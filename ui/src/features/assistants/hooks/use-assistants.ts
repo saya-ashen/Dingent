@@ -23,6 +23,12 @@ export function useAssistants(workspaceSlug: string) {
     staleTime: 30_000,
   });
 
+  const modelsQuery = useQuery({
+    queryKey: ["models", workspaceSlug],
+    queryFn: async () => (await wsApi.models.list()) ?? [],
+    staleTime: 30_000,
+  });
+
   // Mutations
   const createMutation = useMutation({
     mutationFn: (data: { name: string; description: string }) =>
@@ -79,6 +85,7 @@ export function useAssistants(workspaceSlug: string) {
   return {
     assistantsQuery,
     pluginsQuery,
+    modelsQuery,
     createMutation,
     deleteMutation,
     updateBatchMutation,

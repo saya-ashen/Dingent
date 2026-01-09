@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { safeBool, effectiveStatusForItem, toStr } from "@/lib/utils";
-import { Assistant, AssistantPlugin, PluginManifest } from "@/types/entity";
+import { Assistant, AssistantPlugin, PluginManifest, LLMModelConfig } from "@/types/entity";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { SearchableSelect } from "@/components/common/searchable-select";
+import { ModelSelector } from "@/components/common/model-selector";
 
 function PluginEditor({
   plugin,
@@ -281,6 +282,7 @@ export function AssistantEditor({
   assistant,
   onChange,
   availablePlugins,
+  availableModels = [],
   onAddPlugin,
   isAddingPlugin,
   addingPluginDetails,
@@ -291,6 +293,7 @@ export function AssistantEditor({
   assistant: Assistant;
   onChange: (a: Assistant) => void;
   availablePlugins: PluginManifest[];
+  availableModels?: LLMModelConfig[];
   onAddPlugin: (pluginId: string) => void;
   isAddingPlugin: boolean;
   addingPluginDetails: { assistantId: string; pluginId: string } | null;
@@ -353,6 +356,21 @@ export function AssistantEditor({
           }
         />
       </div>
+      
+      <div className="space-y-2">
+        <Label>Model Configuration (Optional)</Label>
+        <p className="text-sm text-muted-foreground mb-2">
+          Override the default model for this assistant. Leave empty to use workspace/workflow default.
+        </p>
+        <ModelSelector
+          models={availableModels}
+          value={assistant.model_config_id || null}
+          onChange={(modelId) => onChange({ ...assistant, model_config_id: modelId })}
+          placeholder="Use default model"
+          allowClear={true}
+        />
+      </div>
+      
       <Separator />
       <div className="flex items-center justify-start gap-4">
         <h3 className="text-base font-semibold">Plugins</h3>

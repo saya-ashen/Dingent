@@ -26,6 +26,7 @@ export type Assistant = {
   status?: string;
   plugins?: AssistantPlugin[];
   updatedAt?: string;
+  model_config_id?: string | null;
 };
 
 export type AppSettings = {
@@ -76,6 +77,7 @@ export type Workflow = {
   name: string;
   workspaceId?: string;
   description?: string;
+  model_config_id?: string | null;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   created_at?: string;
@@ -191,6 +193,7 @@ export interface Workspace {
   slug: string;
   description?: string;
   allow_guest_access: boolean;
+  default_model_config_id?: string | null;
   role?: "owner" | "admin" | "member";
 }
 
@@ -217,6 +220,7 @@ export interface WorkspaceUpdatePayload {
   name?: string;
   description?: string;
   allow_guest_access?: boolean;
+  default_model_config_id?: string | null;
 }
 
 export interface WorkspaceInvitePayload {
