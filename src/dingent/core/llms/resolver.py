@@ -16,7 +16,7 @@ from langchain_litellm import ChatLiteLLM
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, LLMModelConfig, Workflow, Workspace
-from dingent.core.secrets import get_secret_manager
+from dingent.core.security.crypto import get_secret_manager
 
 
 class ModelResolver:
@@ -108,7 +108,7 @@ class ModelResolver:
         # Decrypt API key if present
         api_key = None
         if config.encrypted_api_key:
-            api_key = self.secret_manager.decrypt_string(config.encrypted_api_key)
+            api_key = self.secret_manager.decrypt(config.encrypted_api_key)
 
         # Build model name for LiteLLM
         # For OpenAI, use model name directly; for others, use provider/model format
