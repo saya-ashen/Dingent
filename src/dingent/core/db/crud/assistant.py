@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Assistant, AssistantPluginLink, Plugin
-from dingent.core.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
+from dingent.core.assistants.schemas import AssistantCreate, AssistantUpdate, PluginUpdateOnAssistant
 
 
 def _preprocess_json_fields(config_data: dict, schema: dict | None):

@@ -11,9 +11,11 @@ from sqlmodel import col, delete, select
 
 from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.core.db.models import Conversation, Workflow
-from dingent.core.managers.llm_manager import get_llm_service
-from dingent.core.schemas import ExecutableWorkflow, ThreadRead
+
+# from dingent.core.managers.llm_manager import get_llm_service
 from dingent.core.workflows.presets import get_fallback_workflow_spec
+from dingent.core.workflows.schemas import ExecutableWorkflow
+from dingent.core.workspaces.schemas import ThreadRead
 from dingent.server.api.dependencies import (
     CurrentUserOptional,
     CurrentWorkspaceAllowGuest,

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from dingent.core.db.models import User
-from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.schemas import PluginRead
+from dingent.core.plugins.plugin_manager import PluginManager
+from dingent.core.plugins.schemas import PluginRead
 from dingent.server.api.dependencies import (
     get_current_user,
     get_plugin_manager,

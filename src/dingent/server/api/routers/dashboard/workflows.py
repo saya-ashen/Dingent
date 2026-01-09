@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from dingent.core.schemas import (
+from dingent.core.workflows.schemas import (
     WorkflowCreate,
     WorkflowEdgeCreate,
     WorkflowEdgeRead,

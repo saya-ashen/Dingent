@@ -4,16 +4,17 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from fastapi.exceptions import HTTPException
 
-from dingent.core.managers.analytics_manager import AnalyticsManager
-from dingent.core.managers.log_manager import LogManager
-from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.services.market_service import MarketItemCategory, MarketService
+from dingent.core.logs.log_manager import LogManager
+from dingent.core.plugins.market_service import MarketService
+from dingent.core.plugins.plugin_manager import PluginManager
+from dingent.core.llms.analytics_manager import AnalyticsManager
 from dingent.server.api.dependencies import (
     get_analytics_manager,
     get_log_manager,
     get_market_service,
     get_plugin_manager,
 )
+from dingent.server.api.schemas import MarketItemCategory
 
 router = APIRouter(prefix="/overview", tags=["Overview"])
 

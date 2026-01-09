@@ -8,7 +8,8 @@ from langgraph.types import Command
 from mcp.types import TextContent
 from pydantic import BaseModel, Field, create_model
 
-from dingent.core.schemas import RunnableTool
+from dingent.core.plugins.schemas import RunnableTool
+
 
 # --- 动态 Pydantic 模型构建 (优化版) ---
 JSON_TYPE_MAP = {

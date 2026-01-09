@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from dingent.core.managers.log_manager import LogManager
+from dingent.core.logs.log_manager import LogManager
 from dingent.server.api.dependencies import (
     get_log_manager,
 )

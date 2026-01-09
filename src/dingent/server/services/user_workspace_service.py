@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, col, func, select
 
 from dingent.core.db.models import User, Workspace, WorkspaceMember
-from dingent.core.schemas import WorkspaceCreate, WorkspaceInvite, WorkspaceMemberRead, WorkspaceRead, WorkspaceUpdate
+from dingent.core.workspaces.schemas import WorkspaceCreate, WorkspaceInvite, WorkspaceMemberRead, WorkspaceRead, WorkspaceUpdate
 from dingent.core.types import WorkspaceRole
 
 

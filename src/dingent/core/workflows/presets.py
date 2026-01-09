@@ -1,6 +1,7 @@
 import uuid
 
-from dingent.core.schemas import AssistantSpec, ExecutableWorkflow
+from dingent.core.assistants.schemas import AssistantSpec
+from dingent.core.workflows.schemas import ExecutableWorkflow
 
 
 def get_fallback_workflow_spec() -> ExecutableWorkflow:

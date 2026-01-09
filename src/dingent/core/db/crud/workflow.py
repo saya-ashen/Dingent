@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Workflow, WorkflowEdge, WorkflowNode
-from dingent.core.schemas import (
+from dingent.core.workflows.schemas import (
     WorkflowCreate,
     WorkflowEdgeCreate,
     WorkflowEdgeUpdate,

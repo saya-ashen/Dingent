@@ -1,6 +1,5 @@
 from collections import defaultdict
 from datetime import datetime
-from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -10,9 +9,13 @@ from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
-from dingent.core.schemas import AssistantSpec, ExecutableWorkflow, PluginSpec
+from dingent.core.db.types import EncryptedJSON, EncryptedString
 from dingent.core.types import WorkspaceRole
 from dingent.core.utils import normalize_agent_name
+from typing import TYPE_CHECKING
+
+from dingent.core.assistants.schemas import AssistantSpec, PluginSpec
+from dingent.core.workflows.schemas import ExecutableWorkflow
 
 
 class ToolOverrideConfig(BaseModel):
@@ -78,7 +81,6 @@ class User(SQLModel, table=True):
     # 审计字段
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    provider_credentials: list["UserProviderCredential"] = Relationship(back_populates="user")
 
     def __repr__(self):
         return f"<User {self.username} ({self.email})>"
@@ -106,6 +108,7 @@ class Workspace(SQLModel, table=True):
     workflows: list["Workflow"] = Relationship(back_populates="workspace")
     resources: list["Resource"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     conversations: list["Conversation"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    model_configs: list["LLMModelConfig"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -142,7 +145,7 @@ class AssistantPluginLink(SQLModel, table=True):
     # --- 用户为插件提供的配置值 (如 API Keys) ---
     user_plugin_config: dict[str, Any] | None = Field(
         default_factory=dict,
-        sa_column=Column(MutableDict.as_mutable(JSON)),
+        sa_column=Column(MutableDict.as_mutable(EncryptedJSON)),
     )
 
     # 双向关系（注意 back_populates 名称需与目标模型中的属性名对应）
@@ -342,88 +345,54 @@ class Resource(SQLModel, table=True):
 # --- 大模型 --
 
 
-class LLMProvider(SQLModel, table=True):
-    """Stores information about an LLM provider like OpenAI, Anthropic, or a local Ollama instance."""
-
-    id: int | None = Field(default=None, primary_key=True)
-
-    # A unique name for the provider, e.g., "openai", "anthropic", "ollama"
-    name: str = Field(unique=True, index=True)
-
-    # A user-friendly name for display in the UI, e.g., "OpenAI", "Anthropic"
-    display_name: str
-
-    # The base URL for API calls. E.g., "https://api.openai.com/v1"
-    api_base_url: str
-
-    # A link to the provider's documentation or where to get an API key
-    documentation_url: str | None = None
-
-    # Flag to indicate if this provider requires an API key from the user
-    # True for OpenAI/Anthropic, False for a default local Ollama.
-    requires_api_key: bool = Field(default=True)
-
-    # --- Relationships ---
-    # This provider has many models
-    models: list["LLMModel"] = Relationship(back_populates="provider")
-
-    # Many users can have credentials for this provider
-    user_credentials: list["UserProviderCredential"] = Relationship(back_populates="provider")
-
-
-class ModelType(str, Enum):
-    """Enum for the type of model to guide how it should be used."""
-
-    CHAT = "chat"
-    COMPLETION = "completion"
-    EMBEDDING = "embedding"
-
-
-class LLMModel(SQLModel, table=True):
-    """Stores details for a specific large language model."""
-
-    id: int | None = Field(default=None, primary_key=True)
-
-    # The exact name used in API calls, e.g., "gpt-4-turbo", "claude-3-opus-20240229"
-    model_name: str = Field(index=True)
-
-    # A user-friendly name for display, e.g., "GPT-4 Turbo", "Claude 3 Opus"
-    display_name: str
-
-    # The context window size for the model
-    context_length: int
-
-    # The type of model, useful for application logic
-    model_type: ModelType = Field(default=ModelType.CHAT)
-
-    # A flag to mark a system-wide default model for certain tasks
-    is_default: bool = Field(default=False, index=True)
-
-    # --- Relationships ---
-    # The foreign key linking this model to its provider
-    provider_id: int = Field(foreign_key="llmprovider.id")
-
-    # The relationship back to the provider object
-    provider: LLMProvider = Relationship(back_populates="models")
-
-
-class UserProviderCredential(SQLModel, table=True):
+class LLMModelConfig(SQLModel, table=True):
     """
-    Stores a user's encrypted API key for a specific LLM Provider.
-    This is a many-to-many link between Users and LLMProviders.
+    统一的模型配置表。
+    每一行代表一个可供 Agent 调用的模型实例（例如 "我的本地 Llama3" 或 "公司的 GPT-4"）。
+    设计上完全对齐 LiteLLM 的参数需求。
     """
 
-    id: int | None = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
 
-    # The encrypted API key, using the user's personal DEK
-    encrypted_api_key: bytes = Field(sa_column=Column(LargeBinary))
+    # 归属权：模型配置通常属于一个工作空间，供空间内的成员共享使用
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    workspace: Workspace = Relationship(back_populates="model_configs")
 
-    # --- Relationships ---
-    user_id: UUID = Field(foreign_key="user.id")
-    provider_id: int = Field(foreign_key="llmprovider.id")
+    # 基础信息
+    name: str = Field(description="用户给这个配置起的别名，如 'My Local Llama'")
 
-    user: "User" = Relationship(back_populates="provider_credentials")
-    provider: "LLMProvider" = Relationship(back_populates="user_credentials")
+    # LiteLLM 核心路由参数
+    provider: str = Field(index=True, description="litellm provider, e.g., 'openai', 'azure', 'ollama', 'anthropic'")
+    model: str = Field(description="实际传递给 provider 的模型名称, e.g., 'gpt-4-turbo', 'llama3'")
+
+    # 连接参数
+    api_base: str | None = Field(default=None, description="自定义 Base URL，用于 Ollama/vLLM/OneAPI")
+    api_version: str | None = Field(default=None, description="主要用于 Azure OpenAI")
+
+    # 敏感凭证 (存储加密后的 bytes)
+    encrypted_api_key: str | None = Field(default=None, sa_type=EncryptedString)
+
+    # 高级参数 (JSON)
+    # 存储 temperature, max_tokens, presence_penalty, azure_deployment_name 等
+    parameters: dict[str, Any] = Field(default_factory=dict, sa_column=Column(MutableDict.as_mutable(JSON)))
+
+    # 状态
+    is_active: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
+
+    def to_litellm_kwargs(self, decrypted_api_key: str | None) -> dict:
+        """
+        辅助方法：将数据库记录转换为 litellm.completion() 需要的参数字典
+        """
+        kwargs = {
+            "model": self.model if self.provider == "openai" else f"{self.provider}/{self.model}",
+            "api_key": decrypted_api_key,
+            "base_url": self.api_base,
+            **self.parameters,  # 展开存储的额外 JSON 参数
+        }
+        # 清理 None 值，避免覆盖 LiteLLM 默认值
+        return {k: v for k, v in kwargs.items() if v is not None}
 
 
 class Conversation(SQLModel, table=True):
@@ -464,7 +433,7 @@ class LangGraphCheckpoint(SQLModel, table=True):
     增加了 foreign_key 指向你的 Conversation 表，实现级联删除。
     """
 
-    __tablename__ = "checkpoints"  # 强制使用 LangGraph 默认表名
+    __tablename__ = "checkpoints"
 
     thread_id: str = Field(primary_key=True, foreign_key="conversation.id")
 

@@ -4,10 +4,11 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from dingent.core.schemas import AssistantSpec, RunnableTool
+from .schemas import AssistantSpec
 
-from ..managers.plugin_manager import PluginManager
-from .plugin import PluginRuntime
+from ..plugins.plugin_manager import PluginManager
+from ..plugins.plugin import PluginRuntime
+from ..plugins.schemas import RunnableTool
 
 
 class AssistantRuntime:

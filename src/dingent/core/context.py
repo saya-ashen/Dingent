@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dingent.core.config import settings
-from dingent.core.managers.user_secret_manager import UserSecretManager
 from dingent.core.paths import paths
 
 
@@ -11,7 +9,6 @@ class AppContext:
     """A container for all manager instances to handle dependency injection."""
 
     def __init__(self, project_root: Path | None = None):
-        self.secret_manager = UserSecretManager(master_password=settings.DINGENT_MASTER_KEY.get_secret_value())
         self.plugins_dir = paths.plugins_dir
 
     async def close_async_components(self):

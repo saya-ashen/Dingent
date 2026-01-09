@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dingent.core.runtime.assistant import AssistantRuntime
-from dingent.core.schemas import AssistantSpec
+from .assistant import AssistantRuntime
+
+from .schemas import AssistantSpec
 
 
 class AssistantFactory:
