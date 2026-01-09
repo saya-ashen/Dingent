@@ -22,14 +22,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import type { LLMModelConfig } from "@/types/entity";
+import type { LLMModelConfig, LLMModelConfigUpdate, TestConnectionRequest, TestConnectionResponse } from "@/types/entity";
 import { ModelConfigDialog } from "./model-config-dialog";
 
 interface ModelsTableProps {
   models: LLMModelConfig[];
-  onEdit: (id: string, data: any) => void;
+  onEdit: (id: string, data: LLMModelConfigUpdate) => void;
   onDelete: (id: string) => void;
-  onTestConnection?: (data: any) => Promise<any>;
+  onTestConnection?: (data: TestConnectionRequest) => Promise<TestConnectionResponse>;
   isUpdating: boolean;
   isDeleting: boolean;
   deletingId?: string;

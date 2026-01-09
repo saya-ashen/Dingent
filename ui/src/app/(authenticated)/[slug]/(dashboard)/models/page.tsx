@@ -7,6 +7,7 @@ import { PageContainer } from "@/components/common/page-container";
 import { useModels } from "@/features/models/hooks/use-models";
 import { ModelConfigDialog } from "@/features/models/components/model-config-dialog";
 import { ModelsTable } from "@/features/models/components/models-table";
+import type { TestConnectionRequest } from "@/types/entity";
 
 export default function ModelsPage() {
   const params = useParams();
@@ -20,7 +21,7 @@ export default function ModelsPage() {
     testConnectionMutation,
   } = useModels(slug);
 
-  const handleTestConnection = async (data: any) => {
+  const handleTestConnection = async (data: TestConnectionRequest) => {
     const result = await testConnectionMutation.mutateAsync(data);
     return result;
   };

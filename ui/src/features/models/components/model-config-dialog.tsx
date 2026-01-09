@@ -30,7 +30,7 @@ interface ModelConfigDialogProps {
   model?: LLMModelConfig;
   isPending: boolean;
   onSave: (data: LLMModelConfigCreate | LLMModelConfigUpdate) => void;
-  onTestConnection?: (data: any) => Promise<{ success: boolean; message: string; latency_ms: number }>;
+  onTestConnection?: (data: TestConnectionRequest) => Promise<{ success: boolean; message: string; latency_ms: number }>;
   trigger?: React.ReactNode;
 }
 
