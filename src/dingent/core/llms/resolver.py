@@ -110,23 +110,8 @@ class ModelResolver:
         if config.encrypted_api_key:
             api_key = self.secret_manager.decrypt(config.encrypted_api_key)
 
-        # Build model name for LiteLLM
-        # For OpenAI, use model name directly; for others, use provider/model format
-        model_name = config.model if config.provider == "openai" else f"{config.provider}/{config.model}"
-
-        # Prepare kwargs
-        kwargs = {
-            "model": model_name,
-            **config.parameters,  # Include any extra parameters stored in JSON
-        }
-
-        # Add optional parameters if present
-        if api_key:
-            kwargs["api_key"] = api_key
-        if config.api_base:
-            kwargs["api_base"] = config.api_base
-        if config.api_version:
-            kwargs["api_version"] = config.api_version
+        # Use the model's built-in method to get LiteLLM kwargs
+        kwargs = config.to_litellm_kwargs(api_key)
 
         return ChatLiteLLM(**kwargs)
 
