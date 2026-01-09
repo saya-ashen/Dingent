@@ -5,7 +5,7 @@ from typing import Literal
 from fastmcp import Client, FastMCP
 from fastmcp.mcp_config import MCPConfig
 
-from ..schemas import PluginManifest
+from .schemas import PluginManifest
 
 
 class PluginRuntime:

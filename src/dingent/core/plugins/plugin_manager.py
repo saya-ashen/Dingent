@@ -3,9 +3,9 @@ import shutil
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 
-from dingent.core.runtime.plugin import PluginRuntime
-from dingent.core.schemas import PluginConfigSchema, PluginManifest
-from dingent.core.services.plugin_registry import PluginRegistry
+from .plugin import PluginRuntime
+from .plugin_registry import PluginRegistry
+from .schemas import PluginConfigSchema, PluginManifest
 
 LOGGING_LEVEL_MAP = logging.getLevelNamesMapping()
 

@@ -13,6 +13,7 @@ import {
   MarketApi,
   OverviewApi,
   PluginsApi,
+  ModelsApi,
 } from "./dashboard";
 import { WorkspaceApi } from "./workspace";
 import { ThreadsApi } from "./frontend";
@@ -76,6 +77,7 @@ export class ApiClient {
       logs: new LogsApi(this.http, `${wsPath}/logs`),
       settings: new SettingsApi(this.http, `${wsPath}/settings`),
       market: new MarketApi(this.http, `${wsPath}/market`),
+      models: new ModelsApi(this.http, `${wsPath}/llms`),
     };
   }
 }

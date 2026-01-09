@@ -2,8 +2,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
 
+from dingent.core.assistants.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginAddToAssistant, PluginUpdateOnAssistant
 from dingent.core.db.models import User, Workspace
-from dingent.core.schemas import AssistantCreate, AssistantRead, AssistantUpdate, PluginAddToAssistant, PluginUpdateOnAssistant
 from dingent.server.api.dependencies import (
     get_current_user,
     get_current_workspace,

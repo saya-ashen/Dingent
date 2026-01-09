@@ -5,3 +5,4 @@ export { OverviewApi } from "./overview";
 export { PluginsApi } from "./plugins";
 export { WorkflowsApi } from "./workflows";
 export { SettingsApi } from "./agent-settings";
+export { ModelsApi } from "./models";

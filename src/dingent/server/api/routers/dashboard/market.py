@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.services.market_service import MarketItemCategory, MarketService
+from dingent.core.plugins.market_service import MarketItemCategory, MarketService
+from dingent.core.plugins.plugin_manager import PluginManager
 from dingent.server.api.dependencies import (
     get_market_service,
     get_plugin_manager,

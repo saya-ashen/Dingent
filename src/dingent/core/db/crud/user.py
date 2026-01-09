@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Role, User, Workspace, WorkspaceMember
-from dingent.core.schemas import UserCreate
+from dingent.core.workspaces.schemas import UserCreate
 
 
 def get_user(session: Session, email: str) -> User | None:

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .assistants import router as assistants_router
+from .llms import router as llms_router
 from .logs import router as logs_router
 from .market import router as market_router
 from .overview import router as overview_router
@@ -17,3 +18,4 @@ api_router.include_router(plugins_router)
 api_router.include_router(logs_router)
 api_router.include_router(market_router)
 api_router.include_router(overview_router)
+api_router.include_router(llms_router)

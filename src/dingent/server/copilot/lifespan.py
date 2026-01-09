@@ -4,14 +4,13 @@ from fastapi import FastAPI
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from sqlmodel import Session
 
+from dingent.core.assistants.assistant_factory import AssistantFactory
 from dingent.core.db.session import engine
-from dingent.core.factories.assistant_factory import AssistantFactory
-from dingent.core.managers.log_manager import LogManager
-from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.managers.resource_manager import ResourceManager
+from dingent.core.logs.log_manager import LogManager
 from dingent.core.paths import paths
-from dingent.core.services.market_service import MarketService
-from dingent.core.services.plugin_registry import PluginRegistry
+from dingent.core.plugins.market_service import MarketService
+from dingent.core.plugins.plugin_manager import PluginManager
+from dingent.core.plugins.plugin_registry import PluginRegistry
 from dingent.core.workflows.graph_factory import GraphFactory
 from dingent.server.api.schemas import GitHubMarketBackend
 from dingent.server.services.copilotkit_service import CopilotKitSdk
@@ -33,7 +32,6 @@ def _setup_global_services(app: FastAPI):
     # 3. 挂载到 App State
     app.state.log_manager = log_manager
     app.state.plugin_registry = plugin_registry
-    app.state.resource_manager = ResourceManager(log_manager, max_size=1000)
     app.state.plugin_manager = PluginManager(plugin_registry, log_manager)
 
     market_backend = GitHubMarketBackend(log_manager)

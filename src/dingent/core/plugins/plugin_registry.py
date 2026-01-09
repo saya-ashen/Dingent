@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from dingent.core.schemas import PluginManifest
+from .schemas import PluginManifest
 
 
 class PluginRegistry:

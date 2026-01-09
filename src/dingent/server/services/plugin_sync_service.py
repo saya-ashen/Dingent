@@ -4,8 +4,8 @@ from typing import Any
 from sqlmodel import Session, select
 
 from dingent.core.db.models import Plugin
-from dingent.core.schemas import PluginManifest
-from dingent.core.services.plugin_registry import PluginRegistry  # 你的 Manifest 模型
+from dingent.core.plugins.plugin_registry import PluginRegistry
+from dingent.core.plugins.schemas import PluginManifest
 
 logger = logging.getLogger(__name__)
 

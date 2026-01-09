@@ -1,7 +1,8 @@
+from dingent.core.assistants.assistant import AssistantRuntime
+from dingent.core.assistants.schemas import AssistantRead
 from dingent.core.db.models import Assistant, AssistantPluginLink
-from dingent.core.runtime.assistant import AssistantRuntime
-from dingent.core.runtime.plugin import PluginRuntime
-from dingent.core.schemas import AssistantRead, PluginConfigItemRead, PluginRead, ToolConfigItemRead
+from dingent.core.plugins.plugin import PluginRuntime
+from dingent.core.plugins.schemas import PluginConfigItemRead, PluginRead, ToolConfigItemRead
 
 
 async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: PluginRuntime | None) -> PluginRead:
@@ -62,7 +63,7 @@ async def _build_plugin_read(plugin_link: AssistantPluginLink, runtime_plugin: P
         # 判断是否必填
         is_required = field_key in required_fields
 
-        # 判断是否敏感字段 (兼容我们之前存入的 writeOnly 或 x-ui-secret)
+        # 判断是否敏感字段
         is_secret = field_def.get("writeOnly", False) or field_def.get("x-ui-secret", False)
 
         item = PluginConfigItemRead(
@@ -126,4 +127,5 @@ async def _build_assistant_read(assistant: Assistant, runtime_assistant: Assista
         version=assistant.version,
         spec_version=assistant.spec_version,
         enabled=assistant.enabled,
+        model_config_id=assistant.model_config_id,
     )

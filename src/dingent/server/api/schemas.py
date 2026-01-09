@@ -1,6 +1,7 @@
 import asyncio
 import os
 import uuid
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol
@@ -312,3 +313,57 @@ class GitHubMarketBackend:
         except Exception:
             pass
         return None
+
+
+# 模型相关
+
+
+class LLMModelConfigBase(BaseModel):
+    name: str = Field(..., description="配置名称，例如 'My GPT-4'")
+    provider: str = Field(..., description="LiteLLM provider: openai, azure, ollama, anthropic")
+    model: str = Field(..., description="模型名称: gpt-4, llama3")
+    api_base: str | None = Field(None, description="API Base URL")
+    api_version: str | None = Field(None, description="API Version (Azure)")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="额外参数 JSON")
+    is_active: bool = True
+
+
+# --- 写入/创建 (包含明文 Key) ---
+class LLMModelConfigCreate(LLMModelConfigBase):
+    api_key: str | None = Field(None, description="明文 API Key，后端会自动加密存储")
+
+
+# --- 更新 (所有字段可选) ---
+class LLMModelConfigUpdate(BaseModel):
+    name: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    api_base: str | None = None
+    api_version: str | None = None
+    api_key: str | None = Field(None, description="如果为空则不更新，如果传值则覆盖旧 Key")
+    parameters: dict[str, Any] | None = None
+    is_active: bool | None = None
+
+
+# --- 读取/返回 (不包含 Key，只返回状态) ---
+class LLMModelConfigRead(LLMModelConfigBase):
+    id: uuid.UUID
+    workspace_id: uuid.UUID
+    # 关键点：永远不要返回 encrypted_api_key 或解密后的 key
+    # 前端只需要知道“是否已经设置了 Key”来显示 placeholder
+    has_api_key: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- 测试连接请求 ---
+class TestConnectionRequest(LLMModelConfigCreate):
+    """用于测试连接的临时请求体，不需要存库"""
+
+    pass
+
+
+class TestConnectionResponse(BaseModel):
+    success: bool
+    latency_ms: float
+    message: str

@@ -9,8 +9,8 @@ from sqlmodel import Session
 from dingent.core.db.crud.workflow import list_workflows_by_workspace
 from dingent.core.db.crud.workspace import get_specific_user_workspace, get_workspace_allow_guest
 from dingent.core.db.models import User
-from dingent.core.schemas import ExecutableWorkflow
 from dingent.core.workflows.graph_factory import GraphFactory
+from dingent.core.workflows.schemas import ExecutableWorkflow
 from dingent.server.copilot.agents import DingLangGraphAGUIAgent
 
 

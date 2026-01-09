@@ -12,8 +12,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph_swarm import create_swarm
 
-from dingent.core.factories.assistant_factory import AssistantFactory
-from dingent.core.schemas import ExecutableWorkflow
+from dingent.core.assistants.assistant_factory import AssistantFactory
+from dingent.core.workflows.schemas import ExecutableWorkflow
 from dingent.engine import create_assistant_graphs
 from dingent.engine.agents.state import MainState
 
@@ -42,12 +42,13 @@ class GraphFactory:
         llm: BaseChatModel,
         checkpointer: Any,
         log_method: Callable,
+        assistant_id_map: dict[str, Any] | None = None,  # Map assistant names to IDs
     ) -> GraphArtifact:
         """构建完整的 Swarm 运行图"""
         stack = AsyncExitStack()
 
         try:
-            return await self._build_full(workflow, stack, llm, checkpointer, log_method)
+            return await self._build_full(workflow, stack, llm, checkpointer, log_method, assistant_id_map)
         except Exception:
             # 如果构建过程出错，确保 stack 被释放
             await stack.aclose()
@@ -60,6 +61,7 @@ class GraphFactory:
         llm: BaseChatModel,
         checkpointer: Any,
         log_method: Callable,
+        assistant_id_map: dict[str, Any] | None = None,
     ) -> GraphArtifact:
         log_method("info", f"Building graph for workflow {workflow.id}")
 
@@ -74,6 +76,7 @@ class GraphFactory:
             workflow,
             llm,
             log_method,
+            assistant_id_map,  # Pass the assistant ID map
         )
         # 注意：这里进入上下文，stack 会负责在 artifact.aclose() 时退出
         assistants_map = await stack.enter_async_context(assistants_ctx)

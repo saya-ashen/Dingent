@@ -3,13 +3,14 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { StatusBadge } from "@/components/common/status-badge";
 import { AssistantEditor } from "@/features/assistants/components/plugin-editor";
-import { Assistant } from "@/types/entity";
+import { Assistant, LLMModelConfig } from "@/types/entity";
 import { Loader2 } from "lucide-react";
 import { safeBool, effectiveStatusForItem } from "@/lib/utils";
 
 interface AssistantItemProps {
   assistant: Assistant;
   plugins: any[]; // Replace with Plugin type
+  models?: LLMModelConfig[];
   onUpdate: (updated: Assistant) => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
@@ -26,6 +27,7 @@ interface AssistantItemProps {
 export function AssistantItem({
   assistant,
   plugins,
+  models = [],
   onUpdate,
   onDelete,
   isDeleting,
@@ -61,6 +63,7 @@ export function AssistantItem({
           assistant={assistant}
           onChange={onUpdate}
           availablePlugins={plugins}
+          availableModels={models}
           onAddPlugin={(pluginId) => pluginActions.add({ assistantId: assistant.id, pluginId })}
           isAddingPlugin={pluginActions.isAdding}
           addingPluginDetails={pluginActions.addingVars}

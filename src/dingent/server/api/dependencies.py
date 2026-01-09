@@ -11,9 +11,9 @@ from dingent.core.db.crud import assistant as crud_assistant
 from dingent.core.db.crud.user import get_user
 from dingent.core.db.models import User, Workspace, WorkspaceMember
 from dingent.core.db.session import engine
-from dingent.core.managers.log_manager import LogManager
-from dingent.core.managers.plugin_manager import PluginManager
-from dingent.core.schemas import UserRead
+from dingent.core.logs.log_manager import LogManager
+from dingent.core.plugins.plugin_manager import PluginManager
+from dingent.core.workspaces.schemas import UserRead
 from dingent.server.auth.security import get_current_user_from_token, verify_password
 from dingent.server.services.user_plugin_service import UserPluginService
 from dingent.server.services.user_workspace_service import UserWorkspaceService
@@ -163,7 +163,6 @@ def get_user_plugin_service(
         user.id,
         session,
         request.app.state.plugin_registry,
-        request.app.state.resource_manager,
     )
 
 

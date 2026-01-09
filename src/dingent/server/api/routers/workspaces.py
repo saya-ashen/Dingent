@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 # 引入新的 Schema
-from dingent.core.schemas import (
+from dingent.core.workspaces.schemas import (
     WorkspaceCreate,
     WorkspaceInvite,
     WorkspaceMemberRead,

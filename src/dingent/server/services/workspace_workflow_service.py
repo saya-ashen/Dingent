@@ -9,9 +9,7 @@ from sqlmodel import Session, select
 
 from dingent.core.db.crud import workflow as crud_workflow
 from dingent.core.db.models import Workflow, WorkflowNode
-
-# --- New dependencies provided by user ---
-from dingent.core.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
+from dingent.core.workflows.schemas import WorkflowCreate, WorkflowEdgeRead, WorkflowNodeCreate, WorkflowNodeRead, WorkflowRead, WorkflowReadBasic, WorkflowReplace, WorkflowUpdate
 from dingent.server.services.workspace_assistant_service import WorkspaceAssistantService
 
 

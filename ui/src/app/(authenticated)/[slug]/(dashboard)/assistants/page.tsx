@@ -102,6 +102,7 @@ export default function AssistantsPage() {
   const {
     assistantsQuery,
     pluginsQuery,
+    modelsQuery,
     deleteMutation,
     updateBatchMutation, // 获取 update mutation
     addPluginMutation,
@@ -150,6 +151,7 @@ export default function AssistantsPage() {
             key={assistant.id || i}
             assistant={assistant}
             plugins={pluginsQuery.data || []}
+            models={modelsQuery.data || []}
             onUpdate={(updated) => updateAssistant(i, updated)}
             onDelete={deleteMutation.mutate}
             isDeleting={

@@ -15,6 +15,7 @@ import { WorkflowCanvas } from "@/features/workflows/components";
 import { toast } from "sonner";
 import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { PageContainer } from "@/components/common/page-container";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useMemo, useCallback, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -26,6 +27,7 @@ export default function WorkflowsPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const slug = params.slug as string;
+  const queryClient = useQueryClient();
 
   // 1. URL Sync: 从 URL 获取选中 ID
   const selectedId = searchParams.get("workflowId");
@@ -35,9 +37,23 @@ export default function WorkflowsPage() {
 
   const workflowsQ = useWorkflowsList(api.workflows, slug);
   const assistantsQ = useAssistantsConfig(api.assistants, slug);
+  const modelsQ = useQuery({
+    queryKey: ["models", slug],
+    queryFn: async () => (await api.models.list()) ?? [],
+    staleTime: 30_000,
+  });
   const saveWorkflowMutation = useSaveWorkflow(api.workflows, slug);
   const createWorkflow = useCreateWorkflow(api.workflows, slug);
   const deleteWorkflow = useDeleteWorkflow(api.workflows, slug);
+  const updateWorkflowMutation = useMutation({
+    mutationFn: ({ updates }: { updates: any }) =>
+      api.workflows.update(updates),
+    onSuccess: () => {
+      toast.success("Workflow updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["workflows", slug] });
+    },
+    onError: (e: any) => toast.error(e.message || "Update workflow failed"),
+  });
 
   // Helper: 处理 ID 变更，同步到 URL
   const handleSelectWorkflow = useCallback(
@@ -108,6 +124,7 @@ export default function WorkflowsPage() {
             <WorkflowSidebar
               workflows={workflowsQ.data || []}
               assistants={assistantsQ.data || []} // 建议 Sidebar 内部处理 assistants 为空的情况
+              models={modelsQ.data || []}
               selectedWorkflowId={selectedId}
               onSelectWorkflow={handleSelectWorkflow}
               onCreateWorkflow={(input) =>
@@ -130,6 +147,10 @@ export default function WorkflowsPage() {
                   },
                 });
               }}
+              onUpdateWorkflow={(updates) =>
+                updateWorkflowMutation.mutate({ updates })
+              }
+              isUpdatingWorkflow={updateWorkflowMutation.isPending}
             />
 
             <main className="flex-1 bg-background relative flex flex-col">
