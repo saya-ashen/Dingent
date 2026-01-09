@@ -101,9 +101,6 @@ class Workspace(SQLModel, table=True):
     avatar_url: str | None = Field(default=None, description="工作空间的头像地址")
     description: str | None = None
     allow_guest_access: bool = Field(default=False, index=True, description="是否允许游客访问此工作空间")
-    
-    # 默认模型配置 (级联策略的最低优先级)
-    default_model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
 
     members: list["User"] = Relationship(back_populates="workspaces", link_model=WorkspaceMember)
 
@@ -111,7 +108,14 @@ class Workspace(SQLModel, table=True):
     workflows: list["Workflow"] = Relationship(back_populates="workspace")
     resources: list["Resource"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     conversations: list["Conversation"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    model_configs: list["LLMModelConfig"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    model_configs: list["LLMModelConfig"] = Relationship(back_populates="workspace", sa_relationship_kwargs={"foreign_keys": "[LLMModelConfig.workspace_id]"})
+    default_model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
+    default_model_config: "LLMModelConfig" = Relationship(
+        sa_relationship_kwargs={
+            "foreign_keys": "[Workspace.default_model_config_id]",
+            "post_update": True,
+        }
+    )
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -176,7 +180,7 @@ class Assistant(SQLModel, table=True):
     version: str = "0.2.0"
     spec_version: str = "3.0"
     enabled: bool = True
-    
+
     # 模型配置 (级联策略的最高优先级)
     model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
 
@@ -245,7 +249,7 @@ class Workflow(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str
     description: str | None = None
-    
+
     # 模型配置 (级联策略的中等优先级)
     model_config_id: UUID | None = Field(default=None, foreign_key="llmmodelconfig.id")
 
@@ -389,6 +393,7 @@ class LLMModelConfig(SQLModel, table=True):
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": datetime.utcnow})
+    workspace: Workspace = Relationship(back_populates="model_configs", sa_relationship_kwargs={"foreign_keys": "[LLMModelConfig.workspace_id]"})
 
     def to_litellm_kwargs(self, decrypted_api_key: str | None) -> dict:
         """
@@ -397,7 +402,7 @@ class LLMModelConfig(SQLModel, table=True):
         kwargs = {
             "model": self.model if self.provider == "openai" else f"{self.provider}/{self.model}",
             "api_key": decrypted_api_key,
-            "base_url": self.api_base,
+            "api_base": self.api_base,
             **self.parameters,  # 展开存储的额外 JSON 参数
         }
         # 清理 None 值，避免覆盖 LiteLLM 默认值

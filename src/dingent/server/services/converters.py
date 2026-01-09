@@ -128,4 +128,5 @@ async def _build_assistant_read(assistant: Assistant, runtime_assistant: Assista
         version=assistant.version,
         spec_version=assistant.spec_version,
         enabled=assistant.enabled,
+        model_config_id=assistant.model_config_id,
     )

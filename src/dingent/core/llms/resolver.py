@@ -5,7 +5,7 @@ This service implements a cascading strategy for resolving which LLM model confi
 to use at runtime. The priority order is:
 
 1. Assistant-level configuration (highest priority)
-2. Workflow-level configuration  
+2. Workflow-level configuration
 3. Workspace-level default configuration
 4. Environment fallback (lowest priority)
 """
@@ -108,7 +108,7 @@ class ModelResolver:
         # Decrypt API key if present
         api_key = None
         if config.encrypted_api_key:
-            api_key = self.secret_manager.decrypt(config.encrypted_api_key)
+            api_key = config.encrypted_api_key
 
         # Use the model's built-in method to get LiteLLM kwargs
         kwargs = config.to_litellm_kwargs(api_key)

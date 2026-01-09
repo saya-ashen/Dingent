@@ -54,7 +54,6 @@ class WorkspaceRead(WorkspaceBase):
     slug: str
     created_at: datetime
     default_model_config_id: UUID | None = None
-    # 简单的成员概览
     member_count: int | None = None
 
 

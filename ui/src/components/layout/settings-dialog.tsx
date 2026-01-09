@@ -15,7 +15,12 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
@@ -26,13 +31,19 @@ import { useWorkspaceApi } from "@/hooks/use-workspace-api";
 import { toast } from "sonner";
 import { Workspace } from "@/types/entity";
 
-// 模拟的设置侧边栏菜单结构
+// 动态导入组件
+const ModelSelector = React.lazy(() =>
+  import("@/components/common/model-selector").then((module) => ({
+    default: module.ModelSelector,
+  })),
+);
+
 const sidebarNavItems = [
   {
     title: "Account",
     items: [
       { id: "my-account", title: "My Account", icon: User },
-      { id: "preferences", title: "Preferences", icon: Settings }, // Notion 用的是 sliders，这里暂用 Settings
+      { id: "preferences", title: "Preferences", icon: Settings },
       { id: "notifications", title: "Notifications", icon: Bell },
       { id: "connections", title: "Connections", icon: Link },
     ],
@@ -41,7 +52,7 @@ const sidebarNavItems = [
     title: "Workspace",
     items: [
       { id: "general", title: "General", icon: Settings },
-      { id: "people", title: "People", icon: Users }, // 这里对应你的 "People" 截图
+      { id: "people", title: "People", icon: Users },
       { id: "teamspaces", title: "Teamspaces", icon: Briefcase },
       { id: "security", title: "Security", icon: Shield },
       { id: "identity", title: "Identity", icon: Lock },
@@ -53,7 +64,7 @@ const sidebarNavItems = [
 interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  defaultTab?: string; // 允许打开时直接定位到某个 Tab（比如 "people"）
+  defaultTab?: string;
   workspace: Workspace;
 }
 
@@ -65,7 +76,6 @@ export function SettingsDialog({
 }: SettingsDialogProps) {
   const [activeTab, setActiveTab] = React.useState(defaultTab);
 
-  // 当 defaultTab 变化时更新 activeTab (用于外部直接打开特定设置)
   React.useEffect(() => {
     if (open) {
       setActiveTab(defaultTab);
@@ -74,11 +84,14 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTitle></DialogTitle>
       <DialogContent className="!max-w-none w-[90vw] h-[85vh] p-0 gap-0 overflow-hidden flex bg-background sm:rounded-xl">
+        <DialogTitle className="sr-only">Workspace Settings</DialogTitle>
+        <DialogDescription className="sr-only">
+          Manage your workspace settings, members, and preferences.
+        </DialogDescription>
+
         {/* === 左侧侧边栏 === */}
-        <div className="w-64 bg-muted/30 border-r flex flex-col h-full">
-          {/* 侧边栏头部 - 模拟 Notion 左上角的 User 区域 */}
+        <div className="w-64 bg-muted/30 border-r flex flex-col h-full shrink-0">
           <div className="p-4 text-sm font-medium text-muted-foreground flex items-center gap-2">
             <div className="size-6 bg-primary/10 rounded-full flex items-center justify-center text-xs">
               S
@@ -114,7 +127,6 @@ export function SettingsDialog({
             </div>
           </ScrollArea>
 
-          {/* 底部升级按钮 */}
           <div className="p-4 border-t">
             <Button
               variant="outline"
@@ -128,6 +140,7 @@ export function SettingsDialog({
           </div>
         </div>
 
+        {/* === 右侧内容区 === */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {activeTab === "general" ? (
             <GeneralSettingsContent workspace={workspace} />
@@ -143,28 +156,32 @@ export function SettingsDialog({
     </Dialog>
   );
 }
+
 interface GeneralSettingsContentProps {
   workspace: Workspace;
 }
 
-// === General Settings Content ===
 function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
   const { workspacesApi } = useWorkspaceApi();
   const [guestAccessEnabled, setGuestAccessEnabled] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
+
+  // 表单状态
   const [workspaceName, setWorkspaceName] = React.useState("");
   const [workspaceDescription, setWorkspaceDescription] = React.useState("");
-  const [defaultModelConfigId, setDefaultModelConfigId] = React.useState<string | null>(null);
+  const [defaultModelConfigId, setDefaultModelConfigId] = React.useState<
+    string | null
+  >(null);
   const [availableModels, setAvailableModels] = React.useState<any[]>([]);
 
+  // 初始化数据
   React.useEffect(() => {
     if (workspace) {
       setGuestAccessEnabled(workspace.allow_guest_access ?? false);
       setWorkspaceName(workspace.name);
       setWorkspaceDescription(workspace.description ?? "");
-      setDefaultModelConfigId(workspace.default_model_config_id ?? null);
-      
-      // Fetch available models
+      setDefaultModelConfigId(workspace.default_model_config_id || null);
+
       import("@/lib/api/client").then(({ getClientApi }) => {
         getClientApi()
           .forWorkspace(workspace.slug)
@@ -177,27 +194,22 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
 
   const guestLink = React.useMemo(() => {
     if (!workspace) return "";
-
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-
     return `${origin}/guest/${workspace.slug}/chat`;
   }, [workspace]);
 
   const handleToggleGuestAccess = async (enabled: boolean) => {
     if (!workspace || !workspacesApi) return;
-
     setIsUpdating(true);
     try {
       await workspacesApi.update(workspace.slug, {
         allow_guest_access: enabled,
       });
-      // Only update local state after API confirms success
       setGuestAccessEnabled(enabled);
       toast.success(enabled ? "Guest access enabled" : "Guest access disabled");
     } catch (error) {
       console.error("Failed to update workspace:", error);
       toast.error("Failed to update workspace settings");
-      // State remains unchanged on error
     } finally {
       setIsUpdating(false);
     }
@@ -208,26 +220,15 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
       await navigator.clipboard.writeText(guestLink);
       toast.success("Guest link copied to clipboard");
     } catch (error) {
-      console.error("Failed to copy link:", error);
-      // Fallback: create a temporary input element
-      const input = document.createElement("input");
-      input.value = guestLink;
-      document.body.appendChild(input);
-      input.select();
-      try {
-        document.execCommand("copy");
-        toast.success("Guest link copied to clipboard");
-      } catch (fallbackError) {
-        toast.error("Failed to copy link. Please copy manually.");
-      }
-      document.body.removeChild(input);
+      toast.error("Failed to copy link");
     }
   };
 
-  const handleSaveBasicInfo = async () => {
+  // 统一的保存处理函数
+  const handleSaveAllChanges = async () => {
     if (!workspace || !workspacesApi) return;
-
     setIsUpdating(true);
+
     try {
       await workspacesApi.update(workspace.slug, {
         name: workspaceName,
@@ -253,7 +254,6 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-8 pt-8 pb-4">
         <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
           General
@@ -268,7 +268,7 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
 
       <ScrollArea className="flex-1 px-8 pb-8">
         <div className="space-y-8 max-w-2xl">
-          {/* Basic Information */}
+          {/* === Basic Information === */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold">Basic Information</h3>
             <div className="space-y-3">
@@ -290,33 +290,47 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
                   placeholder="Enter workspace description (optional)"
                 />
               </div>
-              <Button
-                onClick={handleSaveBasicInfo}
-                disabled={isUpdating}
-                size="sm"
-              >
-                Save Changes
-              </Button>
-          {/* Default Model Configuration */}
+              {/* 删除了此处多余的 Save 按钮 */}
+            </div>
+          </div>
+
+          {/* === Default Model Configuration === */}
           <div className="space-y-4 pt-6 border-t">
-            <h3 className="text-sm font-semibold">Default Model Configuration</h3>
+            <h3 className="text-sm font-semibold">
+              Default Model Configuration
+            </h3>
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
-                Set a default LLM model for this workspace. This will be used by workflows and assistants that don't specify their own model.
+                Set a default LLM model for this workspace. This will be used by
+                workflows and assistants that don't specify their own model.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="default-model">Default Model</Label>
-                {/* Dynamic import for ModelSelector to avoid SSR issues */}
-                <React.Suspense fallback={<div className="h-10 bg-muted animate-pulse rounded" />}>
+                <React.Suspense
+                  fallback={
+                    <div className="h-10 bg-muted animate-pulse rounded" />
+                  }
+                >
                   {availableModels.length > 0 ? (
-                    <ModelSelectorWrapper
+                    <ModelSelector
                       models={availableModels}
                       value={defaultModelConfigId}
-                      onChange={setDefaultModelConfigId}
+                      onChange={(val: any) => {
+                        setDefaultModelConfigId(val || null);
+                      }}
+                      placeholder="Use environment default"
+                      allowClear={true}
                     />
                   ) : (
                     <div className="text-sm text-muted-foreground">
-                      No models configured. <a href={`/${workspace.slug}/models`} className="text-primary underline">Configure models</a> first.
+                      No models configured.{" "}
+                      <a
+                        href={`/${workspace.slug}/models`}
+                        className="text-primary underline"
+                      >
+                        Configure models
+                      </a>{" "}
+                      first.
                     </div>
                   )}
                 </React.Suspense>
@@ -324,10 +338,10 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
             </div>
           </div>
 
-          {/* Save Changes Button - applies to all settings above */}
+          {/* === Global Save Button (放置在所有表单下方) === */}
           <div className="pt-6">
             <Button
-              onClick={handleSaveBasicInfo}
+              onClick={handleSaveAllChanges}
               disabled={isUpdating}
               size="sm"
             >
@@ -335,7 +349,7 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
             </Button>
           </div>
 
-          {/* Guest Access Section */}
+          {/* === Guest Access Section === */}
           <div className="space-y-4 pt-6 border-t">
             <div className="flex items-start justify-between">
               <div className="space-y-1">
@@ -368,23 +382,20 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
                       value={guestLink}
                       readOnly
                       className="font-mono text-xs flex-1"
-                      aria-label="Shareable guest link for workspace access"
+                      aria-label="Shareable guest link"
                     />
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={handleCopyLink}
                       className="shrink-0"
-                      aria-label="Copy guest link to clipboard"
                     >
                       <Copy className="size-4 mr-1" />
                       Copy
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Share this link with anyone you want to grant guest access
-                    to your workspace. Guests can chat with AI agents but cannot
-                    access workspace settings or member information.
+                    Share this link with anyone you want to grant guest access.
                   </p>
                 </div>
 
@@ -394,7 +405,7 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
                   </div>
                   <p className="text-blue-800 dark:text-blue-200 text-xs">
                     Guest conversations are isolated and guests cannot access
-                    other users' data. You can disable guest access at any time.
+                    other users data.
                   </p>
                 </div>
               </div>
@@ -406,36 +417,10 @@ function GeneralSettingsContent({ workspace }: GeneralSettingsContentProps) {
   );
 }
 
-// Wrapper component for ModelSelector to handle dynamic import
-function ModelSelectorWrapper({ models, value, onChange }: any) {
-  const [ModelSelector, setModelSelector] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    import("@/components/common/model-selector").then((mod) => {
-      setModelSelector(() => mod.ModelSelector);
-    });
-  }, []);
-
-  if (!ModelSelector) {
-    return <div className="h-10 bg-muted animate-pulse rounded" />;
-  }
-
-  return (
-    <ModelSelector
-      models={models}
-      value={value}
-      onChange={onChange}
-      placeholder="Use environment default"
-      allowClear={true}
-    />
-  );
-}
-
-// === 单独抽离 People 内容组件 (对应你的截图) ===
+// PeopleSettingsContent 保持不变
 function PeopleSettingsContent() {
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="px-8 pt-8 pb-4">
         <h2 className="text-xl font-semibold mb-1 flex items-center gap-2">
           People
@@ -446,7 +431,6 @@ function PeopleSettingsContent() {
       </div>
 
       <ScrollArea className="flex-1 px-8 pb-8">
-        {/* 邀请链接区域 */}
         <div className="mb-8">
           <div className="text-sm font-medium mb-2">
             Invite link to add members
@@ -464,7 +448,6 @@ function PeopleSettingsContent() {
           </div>
         </div>
 
-        {/* Tabs 区域 */}
         <Tabs defaultValue="members" className="w-full">
           <div className="flex items-center justify-between mb-4 border-b">
             <TabsList className="h-auto p-0 bg-transparent gap-6">
@@ -500,7 +483,6 @@ function PeopleSettingsContent() {
           </div>
 
           <TabsContent value="members" className="mt-0">
-            {/* 模拟成员列表 */}
             <div className="space-y-1">
               <div className="flex items-center justify-between py-3 border-b border-border/50 group hover:bg-muted/30 px-2 -mx-2 rounded">
                 <div className="flex items-center gap-3">

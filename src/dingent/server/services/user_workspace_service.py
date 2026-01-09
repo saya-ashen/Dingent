@@ -100,6 +100,7 @@ class UserWorkspaceService:
             role=member.role,
             member_count=count,
             allow_guest_access=workspace.allow_guest_access,
+            default_model_config_id=workspace.default_model_config_id,
         )
 
     def update_workspace(self, slug: str, payload: WorkspaceUpdate) -> WorkspaceRead:
@@ -115,6 +116,8 @@ class UserWorkspaceService:
             workspace.description = payload.description
         if payload.allow_guest_access is not None:
             workspace.allow_guest_access = payload.allow_guest_access
+        if payload.default_model_config_id is not None:
+            workspace.default_model_config_id = payload.default_model_config_id
 
         self.session.add(workspace)
         self.session.commit()
