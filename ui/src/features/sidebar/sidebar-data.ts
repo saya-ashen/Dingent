@@ -5,7 +5,8 @@ import {
   Bot,
   Workflow,
   Store,
-  Construction
+  Construction,
+  Cpu
 } from "lucide-react";
 
 export const sidebarData: SidebarData = {
@@ -38,6 +39,11 @@ export const sidebarData: SidebarData = {
           title: "Plugins",
           url: "/plugins",
           icon: Store,
+        },
+        {
+          title: "Models",
+          url: "/models",
+          icon: Cpu,
         },
         {
           title: "Market",

@@ -276,3 +276,58 @@ export interface SignupRequest {
   password: string;
 }
 export type SignupResponse = AuthUser;
+
+// LLM Model Configuration Types
+export interface LLMModelConfig {
+  id: string;
+  workspace_id: string;
+  name: string;
+  provider: string;
+  model: string;
+  api_base?: string | null;
+  api_version?: string | null;
+  has_api_key: boolean;
+  parameters: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LLMModelConfigCreate {
+  name: string;
+  provider: string;
+  model: string;
+  api_base?: string | null;
+  api_version?: string | null;
+  api_key?: string | null;
+  parameters?: Record<string, any>;
+  is_active?: boolean;
+}
+
+export interface LLMModelConfigUpdate {
+  name?: string;
+  provider?: string;
+  model?: string;
+  api_base?: string | null;
+  api_version?: string | null;
+  api_key?: string | null;
+  parameters?: Record<string, any>;
+  is_active?: boolean;
+}
+
+export interface TestConnectionRequest {
+  name: string;
+  provider: string;
+  model: string;
+  api_base?: string | null;
+  api_version?: string | null;
+  api_key?: string | null;
+  parameters?: Record<string, any>;
+  is_active?: boolean;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  latency_ms: number;
+  message: string;
+}
