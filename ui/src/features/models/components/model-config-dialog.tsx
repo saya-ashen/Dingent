@@ -24,13 +24,15 @@ import type {
   LLMModelConfig,
   LLMModelConfigCreate,
   LLMModelConfigUpdate,
+  TestConnectionRequest,
+  TestConnectionResponse,
 } from "@/types/entity";
 
 interface ModelConfigDialogProps {
   model?: LLMModelConfig;
   isPending: boolean;
   onSave: (data: LLMModelConfigCreate | LLMModelConfigUpdate) => void;
-  onTestConnection?: (data: TestConnectionRequest) => Promise<{ success: boolean; message: string; latency_ms: number }>;
+  onTestConnection?: (data: TestConnectionRequest) => Promise<TestConnectionResponse>;
   trigger?: React.ReactNode;
 }
 
