@@ -1,8 +1,7 @@
 from dingent.core.assistants.assistant import AssistantRuntime
 from dingent.core.assistants.schemas import AssistantRead
-from dingent.core.plugins.plugin import PluginRuntime
-
 from dingent.core.db.models import Assistant, AssistantPluginLink
+from dingent.core.plugins.plugin import PluginRuntime
 from dingent.core.plugins.schemas import PluginConfigItemRead, PluginRead, ToolConfigItemRead
 
 

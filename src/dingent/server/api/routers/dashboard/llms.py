@@ -5,8 +5,8 @@ import litellm
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
-from dingent.core.db.models import LLMModelConfig, User, Workspace
-from dingent.server.api.dependencies import get_current_user, get_current_workspace, get_db_session
+from dingent.core.db.models import LLMModelConfig, Workspace
+from dingent.server.api.dependencies import get_current_workspace, get_db_session
 from dingent.server.api.schemas import LLMModelConfigCreate, LLMModelConfigRead, LLMModelConfigUpdate, TestConnectionRequest, TestConnectionResponse
 
 router = APIRouter(prefix="/llms", tags=["LLMs"])
@@ -101,7 +101,6 @@ async def delete_model(
 @router.post("/test", response_model=TestConnectionResponse)
 async def test_connection(
     test_data: TestConnectionRequest,
-    user: User = Depends(get_current_user),
 ):
     """
     无状态测试：前端把填好的表单发过来（含明文 Key），
@@ -118,7 +117,7 @@ async def test_connection(
             model_name = f"{test_data.provider}/{test_data.model}"
 
         # 准备一次极简的调用
-        response = await litellm.acompletion(
+        await litellm.acompletion(
             model=model_name,
             messages=[{"role": "user", "content": "Hello"}],
             api_key=test_data.api_key,

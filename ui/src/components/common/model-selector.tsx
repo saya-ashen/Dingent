@@ -84,7 +84,7 @@ export function ModelSelector({
             <CommandEmpty>No model found.</CommandEmpty>
             <CommandGroup>
               {allowClear && selectedValue && (
-                <CommandItem 
+                <CommandItem
                   onSelect={() => {
                     setSelectedValue(null);
                     onChange(null);

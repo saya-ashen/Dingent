@@ -13,7 +13,6 @@ from dingent.core.db.crud.workflow import get_workflow_by_name
 from dingent.core.db.models import Conversation, Workflow
 
 # from dingent.core.managers.llm_manager import get_llm_service
-from dingent.core.llms.service import get_llm
 from dingent.core.workflows.presets import get_fallback_workflow_spec
 from dingent.core.workflows.schemas import ExecutableWorkflow
 from dingent.core.workspaces.schemas import ThreadRead
@@ -141,14 +140,14 @@ async def get_agent_context(
 
     # Use context-aware model resolution with cascading strategy
     from dingent.core.llms.service import get_llm_for_context
-    
+
     workflow_id = workflow.id if workflow else None
     llm = get_llm_for_context(
         session=session,
         workflow_id=workflow_id,
         workspace_id=workspace.id,
     )
-    
+
     spec = await get_workflow_spec(workflow)
     agent = await sdk.resolve_agent(spec, llm)
 

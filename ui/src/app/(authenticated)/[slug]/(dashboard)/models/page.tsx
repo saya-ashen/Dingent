@@ -27,8 +27,8 @@ export default function ModelsPage() {
   };
 
   // Safely extract the model ID being deleted
-  const deletingModelId = deleteMutation.isPending && typeof deleteMutation.variables === 'string' 
-    ? deleteMutation.variables 
+  const deletingModelId = deleteMutation.isPending && typeof deleteMutation.variables === 'string'
+    ? deleteMutation.variables
     : undefined;
 
   return (
@@ -44,7 +44,7 @@ export default function ModelsPage() {
       }
     >
       {modelsQuery.isLoading && <LoadingSkeleton lines={5} />}
-      
+
       {modelsQuery.isError && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-red-600">Failed to load model configurations.</p>

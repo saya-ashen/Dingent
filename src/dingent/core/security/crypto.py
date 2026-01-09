@@ -1,9 +1,11 @@
 import os
 from functools import lru_cache
+
 from cryptography.fernet import Fernet, InvalidToken
 from loguru import logger
-from dingent.core.paths import paths
+
 from dingent.core.config import settings  # 引入配置
+from dingent.core.paths import paths
 
 
 class UserSecretManager:

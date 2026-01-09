@@ -356,7 +356,7 @@ export function AssistantEditor({
           }
         />
       </div>
-      
+
       <div className="space-y-2">
         <Label>Model Configuration (Optional)</Label>
         <p className="text-sm text-muted-foreground mb-2">
@@ -370,7 +370,7 @@ export function AssistantEditor({
           allowClear={true}
         />
       </div>
-      
+
       <Separator />
       <div className="flex items-center justify-start gap-4">
         <h3 className="text-base font-semibold">Plugins</h3>

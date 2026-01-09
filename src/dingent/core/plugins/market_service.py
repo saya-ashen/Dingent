@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Any
 
-
 from dingent.core.logs.log_manager import LogManager
 from dingent.core.plugins.schemas import PluginRead
 from dingent.server.api.schemas import MarketBackend, MarketItem, MarketItemCategory, MarketMetadata

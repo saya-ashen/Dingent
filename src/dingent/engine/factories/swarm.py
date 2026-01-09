@@ -19,7 +19,7 @@ async def create_assistant_graphs(
 ):
     """
     Create graphs for all assistants in a workflow.
-    
+
     Args:
         assistant_factory: Factory for creating assistant runtimes
         workflow: The workflow specification

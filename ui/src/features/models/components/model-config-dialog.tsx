@@ -99,7 +99,7 @@ export function ModelConfigDialog({
 
   const handleTest = async () => {
     if (!onTestConnection) return;
-    
+
     setTestResult({ status: "testing", message: "Testing connection..." });
     try {
       const result = await onTestConnection(data);
@@ -109,8 +109,8 @@ export function ModelConfigDialog({
         latency: result.latency_ms,
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error 
-        ? error.message 
+      const errorMessage = error instanceof Error
+        ? error.message
         : "Connection test failed";
       setTestResult({
         status: "error",

@@ -13,7 +13,7 @@ to use at runtime. The priority order is:
 from uuid import UUID
 
 from langchain_litellm import ChatLiteLLM
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from dingent.core.db.models import Assistant, LLMModelConfig, Workflow, Workspace
 from dingent.core.security.crypto import get_secret_manager

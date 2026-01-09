@@ -9,12 +9,10 @@ from sqlalchemy import JSON, Column, LargeBinary, Text
 from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlmodel import Field, Relationship, SQLModel, UniqueConstraint
 
+from dingent.core.assistants.schemas import AssistantSpec, PluginSpec
 from dingent.core.db.types import EncryptedJSON, EncryptedString
 from dingent.core.types import WorkspaceRole
 from dingent.core.utils import normalize_agent_name
-from typing import TYPE_CHECKING
-
-from dingent.core.assistants.schemas import AssistantSpec, PluginSpec
 from dingent.core.workflows.schemas import ExecutableWorkflow
 
 
