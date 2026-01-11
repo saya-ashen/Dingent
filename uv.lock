@@ -611,6 +611,7 @@ wheels = [
 name = "dingent"
 source = { editable = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "aiosqlite" },
     { name = "async-lru" },
     { name = "cookiecutter" },
@@ -658,6 +659,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.13.3" },
     { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "async-lru", specifier = ">=2.0.5" },
     { name = "cookiecutter", specifier = ">=2.6.0" },

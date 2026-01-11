@@ -1,164 +1,202 @@
 """
-Dingent CLI (Simplified version for concurrent Frontend + Backend execution)
+Dingent CLI (使用 asyncio.subprocess 重写)
 
 Commands:
-  dingent run        Concurrently start backend (langgraph dev no UI) + frontend (node)
+  dingent run        Concurrently start backend + frontend
   dingent version    Show version
 """
 
 from __future__ import annotations
 
-import atexit
+import asyncio
 import os
-import queue
 import re
 import signal
-import subprocess
 import sys
 import tempfile
-import threading
-import time
-import urllib.error
-import urllib.request
 import webbrowser
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated
 
-import psutil
 import typer
-from rich import print
-from rich.text import Text
+from rich.console import Console
 
 app = typer.Typer(help="Dingent Agent Framework CLI")
-
+console = Console()
 
 IS_DEV_MODE = os.getenv("DINGENT_DEV")
+_TEMP_DIRS: list[tempfile.TemporaryDirectory] = []
 
 
-# --------- Utility Functions ---------
+# --------- Service Definition ---------
 
 
-_TEMP_DIRS: list[tempfile.TemporaryDirectory] = []  # Prevent cleanup by garbage collector
+@dataclass
+class ServiceConfig:
+    name: str
+    command: list[str]
+    color: str
+    cwd: Path | None = None
+    env: dict[str, str] = field(default_factory=dict)
+    health_check_url: str | None = None
+    depends_on: list[str] = field(default_factory=list)
+    open_browser_hint: bool = False
 
 
-class Service:
-    def __init__(
-        self,
-        name: str,
-        command: list[str],
-        cwd: Path | None,
-        color: str,
-        env: dict[str, str] | None = None,
-        open_browser_hint: bool = False,
-        health_check_url: str | None = None,
-        depends_on: list[str] | None = None,
-    ):
-        self.name = name
-        self.command = command
-        self.cwd = cwd
-        self.color = color
-        self.env = env or {}
-        self.open_browser_hint = open_browser_hint
-        self.process: subprocess.Popen | None = None
-        self.is_ready = threading.Event()
-        self.health_check_url = health_check_url
-        self.depends_on = depends_on or []
+# --------- Async Service Manager ---------
 
 
-def _wait_for_health(url: str, timeout: float = 60, interval: float = 0.5) -> bool:
-    """等待服务健康检查通过"""
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            req = urllib.request.Request(url, method="GET")
-            with urllib.request.urlopen(req, timeout=2) as resp:
-                if resp.status == 200:
-                    return True
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError):
-            pass
-        time.sleep(interval)
-    return False
-
-
-class ServiceSupervisor:
-    def __init__(self, services: list[Service], auto_open_frontend: bool = True):
-        self.services = services
-        self.auto_open_frontend = auto_open_frontend
-        self.log_queue: queue.Queue[tuple[str, str]] = queue.Queue()
+class AsyncServiceManager:
+    def __init__(self, auto_open_browser: bool = True):
+        self.processes: dict[str, asyncio.subprocess.Process] = {}
+        self.ready_events: dict[str, asyncio.Event] = {}
+        self.auto_open_browser = auto_open_browser
         self._browser_opened = False
-        self._stop_event = threading.Event()
-        self._shutting_down = False
+        self._shutdown_event = asyncio.Event()
+        self._print_lock = asyncio.Lock()
 
-        atexit.register(self._cleanup_on_exit)
+    async def _safe_print(self, message: str):
+        """线程安全的打印"""
+        async with self._print_lock:
+            console.print(message)
 
-    def _setup_signal_handlers(self):
-        """设置信号处理器"""
+    async def _health_check(self, url: str, timeout: float = 60) -> bool:
+        """异步健康检查"""
+        import aiohttp
 
-        def signal_handler(signum, frame):
-            if not self._shutting_down:
-                self._shutting_down = True
-                print("\n[bold yellow]Received signal.  Shutting down.. .[/bold yellow]")
-                self.stop_all()
-                sys.exit(0)
-            if signum and frame:
-                pass
+        start = asyncio.get_event_loop().time()
+        async with aiohttp.ClientSession() as session:
+            while asyncio.get_event_loop().time() - start < timeout:
+                if self._shutdown_event.is_set():
+                    return False
+                try:
+                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                        if resp.status == 200:
+                            return True
+                except Exception:
+                    pass
+                await asyncio.sleep(0.5)
+        return False
 
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
-        if os.name == "posix":
-            signal.signal(signal.SIGHUP, signal_handler)
+    async def _wait_for_dependencies(self, service: ServiceConfig):
+        """等待依赖服务就绪"""
+        for dep_name in service.depends_on:
+            if dep_name in self.ready_events:
+                await self._safe_print(f"[cyan]⏳ {service.name} waiting for {dep_name}.. .[/cyan]")
+                try:
+                    await asyncio.wait_for(self.ready_events[dep_name].wait(), timeout=120)
+                    await self._safe_print(f"[green]✓ {dep_name} is ready, starting {service.name}[/green]")
+                except asyncio.TimeoutError:
+                    await self._safe_print(f"[bold red]❌ Timeout waiting for {dep_name}[/bold red]")
+                    raise
 
-    def start_all(self):
-        print("[bold cyan]🚀 Starting services...[/bold cyan]")
+    async def _run_service(self, service: ServiceConfig):
+        """运行单个服务"""
+        # 初始化就绪事件
+        self.ready_events[service.name] = asyncio.Event()
 
-        started_services: dict[str, Service] = {}
-        self._setup_signal_handlers()
+        # 等待依赖
+        await self._wait_for_dependencies(service)
 
-        for svc in self.services:
-            # 等待依赖服务就绪
-            for dep_name in svc.depends_on:
-                dep_svc = started_services.get(dep_name)
-                if dep_svc:
-                    print(f"[cyan]⏳ Waiting for {dep_name} to be ready...[/cyan]")
-                    if not dep_svc.is_ready.wait(timeout=60):
-                        print(f"[bold red]❌ Timeout waiting for {dep_name}[/bold red]")
-                        self.stop_all()
-                        raise typer.Exit(1)
+        # 准备环境变量
+        merged_env = {**os.environ, **service.env}
 
-            self._start_service(svc)
-            started_services[svc.name] = svc
+        # 启动进程
+        proc = await asyncio.create_subprocess_exec(
+            *service.command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+            env=merged_env,
+            cwd=str(service.cwd) if service.cwd else None,
+        )
+        self.processes[service.name] = proc
+        await self._safe_print(f"[bold green]✓ {service.name} (PID {proc.pid}) started:  {' '.join(service.command)}[/bold green]")
 
-            # 如果有健康检查，启动后台线程等待
-            if svc.health_check_url:
-                threading.Thread(target=self._health_check_worker, args=(svc,), daemon=True).start()
-            else:
-                # 没有健康检查的服务直接标记为就绪
-                svc.is_ready.set()
+        # 启动健康检查（如果有）
+        health_task = None
+        if service.health_check_url:
+            health_task = asyncio.create_task(self._monitor_health(service))
+        else:
+            # 无健康检查，直接标记就绪
+            self.ready_events[service.name].set()
 
-        t = threading.Thread(target=self._log_loop, daemon=True)
-        t.start()
+        # 流式读取输出
+        await self._stream_output(service, proc)
 
-        print("[bold green]✓ All services started.[/bold green]")
+        # 清理健康检查任务
+        if health_task and not health_task.done():
+            health_task.cancel()
 
-        try:
-            while not self._stop_event.is_set():
-                for svc in self.services:
-                    if svc.process and svc.process.poll() is not None:
-                        print(f"\n[bold red]Service {svc.name} exited.[/bold red]")
-                        self.stop_all()
-                        raise typer.Exit(1)
-                time.sleep(0.3)
-        except KeyboardInterrupt:
-            pass  # 由信号处理器处理
+        # 进程退出处理
+        await proc.wait()
+        if not self._shutdown_event.is_set():
+            await self._safe_print(f"[bold red]✗ {service.name} exited unexpectedly (code {proc.returncode})[/bold red]")
+            # ���发全局关闭
+            self._shutdown_event.set()
 
-    def stop_all(self, force: bool = False):
-        self._stop_event.set()
-        for svc in reversed(self.services):
-            if svc.process and svc.process.poll() is None:
-                _terminate_process_tree(svc.process, svc.name, force=force)
-        print("[bold blue]🛑 All processes have been terminated.[/bold blue]")
+    async def _stream_output(self, service: ServiceConfig, proc: asyncio.subprocess.Process):
+        """流式输出日志"""
+        port_regex = re.compile(r"http://localhost:(\d+)")
 
-        global _TEMP_DIRS
+        assert proc.stdout is not None
+        while not self._shutdown_event.is_set():
+            try:
+                line_bytes = await asyncio.wait_for(proc.stdout.readline(), timeout=0.5)
+            except asyncio.TimeoutError:
+                if proc.returncode is not None:
+                    break
+                continue
+
+            if not line_bytes:
+                break
+
+            line = line_bytes.decode(errors="replace").rstrip()
+            await self._safe_print(f"[{service.color}][{service.name.upper():^8}][/] {line}")
+
+            # 检测端口并打开浏览器
+            if service.open_browser_hint and self.auto_open_browser and not self._browser_opened:
+                match = port_regex.search(line)
+                if match:
+                    url = f"http://localhost:{match.group(1)}"
+                    await self._safe_print(f"[bold blue]🌐 Opening browser:  {url}[/bold blue]")
+                    try:
+                        webbrowser.open_new_tab(url)
+                        self._browser_opened = True
+                    except Exception:
+                        await self._safe_print("[yellow]⚠️ Could not open browser[/yellow]")
+
+    async def _monitor_health(self, service: ServiceConfig):
+        """监控服务健康状态"""
+        assert service.health_check_url is not None
+        if await self._health_check(service.health_check_url):
+            await self._safe_print(f"[bold green]✓ {service.name} is healthy![/bold green]")
+            self.ready_events[service.name].set()
+        else:
+            await self._safe_print(f"[bold red]❌ {service.name} health check failed[/bold red]")
+            self._shutdown_event.set()
+
+    async def shutdown(self):
+        """优雅关闭所有服务"""
+        self._shutdown_event.set()
+        await self._safe_print("\n[bold yellow]🛑 Shutting down all services.. .[/bold yellow]")
+
+        # 逆序关闭（先关闭依赖者）
+        for name in reversed(list(self.processes.keys())):
+            proc = self.processes[name]
+            if proc.returncode is None:
+                await self._safe_print(f"[yellow]Stopping {name} (PID {proc.pid}).. .[/yellow]")
+                proc.terminate()
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=5)
+                    await self._safe_print(f"[green]✓ {name} stopped[/green]")
+                except asyncio.TimeoutError:
+                    await self._safe_print(f"[red]Force killing {name}.. .[/red]")
+                    proc.kill()
+                    await proc.wait()
+                    await self._safe_print(f"[green]✓ {name} killed[/green]")
+
+        # 清理临时目录
         for td in _TEMP_DIRS:
             try:
                 td.cleanup()
@@ -166,127 +204,48 @@ class ServiceSupervisor:
                 pass
         _TEMP_DIRS.clear()
 
-    def _start_service(self, svc: Service):
-        env = {**os.environ, **svc.env}
-        popen_kwargs = {
-            "cwd": str(svc.cwd),
-            "stdout": subprocess.PIPE,
-            "stderr": subprocess.STDOUT,
-            "env": env,
-            "text": True,
-            "bufsize": 1,
-            "errors": "replace",
-        }
-        if os.name == "posix":
-            popen_kwargs["start_new_session"] = True
-        else:
-            popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        try:
-            svc.process = subprocess.Popen(svc.command, **popen_kwargs)
-        except FileNotFoundError as e:
-            print(f"[bold red]❌ Failed to start service {svc.name}: {e}[/bold red]")
-            raise typer.Exit(1)
-        threading.Thread(target=self._stream_reader, args=(svc,), daemon=True).start()
-        print(f"[bold green]✓ {svc.name} (PID {svc.process.pid}) started: {' '.join(svc.command)}[/bold green]")
+        await self._safe_print("[bold blue]✓ All services stopped[/bold blue]")
 
-    def _stream_reader(self, svc: Service):
-        assert svc.process and svc.process.stdout
-        for line in iter(svc.process.stdout.readline, ""):
-            if not line:
-                break
-            self.log_queue.put((svc.name, line.rstrip("\n")))
-        try:
-            svc.process.stdout.close()
-        except Exception:
-            pass
+    async def run_all(self, services: list[ServiceConfig]):
+        """运行所有服务"""
+        await self._safe_print("[bold cyan]🚀 Starting services...[/bold cyan]")
 
-    def _log_loop(self):
-        port_regex = re.compile(r"http://localhost:(\d+)")
-        while not self._stop_event.is_set():
+        # 设置信号处理
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.shutdown()))
+
+        # 启动所有服务任务
+        tasks = [asyncio.create_task(self._run_service(svc)) for svc in services]
+
+        await self._safe_print("[bold green]✓ All services started[/bold green]")
+
+        # 等待关闭事件或任意服务退出
+        shutdown_task = asyncio.create_task(self._shutdown_event.wait())
+        done, pending = await asyncio.wait([shutdown_task, *tasks], return_when=asyncio.FIRST_COMPLETED)
+
+        # 确保完全关闭
+        if not self._shutdown_event.is_set():
+            await self.shutdown()
+
+        # 取消剩余任务
+        for task in pending:
+            task.cancel()
             try:
-                name, line = self.log_queue.get(timeout=0.2)
-            except queue.Empty:
-                continue
-            svc = next((s for s in self.services if s.name == name), None)
-            color = svc.color if svc else "white"
-            text = Text.from_markup(f"[{color}][{name.upper():^8}][/]: {line}")
-            print(text)
-
-            if svc and svc.open_browser_hint and self.auto_open_frontend and not self._browser_opened:
-                m = port_regex.search(line)
-                if m:
-                    url = f"http://localhost:{m.group(1)}"
-                    print(f"[bold blue]🌐 Opening browser: {url}[/bold blue]")
-                    try:
-                        webbrowser.open_new_tab(url)
-                        self._browser_opened = True
-                    except Exception:
-                        print("[yellow]⚠️ Could not open browser automatically.[/yellow]")
-
-    def _cleanup_on_exit(self):
-        """确保退出时清理所有子进程"""
-        if not self._shutting_down:
-            self._shutting_down = True
-            self.stop_all(force=True)
-
-    def _health_check_worker(self, svc: Service):
-        """后台健康检查"""
-        if _wait_for_health(svc.health_check_url or "", timeout=60):
-            print(f"[bold green]✓ {svc.name} is ready![/bold green]")
-            svc.is_ready.set()
-        else:
-            print(f"[bold red]❌ {svc.name} health check failed[/bold red]")
-
-
-def _terminate_process_tree(proc: subprocess.Popen, name: str, force: bool = False):
-    """改进的进程终止函数"""
-    if proc.poll() is not None:
-        return
-
-    print(f"[yellow]Stopping {name} (PID {proc.pid}) .. .[/yellow]", end="")
-
-    try:
-        main_proc = psutil.Process(proc.pid)
-    except psutil.NoSuchProcess:
-        print("[green] ✓ (already gone)[/green]")
-        return
-
-    # 先收集所有子进程
-    try:
-        children = main_proc.children(recursive=True)
-    except psutil.NoSuchProcess:
-        children = []
-
-    procs_to_kill = children + [main_proc]  # 先杀子进程，再杀父进程
-
-    if not force:
-        # 优雅终止
-        for p in procs_to_kill:
-            try:
-                p.terminate()
-            except psutil.NoSuchProcess:
+                await task
+            except asyncio.CancelledError:
                 pass
 
-        _, alive = psutil.wait_procs(procs_to_kill, timeout=5)
 
-        if alive:
-            # 强制终止存活的进程
-            for p in alive:
-                try:
-                    p.kill()
-                except psutil.NoSuchProcess:
-                    pass
-            psutil.wait_procs(alive, timeout=3)
-    else:
-        # 直接强制终止
-        for p in procs_to_kill:
-            try:
-                p.kill()
-            except psutil.NoSuchProcess:
-                pass
-        psutil.wait_procs(procs_to_kill, timeout=3)
+# --------- CLI Commands ---------
 
-    print("[green] ✓[/green]")
+
+def _run_async(coro):
+    """运行异步函数的辅助方法"""
+    try:
+        asyncio.run(coro)
+    except KeyboardInterrupt:
+        pass
 
 
 @app.command()
@@ -301,15 +260,15 @@ def run(
     """
     Concurrently starts the backend and frontend services.
     """
-    # 1. 注入环境变量 (必须在导入 paths/settings 之前)
+    # 1. 注入环境变量
     if data_dir:
         os.environ["DINGENT_HOME"] = str(data_dir.resolve())
 
-    # 2. 现在安全导入
+    # 2. 导入依赖
     from dingent.cli.assets import asset_manager
     from dingent.core.paths import paths
 
-    print("[cyan]🔍 Checking runtime environment...[/cyan]")
+    console.print("[cyan]🔍 Checking runtime environment.. .[/cyan]")
 
     # 3. 准备资源
     asset_paths = asset_manager.ensure_assets()
@@ -317,19 +276,11 @@ def run(
     frontend_dir = asset_paths["frontend_dir"]
     frontend_script = asset_paths["frontend_script"]
 
-    # 4. 构建启动命令
+    # 4. 构建服务配置
     if paths.is_frozen:
-        # 生产环境：使用 sys.executable 调用 internal-backend
-        backend_cmd = [
-            sys.executable,
-            "internal-backend",
-            host,
-            str(port),
-        ]
-        # 生产环境 Backend 不需要特定的 CWD，或者指向 bundle_dir 即可
+        backend_cmd = [sys.executable, "internal-backend", host, str(port)]
         backend_cwd = paths.bundle_dir
     else:
-        # 开发环境
         backend_cmd = [
             "uvicorn",
             "dingent.server.main:app",
@@ -339,24 +290,22 @@ def run(
             str(port),
             "--reload",
         ]
-        # 开发环境 CWD 必须是项目根目录
         backend_cwd = paths.bundle_dir
 
-    services = [
-        Service(
+    services: list[ServiceConfig] = [
+        ServiceConfig(
             name="backend",
             command=backend_cmd,
             cwd=backend_cwd,
             color="magenta",
-            env={**os.environ},
+            env=dict(os.environ),
             health_check_url=f"http://{host}:{port}/api/v1/health",
         ),
     ]
 
-    # 5. 前端服务
     if not dev:
         services.append(
-            Service(
+            ServiceConfig(
                 name="frontend",
                 command=[node_bin, frontend_script],
                 cwd=frontend_dir,
@@ -371,17 +320,14 @@ def run(
             )
         )
 
-    should_open_browser = (not no_browser) and (not dev)
-
-    supervisor = ServiceSupervisor(services, auto_open_frontend=should_open_browser)
-    supervisor.start_all()
+    # 5. 运行服务
+    manager = AsyncServiceManager(auto_open_browser=not no_browser and not dev)
+    _run_async(manager.run_all(services))
 
 
 @app.command(hidden=True)
 def internal_backend(host: str, port: int):
-    """
-    (Internal) 仅供打包后的 EXE 内部调用，用于启动 Uvicorn
-    """
+    """(Internal) 仅供打包后调用"""
     import uvicorn
 
     uvicorn.run("dingent.server.main:app", host=host, port=port)
@@ -396,18 +342,13 @@ def version():
         ver = _v("dingent")
     except Exception:
         ver = "unknown"
-    print(f"Dingent version: {ver}")
+    console.print(f"Dingent version:  {ver}")
 
 
 @app.callback(invoke_without_command=True)
 def main_entry(ctx: typer.Context):
-    """
-    Dingent Agent Framework CLI
-    If no command is provided, acts as 'dingent run'.
-    """
-    # 如果用户没有输入任何子命令 (如 run, dev, version)
+    """Dingent Agent Framework CLI"""
     if ctx.invoked_subcommand is None:
-        # 手动调用 run 函数，传入默认参数
         run(no_browser=False)
 
 
