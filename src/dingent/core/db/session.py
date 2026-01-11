@@ -38,8 +38,8 @@ def create_initial_roles():
 
             # 如果不存在，则创建
             if not role:
-                print(f"正在创建默认角色: {role_name}")
-                new_role = Role(name=role_name, description=f"系统默认 {role_name} 角色")
+                print(f"Creating: {role_name}")
+                new_role = Role(name=role_name, description=f"Default {role_name} role")
                 session.add(new_role)
 
         session.commit()

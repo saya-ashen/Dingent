@@ -333,8 +333,8 @@ def run(
         backend_cmd = [
             "uvicorn",
             "dingent.server.main:app",
+            "--host",
             host,
-            "localhost",
             "--port",
             str(port),
             "--reload",
