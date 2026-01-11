@@ -30,11 +30,36 @@ class PluginRuntime:
     @classmethod
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
         """Create a singleton PluginRuntime instance without user-specific configuration."""
+        project_root = str(Path(manifest.path).resolve())
+
         for _, server in manifest.servers.items():
-            args: list[str] = getattr(server, "args", [])
-            for i, arg in enumerate(args):
-                if arg.endswith((".py", ".js")) and not Path(arg).is_absolute():
-                    args[i] = str(Path(manifest.path) / arg)
+            command = getattr(server, "command", None)
+            original_args = getattr(server, "args", [])
+
+            # 1. 先处理路径解析 (使用上面的逻辑)
+            resolved_args = []
+            for arg in original_args:
+                candidate = Path(project_root) / arg
+                if not arg.startswith("-") and not Path(arg).is_absolute() and candidate.is_file():
+                    resolved_args.append(str(candidate))
+                else:
+                    resolved_args.append(arg)
+
+            # 2. 注入 --project (针对 uv)
+            # 检查是否是 uv 命令
+            if resolved_args and command == "uv" and "--project" not in resolved_args: 
+                # 找到 'run' 的位置，如果存在的话
+                try:
+                    run_index = resolved_args.index("run")
+                    # 在 'run' 后面插入 --project <path>
+                    # 最终变成: uv run --project /abs/path script.py
+                    resolved_args.insert(run_index + 1, project_root)
+                    resolved_args.insert(run_index + 1, "--project")
+                except ValueError:
+                    pass
+
+            server.args = resolved_args
+
         client = Client(MCPConfig(mcpServers=manifest.servers))
 
         _status = "inactive"
@@ -68,3 +93,4 @@ class PluginRuntime:
     async def list_tools(self):
         async with self.mcp_client as client:
             return await client.list_tools()
+
