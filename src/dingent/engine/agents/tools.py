@@ -61,6 +61,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
             plugin_config = tool_args.get("plugin_config", None)
             if not plugin_config:
                 tool_args.pop("plugin_config", None)
+
             response_raw = await runnable_tool.run(tool_args)
 
             log_method("info", f"Tool Call Result: {response_raw}", context={"tool": tool_def.name, "id": tool_call_id})
@@ -77,6 +78,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
 
         if contents and isinstance(contents[0], TextContent):
             raw_text = contents[0].text
+
             try:
                 # 尝试解析结构化数据中的 artifact
                 data = json.loads(raw_text) if raw_text else {}

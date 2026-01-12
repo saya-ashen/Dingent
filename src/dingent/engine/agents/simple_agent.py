@@ -261,7 +261,9 @@ def build_simple_react_agent(
         else:
             input_messages = filtered_messages
 
+        print(f"[Agent: {name}] Invoking model with messages: {input_messages}")
         response = await llm.bind_tools(tools).ainvoke(input_messages)
+        print(f"[Agent: {name}] Model Response: {response}")
 
         return {
             "messages": [response],
