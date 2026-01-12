@@ -11,12 +11,14 @@ from .schemas import PluginManifest
 class PluginRuntime:
     mcp_client: Client
     name: str
+    id: str
     manifest: "PluginManifest"
     _status: Literal["active", "inactive", "error"] = "inactive"
 
     def __init__(
         self,
         name: str,
+        id: str,
         mcp_client: Client,
         status: Literal["active", "inactive", "error"],
         manifest: "PluginManifest",
@@ -26,6 +28,7 @@ class PluginRuntime:
         self.mcp_client = mcp_client
         self._status = status
         self.manifest = manifest
+        self.id = id
 
     @classmethod
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
@@ -47,7 +50,7 @@ class PluginRuntime:
 
             # 2. 注入 --project (针对 uv)
             # 检查是否是 uv 命令
-            if resolved_args and command == "uv" and "--project" not in resolved_args: 
+            if resolved_args and command == "uv" and "--project" not in resolved_args:
                 # 找到 'run' 的位置，如果存在的话
                 try:
                     run_index = resolved_args.index("run")
@@ -77,6 +80,7 @@ class PluginRuntime:
 
         instance = cls(
             name=manifest.display_name,
+            id=manifest.id,
             mcp_client=client,
             status=_status,
             manifest=manifest,
@@ -93,4 +97,3 @@ class PluginRuntime:
     async def list_tools(self):
         async with self.mcp_client as client:
             return await client.list_tools()
-

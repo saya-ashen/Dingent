@@ -76,9 +76,7 @@ class PluginManager:
             removed = self.registry.remove_manifest_by_id(plugin_id)
             plugin_path = manifest.path
             shutil.rmtree(plugin_path)
-            # self.log_manager.log_with_context("info", "Plugin '{plugin}' ({id}) removed.", context={"plugin": plugin.name, "id": plugin_id})
         else:
-            # self.log_manager.log_with_context("warning", "Plugin with ID '{id}' not found in PluginManager.", context={"id": plugin_id})
             removed = False
         return removed
 

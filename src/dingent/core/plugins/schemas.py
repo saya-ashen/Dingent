@@ -125,5 +125,5 @@ class PluginUpdate(PluginBase):
 
 class RunnableTool(SQLModel):
     tool: Tool
-    plugin_name: str
+    plugin_id: str
     run: Callable[[dict], Any]

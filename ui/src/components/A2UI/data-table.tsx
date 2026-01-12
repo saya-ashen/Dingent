@@ -37,9 +37,7 @@ export function DataTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    // 1. 启用翻页
     getPaginationRowModel: getPaginationRowModel(),
-    // 2. 启用排序
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
     state: {

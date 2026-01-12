@@ -281,6 +281,8 @@ def build_simple_react_agent(
 
         for tc in last_msg.tool_calls:
             tool_name = tc["name"]
+            # FIXME:
+            # 这里应该用plugin name而不是tool name
             tool = name_to_tool.get(tool_name)
 
             # 1. 处理工具不存在的情况

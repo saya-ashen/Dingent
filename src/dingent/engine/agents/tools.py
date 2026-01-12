@@ -62,6 +62,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
             if not plugin_config:
                 tool_args.pop("plugin_config", None)
             response_raw = await runnable_tool.run(tool_args)
+
             log_method("info", f"Tool Call Result: {response_raw}", context={"tool": tool_def.name, "id": tool_call_id})
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
@@ -104,7 +105,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
         description=tool_def.description or "",
         args_schema=CombinedSchema,
         coroutine=call_tool,
-        tags=[runnable_tool.plugin_name],
+        tags=[runnable_tool.plugin_id],
     )
 
 

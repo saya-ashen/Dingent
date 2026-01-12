@@ -68,7 +68,7 @@
           VENV_DIR=".venv"
           if [ ! -d "$VENV_DIR" ]; then
             echo ">>> Virtual environment '$VENV_DIR' not found. Creating..."
-            uv venv -p ${pkgs.python313}
+            uv venv -p python
             echo ">>> Virtual environment created."
           fi
 

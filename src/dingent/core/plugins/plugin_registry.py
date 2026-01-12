@@ -33,6 +33,7 @@ class PluginRegistry:
         """
         全量刷新：扫描目录→构建临时字典→原子替换。
         """
+
         if not self.plugin_dir.is_dir():
             self.log_manager.log_with_context(
                 "warning",

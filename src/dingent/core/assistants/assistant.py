@@ -92,7 +92,7 @@ class AssistantRuntime:
                     async with _runtime.mcp_client as tool_client:
                         return await tool_client.call_tool(_tool.name, arguments=arguments)
 
-                runnable.append(RunnableTool(tool=t, plugin_name=inst.name, run=call_tool))
+                runnable.append(RunnableTool(tool=t, plugin_id=inst.id, run=call_tool))
         yield runnable
 
     async def aclose(self):
