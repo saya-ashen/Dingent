@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { CopilotKitWrapper } from "@/components/CopilotKitWrapper";
 import ChatProviders from "@/features/chat/shared/ChatProviders";
 import { GuestChatSidebar } from "@/features/chat/shared/GuestChatSidebar";
+import { v7 as uuidv7 } from "uuid";
 
 export default function GuestLayout({
   children,
@@ -19,7 +20,7 @@ export default function GuestLayout({
   useEffect(() => {
     let id = localStorage.getItem("dingent_visitor_id");
     if (!id) {
-      id = crypto.randomUUID();
+      id = uuidv7();
       localStorage.setItem("dingent_visitor_id", id);
     }
     setVisitorId(id);
