@@ -315,6 +315,7 @@ def run(
     no_browser: bool = False,
     data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d")] = None,
     dev: bool = False,
+    base_path: Annotated[str | None, typer.Option("--base-path", help="Base path for frontend (e.g., /myapp)")] = None,
 ):
     """
     Concurrently starts the backend and frontend services.
@@ -363,17 +364,21 @@ def run(
     ]
 
     if not dev:
+        frontend_env = {
+            "DING_BACKEND_URL": f"http://{host}:{port}",
+            "PORT": str(ui_port),
+            "HOSTNAME": host,
+        }
+        if base_path:
+            frontend_env["NEXT_PUBLIC_BASE_PATH"] = base_path
+
         services.append(
             ServiceConfig(
                 name="frontend",
                 command=[node_bin, frontend_script],
                 cwd=frontend_dir,
                 color="cyan",
-                env={
-                    "DING_BACKEND_URL": f"http://{host}:{port}",
-                    "PORT": str(ui_port),
-                    "HOSTNAME": host,
-                },
+                env=frontend_env,
                 open_browser_hint=True,
                 depends_on=["backend"],
             )
