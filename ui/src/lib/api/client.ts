@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 import { useAuthStore } from "@/store";
 import { getOrSetVisitorId } from "../utils";
 
-const getBaseUrl = () => "/api/v1";
+const getBaseUrl = () => "/dingent/web/api/v1";
 
 let clientInstance: ApiClient | null = null;
 let cachedToken: string | null = null;
