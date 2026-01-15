@@ -6,6 +6,7 @@ const PUBLIC_PATHS = ["/auth", "/api", "/public", "/guest"];
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("access_token")?.value;
+  const basePath = request.nextUrl.basePath;
 
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
@@ -14,7 +15,7 @@ export function proxy(request: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    const url = new URL("/auth/login", request.url);
+    const url = new URL(`${basePath}/auth/login`, request.url);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
   }
