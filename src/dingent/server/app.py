@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -20,7 +21,9 @@ async def base_lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """Creates and configures the base FastAPI application."""
-    app = FastAPI(lifespan=base_lifespan, title="Dingent API")
+    # Support deployment under a subpath (e.g., /dingent/web)
+    root_path = os.getenv("API_ROOT_PATH", "")
+    app = FastAPI(lifespan=base_lifespan, title="Dingent API", root_path=root_path)
 
     # CORS middleware
     origins = [

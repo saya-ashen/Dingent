@@ -5,6 +5,16 @@ import { getOrSetVisitorId } from "../utils";
 
 const getBaseUrl = () => "/api/v1";
 
+// Get the base path from Next.js configuration
+const getBasePath = () => {
+  if (typeof window !== "undefined") {
+    // Extract base path from the script src or pathname
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+    return basePath;
+  }
+  return "";
+};
+
 let clientInstance: ApiClient | null = null;
 let cachedToken: string | null = null;
 let cachedVisitorId: string | null = null;
@@ -32,11 +42,13 @@ export function getClientApi() {
       () => {
         useAuthStore.getState().logout();
         if (typeof window !== "undefined") {
-          if (!window.location.pathname.startsWith("/auth/login")) {
+          const basePath = getBasePath();
+          const loginPath = `${basePath}/auth/login`;
+          if (!window.location.pathname.startsWith(loginPath)) {
             const currentPath = encodeURIComponent(
               window.location.pathname + window.location.search,
             );
-            window.location.href = `/auth/login?redirect=${currentPath}`;
+            window.location.href = `${loginPath}?redirect=${currentPath}`;
           }
         }
       },

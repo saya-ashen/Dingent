@@ -352,14 +352,19 @@ def run(
         ]
         backend_cwd = paths.bundle_dir
 
+    # Prepare backend environment
+    backend_env = dict(os.environ)
+    if base_path:
+        backend_env["API_ROOT_PATH"] = base_path
+
     services: list[ServiceConfig] = [
         ServiceConfig(
             name="backend",
             command=backend_cmd,
             cwd=backend_cwd,
             color="magenta",
-            env=dict(os.environ),
-            health_check_url=f"http://{host}:{port}/api/v1/health",
+            env=backend_env,
+            health_check_url=f"http://{host}:{port}{base_path}/api/v1/health" if base_path else f"http://{host}:{port}/api/v1/health",
         ),
     ]
 
