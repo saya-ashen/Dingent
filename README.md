@@ -154,6 +154,16 @@ Your project is now live\! You can now:
 - **Interact with your agent**: Start chatting with your agent through the
   frontend at `http://localhost:3000`.
 
+### 3. Deployment Under a Subpath
+
+If you need to deploy Dingent under a subpath (e.g., `/dingent/web`), use the `--base-path` option:
+
+```bash
+uvx dingent run --base-path /dingent/web
+```
+
+This configures both frontend and backend to work correctly under the specified path. For more details on deployment configurations, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
 ## 🏛️ Project Architecture
 
 A Dingent project has a simple and intuitive structure, managed automatically

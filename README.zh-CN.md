@@ -106,6 +106,16 @@ uvx dingent dev # 或 uvx dingent run
   - **添加自定义工具**: 将您的自定义 MCP 服务器插件放入 `plugins/` 目录中。
   - **与您的 Agent 互动**: 通过前端 `http://localhost:3000` 开始与您的 Agent 聊天。
 
+### 3. 在子路径下部署
+
+如果您需要在子路径下部署 Dingent（例如 `/dingent/web`），请使用 `--base-path` 选项：
+
+```bash
+uvx dingent run --base-path /dingent/web
+```
+
+这将配置前端和后端以在指定路径下正常工作。有关部署配置的更多详细信息，请参阅 [DEPLOYMENT.md](./DEPLOYMENT.md)。
+
 ## 🏛️ 项目架构
 
 一个 Dingent 项目拥有简单直观的结构，并由框架为您自动管理：
