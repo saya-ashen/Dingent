@@ -307,6 +307,13 @@ def _run_async(coro):
         console.print("\n[bold yellow]Interrupted by user[/bold yellow]")
 
 
+def _build_health_check_url(host: str, port: int, base_path: str | None = None) -> str:
+    """Build the health check URL with optional base path."""
+    if base_path:
+        return f"http://{host}:{port}{base_path}/api/v1/health"
+    return f"http://{host}:{port}/api/v1/health"
+
+
 @app.command()
 def run(
     host: str = "localhost",
@@ -364,7 +371,7 @@ def run(
             cwd=backend_cwd,
             color="magenta",
             env=backend_env,
-            health_check_url=f"http://{host}:{port}{base_path}/api/v1/health" if base_path else f"http://{host}:{port}/api/v1/health",
+            health_check_url=_build_health_check_url(host, port, base_path),
         ),
     ]
 

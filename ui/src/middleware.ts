@@ -11,10 +11,6 @@ export function middleware(request: NextRequest) {
   const isPublicPath = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
   if (!token && !isPublicPath) {
-    if (pathname.startsWith("/api")) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
     const url = new URL(`${basePath}/auth/login`, request.url);
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
