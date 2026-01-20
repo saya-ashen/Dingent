@@ -19,6 +19,36 @@ from dingent.core.db.models import Assistant, LLMModelConfig, Workflow, Workspac
 from dingent.core.security.crypto import get_secret_manager
 
 
+# import litellm
+#
+# response = litellm.completion(
+#     base_url="https://www.dmxapi.cn/v1",
+#     model="gemini/gemini-3-flash-preview",
+#     messages=[{"content": "Hello, how are you?", "role": "user"}],
+#     max_tokens=100,
+#     reasoning_effort="low",
+# )
+# llm = ChatLiteLLM(
+#     api_base="https://www.dmxapi.cn/v1",
+#     model="gemini/gemini-3-flash-preview",
+#     max_tokens=100,
+# )
+# async for chunk in llm.astream("hello, how are you?"):
+#     print(chunk)
+# from openai import OpenAI
+#
+# client = OpenAI(base_url="https://www.dmxapi.cn/v1")
+#
+# prompt = """
+# Hello, How are you
+# """
+#
+# response = client.responses.create(model="gpt-5", reasoning={"effort": "medium"}, input=[{"role": "user", "content": prompt}])
+#
+# print(response.output_text)
+# response.messages
+
+
 class ModelResolver:
     """
     Resolves and builds ChatModel instances based on cascading configuration.
@@ -113,7 +143,9 @@ class ModelResolver:
         # Use the model's built-in method to get LiteLLM kwargs
         kwargs = config.to_litellm_kwargs(api_key)
 
-        return ChatLiteLLM(**kwargs)
+        return ChatLiteLLM(
+            **kwargs,
+        )
 
     def resolve_for_workflow(
         self,

@@ -192,7 +192,9 @@ async def run(
                 },
             },
         ):
-            yield ctx.encoder.encode(cast(Any, event))
+            encoded_event = ctx.encoder.encode(cast(Any, event))
+
+            yield encoded_event
 
     # Update conversation title if needed
     update_conversation_title(ctx.conversation, ctx.input_data)
@@ -200,8 +202,17 @@ async def run(
     ctx.conversation.updated_at = datetime.now(UTC)
     ctx.session.add(ctx.conversation)
     ctx.session.commit()
+    headers = {
+        "X-Accel-Buffering": "no",  # 关键：告诉 Nginx 禁用缓冲
+        "Cache-Control": "no-cache",  # 防止浏览器或代理缓存
+        "Connection": "keep-alive",  # 保持连接
+    }
 
-    return StreamingResponse(event_generator(), media_type=ctx.encoder.get_content_type())
+    return StreamingResponse(
+        event_generator(),
+        media_type=ctx.encoder.get_content_type(),
+        headers=headers,
+    )
 
 
 @router.post("/agent/{agent_id}/connect")

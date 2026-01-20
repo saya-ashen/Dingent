@@ -3,6 +3,7 @@ import uuid
 from collections.abc import AsyncGenerator
 
 import ag_ui_langgraph
+from ag_ui_langgraph.types import LangGraphReasoning
 import ag_ui_langgraph.utils
 from ag_ui.core import ActivityMessage, CustomEvent, EventType, MessagesSnapshotEvent, RunAgentInput, RunFinishedEvent
 from ag_ui.core.events import RunStartedEvent
@@ -22,7 +23,7 @@ from ag_ui_langgraph.utils import (
     stringify_if_needed,
 )
 from copilotkit import LangGraphAGUIAgent
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
 from dingent.engine.agents import messages as DingMessages
 
@@ -176,8 +177,61 @@ def ding_agui_messages_to_langchain(messages: list[AGUIMessage]) -> list[BaseMes
     return langchain_messages
 
 
+def ding_resolve_reasoning_content(chunk: AIMessageChunk) -> LangGraphReasoning | None:
+    # -----------------------------------------------------------
+    # 1. 优先检查 additional_kwargs
+    # (Gemini, DeepSeek, OpenAI o1/o3 通常在这里)
+    # -----------------------------------------------------------
+    if hasattr(chunk, "additional_kwargs"):
+        kwargs = chunk.additional_kwargs
+
+        # 定义可能的推理字段名列表
+        # 'reasoning_content': DeepSeek R1, 这里的 Gemini 适配器通常也用这个
+        # 'reasoning': 某些版本的 OpenAI 适配器
+        # 'thinking': 某些自定义适配器
+        possible_keys = ["reasoning_content", "reasoning", "thinking"]
+
+        for key in possible_keys:
+            val = kwargs.get(key)
+            if val:
+                # OpenAI 有时会嵌套在字典里: {"summary": [{"text": "..."}]}
+                if isinstance(val, dict):
+                    summary = val.get("summary", [])
+                    if summary and isinstance(summary, list):
+                        data = summary[0]
+                        if data and data.get("text"):
+                            return LangGraphReasoning(type="text", text=data["text"], index=data.get("index", 0))
+                # Gemini / DeepSeek 通常直接就是字符串
+                elif isinstance(val, str) and val.strip():
+                    return LangGraphReasoning(
+                        type="text",
+                        text=val,
+                        index=0,  # 流式通常没有 index，默认为 0
+                    )
+
+    content = chunk.content
+    # Anthropic reasoning response
+    if isinstance(content, list) and content and content[0]:
+        if not content[0].get("thinking"):
+            return None
+        return LangGraphReasoning(text=content[0]["thinking"], type="text", index=content[0].get("index", 0))
+
+    # OpenAI reasoning response
+    if hasattr(chunk, "additional_kwargs"):
+        reasoning = chunk.additional_kwargs.get("reasoning", {})
+        summary = reasoning.get("summary", [])
+        if summary:
+            data = summary[0]
+            if not data or not data.get("text"):
+                return None
+            return LangGraphReasoning(type="text", text=data["text"], index=data.get("index", 0))
+
+    return None
+
+
 ag_ui_langgraph.agent.langchain_messages_to_agui = ding_langchain_messages_to_agui
 ag_ui_langgraph.utils.agui_messages_to_langchain = ding_agui_messages_to_langchain
+ag_ui_langgraph.agent.resolve_reasoning_content = ding_resolve_reasoning_content
 
 
 async def graph_aget_state(self, config, *, subgraphs: bool = False):
@@ -195,35 +249,23 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
     """
 
     async def run(self, input: RunAgentInput, extra_config: dict | None = None) -> AsyncGenerator[str]:
-        # 1. 备份当前的 config
-        # 我们只保存引用即可，因为后续我们是赋值新的字典给 self.config，而不是原地修改
         previous_config = self.config
 
-        # 2. 合并配置 (Extend self.config)
-        # 确保 current_config 是一个字典，即使 previous_config 是 None
         current_config = previous_config.copy() if previous_config else {}
 
         if extra_config:
-            # 将传入的 extra_config 合并到当前配置中
-            # 注意：extra_config 中的键值对会覆盖原有的配置
             current_config.update(extra_config)
 
-        # 更新实例的 config
         self.config = current_config
 
         try:
-            # 3. 调用父类的 run 方法
-            # 由于父类 run 是一个 AsyncGenerator，我们需要遍历它并 yield 出来
             async for event_str in super().run(input):
                 yield event_str
         finally:
-            # 4. 恢复原来的 config
-            # 无论上面的代码是否报错，这里都会执行，确保状态回滚
             self.config = previous_config
 
     async def get_thread_messages(self, thread_id: str, run_id: str):
         """
-        [新增功能] 根据 thread_id 获取该对话的所有历史消息。
         返回格式已转换为前端友好的 AG-UI 格式。
         """
 

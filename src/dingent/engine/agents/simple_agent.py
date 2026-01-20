@@ -1,7 +1,7 @@
 import json
-from typing import Any
+from typing import Any, cast
 
-from langchain.chat_models.base import BaseChatModel
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 from langgraph.graph import END, StateGraph
@@ -16,7 +16,7 @@ def mcp_artifact_to_agui_display(tool_name, query_args: dict, surface_base_id: s
     if not isinstance(artifact, list):
         return [artifact]
     else:
-        return artifact
+        return cast(Any, artifact)
     agui_display = {"operations": []}
 
     if isinstance(surface_base_id, list):
@@ -247,7 +247,7 @@ def build_simple_react_agent(
     name_to_tool = {t.name: t for t in tools}
     LLM_SAFE_TYPES = (SystemMessage, HumanMessage, AIMessage, ToolMessage)
 
-    async def model_node(state: SimpleAgentState) -> dict[str, Any]:
+    async def model_node(state: SimpleAgentState, config: RunnableConfig) -> dict[str, Any]:
         iteration = state.get("iteration", 0)
         # 简单的循环保护
         if iteration >= max_iterations:
@@ -261,12 +261,21 @@ def build_simple_react_agent(
         else:
             input_messages = filtered_messages
 
-        print(f"[Agent: {name}] Invoking model with messages: {input_messages}")
-        response = await llm.bind_tools(tools).ainvoke(input_messages)
-        print(f"[Agent: {name}] Model Response: {response}")
+        bound_model = llm.bind_tools(tools)
+
+        aggregated_message = None
+
+        async for chunk in bound_model.astream(input_messages, config=config):
+            if aggregated_message is None:
+                aggregated_message = chunk
+            else:
+                aggregated_message += chunk
+
+        if aggregated_message is None:
+            aggregated_message = AIMessage(content="")
 
         return {
-            "messages": [response],
+            "messages": [aggregated_message],
             "iteration": iteration + 1,
         }
 
@@ -283,8 +292,6 @@ def build_simple_react_agent(
 
         for tc in last_msg.tool_calls:
             tool_name = tc["name"]
-            # FIXME:
-            # 这里应该用plugin name而不是tool name
             tool = name_to_tool.get(tool_name)
 
             # 1. 处理工具不存在的情况
