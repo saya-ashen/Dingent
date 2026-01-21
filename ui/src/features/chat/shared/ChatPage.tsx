@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import { useAgent, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { Loader2 } from "lucide-react";
 import {
-  HttpAgent,
   AgentSubscriber,
   ThinkingTextMessageContentEvent,
 } from "@ag-ui/client";
@@ -41,10 +40,9 @@ function ChatPageContent({ isGuest, visitorId, slug }: ChatPageProps) {
   useEffect(() => {
     if (!agent.agent) return;
 
-    // if (!isThinking) {
-    //   clearThinkingText();
-    //   想办法存储之前的思考过程, 或者在后端存储
-    // }
+    if (!isThinking) {
+      clearThinkingText();
+    }
 
     const thinkingSubscriber: AgentSubscriber = {
       onEvent: ({ event }) => {

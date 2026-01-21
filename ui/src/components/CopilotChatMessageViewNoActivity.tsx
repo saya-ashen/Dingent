@@ -1,3 +1,4 @@
+import { ThinkingAssistantMessage } from "@/features/chat/shared/ThinkingAssistantMessage";
 import { ThinkingCursor } from "@/features/chat/shared/ThinkingCursor";
 import {
   CopilotChatMessageView,
@@ -18,6 +19,7 @@ const CopilotChatMessageViewNoActivityImpl = (
       {...props}
       messages={filteredMessages}
       cursor={ThinkingCursor}
+      assistantMessage={ThinkingAssistantMessage}
     />
   );
 };

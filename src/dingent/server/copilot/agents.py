@@ -1,11 +1,23 @@
 import json
+from typing import Annotated, Union
 import uuid
 from collections.abc import AsyncGenerator
 
 import ag_ui_langgraph
 from ag_ui_langgraph.types import LangGraphReasoning
 import ag_ui_langgraph.utils
-from ag_ui.core import ActivityMessage, CustomEvent, EventType, MessagesSnapshotEvent, RunAgentInput, RunFinishedEvent
+from ag_ui.core import (
+    ActivityMessage,
+    AssistantMessage,
+    CustomEvent,
+    DeveloperMessage,
+    EventType,
+    MessagesSnapshotEvent,
+    RunAgentInput,
+    RunFinishedEvent,
+    ThinkingTextMessageContentEvent,
+    UserMessage,
+)
 from ag_ui.core.events import RunStartedEvent
 from ag_ui_langgraph.agent import Command, dump_json_safe, get_stream_payload_input
 from ag_ui_langgraph.utils import (
@@ -24,6 +36,7 @@ from ag_ui_langgraph.utils import (
 )
 from copilotkit import LangGraphAGUIAgent
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from pydantic import Field
 
 from dingent.engine.agents import messages as DingMessages
 
@@ -32,8 +45,61 @@ class DingRunAgentInput(RunAgentInput):
     owner_id: uuid.UUID
 
 
+def ding_resolve_reasoning_content(chunk: AIMessageChunk | AIMessage) -> LangGraphReasoning | None:
+    # -----------------------------------------------------------
+    # 1. 优先检查 additional_kwargs
+    # (Gemini, DeepSeek, OpenAI o1/o3 通常在这里)
+    # -----------------------------------------------------------
+    if hasattr(chunk, "additional_kwargs"):
+        kwargs = chunk.additional_kwargs
+
+        # 定义可能的推理字段名列表
+        # 'reasoning_content': DeepSeek R1, 这里的 Gemini 适配器通常也用这个
+        # 'reasoning': 某些版本的 OpenAI 适配器
+        # 'thinking': 某些自定义适配器
+        possible_keys = ["reasoning_content", "reasoning", "thinking"]
+
+        for key in possible_keys:
+            val = kwargs.get(key)
+            if val:
+                # OpenAI 有时会嵌套在字典里: {"summary": [{"text": "..."}]}
+                if isinstance(val, dict):
+                    summary = val.get("summary", [])
+                    if summary and isinstance(summary, list):
+                        data = summary[0]
+                        if data and data.get("text"):
+                            return LangGraphReasoning(type="text", text=data["text"], index=data.get("index", 0))
+                # Gemini / DeepSeek 通常直接就是字符串
+                elif isinstance(val, str) and val.strip():
+                    return LangGraphReasoning(
+                        type="text",
+                        text=val,
+                        index=0,  # 流式通常没有 index，默认为 0
+                    )
+
+    content = chunk.content
+    # Anthropic reasoning response
+    if isinstance(content, list) and content and content[0]:
+        if not content[0].get("thinking"):
+            return None
+        return LangGraphReasoning(text=content[0]["thinking"], type="text", index=content[0].get("index", 0))
+
+    # OpenAI reasoning response
+    if hasattr(chunk, "additional_kwargs"):
+        reasoning = chunk.additional_kwargs.get("reasoning", {})
+        summary = reasoning.get("summary", [])
+        if summary:
+            data = summary[0]
+            if not data or not data.get("text"):
+                return None
+            return LangGraphReasoning(type="text", text=data["text"], index=data.get("index", 0))
+
+    return None
+
+
 def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
     agui_messages: list[AGUIMessage] = []
+    thinking_content = ""
     for message in messages:
         if isinstance(message, ToolMessage):
             agui_messages.append(
@@ -71,6 +137,7 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
                 )
             )
         elif isinstance(message, AIMessage):
+            reasoning = ding_resolve_reasoning_content(message)
             tool_calls = None
             if message.tool_calls:
                 tool_calls = [
@@ -85,11 +152,19 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
                     for tc in message.tool_calls
                 ]
 
+            thinking_content_chunk = reasoning.get("text", "") if reasoning else ""
+            thinking_content += f"\n{thinking_content_chunk}"
+            message_content = stringify_if_needed(resolve_message_content(message.content))
+
+            if message_content:
+                message_content = f"<thinking>{thinking_content}</thinking>\n{message_content}"
+                thinking_content = ""
+
             agui_messages.append(
                 AGUIAssistantMessage(
                     id=str(message.id),
                     role="assistant",
-                    content=stringify_if_needed(resolve_message_content(message.content)),
+                    content=message_content,
                     tool_calls=tool_calls,
                     name=message.name,
                 )
@@ -175,58 +250,6 @@ def ding_agui_messages_to_langchain(messages: list[AGUIMessage]) -> list[BaseMes
         else:
             raise ValueError(f"Unsupported message role: {role}")
     return langchain_messages
-
-
-def ding_resolve_reasoning_content(chunk: AIMessageChunk) -> LangGraphReasoning | None:
-    # -----------------------------------------------------------
-    # 1. 优先检查 additional_kwargs
-    # (Gemini, DeepSeek, OpenAI o1/o3 通常在这里)
-    # -----------------------------------------------------------
-    if hasattr(chunk, "additional_kwargs"):
-        kwargs = chunk.additional_kwargs
-
-        # 定义可能的推理字段名列表
-        # 'reasoning_content': DeepSeek R1, 这里的 Gemini 适配器通常也用这个
-        # 'reasoning': 某些版本的 OpenAI 适配器
-        # 'thinking': 某些自定义适配器
-        possible_keys = ["reasoning_content", "reasoning", "thinking"]
-
-        for key in possible_keys:
-            val = kwargs.get(key)
-            if val:
-                # OpenAI 有时会嵌套在字典里: {"summary": [{"text": "..."}]}
-                if isinstance(val, dict):
-                    summary = val.get("summary", [])
-                    if summary and isinstance(summary, list):
-                        data = summary[0]
-                        if data and data.get("text"):
-                            return LangGraphReasoning(type="text", text=data["text"], index=data.get("index", 0))
-                # Gemini / DeepSeek 通常直接就是字符串
-                elif isinstance(val, str) and val.strip():
-                    return LangGraphReasoning(
-                        type="text",
-                        text=val,
-                        index=0,  # 流式通常没有 index，默认为 0
-                    )
-
-    content = chunk.content
-    # Anthropic reasoning response
-    if isinstance(content, list) and content and content[0]:
-        if not content[0].get("thinking"):
-            return None
-        return LangGraphReasoning(text=content[0]["thinking"], type="text", index=content[0].get("index", 0))
-
-    # OpenAI reasoning response
-    if hasattr(chunk, "additional_kwargs"):
-        reasoning = chunk.additional_kwargs.get("reasoning", {})
-        summary = reasoning.get("summary", [])
-        if summary:
-            data = summary[0]
-            if not data or not data.get("text"):
-                return None
-            return LangGraphReasoning(type="text", text=data["text"], index=data.get("index", 0))
-
-    return None
 
 
 ag_ui_langgraph.agent.langchain_messages_to_agui = ding_langchain_messages_to_agui

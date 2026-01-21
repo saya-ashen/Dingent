@@ -193,7 +193,6 @@ async def run(
             },
         ):
             encoded_event = ctx.encoder.encode(cast(Any, event))
-
             yield encoded_event
 
     # Update conversation title if needed
@@ -203,9 +202,9 @@ async def run(
     ctx.session.add(ctx.conversation)
     ctx.session.commit()
     headers = {
-        "X-Accel-Buffering": "no",  # 关键：告诉 Nginx 禁用缓冲
-        "Cache-Control": "no-cache",  # 防止浏览器或代理缓存
-        "Connection": "keep-alive",  # 保持连接
+        "X-Accel-Buffering": "no",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
     }
 
     return StreamingResponse(
@@ -221,7 +220,8 @@ async def connect(
 ):
     async def event_generator():
         async for event in ctx.agent.get_thread_messages(ctx.input_data.thread_id, ctx.input_data.run_id):
-            yield ctx.encoder.encode(cast(Any, event))
+            encoded_event = ctx.encoder.encode(cast(Any, event))
+            yield encoded_event
 
     return StreamingResponse(event_generator(), media_type=ctx.encoder.get_content_type())
 

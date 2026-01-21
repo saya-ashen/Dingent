@@ -120,6 +120,7 @@ class AsyncServiceManager:
             stderr=asyncio.subprocess.STDOUT,
             env=merged_env,
             cwd=str(service.cwd) if service.cwd else None,
+            limit=1024 * 1024 * 4,  # Increase buffer limit to 4MB to prevent LimitOverrunError
         )
         self.processes[service.name] = proc
         await self._safe_print(f"[bold green]✓ {service.name} (PID {proc.pid}) started:  {' '.join(service.command)}[/bold green]")
