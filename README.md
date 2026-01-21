@@ -154,6 +154,54 @@ Your project is now live\! You can now:
 - **Interact with your agent**: Start chatting with your agent through the
   frontend at `http://localhost:3000`.
 
+## 🐳 Docker Deployment
+
+Dingent can also be deployed using Docker and Docker Compose for easy setup and deployment.
+
+### Prerequisites
+
+- **Docker**: [Install Docker](https://docs.docker.com/get-docker/)
+- **Docker Compose**: [Install Docker Compose](https://docs.docker.com/compose/install/)
+
+### Quick Start with Docker
+
+1. Clone the repository:
+
+```bash
+git clone -b Docker-Dev https://github.com/littleLice/Dingent.git
+cd Dingent
+```
+
+2. Start the services using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+This will pull the pre-built images and start both the backend and frontend services.
+
+3. Access the services:
+
+- **Frontend Chat**: [http://localhost:3000](http://localhost:3000)
+- **Backend API**: [http://localhost:8000](http://localhost:8000)
+- **Admin Dashboard**: [http://localhost:8000/admin](http://localhost:8000/admin)
+
+### Stopping the Services
+
+To stop the services, run:
+
+```bash
+docker-compose down
+```
+
+### Rebuilding the Services
+
+If you make changes to the code and need to rebuild the Docker images:
+
+```bash
+docker-compose up -d --build
+```
+
 ## 🏛️ Project Architecture
 
 A Dingent project has a simple and intuitive structure, managed automatically
