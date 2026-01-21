@@ -162,6 +162,7 @@ class AssistantPluginLink(SQLModel, table=True):
             plugin_id=self.plugin.registry_id,
             registry_id=self.plugin.registry_id,
             config=self.user_plugin_config or {},
+            tool_configs=self.tool_configs,
         )
 
 
@@ -359,7 +360,7 @@ class Resource(SQLModel, table=True):
 class LLMModelConfig(SQLModel, table=True):
     """
     统一的模型配置表。
-    每一行代表一个可供 Agent 调用的模型实例（例如 "我的本地 Llama3" 或 "公司的 GPT-4"）。
+    每一行代表一个可供 Agent 调用的模型实例
     设计上完全对齐 LiteLLM 的参数需求。
     """
 

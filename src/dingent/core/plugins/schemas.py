@@ -121,6 +121,11 @@ class PluginUpdate(PluginBase):
     registry_id: str = Field(..., description="插件的注册ID (来自插件注册表)")
     enabled: bool = Field(True, description="启用或禁用该插件")
     config: dict[str, Any] | None = Field(None, description="用户为该插件设置的配置项")
+    tool_configs: list[ToolOverrideConfig] | None = Field(
+        None,
+        alias="tools",
+        description="用户为该插件设置的工具配置项",
+    )
 
 
 class RunnableTool(SQLModel):

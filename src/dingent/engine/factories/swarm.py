@@ -34,7 +34,20 @@ async def create_assistant_graphs(
         for name, assistant_config in workflow.assistant_configs.items():
             rt = await assistant_factory.create_runtime(assistant_config)
             raw_tools = await stack.enter_async_context(rt.load_tools())
-            wrapped_tools = [mcp_tool_wrapper(t, log_method) for t in raw_tools]
+
+            tool_configs = {tc["name"]: tc for p in assistant_config.plugins for tc in p.tool_configs}
+            transformed_tools = []
+            for tool in raw_tools:
+                config = tool_configs.get(tool.tool.name)
+                if config:
+                    # Apply any transformations based on the config
+                    # For example, enable/disable tool or override description
+                    if "enabled" in config and not config["enabled"]:
+                        continue  # Skip disabled tools
+                    if "description" in config and config["description"]:
+                        tool.tool.description = config["description"]
+                transformed_tools.append(tool)
+            wrapped_tools = [mcp_tool_wrapper(t, log_method) for t in transformed_tools]
 
             # 筛选相关的 Handoff 工具
             destinations = workflow.adjacency_map.get(name, [])

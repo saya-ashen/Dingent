@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, ChevronDown, ChevronRight, Edit2, Check, X } from "lucide-react";
 import { safeBool, effectiveStatusForItem, toStr } from "@/lib/utils";
 import { Assistant, AssistantPlugin, PluginManifest, LLMModelConfig } from "@/types/entity";
 import { StatusBadge } from "@/components/common/status-badge";
@@ -28,6 +28,8 @@ function PluginEditor({
   const enabled = safeBool(plugin.enabled, false);
   const { level, label } = effectiveStatusForItem(plugin.status, enabled);
   const [isConfigExpanded, setIsConfigExpanded] = useState(false);
+  const [editingToolIndex, setEditingToolIndex] = useState<number | null>(null);
+  const [tempDescription, setTempDescription] = useState<string>("");
 
   return (
     <div className="rounded-md border p-4">
@@ -241,20 +243,58 @@ function PluginEditor({
             {plugin.tools!.map((tool, k) => (
               <div
                 key={k}
-                className="flex items-center justify-between rounded border p-3"
+                className="flex items-start justify-between rounded border p-3"
               >
                 {" "}
-                {/* Increased padding */}
-                <div>
+                {/* Increased padding and items-start for better alignment */}
+                <div className="flex-1 min-w-0">
                   <div className="font-mono">{tool.name}</div>
 
-                  {tool.description && (
-                    <div className="text-muted-foreground text-xs">
-                      {tool.description}
+                  {editingToolIndex === k ? (
+                    <div className="mt-2 space-y-2">
+                      <Textarea
+                        value={tempDescription}
+                        onChange={(e) => setTempDescription(e.target.value)}
+                        placeholder="Enter tool description"
+                        className="min-h-[60px] text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => {
+                            const next = structuredClone(plugin);
+                            if (next.tools && next.tools.length > k) {
+                              next.tools[k]!.description = tempDescription;
+                            }
+                            onChange(next);
+                            setEditingToolIndex(null);
+                            setTempDescription("");
+                          }}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingToolIndex(null);
+                            setTempDescription("");
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
+                  ) : (
+                    tool.description && (
+                      <div className="text-muted-foreground text-xs">
+                        {tool.description}
+                      </div>
+                    )
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-4">
                   <span className="text-muted-foreground text-sm">Enable</span>
 
                   <Switch
@@ -268,6 +308,19 @@ function PluginEditor({
                       onChange(next);
                     }}
                   />
+
+                  {editingToolIndex !== k && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingToolIndex(k);
+                        setTempDescription(tool.description || "");
+                      }}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

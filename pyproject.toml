@@ -16,7 +16,7 @@ dependencies = [
   "typer>=0.16.0",
   "copilotkit>=0.1.56",
   "langchain>=0.3.23",
-  "fastmcp>=2.2.0",
+  "fastmcp==3.0.0b1",
   "langchain-mcp-adapters>=0.0.11",
   "langgraph-cli[inmem]>=0.1.73",
   "langgraph-swarm>=0.0.12",

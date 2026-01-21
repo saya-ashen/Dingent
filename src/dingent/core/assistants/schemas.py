@@ -53,6 +53,7 @@ class PluginSpec(SQLModel):
     plugin_id: str
     registry_id: str
     config: dict[str, Any]
+    tool_configs: list[dict[str, Any]]
 
 
 class AssistantSpec(SQLModel):

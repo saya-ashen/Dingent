@@ -34,6 +34,7 @@ class PluginRuntime:
     async def create_singleton(cls, manifest: "PluginManifest", log_method: Callable) -> "PluginRuntime":
         """Create a singleton PluginRuntime instance without user-specific configuration."""
         project_root = str(Path(manifest.path).resolve())
+        from fastmcp.server import create_proxy
 
         for _, server in manifest.servers.items():
             command = getattr(server, "command", None)
