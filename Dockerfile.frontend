@@ -3,6 +3,10 @@ FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
+# Set build-time argument for backend URL
+ARG BACKEND_URL=http://localhost:8000
+ENV BACKEND_URL=${BACKEND_URL}
+
 # Copy package files
 COPY ui/package.json ui/bun.lock ./
 

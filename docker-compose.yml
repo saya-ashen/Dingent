@@ -8,6 +8,9 @@ services:
       - "8000:8000"
     environment:
       - PORT=8000
+      - DINGENT_HOME=/app/data
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped
     networks:
       - dingent-network
@@ -17,6 +20,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        - BACKEND_URL=http://backend:8000
     ports:
       - "3000:3000"
     environment:
