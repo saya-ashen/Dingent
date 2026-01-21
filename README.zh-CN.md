@@ -120,7 +120,7 @@ Dingent 也可以使用 Docker 和 Docker Compose 进行部署，以便轻松设
 1. 克隆仓库：
 
 ```bash
-git clone https://github.com/littleLice/Dingent.git
+git clone -b Docker-Dev https://github.com/littleLice/Dingent.git
 cd Dingent
 ```
 
@@ -130,7 +130,7 @@ cd Dingent
 docker-compose up -d
 ```
 
-这将构建并启动后端和前端服务。
+这将拉取预构建的镜像并启动后端和前端服务。
 
 3. 访问服务：
 

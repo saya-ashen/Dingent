@@ -168,7 +168,7 @@ Dingent can also be deployed using Docker and Docker Compose for easy setup and 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/littleLice/Dingent.git
+git clone -b Docker-Dev https://github.com/littleLice/Dingent.git
 cd Dingent
 ```
 
@@ -178,7 +178,7 @@ cd Dingent
 docker-compose up -d
 ```
 
-This will build and start both the backend and frontend services.
+This will pull the pre-built images and start both the backend and frontend services.
 
 3. Access the services:
 

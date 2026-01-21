@@ -1,5 +1,6 @@
 services:
   backend:
+    image: littlelice/dingent-backend:Docker-Dev
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -12,6 +13,7 @@ services:
       - dingent-network
 
   frontend:
+    image: littlelice/dingent-frontend:Docker-Dev
     build:
       context: .
       dockerfile: Dockerfile.frontend
