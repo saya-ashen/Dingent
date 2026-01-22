@@ -1,6 +1,7 @@
 import { ThinkingAssistantMessage } from "@/features/chat/shared/ThinkingAssistantMessage";
 import { ThinkingCursor } from "@/features/chat/shared/ThinkingCursor";
 import {
+  CopilotChatAssistantMessage,
   CopilotChatMessageView,
   CopilotChatMessageViewProps,
 } from "@copilotkit/react-core/v2";
@@ -19,12 +20,16 @@ const CopilotChatMessageViewNoActivityImpl = (
       {...props}
       messages={filteredMessages}
       cursor={ThinkingCursor}
-      assistantMessage={ThinkingAssistantMessage}
+      assistantMessage={
+        ThinkingAssistantMessage as typeof CopilotChatAssistantMessage
+      }
     />
   );
 };
 
 CopilotChatMessageViewNoActivityImpl.Cursor = CopilotChatMessageView.Cursor;
+CopilotChatMessageViewNoActivityImpl.AssistantMessage =
+  ThinkingAssistantMessage;
 
 export const CopilotChatMessageViewNoActivity =
   CopilotChatMessageViewNoActivityImpl as typeof CopilotChatMessageView;
