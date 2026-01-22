@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Union
+from typing import Any
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -8,15 +8,11 @@ from ag_ui_langgraph.types import LangGraphReasoning
 import ag_ui_langgraph.utils
 from ag_ui.core import (
     ActivityMessage,
-    AssistantMessage,
     CustomEvent,
-    DeveloperMessage,
     EventType,
     MessagesSnapshotEvent,
     RunAgentInput,
     RunFinishedEvent,
-    ThinkingTextMessageContentEvent,
-    UserMessage,
 )
 from ag_ui.core.events import RunStartedEvent
 from ag_ui_langgraph.agent import Command, dump_json_safe, get_stream_payload_input
@@ -51,6 +47,7 @@ def ding_resolve_reasoning_content(chunk: AIMessageChunk | AIMessage) -> LangGra
     # (Gemini, DeepSeek, OpenAI o1/o3 通常在这里)
     # -----------------------------------------------------------
     if hasattr(chunk, "additional_kwargs"):
+        breakpoint()
         kwargs = chunk.additional_kwargs
 
         # 定义可能的推理字段名列表
@@ -390,3 +387,22 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
         stream = self.graph.astream_events(**kwargs)
 
         return {"stream": stream, "state": state, "config": config}
+
+    async def _handle_single_event(self, event: Any, state: State) -> AsyncGenerator[str, None]:
+        # 1. 尝试提取 reasoning_data，用于判断是否命中需要修复的逻辑分支
+        # 注意：你需要确保引入了 resolve_reasoning_content 和 LangGraphEventTypes
+        event_type = event.get("event")
+        chunk = event.get("data", {}).get("chunk")
+
+        reasoning_data = None
+        if event_type == ag_ui_langgraph.LangGraphEventTypes.OnChatModelStream and chunk:
+            reasoning_data = ding_resolve_reasoning_content(chunk)
+
+        if reasoning_data:
+            async for evt in self.handle_thinking_event(reasoning_data):
+                yield evt
+
+            return
+
+        async for evt in super()._handle_single_event(event, state):
+            yield evt
