@@ -159,6 +159,9 @@ async def get_agent_context(
         for plugin in config.plugins:
             assistant_plugin_configs[plugin.plugin_id] = plugin.model_dump()
 
+    # HACK:
+    input_data.forwarded_props["stream_subgraphs"] = True
+
     return AgentContext(
         session=session,
         agent=agent,

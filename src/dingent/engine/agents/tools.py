@@ -82,8 +82,11 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
             try:
                 # 尝试解析结构化数据中的 artifact
                 data = json.loads(raw_text) if raw_text else {}
-                artifact = cast(dict[str, list[dict]], data.get("display"))
-                model_text = data.get("model_text", raw_text)
+                if isinstance(data, dict) and "display" in data:
+                    artifact = cast(dict[str, list[dict]], data.get("display"))
+                    model_text = data.get("model_text", raw_text)
+                else:
+                    model_text = raw_text
             except json.JSONDecodeError:
                 model_text = raw_text
         tool_message = ToolMessage(content=model_text, tool_call_id=tool_call_id, artifact=artifact)

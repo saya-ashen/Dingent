@@ -9,7 +9,7 @@ from typing import Any
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
-from langgraph.graph.state import CompiledStateGraph
+from langgraph.graph.state import CompiledStateGraph, RunnableConfig
 from langgraph_swarm import create_swarm
 
 from dingent.core.assistants.assistant_factory import AssistantFactory
@@ -85,7 +85,6 @@ class GraphFactory:
             raise ValueError(f"Start node '{default_active}' not found in generated assistants: {list(assistants_map.keys())}")
 
         # 3. 组装 Swarm
-        # create_swarm 返回的是一个未编译的 StateGraph
         swarm_workflow = create_swarm(
             agents=list(assistants_map.values()),
             state_schema=MainState,
@@ -124,10 +123,9 @@ class GraphFactory:
         这防止了单个 Agent 的崩溃导致整个应用程序崩溃。
         """
 
-        async def safe_swarm_runner(state: MainState):
+        async def safe_swarm_runner(state: MainState, config: RunnableConfig):
             try:
-                # 运行内部的 Swarm 图
-                return await compiled_swarm.ainvoke(state)
+                return await compiled_swarm.ainvoke(state, config=config)
             except Exception as e:
                 import traceback
 
