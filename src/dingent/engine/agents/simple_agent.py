@@ -1,19 +1,40 @@
 import json
-from typing import Any, Awaitable, cast
-from langchain.agents import create_agent
+from typing import Annotated, Any, Awaitable, Sequence, cast, override
+from deepagents.graph import (
+    BASE_AGENT_PROMPT,
+    AnthropicPromptCachingMiddleware,
+    BackendFactory,
+    BackendProtocol,
+    BaseCache,
+    HumanInTheLoopMiddleware,
+    InterruptOnConfig,
+    PatchToolCallsMiddleware,
+    ResponseFormat,
+    SkillsMiddleware,
+    StateBackend,
+    SummarizationMiddleware,
+    get_default_model,
+)
+from langchain.agents import AgentState, create_agent
+from deepagents import CompiledSubAgent, FilesystemMiddleware, MemoryMiddleware, SubAgent, SubAgentMiddleware
 
 
+from langchain.agents.middleware.todo import WRITE_TODOS_SYSTEM_PROMPT, WRITE_TODOS_TOOL_DESCRIPTION, Todo
 from langchain.agents.middleware.types import ModelCallResult, ToolCallRequest
+from langchain.chat_models import init_chat_model
+from langchain.tools import BaseTool, InjectedToolCallId, tool
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, AnyMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph, RunnableConfig
-from langgraph.types import Command
+from langgraph.store.base import BaseStore
+from langgraph.types import Checkpointer, Command
 
 from .messages import ActivityMessage
 from .state import SimpleAgentState
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
+from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse, TodoListMiddleware
 from langchain.agents import create_agent
 from langgraph.runtime import Runtime
 from typing import Any, Callable
@@ -243,167 +264,6 @@ def _transform_rows_to_a2ui(columns: list[str], rows: list[list[str | int | Any]
     return a2ui_list
 
 
-def build_simple_react_agent(
-    name: str,
-    llm: BaseChatModel,
-    tools: list[StructuredTool],
-    system_prompt: str | None = None,
-    max_iterations: int = 6,
-    stop_when_no_tool: bool = True,
-) -> CompiledStateGraph:
-    name_to_tool = {t.name: t for t in tools}
-    LLM_SAFE_TYPES = (SystemMessage, HumanMessage, AIMessage, ToolMessage)
-
-    async def model_node(state: SimpleAgentState, config: RunnableConfig) -> dict[str, Any]:
-        iteration = state.get("iteration", 0)
-        # 简单的循环保护
-        if iteration >= max_iterations:
-            return {"messages": [AIMessage(content="Max iterations reached.")]}
-
-        all_messages = state.get("messages", [])
-        filtered_messages = [msg for msg in all_messages if isinstance(msg, LLM_SAFE_TYPES)]
-
-        if system_prompt:
-            input_messages = [SystemMessage(content=system_prompt)] + filtered_messages
-        else:
-            input_messages = filtered_messages
-
-        bound_model = llm.bind_tools(tools)
-
-        aggregated_message = None
-
-        async for chunk in bound_model.astream(input_messages, config=config):
-            if aggregated_message is None:
-                aggregated_message = chunk
-            else:
-                aggregated_message += chunk
-
-        if aggregated_message is None:
-            aggregated_message = AIMessage(content="")
-
-        return {
-            "messages": [aggregated_message],
-            "iteration": iteration + 1,
-        }
-
-    async def tools_node(state: SimpleAgentState, config: RunnableConfig) -> Command:
-        last_msg = state.get("messages", [])[-1]
-        if not isinstance(last_msg, AIMessage) or not last_msg.tool_calls:
-            return Command(update={})
-
-        # 获取插件配置
-        plugin_configs = config.get("configurable", {}).get("assistant_plugin_configs", {})
-
-        # 用于收集本轮循环中产生的"普通"消息（非 Handoff）
-        collected_messages: list[BaseMessage] = []
-
-        for tc in last_msg.tool_calls:
-            tool_name = tc["name"]
-            tool = name_to_tool.get(tool_name)
-
-            # 1. 处理工具不存在的情况
-            if not tool:
-                collected_messages.append(ToolMessage(content=f"Error: Tool '{tool_name}' not found.", tool_call_id=tc["id"], is_error=True))
-                continue
-
-            # 2. 注入配置参数
-            args = tc.get("args", {}).copy()
-            if tool.tags and (plugin_name := tool.tags[0]):
-                if cfg := plugin_configs.get(plugin_name):
-                    if len(cfg.get("config", {})) > 0:
-                        args["plugin_config"] = cfg.get("config")
-
-            try:
-                # 3. 执行工具
-                result = await tool.ainvoke(
-                    {
-                        "id": tc["id"],
-                        "name": tool_name,
-                        "args": args,
-                        "tool_call_id": tc["id"],
-                        "type": "tool_call",
-                    }
-                )
-
-                if not isinstance(result, Command):
-                    raise ValueError(f"Tool {tool_name} did not return a Command object.")
-
-                if result.graph:
-                    # 1. 获取当前所有的历史消息
-                    all_current_messages: list = list(state.get("messages", []))
-
-                    all_current_messages.extend(collected_messages)
-
-                    handoff_tool_msgs = result.update.get("messages", [])
-                    all_current_messages.extend(handoff_tool_msgs)
-
-                    return Command(
-                        goto=result.goto,
-                        graph=result.graph,
-                        update={
-                            "messages": all_current_messages,
-                        },
-                    )
-
-                else:
-                    raw_updates = result.update.get("messages", [])
-                    for msg in raw_updates:
-                        if msg.type == "tool":
-                            # 处理 MCP Artifacts
-                            artifact = getattr(msg, "artifact", None)
-                            if not artifact:
-                                collected_messages.append(msg)
-                                continue
-
-                            # 生成 AGUI Display
-                            agui_display = mcp_artifact_to_agui_display(
-                                tool_name=tool_name,
-                                query_args=tc.get("args", {}),
-                                surface_base_id=msg.tool_call_id,
-                                artifact=artifact,
-                            )
-                            collected_messages.append(msg)
-                            collected_messages.append(ActivityMessage(content=agui_display))
-                        else:
-                            # 非 ToolMessage 直接添加 (例如额外的 AIMessage)
-                            collected_messages.append(msg)
-
-            except Exception as e:
-                collected_messages.append(ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=tc["id"], is_error=True))
-
-        # 循环结束，没有触发 Handoff，返回本轮所有工具的增量更新
-        return Command(
-            update={
-                "messages": collected_messages,
-            }
-        )
-
-    def route_after_model(state: SimpleAgentState):
-        messages = state.get("messages", [])
-        if not messages:
-            return END
-
-        last_msg = messages[-1]
-        has_tool_calls = isinstance(last_msg, AIMessage) and bool(last_msg.tool_calls)
-
-        if has_tool_calls and state.get("iteration", 0) <= max_iterations:
-            return "tools"
-
-        if stop_when_no_tool or not has_tool_calls:
-            return END
-
-        return END
-
-    workflow = StateGraph(SimpleAgentState)
-    workflow.add_node("model", model_node)
-    workflow.add_conditional_edges("model", route_after_model)
-    workflow.add_edge("tools", "model")
-
-    compiled = workflow.compile()
-    compiled.name = name
-    return compiled
-
-
 class PluginConfigMiddleware(AgentMiddleware):
     async def awrap_model_call(
         self,
@@ -411,19 +271,11 @@ class PluginConfigMiddleware(AgentMiddleware):
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelCallResult:
         all_messages = request.messages
-        filtered_messages = [msg for msg in all_messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
+        filtered_messages: list[AnyMessage] = [msg for msg in all_messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
         request.messages = filtered_messages
-        model = request.model
-        model_with_tools = model.bind_tools(request.tools or [])
-        message = None
-        # await model_with_tools.ainvoke(request.messages)
-        async for chunk in model_with_tools.astream(request.messages):
-            if message is None:
-                message = chunk
-            else:
-                message += chunk
-            print(chunk)
-        return ModelResponse(result=[cast(Any, message)])
+        result = await handler(request)
+
+        return result
 
     async def awrap_tool_call(
         self,
@@ -461,14 +313,15 @@ class PluginConfigMiddleware(AgentMiddleware):
             # 调用 handler 执行实际的工具逻辑
             result = await handler(request)
 
-            # --- 3. (After) 输出拦截：结果处理 ---
-
-            # 情况 A: 如果工具直接返回了 Command (Handoff跳转)，直接透传
             try:
                 artifact = result.update.get("messages")[-1].artifact
             except:
                 artifact = None
-            if not artifact:
+            try:
+                todos = result.update.get("todos")
+            except:
+                todos = None
+            if not artifact and not todos:
                 return result
 
             tool_call_id = request.tool_call.get("id") or "unknown_tool_call_id"
@@ -476,25 +329,292 @@ class PluginConfigMiddleware(AgentMiddleware):
 
             collected_messages = []
 
-            # 构造 ToolMessage
-            tool_msg = ToolMessage(content=str(result), tool_call_id=tool_call_id, artifact=artifact, name=tool_name)
+            tool_msg = result.update.get("messages")[-1]
             collected_messages.append(tool_msg)
 
-            # 构造 ActivityMessage (AGUI)
-            agui_display = mcp_artifact_to_agui_display(
-                tool_name=tool_name,
-                query_args=args,
-                surface_base_id=tool_call_id,
-                artifact=artifact,
-            )
-            collected_messages.append(ActivityMessage(content=agui_display))
+            if artifact:
+                agui_display = mcp_artifact_to_agui_display(
+                    tool_name=tool_name,
+                    query_args=args,
+                    surface_base_id=tool_call_id,
+                    artifact=artifact,
+                )
+                collected_messages.append(ActivityMessage(content=agui_display))
 
-            # 返回 Command 以覆盖默认行为
             return Command(update={"messages": collected_messages})
 
         except Exception as e:
             # 统一错误处理
             return Command(update={"messages": [ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=request.tool_call.get("id"), is_error=True)]})
+
+
+class FilteredSummarizationMiddleware(SummarizationMiddleware):
+    @override
+    def before_model(
+        self,
+        state: AgentState[Any],
+        runtime: Runtime,
+    ) -> dict[str, Any] | None:
+        messages = state["messages"]
+        filtered_messages: list[AnyMessage] = [msg for msg in messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
+        state["messages"] = filtered_messages
+        return super().before_model(state, runtime)
+
+    @override
+    async def abefore_model(
+        self,
+        state: AgentState[Any],
+        runtime: Runtime,
+    ) -> dict[str, Any] | None:
+        messages = state["messages"]
+        filtered_messages: list[AnyMessage] = [msg for msg in messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
+        state["messages"] = filtered_messages
+        return await super().abefore_model(state, runtime)
+
+
+class JsonTodoListMiddleware(TodoListMiddleware):
+    """
+    A subclass of TodoListMiddleware that ensures the `write_todos` tool
+    returns a valid JSON string result, fixing frontend parsing issues.
+    """
+
+    def __init__(
+        self,
+        *,
+        system_prompt: str = WRITE_TODOS_SYSTEM_PROMPT,
+        tool_description: str = WRITE_TODOS_TOOL_DESCRIPTION,
+    ) -> None:
+        # 初始化父类
+        super().__init__(system_prompt=system_prompt, tool_description=tool_description)
+
+        # 重新定义 write_todos 工具，覆盖父类的实现
+        @tool(description=self.tool_description)
+        def write_todos(todos: list[Todo], tool_call_id: Annotated[str, InjectedToolCallId]) -> Command[Any]:
+            """Create and manage a structured task list for your current work session."""
+
+            todos_json = json.dumps(todos, ensure_ascii=False)
+
+            result_payload = json.dumps(
+                {
+                    "message": "Updated todo list successfully",
+                    "todos": json.loads(todos_json),  # 确保它是对象不是二次转义的字符串
+                },
+                ensure_ascii=False,
+            )
+
+            return Command(
+                update={
+                    "todos": todos,
+                    "messages": [ToolMessage(result_payload, tool_call_id=tool_call_id)],
+                }
+            )
+
+        # 将覆盖后的工具赋值给 self.tools
+        self.tools = [write_todos]
+
+
+def create_deep_agent(
+    model: str | BaseChatModel | None = None,
+    tools: Sequence[BaseTool | Callable | dict[str, Any]] | None = None,
+    *,
+    system_prompt: str | SystemMessage | None = None,
+    middleware: Sequence[AgentMiddleware] = (),
+    subagents: list[SubAgent | CompiledSubAgent] | None = None,
+    skills: list[str] | None = None,
+    memory: list[str] | None = None,
+    response_format: ResponseFormat | None = None,
+    context_schema: type[Any] | None = None,
+    checkpointer: Checkpointer | None = None,
+    store: BaseStore | None = None,
+    backend: BackendProtocol | BackendFactory | None = None,
+    interrupt_on: dict[str, bool | InterruptOnConfig] | None = None,
+    debug: bool = False,
+    name: str | None = None,
+    cache: BaseCache | None = None,
+) -> CompiledStateGraph:
+    """Create a deep agent.
+
+    !!! warning "Deep agents require a LLM that supports tool calling!"
+
+    By default, this agent has access to the following tools:
+
+    - `write_todos`: manage a todo list
+    - `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`: file operations
+    - `execute`: run shell commands
+    - `task`: call subagents
+
+    The `execute` tool allows running shell commands if the backend implements `SandboxBackendProtocol`.
+    For non-sandbox backends, the `execute` tool will return an error message.
+
+    Args:
+        model: The model to use.
+
+            Defaults to `claude-sonnet-4-5-20250929`.
+
+            Use the `provider:model` format (e.g., `openai:gpt-5`) to quickly switch between models.
+        tools: The tools the agent should have access to.
+
+            In addition to custom tools you provide, deep agents include built-in tools for planning,
+            file management, and subagent spawning.
+        system_prompt: Custom system instructions to prepend before the base deep agent
+            prompt.
+
+            If a string, it's concatenated with the base prompt.
+        middleware: Additional middleware to apply after the standard middleware stack
+            (`TodoListMiddleware`, `FilesystemMiddleware`, `SubAgentMiddleware`,
+            `SummarizationMiddleware`, `AnthropicPromptCachingMiddleware`,
+            `PatchToolCallsMiddleware`).
+        subagents: The subagents to use.
+
+            Each subagent should be a `dict` with the following keys:
+
+            - `name`
+            - `description` (used by the main agent to decide whether to call the sub agent)
+            - `prompt` (used as the system prompt in the subagent)
+            - (optional) `tools`
+            - (optional) `model` (either a `LanguageModelLike` instance or `dict` settings)
+            - (optional) `middleware` (list of `AgentMiddleware`)
+        skills: Optional list of skill source paths (e.g., `["/skills/user/", "/skills/project/"]`).
+
+            Paths must be specified using POSIX conventions (forward slashes) and are relative
+            to the backend's root. When using `StateBackend` (default), provide skill files via
+            `invoke(files={...})`. With `FilesystemBackend`, skills are loaded from disk relative
+            to the backend's `root_dir`. Later sources override earlier ones for skills with the
+            same name (last one wins).
+        memory: Optional list of memory file paths (`AGENTS.md` files) to load
+            (e.g., `["/memory/AGENTS.md"]`).
+
+            Display names are automatically derived from paths.
+
+            Memory is loaded at agent startup and added into the system prompt.
+        response_format: A structured output response format to use for the agent.
+        context_schema: The schema of the deep agent.
+        checkpointer: Optional `Checkpointer` for persisting agent state between runs.
+        store: Optional store for persistent storage (required if backend uses `StoreBackend`).
+        backend: Optional backend for file storage and execution.
+
+            Pass either a `Backend` instance or a callable factory like `lambda rt: StateBackend(rt)`.
+            For execution support, use a backend that implements `SandboxBackendProtocol`.
+        interrupt_on: Mapping of tool names to interrupt configs.
+
+            Pass to pause agent execution at specified tool calls for human approval or modification.
+
+            Example: `interrupt_on={"edit_file": True}` pauses before every edit.
+        debug: Whether to enable debug mode. Passed through to `create_agent`.
+        name: The name of the agent. Passed through to `create_agent`.
+        cache: The cache to use for the agent. Passed through to `create_agent`.
+
+    Returns:
+        A configured deep agent.
+    """
+    if model is None:
+        model = get_default_model()
+    elif isinstance(model, str):
+        model = init_chat_model(model)
+
+    if model.profile is not None and isinstance(model.profile, dict) and "max_input_tokens" in model.profile and isinstance(model.profile["max_input_tokens"], int):
+        trigger = ("fraction", 0.85)
+        keep = ("fraction", 0.10)
+        truncate_args_settings = {
+            "trigger": ("fraction", 0.85),
+            "keep": ("fraction", 0.10),
+        }
+    else:
+        trigger = ("tokens", 170000)
+        keep = ("messages", 6)
+        truncate_args_settings = {
+            "trigger": ("messages", 20),
+            "keep": ("messages", 20),
+        }
+
+    # Build middleware stack for subagents (includes skills if provided)
+    subagent_middleware: list[AgentMiddleware] = [
+        JsonTodoListMiddleware(),
+    ]
+
+    backend = backend if backend is not None else (lambda rt: StateBackend(rt))
+
+    if skills is not None:
+        subagent_middleware.append(SkillsMiddleware(backend=backend, sources=skills))
+    subagent_middleware.extend(
+        [
+            FilesystemMiddleware(backend=backend),
+            FilteredSummarizationMiddleware(
+                model=model,
+                backend=backend,
+                trigger=trigger,
+                keep=keep,
+                trim_tokens_to_summarize=None,
+                truncate_args_settings=cast(Any, truncate_args_settings),
+            ),
+            AnthropicPromptCachingMiddleware(unsupported_model_behavior="ignore"),
+            PatchToolCallsMiddleware(),
+        ]
+    )
+
+    # Build main agent middleware stack
+    deepagent_middleware: list[AgentMiddleware] = [
+        JsonTodoListMiddleware(),
+    ]
+    if memory is not None:
+        deepagent_middleware.append(MemoryMiddleware(backend=backend, sources=memory))
+    if skills is not None:
+        deepagent_middleware.append(SkillsMiddleware(backend=backend, sources=skills))
+    deepagent_middleware.extend(
+        [
+            FilesystemMiddleware(backend=backend),
+            SubAgentMiddleware(
+                default_model=model,
+                default_tools=tools,
+                subagents=subagents if subagents is not None else [],
+                default_middleware=subagent_middleware,
+                default_interrupt_on=interrupt_on,
+                general_purpose_agent=True,
+            ),
+            FilteredSummarizationMiddleware(
+                model=model,
+                backend=backend,
+                trigger=trigger,
+                keep=keep,
+                trim_tokens_to_summarize=None,
+                truncate_args_settings=cast(Any, truncate_args_settings),
+            ),
+            AnthropicPromptCachingMiddleware(unsupported_model_behavior="ignore"),
+            PatchToolCallsMiddleware(),
+        ]
+    )
+    if middleware:
+        deepagent_middleware.extend(middleware)
+    if interrupt_on is not None:
+        deepagent_middleware.append(HumanInTheLoopMiddleware(interrupt_on=interrupt_on))
+
+    # Combine system_prompt with BASE_AGENT_PROMPT
+    if system_prompt is None:
+        final_system_prompt: str | SystemMessage = BASE_AGENT_PROMPT
+    elif isinstance(system_prompt, SystemMessage):
+        # SystemMessage: append BASE_AGENT_PROMPT to content_blocks
+        new_content = [
+            *system_prompt.content_blocks,
+            {"type": "text", "text": f"\n\n{BASE_AGENT_PROMPT}"},
+        ]
+        final_system_prompt = SystemMessage(content=new_content)
+    else:
+        # String: simple concatenation
+        final_system_prompt = system_prompt + "\n\n" + BASE_AGENT_PROMPT
+
+    return create_agent(
+        model,
+        system_prompt=final_system_prompt,
+        tools=tools,
+        middleware=deepagent_middleware,
+        response_format=response_format,
+        context_schema=context_schema,
+        checkpointer=checkpointer,
+        store=store,
+        debug=debug,
+        name=name,
+        cache=cache,
+    ).with_config({"recursion_limit": 1000})
 
 
 middleware = [PluginConfigMiddleware()]
@@ -508,12 +628,11 @@ def build_simple_react_agent(
     max_iterations: int = 6,
 ) -> CompiledStateGraph:
     # 使用 create_react_agent 并传入 middleware
-    agent = create_agent(
+    agent = create_deep_agent(
         model=llm,
         tools=tools,
         system_prompt=system_prompt,
         middleware=middleware,
     )
-
     agent.name = name
     return agent

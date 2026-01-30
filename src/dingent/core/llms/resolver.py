@@ -57,7 +57,7 @@ class ModelResolver:
             return self._build_model_from_config(config)
         else:
             # Fallback to environment-based configuration
-            return ChatLiteLLM()
+            return ChatLiteLLM(streaming=True)
 
     def _resolve_config(
         self,
@@ -115,6 +115,7 @@ class ModelResolver:
 
         return ChatLiteLLM(
             **kwargs,
+            streaming=True,
         )
 
     def resolve_for_workflow(

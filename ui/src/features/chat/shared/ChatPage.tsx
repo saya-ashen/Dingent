@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useAgent, CopilotSidebar } from "@copilotkit/react-core/v2";
-import { Loader2 } from "lucide-react";
+import { useRenderToolCall } from "@copilotkit/react-core";
+
+import { Check, CheckCircle2, Loader2 } from "lucide-react";
 import {
   AgentSubscriber,
   ThinkingTextMessageContentEvent,
@@ -16,6 +18,7 @@ import { CopilotChatActivityList } from "@/components/CopilotChatActivityMessage
 import { useActiveWorkflow } from "@/features/workflows/hooks";
 import { getClientApi } from "@/lib/api/client";
 import { ThinkingProvider, useThinking } from "@/providers/ThinkingProvider";
+import { TodoListView } from "@/components/common/todo-list-view";
 
 interface ChatPageProps {
   isGuest?: boolean;
@@ -34,9 +37,53 @@ function ChatPageContent({ isGuest, visitorId, slug }: ChatPageProps) {
   const isAgentRunning = agent.agent.isRunning;
   const messages = agent.agent.messages;
   const activityMessages = messages.filter((m) => m.role === "activity");
+  const [todos, setTodos] = useState(null);
+
   const { appendThinkingText, clearThinkingText, isThinking, setIsThinking } =
     useThinking();
+  useRenderToolCall(
+    {
+      name: "write_todos",
+      render: ({ status, args, result }) => {
+        if (!result) return null;
+        if (result?.todos) {
+          setTodos(result.todos);
+        }
 
+        const lastTodo = todos?.[todos?.length - 1];
+
+        const content = lastTodo?.content
+          ? lastTodo.content.length > 15
+            ? lastTodo.content.slice(0, 15) + "..."
+            : lastTodo.content
+          : "Initializing...";
+
+        if (status === "complete") {
+          return (
+            <div className="flex items-center gap-1.5 text-xs text-zinc-500 bg-transparent border-none p-0 mt-1">
+              <Check className="w-3 h-3 text-green-500/70" />
+              <span>Plan updated.</span>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-zinc-500 bg-transparent border-none p-0 mt-1">
+            <Loader2 className="w-3 h-3 animate-spin text-zinc-600" />
+            <span className="opacity-80">
+              {todos.length > 0
+                ? `Step ${todos.length}: ${content}`
+                : "Thinking..."}
+            </span>
+          </div>
+        );
+      },
+    },
+    [activeThreadId],
+  );
+  useEffect(() => {
+    setTodos(null);
+  }, [activeThreadId]);
   useEffect(() => {
     if (!agent.agent) return;
 
@@ -90,6 +137,7 @@ function ChatPageContent({ isGuest, visitorId, slug }: ChatPageProps) {
           overflow-y-auto
         "
       >
+        {todos && <TodoListView key={activeThreadId} data={todos} />}
         <CopilotChatActivityList messages={activityMessages} />
       </div>
       <CopilotSidebar

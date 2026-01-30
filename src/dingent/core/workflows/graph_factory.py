@@ -6,6 +6,8 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any
 
+from langchain_core.callbacks import AsyncCallbackHandler
+
 from langchain.chat_models.base import BaseChatModel
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, START, StateGraph
@@ -125,6 +127,8 @@ class GraphFactory:
 
         async def safe_swarm_runner(state: MainState, config: RunnableConfig):
             try:
+                # HACK:
+                config["recursion_limit"] = 1000
                 return await compiled_swarm.ainvoke(state, config=config)
             except Exception as e:
                 import traceback
@@ -133,11 +137,10 @@ class GraphFactory:
                 print("捕获到的错误信息：\n", error_msg)
                 error_type = type(e).__name__
                 error_msg = f"Critical Swarm Error: {error_type}: {str(e)}"
+                traceback.print_tb(e.__traceback__)
 
                 log_method("error", "Swarm execution failed: {error_msg}", context={"error_type": error_type, "error": str(e)})
 
-                # 尝试恢复基本状态，防止状态丢失
-                # 这里的逻辑是：如果 Swarm 挂了，至少返回用户一条错误消息
                 messages = state.get("messages", [])
                 error_message = AIMessage(
                     content=f"I encountered a system error and could not complete the request.\n\nDetails: {error_msg}", additional_kwargs={"error": True, "error_type": error_type}
