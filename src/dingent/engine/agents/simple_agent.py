@@ -297,7 +297,9 @@ class PluginConfigMiddleware(AgentMiddleware):
         plugin_configs = config.get("configurable", {}).get("assistant_plugin_configs", {})
 
         tool = request.tool
-        assert tool is not None, "Tool must be present in the request."
+        # assert tool is not None, "Tool must be present in the request."
+        if not tool:
+            return await handler(request)
         args = request.tool_call.get("args", {}).copy()
 
         # 检查 Tags 并注入配置
