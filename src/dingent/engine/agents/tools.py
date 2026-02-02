@@ -58,9 +58,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
     async def call_tool(tool_call_id: Annotated[str, InjectedToolCallId], **kwargs) -> Command:
         try:
             tool_args = kwargs
-            plugin_config = tool_args.get("plugin_config", None)
-            if not plugin_config:
-                tool_args.pop("plugin_config", None)
+            plugin_config = tool_args.pop("plugin_config", None)
 
             response_raw = await runnable_tool.run(tool_args)
 
@@ -68,7 +66,6 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
         except Exception as e:
             error_msg = f"{type(e).__name__}: {e}"
             log_method("error", f"Error: {error_msg}", context={"tool": tool_def.name, "id": tool_call_id})
-            # 出错时返回普通消息，保持流程继续
             return Command(update={"messages": [ToolMessage(content=error_msg, tool_call_id=tool_call_id, status="error")]})
 
         # 解析 Artifacts

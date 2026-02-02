@@ -46,7 +46,6 @@ class AgentContext:
     conversation: Conversation
     encoder: EventEncoder
     input_data: RunAgentInput
-    assistant_plugin_configs: dict[str, dict] | None
 
 
 def update_conversation_title(conversation: Conversation, input_data: RunAgentInput, max_length: int = 50) -> None:
@@ -87,25 +86,16 @@ async def get_agent_context(
     conversation = session.exec(select(Conversation).where(Conversation.id == thread_uuid)).first()
 
     if conversation:
-        # 1. 检查 Workspace 归属
         if conversation.workspace_id != workspace.id:
             raise HTTPException(status_code=403, detail="This conversation belongs to a different workspace.")
 
-        # 2. 检查会话归属 (用户 OR 游客)
         if user:
-            # 如果是登录用户，必须匹配 user_id
             if conversation.user_id != user.id:
-                # 边缘情况：如果用户登录了，但试图访问自己作为游客时创建的会话？
-                # 策略A (严格): 禁止。
-                # 策略B (宽松): 如果 thread 没有 user_id 且 visitor_id 匹配，允许并关联(可选)。
-                # 这里使用严格模式：
                 raise HTTPException(status_code=403, detail="You do not have permission to access this conversation.")
         else:
-            # 如果是游客，必须匹配 visitor_id
             if not visitor_id:
                 raise HTTPException(status_code=400, detail="Guest users must provide X-Visitor-ID header")
 
-            # 关键：如果会话属于某个注册用户，游客绝不能访问
             if conversation.user_id is not None:
                 raise HTTPException(status_code=403, detail="This conversation belongs to a registered user.")
 
@@ -154,13 +144,6 @@ async def get_agent_context(
     # --- D. 准备 Encoder ---
     accept_header = request.headers.get("accept")
     encoder = EventEncoder(accept=cast(str, accept_header))
-    assistant_plugin_configs = {}
-    for config in spec.assistant_configs.values():
-        for plugin in config.plugins:
-            assistant_plugin_configs[plugin.plugin_id] = plugin.model_dump()
-
-    # HACK:
-    input_data.forwarded_props["stream_subgraphs"] = True
 
     return AgentContext(
         session=session,
@@ -168,7 +151,6 @@ async def get_agent_context(
         conversation=conversation,
         encoder=encoder,
         input_data=input_data,
-        assistant_plugin_configs=assistant_plugin_configs,
     )
 
 
@@ -189,11 +171,6 @@ async def run(
     async def event_generator():
         async for event in ctx.agent.run(
             ctx.input_data,
-            extra_config={
-                "configurable": {
-                    "assistant_plugin_configs": ctx.assistant_plugin_configs,
-                },
-            },
         ):
             encoded_event = ctx.encoder.encode(cast(Any, event))
             yield encoded_event

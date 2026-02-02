@@ -289,30 +289,7 @@ class PluginConfigMiddleware(AgentMiddleware):
         3. 输出后：处理 Command (Handoff)
         """
 
-        # --- 1. (Before) 输入拦截：注入配置 ---
-        # 获取当前运行时的配置
-        runtime = request.runtime
-
-        config = runtime.config
-        plugin_configs = config.get("configurable", {}).get("assistant_plugin_configs", {})
-
-        tool = request.tool
-        # assert tool is not None, "Tool must be present in the request."
-        if not tool:
-            return await handler(request)
-        args = request.tool_call.get("args", {}).copy()
-
-        # 检查 Tags 并注入配置
-        if tool.tags and (plugin_name := tool.tags[0]):
-            if cfg := plugin_configs.get(plugin_name):
-                if len(cfg.get("config", {})) > 0:
-                    args["plugin_config"] = cfg.get("config")
-                    # 更新请求参数
-                    request.tool_call["args"] = args
-
         try:
-            # --- 2. (Execute) 执行工具 ---
-            # 调用 handler 执行实际的工具逻辑
             result = await handler(request)
 
             try:
@@ -327,7 +304,7 @@ class PluginConfigMiddleware(AgentMiddleware):
                 return result
 
             tool_call_id = request.tool_call.get("id") or "unknown_tool_call_id"
-            tool_name = tool.name
+            tool_name = request.tool.name
 
             collected_messages = []
 
@@ -337,7 +314,7 @@ class PluginConfigMiddleware(AgentMiddleware):
             if artifact:
                 agui_display = mcp_artifact_to_agui_display(
                     tool_name=tool_name,
-                    query_args=args,
+                    query_args=request.tool_call.get("args", {}),
                     surface_base_id=tool_call_id,
                     artifact=artifact,
                 )
@@ -346,7 +323,6 @@ class PluginConfigMiddleware(AgentMiddleware):
             return Command(update={"messages": collected_messages})
 
         except Exception as e:
-            # 统一错误处理
             return Command(update={"messages": [ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=request.tool_call.get("id"), is_error=True)]})
 
 
@@ -635,6 +611,7 @@ def build_simple_react_agent(
         tools=tools,
         system_prompt=system_prompt,
         middleware=middleware,
+        debug=True,
     )
     agent.name = name
     return agent
