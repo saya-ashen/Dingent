@@ -73,7 +73,7 @@ async def create_assistant_graphs(
                 name=name,
                 llm=llm,
                 tools=handoff_tools + wrapped_tools,
-                system_prompt=None,
+                system_prompt=assistant_config.instructions,
             )
             assistant_graphs[name] = agent
 

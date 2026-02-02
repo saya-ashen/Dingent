@@ -176,6 +176,7 @@ class Assistant(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
     name: str = Field(index=True)
     description: str | None = None
+    instructions: str | None = Field(default=None, sa_column=Column(Text))
     version: str = "0.2.0"
     spec_version: str = "3.0"
     enabled: bool = True
@@ -209,6 +210,7 @@ class Assistant(SQLModel, table=True):
             id=self.id,
             name=normalize_agent_name(self.name),
             description=self.description or "",
+            instructions=self.instructions or "",
             plugins=[pl.to_spec() for pl in self.plugin_links],
         )
 

@@ -1,8 +1,20 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, ChevronDown, ChevronRight, Edit2, Check, X } from "lucide-react";
+import {
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Edit2,
+  Check,
+  X,
+} from "lucide-react";
 import { safeBool, effectiveStatusForItem, toStr } from "@/lib/utils";
-import { Assistant, AssistantPlugin, PluginManifest, LLMModelConfig } from "@/types/entity";
+import {
+  Assistant,
+  AssistantPlugin,
+  PluginManifest,
+  LLMModelConfig,
+} from "@/types/entity";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Switch } from "@/components/ui/switch";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -356,12 +368,9 @@ export function AssistantEditor({
 }) {
   const enabled = safeBool(assistant.enabled, false);
 
-  const currentIds = new Set((assistant.plugins || []).map((p) => p.registry_id));
-
-  // 监控currentIds和availablePlugins的变化
-  useEffect(() => {
-    console.log("Current Plugin IDs:", Array.from(currentIds));
-  }, [currentIds]);
+  const currentIds = new Set(
+    (assistant.plugins || []).map((p) => p.registry_id),
+  );
 
   const addable = useMemo(
     () =>
@@ -400,30 +409,58 @@ export function AssistantEditor({
           </div>
         </div>
       </div>
+      {/* 2. Description (Handoff Prompt) */}
       <div className="space-y-2">
-        <Label>Description</Label>
+        <div className="flex flex-col space-y-1">
+          <Label>Description (Handoff/Routing)</Label>
+          <span className="text-xs text-muted-foreground">
+            Public description used by the <strong>Router Agent</strong> to
+            decide when to transfer tasks to this assistant. Keep it concise.
+          </span>
+        </div>
         <Textarea
+          className="resize-y"
+          placeholder="e.g. Handles refund requests, order status checks, and payment issues."
           value={assistant.description || ""}
           onChange={(e) =>
             onChange({ ...assistant, description: e.target.value })
           }
         />
       </div>
-
+      {/* 3. Instructions (System Prompt) */}
+      <div className="space-y-2">
+        <div className="flex flex-col space-y-1">
+          <Label>System Instructions (Prompt)</Label>
+          <span className="text-xs text-muted-foreground">
+            The internal persona and rules for this agent. Defines how it
+            behaves and executes tasks.
+          </span>
+        </div>
+        <Textarea
+          className="min-h-[200px] font-mono text-sm leading-relaxed" // 使用等宽字体和较大的高度
+          placeholder="e.g. You are a helpful support agent. You must verify the user ID before checking order status..."
+          value={assistant.instructions || ""}
+          onChange={(e) =>
+            onChange({ ...assistant, instructions: e.target.value })
+          }
+        />
+      </div>
       <div className="space-y-2">
         <Label>Model Configuration (Optional)</Label>
         <p className="text-sm text-muted-foreground mb-2">
-          Override the default model for this assistant. Leave empty to use workspace/workflow default.
+          Override the default model for this assistant. Leave empty to use
+          workspace/workflow default.
         </p>
         <ModelSelector
           models={availableModels}
           value={assistant.model_config_id || null}
-          onChange={(modelId) => onChange({ ...assistant, model_config_id: modelId })}
+          onChange={(modelId) =>
+            onChange({ ...assistant, model_config_id: modelId })
+          }
           placeholder="Use default model"
           allowClear={true}
         />
       </div>
-
       <Separator />
       <div className="flex items-center justify-start gap-4">
         <h3 className="text-base font-semibold">Plugins</h3>

@@ -18,9 +18,13 @@ import webbrowser
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated
+from alembic.config import Config as AlembicConfig
+from alembic import command as alembic_command
 
 import typer
 from rich.console import Console
+
+from dingent.core.paths import paths
 
 if sys.platform == "win32":
     os.environ["PYTHONUTF8"] = "1"
@@ -308,6 +312,67 @@ def _run_async(coro):
         console.print("\n[bold yellow]Interrupted by user[/bold yellow]")
 
 
+def _get_alembic_config(database_url: str | None = None) -> AlembicConfig:
+    """
+    构造 Alembic 配置对象，自动处理打包后的路径问题
+    """
+    # 1. 确定基准路径（处理 PyInstaller 打包后的 _MEIPASS 路径）
+    if getattr(sys, "frozen", False):
+        # 打包环境
+        base_dir = sys._MEIPASS  # type: ignore
+    else:
+        # 开发环境
+        base_dir = os.getcwd()
+
+    # 2. 定位 alembic 目录和 ini 文件
+    # 假设你的目录结构是 root/alembic 和 root/alembic.ini
+    script_location = os.path.join(base_dir, "alembic")
+    ini_location = os.path.join(base_dir, "alembic.ini")
+
+    # 3. 验证文件是否存在（便于调试）
+    if not os.path.exists(script_location):
+        console.print(f"[bold red]❌ Error:[/bold red] Migration script dir not found at {script_location}")
+        sys.exit(1)
+
+    # 4. 创建配置对象
+    # 注意：我们不直接读取文件，而是编程方式设置，这样更稳健
+    alembic_cfg = AlembicConfig(ini_location)
+
+    # 强制设置 script_location 为绝对路径
+    alembic_cfg.set_main_option("script_location", script_location)
+
+    # 5. 设置数据库 URL
+    # 优先使用传入的 URL，其次读取环境变量，最后兜底
+    final_url = database_url or os.getenv("DATABASE_URL")
+    if not final_url:
+        if not paths.sqlite_path.exists():
+            console.print("[bold red]❌ Error:[/bold red] DATABASE_URL not set.")
+            sys.exit(1)
+        final_url = f"sqlite:///{paths.sqlite_path}"
+
+    alembic_cfg.set_main_option("sqlalchemy.url", final_url)
+
+    # 禁用 logging 劫持，防止 alembic 弄乱你的 rich console
+    alembic_cfg.attributes["configure_logger"] = False
+
+    return alembic_cfg
+
+
+def _run_migrations(url: str | None = None):
+    """执行数据库迁移的核心逻辑"""
+    console.print("[cyan]🔄 Checking database migrations...[/cyan]")
+    try:
+        cfg = _get_alembic_config(url)
+        # 捕获 stdout 以防止 alembic 输出干扰 CLI 界面（可选）
+        # 这里直接调用 upgrade head
+        alembic_command.upgrade(cfg, "head")
+        console.print("[bold green]✓ Database is up to date.[/bold green]")
+    except Exception as e:
+        console.print(f"[bold red]❌ Migration failed:[/bold red] {e}")
+        # 在生产环境中，数据库迁移失败通常应该阻止启动
+        sys.exit(1)
+
+
 @app.command()
 def run(
     host: str = "localhost",
@@ -317,6 +382,7 @@ def run(
     data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d")] = None,
     dev: bool = False,
     base_path: Annotated[str | None, typer.Option("--base-path", help="Base path for frontend (e.g., /myapp)")] = None,
+    skip_migration: bool = False,  # 新增参数，允许跳过迁移
 ):
     """
     Concurrently starts the backend and frontend services.
@@ -324,6 +390,9 @@ def run(
     # 1. 注入环境变量
     if data_dir:
         os.environ["DINGENT_HOME"] = str(data_dir.resolve())
+
+    if not skip_migration:
+        _run_migrations()
 
     # 2. 导入依赖
     from dingent.cli.assets import asset_manager
@@ -396,6 +465,20 @@ def internal_backend(host: str, port: int):
     import uvicorn
 
     uvicorn.run("dingent.server.main:app", host=host, port=port)
+
+
+@app.command()
+def upgrade_db(
+    url: Annotated[str | None, typer.Option(help="Override Database URL")] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir", "-d")] = None,
+):
+    """
+    Manually run database migrations.
+    """
+    if data_dir:
+        os.environ["DINGENT_HOME"] = str(data_dir.resolve())
+
+    _run_migrations(url)
 
 
 @app.command()

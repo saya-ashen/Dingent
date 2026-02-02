@@ -121,6 +121,7 @@ async def _build_assistant_read(assistant: Assistant, runtime_assistant: Assista
         id=str(assistant.id),
         name=assistant.name,
         description=assistant.description or "No description",
+        instructions=assistant.instructions,
         status=assistant_status,
         plugins=plugins_read_list,
         version=assistant.version,
