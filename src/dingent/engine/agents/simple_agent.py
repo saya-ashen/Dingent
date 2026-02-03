@@ -252,7 +252,6 @@ class PluginConfigMiddleware(AgentMiddleware):
         filtered_messages: list[AnyMessage] = [msg for msg in all_messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
         request.messages = filtered_messages
         result = await handler(request)
-        breakpoint()
 
         return result
 
