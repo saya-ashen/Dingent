@@ -301,6 +301,10 @@ class PluginConfigMiddleware(AgentMiddleware):
             except:
                 todos = None
             if not artifact and not todos:
+                if result.graph:
+                    history_messages = request.state.get("messages", [])
+                    history_messages.append(result.update.get("messages")[-1])
+                    result.update["messages"] = history_messages
                 return result
 
             tool_call_id = request.tool_call.get("id") or "unknown_tool_call_id"
@@ -324,30 +328,6 @@ class PluginConfigMiddleware(AgentMiddleware):
 
         except Exception as e:
             return Command(update={"messages": [ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=request.tool_call.get("id"), is_error=True)]})
-
-
-class FilteredSummarizationMiddleware(SummarizationMiddleware):
-    @override
-    def before_model(
-        self,
-        state: AgentState[Any],
-        runtime: Runtime,
-    ) -> dict[str, Any] | None:
-        messages = state["messages"]
-        filtered_messages: list[AnyMessage] = [msg for msg in messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
-        state["messages"] = filtered_messages
-        return super().before_model(state, runtime)
-
-    @override
-    async def abefore_model(
-        self,
-        state: AgentState[Any],
-        runtime: Runtime,
-    ) -> dict[str, Any] | None:
-        messages = state["messages"]
-        filtered_messages: list[AnyMessage] = [msg for msg in messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
-        state["messages"] = filtered_messages
-        return await super().abefore_model(state, runtime)
 
 
 class JsonTodoListMiddleware(TodoListMiddleware):
@@ -391,211 +371,7 @@ class JsonTodoListMiddleware(TodoListMiddleware):
         self.tools = [write_todos]
 
 
-def create_deep_agent(
-    model: str | BaseChatModel | None = None,
-    tools: Sequence[BaseTool | Callable | dict[str, Any]] | None = None,
-    *,
-    system_prompt: str | SystemMessage | None = None,
-    middleware: Sequence[AgentMiddleware] = (),
-    subagents: list[SubAgent | CompiledSubAgent] | None = None,
-    skills: list[str] | None = None,
-    memory: list[str] | None = None,
-    response_format: ResponseFormat | None = None,
-    context_schema: type[Any] | None = None,
-    checkpointer: Checkpointer | None = None,
-    store: BaseStore | None = None,
-    backend: BackendProtocol | BackendFactory | None = None,
-    interrupt_on: dict[str, bool | InterruptOnConfig] | None = None,
-    debug: bool = False,
-    name: str | None = None,
-    cache: BaseCache | None = None,
-) -> CompiledStateGraph:
-    """Create a deep agent.
-
-    !!! warning "Deep agents require a LLM that supports tool calling!"
-
-    By default, this agent has access to the following tools:
-
-    - `write_todos`: manage a todo list
-    - `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`: file operations
-    - `execute`: run shell commands
-    - `task`: call subagents
-
-    The `execute` tool allows running shell commands if the backend implements `SandboxBackendProtocol`.
-    For non-sandbox backends, the `execute` tool will return an error message.
-
-    Args:
-        model: The model to use.
-
-            Defaults to `claude-sonnet-4-5-20250929`.
-
-            Use the `provider:model` format (e.g., `openai:gpt-5`) to quickly switch between models.
-        tools: The tools the agent should have access to.
-
-            In addition to custom tools you provide, deep agents include built-in tools for planning,
-            file management, and subagent spawning.
-        system_prompt: Custom system instructions to prepend before the base deep agent
-            prompt.
-
-            If a string, it's concatenated with the base prompt.
-        middleware: Additional middleware to apply after the standard middleware stack
-            (`TodoListMiddleware`, `FilesystemMiddleware`, `SubAgentMiddleware`,
-            `SummarizationMiddleware`, `AnthropicPromptCachingMiddleware`,
-            `PatchToolCallsMiddleware`).
-        subagents: The subagents to use.
-
-            Each subagent should be a `dict` with the following keys:
-
-            - `name`
-            - `description` (used by the main agent to decide whether to call the sub agent)
-            - `prompt` (used as the system prompt in the subagent)
-            - (optional) `tools`
-            - (optional) `model` (either a `LanguageModelLike` instance or `dict` settings)
-            - (optional) `middleware` (list of `AgentMiddleware`)
-        skills: Optional list of skill source paths (e.g., `["/skills/user/", "/skills/project/"]`).
-
-            Paths must be specified using POSIX conventions (forward slashes) and are relative
-            to the backend's root. When using `StateBackend` (default), provide skill files via
-            `invoke(files={...})`. With `FilesystemBackend`, skills are loaded from disk relative
-            to the backend's `root_dir`. Later sources override earlier ones for skills with the
-            same name (last one wins).
-        memory: Optional list of memory file paths (`AGENTS.md` files) to load
-            (e.g., `["/memory/AGENTS.md"]`).
-
-            Display names are automatically derived from paths.
-
-            Memory is loaded at agent startup and added into the system prompt.
-        response_format: A structured output response format to use for the agent.
-        context_schema: The schema of the deep agent.
-        checkpointer: Optional `Checkpointer` for persisting agent state between runs.
-        store: Optional store for persistent storage (required if backend uses `StoreBackend`).
-        backend: Optional backend for file storage and execution.
-
-            Pass either a `Backend` instance or a callable factory like `lambda rt: StateBackend(rt)`.
-            For execution support, use a backend that implements `SandboxBackendProtocol`.
-        interrupt_on: Mapping of tool names to interrupt configs.
-
-            Pass to pause agent execution at specified tool calls for human approval or modification.
-
-            Example: `interrupt_on={"edit_file": True}` pauses before every edit.
-        debug: Whether to enable debug mode. Passed through to `create_agent`.
-        name: The name of the agent. Passed through to `create_agent`.
-        cache: The cache to use for the agent. Passed through to `create_agent`.
-
-    Returns:
-        A configured deep agent.
-    """
-    if model is None:
-        model = get_default_model()
-    elif isinstance(model, str):
-        model = init_chat_model(model)
-
-    if model.profile is not None and isinstance(model.profile, dict) and "max_input_tokens" in model.profile and isinstance(model.profile["max_input_tokens"], int):
-        trigger = ("fraction", 0.85)
-        keep = ("fraction", 0.10)
-        truncate_args_settings = {
-            "trigger": ("fraction", 0.85),
-            "keep": ("fraction", 0.10),
-        }
-    else:
-        trigger = ("tokens", 170000)
-        keep = ("messages", 6)
-        truncate_args_settings = {
-            "trigger": ("messages", 20),
-            "keep": ("messages", 20),
-        }
-
-    # Build middleware stack for subagents (includes skills if provided)
-    subagent_middleware: list[AgentMiddleware] = [
-        JsonTodoListMiddleware(),
-    ]
-
-    backend = backend if backend is not None else (lambda rt: StateBackend(rt))
-
-    if skills is not None:
-        subagent_middleware.append(SkillsMiddleware(backend=backend, sources=skills))
-    subagent_middleware.extend(
-        [
-            FilesystemMiddleware(backend=backend),
-            FilteredSummarizationMiddleware(
-                model=model,
-                backend=backend,
-                trigger=trigger,
-                keep=keep,
-                trim_tokens_to_summarize=None,
-                truncate_args_settings=cast(Any, truncate_args_settings),
-            ),
-            AnthropicPromptCachingMiddleware(unsupported_model_behavior="ignore"),
-            PatchToolCallsMiddleware(),
-        ]
-    )
-
-    # Build main agent middleware stack
-    deepagent_middleware: list[AgentMiddleware] = [
-        JsonTodoListMiddleware(),
-    ]
-    if memory is not None:
-        deepagent_middleware.append(MemoryMiddleware(backend=backend, sources=memory))
-    if skills is not None:
-        deepagent_middleware.append(SkillsMiddleware(backend=backend, sources=skills))
-    deepagent_middleware.extend(
-        [
-            FilesystemMiddleware(backend=backend),
-            SubAgentMiddleware(
-                default_model=model,
-                default_tools=tools,
-                subagents=subagents if subagents is not None else [],
-                default_middleware=subagent_middleware,
-                default_interrupt_on=interrupt_on,
-                general_purpose_agent=True,
-            ),
-            FilteredSummarizationMiddleware(
-                model=model,
-                backend=backend,
-                trigger=trigger,
-                keep=keep,
-                trim_tokens_to_summarize=None,
-                truncate_args_settings=cast(Any, truncate_args_settings),
-            ),
-            AnthropicPromptCachingMiddleware(unsupported_model_behavior="ignore"),
-            PatchToolCallsMiddleware(),
-        ]
-    )
-    if middleware:
-        deepagent_middleware.extend(middleware)
-    if interrupt_on is not None:
-        deepagent_middleware.append(HumanInTheLoopMiddleware(interrupt_on=interrupt_on))
-
-    # Combine system_prompt with BASE_AGENT_PROMPT
-    if system_prompt is None:
-        final_system_prompt: str | SystemMessage = BASE_AGENT_PROMPT
-    elif isinstance(system_prompt, SystemMessage):
-        # SystemMessage: append BASE_AGENT_PROMPT to content_blocks
-        new_content = [
-            *system_prompt.content_blocks,
-            {"type": "text", "text": f"\n\n{BASE_AGENT_PROMPT}"},
-        ]
-        final_system_prompt = SystemMessage(content=new_content)
-    else:
-        # String: simple concatenation
-        final_system_prompt = system_prompt + "\n\n" + BASE_AGENT_PROMPT
-
-    return create_agent(
-        model,
-        system_prompt=final_system_prompt,
-        tools=tools,
-        middleware=deepagent_middleware,
-        response_format=response_format,
-        context_schema=context_schema,
-        checkpointer=checkpointer,
-        store=store,
-        debug=debug,
-        name=name,
-        cache=cache,
-    ).with_config({"recursion_limit": 1000})
-
-
-middleware = [PluginConfigMiddleware()]
+middleware = [PluginConfigMiddleware(), JsonTodoListMiddleware()]
 
 
 def build_simple_react_agent(
@@ -606,7 +382,7 @@ def build_simple_react_agent(
     max_iterations: int = 6,
 ) -> CompiledStateGraph:
     # 使用 create_react_agent 并传入 middleware
-    agent = create_deep_agent(
+    agent = create_agent(
         model=llm,
         tools=tools,
         system_prompt=system_prompt,
