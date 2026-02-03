@@ -1,42 +1,20 @@
 import json
 from typing import Annotated, Any, Awaitable, Sequence, cast, override
-from deepagents.graph import (
-    BASE_AGENT_PROMPT,
-    AnthropicPromptCachingMiddleware,
-    BackendFactory,
-    BackendProtocol,
-    BaseCache,
-    HumanInTheLoopMiddleware,
-    InterruptOnConfig,
-    PatchToolCallsMiddleware,
-    ResponseFormat,
-    SkillsMiddleware,
-    StateBackend,
-    SummarizationMiddleware,
-    get_default_model,
-)
 from langchain.agents import AgentState, create_agent
-from deepagents import CompiledSubAgent, FilesystemMiddleware, MemoryMiddleware, SubAgent, SubAgentMiddleware
 
 
 from langchain.agents.middleware.todo import WRITE_TODOS_SYSTEM_PROMPT, WRITE_TODOS_TOOL_DESCRIPTION, Todo
 from langchain.agents.middleware.types import ModelCallResult, ToolCallRequest
-from langchain.chat_models import init_chat_model
 from langchain.tools import BaseTool, InjectedToolCallId, tool
-from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AnyMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import StructuredTool
-from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph, RunnableConfig
-from langgraph.store.base import BaseStore
 from langgraph.types import Checkpointer, Command
 
 from .messages import ActivityMessage
-from .state import SimpleAgentState
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse, TodoListMiddleware
 from langchain.agents import create_agent
-from langgraph.runtime import Runtime
 from typing import Any, Callable
 
 
@@ -274,6 +252,7 @@ class PluginConfigMiddleware(AgentMiddleware):
         filtered_messages: list[AnyMessage] = [msg for msg in all_messages if isinstance(msg, (SystemMessage, HumanMessage, AIMessage, ToolMessage))]
         request.messages = filtered_messages
         result = await handler(request)
+        breakpoint()
 
         return result
 
