@@ -242,7 +242,7 @@ def _transform_rows_to_a2ui(columns: list[str], rows: list[list[str | int | Any]
     return a2ui_list
 
 
-class PluginConfigMiddleware(AgentMiddleware):
+class DingMiddleware(AgentMiddleware):
     async def awrap_model_call(
         self,
         request: ModelRequest,
@@ -260,52 +260,67 @@ class PluginConfigMiddleware(AgentMiddleware):
         request: ToolCallRequest,
         handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
     ) -> ToolMessage | Command[Any]:
-        """
-        统一处理：
-        1. 输入前：注入 plugin_configs
-        2. 输出后：处理 MCP Artifacts 并生成 AGUI Display 消息
-        3. 输出后：处理 Command (Handoff)
-        """
+        tool_call = request.tool_call
+        tool_call_id = tool_call.get("id") or "unknown_tool_call_id"
+        tool_name = request.tool.name
 
         try:
             result = await handler(request)
 
-            try:
-                artifact = result.update.get("messages")[-1].artifact
-            except:
+            # --- 分支 A: 处理 ToolMessage ---
+            if isinstance(result, ToolMessage):
+                content = result.content
                 artifact = None
-            try:
-                todos = result.update.get("todos")
-            except:
-                todos = None
-            if not artifact and not todos:
+                data = {}
+                if result.artifact:
+                    structured_content = result.artifact["structured_content"]
+                    if isinstance(structured_content, dict):
+                        data = structured_content
+                    elif isinstance(structured_content, str) and structured_content.strip():
+                        try:
+                            data = json.loads(structured_content)
+                        except json.JSONDecodeError:
+                            pass  # 保持默认的 model_text
+
+                if isinstance(data, dict) and "display" in data:
+                    artifact = cast(dict[str, list[dict]], data.get("display"))
+                    model_text = data.get("model_text", content)
+                else:
+                    model_text = content
+
+                # 构建消息列表
+                collected_messages: list = [ToolMessage(content=model_text, tool_call_id=tool_call_id, artifact=artifact)]
+
+                # 如果有 artifact，生成 ActivityMessage
+                if artifact:
+                    agui_display = mcp_artifact_to_agui_display(
+                        tool_name=tool_name,
+                        query_args=tool_call.get("args", {}),
+                        surface_base_id=tool_call_id,
+                        artifact=artifact,
+                    )
+                    collected_messages.append(ActivityMessage(content=agui_display))
+
+                return Command(update={"messages": collected_messages})
+
+            # --- 分支 B: 处理 Command ---
+            elif isinstance(result, Command):
+                # 如果是 Graph 更新，追加历史消息逻辑
                 if result.graph:
                     history_messages = request.state.get("messages", [])
-                    history_messages.append(result.update.get("messages")[-1])
-                    result.update["messages"] = history_messages
+                    # 确保 update 中有 messages 且不为空
+                    new_msgs = result.update.get("messages")
+                    if new_msgs:
+                        history_messages.append(new_msgs[-1])
+                        result.update["messages"] = history_messages
                 return result
 
-            tool_call_id = request.tool_call.get("id") or "unknown_tool_call_id"
-            tool_name = request.tool.name
-
-            collected_messages = []
-
-            tool_msg = result.update.get("messages")[-1]
-            collected_messages.append(tool_msg)
-
-            if artifact:
-                agui_display = mcp_artifact_to_agui_display(
-                    tool_name=tool_name,
-                    query_args=request.tool_call.get("args", {}),
-                    surface_base_id=tool_call_id,
-                    artifact=artifact,
-                )
-                collected_messages.append(ActivityMessage(content=agui_display))
-
-            return Command(update={"messages": collected_messages})
+            else:
+                raise ValueError(f"Unsupported result type: {type(result)}")
 
         except Exception as e:
-            return Command(update={"messages": [ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=request.tool_call.get("id"), is_error=True)]})
+            raise e
+            return Command(update={"messages": [ToolMessage(content=f"Execution Error: {str(e)}", tool_call_id=tool_call_id, is_error=True)]})
 
 
 class JsonTodoListMiddleware(TodoListMiddleware):
@@ -349,13 +364,13 @@ class JsonTodoListMiddleware(TodoListMiddleware):
         self.tools = [write_todos]
 
 
-middleware = [PluginConfigMiddleware(), JsonTodoListMiddleware()]
+middleware = [DingMiddleware(), JsonTodoListMiddleware()]
 
 
 def build_simple_react_agent(
     name: str,
     llm: BaseChatModel,
-    tools: list[StructuredTool],
+    tools: list[BaseTool],
     system_prompt: str | None = None,
     max_iterations: int = 6,
 ) -> CompiledStateGraph:

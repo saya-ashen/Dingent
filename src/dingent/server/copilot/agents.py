@@ -1,3 +1,5 @@
+from dataclasses import is_dataclass, asdict
+from enum import Enum
 import json
 from typing import Any
 import uuid
@@ -32,7 +34,6 @@ from ag_ui_langgraph.utils import (
 )
 from copilotkit import LangGraphAGUIAgent
 from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, SystemMessage, ToolMessage
-from pydantic import Field
 
 from dingent.engine.agents import messages as DingMessages
 
@@ -248,8 +249,98 @@ def ding_agui_messages_to_langchain(messages: list[AGUIMessage]) -> list[BaseMes
     return langchain_messages
 
 
+def ding_make_json_safe(value: Any, _seen: set[int] | None = None) -> Any:
+    """
+    Convert `value` into something that `json.dumps` can always handle.
+    Includes a blacklist to prevent traversing into dangerous LangGraph internal objects.
+    """
+    if _seen is None:
+        _seen = set()
+
+    obj_id = id(value)
+    if obj_id in _seen:
+        return "<recursive>"
+
+    # --- 0. Blocklist for dangerous keys ---------------------------------------
+    # 这些 key 通常包含不可序列化的运行时对象（如数据库连接、回调管理器）
+    # 在遍历字典时，如果遇到这些 key，直接跳过其内容的递归
+    UNSAFE_KEYS = {"runtime", "config", "configurable", "callbacks", "__pregel_runtime", "__pregel_task_id", "stream_writer", "store"}
+
+    # --- 1. Primitives -----------------------------------------------------
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+
+    # --- 2. Enum → use underlying value -----------------------------------
+    if isinstance(value, Enum):
+        return ding_make_json_safe(value.value, _seen)
+
+    # --- 3. Dicts (CRITICAL FIX HERE) --------------------------------------
+    if isinstance(value, dict):
+        _seen.add(obj_id)
+        safe_dict = {}
+        for k, v in value.items():
+            # 检查 key 是否在黑名单中，或者是内部私有属性（以 __pregel 开头）
+            str_k = str(k)
+            if str_k in UNSAFE_KEYS or str_k.startswith("__pregel_"):
+                # 仅保留占位符，不再递归进入 v
+                safe_dict[ding_make_json_safe(k, _seen)] = f"<Filtered: {str_k}>"
+            else:
+                safe_dict[ding_make_json_safe(k, _seen)] = ding_make_json_safe(v, _seen)
+        return safe_dict
+
+    # --- 4. Iterable containers -------------------------------------------
+    if isinstance(value, (list, tuple, set, frozenset)):
+        _seen.add(obj_id)
+        return [ding_make_json_safe(v, _seen) for v in value]
+
+    # --- 5. Dataclasses ----------------------------------------------------
+    if is_dataclass(value):
+        _seen.add(obj_id)
+        return ding_make_json_safe(asdict(value), _seen)
+
+    # --- 6. Pydantic-like models (v2: model_dump) -------------------------
+    if hasattr(value, "model_dump") and callable(getattr(value, "model_dump")):
+        _seen.add(obj_id)
+        try:
+            # model_dump 返回字典，递归调用会进入上方的第 3 步 (Dicts)，从而触发过滤逻辑
+            return ding_make_json_safe(value.model_dump(), _seen)
+        except Exception:
+            pass
+
+    # --- 7. Pydantic v1-style / other libs with .dict() -------------------
+    if hasattr(value, "dict") and callable(getattr(value, "dict")):
+        _seen.add(obj_id)
+        try:
+            return ding_make_json_safe(value.dict(), _seen)
+        except Exception:
+            pass
+
+    # --- 8. Generic "to_dict" pattern -------------------------------------
+    if hasattr(value, "to_dict") and callable(getattr(value, "to_dict")):
+        _seen.add(obj_id)
+        try:
+            return ding_make_json_safe(value.to_dict(), _seen)
+        except Exception:
+            pass
+
+    # --- 9. Generic Python objects with __dict__ --------------------------
+    if hasattr(value, "__dict__"):
+        _seen.add(obj_id)
+        try:
+            return ding_make_json_safe(vars(value), _seen)
+        except Exception:
+            pass
+
+    # --- 10. Last resort ---------------------------------------------------
+    try:
+        return repr(value)
+    except Exception:
+        return "<Unrepresentable Object>"
+
+
 ag_ui_langgraph.agent.langchain_messages_to_agui = ding_langchain_messages_to_agui
 ag_ui_langgraph.utils.agui_messages_to_langchain = ding_agui_messages_to_langchain
+ag_ui_langgraph.utils.make_json_safe = ding_make_json_safe
 ag_ui_langgraph.agent.resolve_reasoning_content = ding_resolve_reasoning_content
 
 

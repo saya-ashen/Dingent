@@ -275,7 +275,9 @@ class Workflow(SQLModel, table=True):
         assert start_node is not None, "Workflow must have a start node."
         adjacency_map = defaultdict(list)
         for edge in self.edges:
-            adjacency_map[edge.source_node.name].append(edge.target_node.name)
+            src_name = normalize_agent_name(edge.source_node.name)
+            tgt_name = normalize_agent_name(edge.target_node.name)
+            adjacency_map[src_name].append(tgt_name)
 
         return ExecutableWorkflow(
             id=self.id,

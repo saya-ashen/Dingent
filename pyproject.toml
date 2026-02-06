@@ -96,6 +96,7 @@ useLibraryCodeForTypes = true
 reportInvalidCast = "none"
 
 
+
 [dependency-groups]
 dev = [
     "ipython>=9.4.0",
@@ -107,6 +108,7 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "python-dotenv>=1.1.0",
     "pyinstaller>=6.17.0",
+    "mlflow>=3.9.0",
 ]
 
 

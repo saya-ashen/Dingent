@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
+from typing import cast
 from uuid import UUID
+from langchain.tools import ToolException
+from langchain_core.messages import ToolMessage
+from langchain_core.tools import StructuredTool, Tool
+from langchain_mcp_adapters.tools import load_mcp_tools, _convert_call_tool_result
+from langgraph.types import Command
+
 
 from ..plugins.plugin import PluginRuntime
 from ..plugins.plugin_manager import PluginManager
@@ -89,17 +96,28 @@ class AssistantRuntime:
         for registry_id, inst in self.plugin_instances.items():
             current_plugin_config = self.plugin_configs.get(registry_id, {})
             async with inst.mcp_client as client:
-                tools = await client.list_tools()
-
+                tools = await load_mcp_tools(client.session)
             for t in tools:
 
-                async def call_tool(arguments: dict, meta: dict | None = None, _runtime=inst, _tool=t, _config=current_plugin_config):
+                async def call_tool(
+                    arguments: dict,
+                    meta: dict | None = None,
+                    _runtime=inst,
+                    _tool=t,
+                    _config=current_plugin_config,
+                ):
                     meta = meta or {}
                     meta.update(_config)
-                    async with _runtime.mcp_client as tool_client:
-                        return await tool_client.call_tool(_tool.name, arguments=arguments, meta=meta)
 
-                runnable.append(RunnableTool(tool=t, plugin_id=inst.id, run=call_tool))
+                    # arguments.update({"_meta": meta})
+                    async with _runtime.mcp_client as tool_client:
+                        result = await tool_client.call_tool(_tool.name, arguments=arguments, meta=meta)
+                        result.isError = result.is_error
+                        result.structuredContent = result.structured_content
+                        result = _convert_call_tool_result(result)
+                        return result
+
+                runnable.append(RunnableTool(tool=cast(StructuredTool, t), plugin_id=inst.id, run=call_tool))
         yield runnable
 
     async def aclose(self):

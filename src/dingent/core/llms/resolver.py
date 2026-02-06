@@ -15,8 +15,23 @@ from uuid import UUID
 from langchain_litellm import ChatLiteLLM
 from sqlmodel import Session
 
+
 from dingent.core.db.models import Assistant, LLMModelConfig, Workflow, Workspace
 from dingent.core.security.crypto import get_secret_manager
+
+try:
+    import mlflow
+    import os
+
+    os.environ["MLFLOW_HTTP_REQUEST_TIMEOUT"] = "5"
+    os.environ["MLFLOW_HTTP_REQUEST_MAX_RETRIES"] = "0"
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("traces-quickstart")
+
+    mlflow.litellm.autolog()
+except:
+    print("MLflow not available or failed to initialize.")
+    pass
 
 
 class ModelResolver:
@@ -57,6 +72,7 @@ class ModelResolver:
             return self._build_model_from_config(config)
         else:
             # Fallback to environment-based configuration
+
             return ChatLiteLLM(streaming=True)
 
     def _resolve_config(

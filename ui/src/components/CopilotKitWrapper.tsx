@@ -6,7 +6,6 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { useAuthStore } from "@/store";
 import { createA2UIMessageRenderer } from "./MyA2UIMessageRenderer";
 import { theme } from "./theme";
-import { useDefaultTool } from "@copilotkit/react-core";
 
 export const dynamic = "force-dynamic";
 

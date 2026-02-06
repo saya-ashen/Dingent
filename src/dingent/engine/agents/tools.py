@@ -55,10 +55,13 @@ def create_dynamic_pydantic_class(
 def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> StructuredTool:
     tool_def = runnable_tool.tool
 
+    @tool(
+        name_or_callable=tool_def.name,
+        description=tool_def.description or "",
+    )
     async def call_tool(tool_call_id: Annotated[str, InjectedToolCallId], **kwargs) -> Command:
         try:
             tool_args = kwargs
-            plugin_config = tool_args.pop("plugin_config", None)
 
             response_raw = await runnable_tool.run(tool_args)
 
@@ -96,11 +99,11 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
         )
 
     # 构建 Schema
-    class ToolArgsSchema(BaseModel):
-        tool_call_id: Annotated[str, InjectedToolCallId]
-        plugin_config: dict[str, Any] | None = None
+    # class ToolArgsSchema(BaseModel):
+    #     tool_call_id: Annotated[str, InjectedToolCallId]
+    #     plugin_config: dict[str, Any] | None = None
 
-    CombinedSchema = create_dynamic_pydantic_class(ToolArgsSchema, tool_def.inputSchema, name=f"Args_{tool_def.name}")
+    # CombinedSchema = create_dynamic_pydantic_class(ToolArgsSchema, tool_def.inputSchema, name=f"Args_{tool_def.name}")
 
     return StructuredTool(
         name=tool_def.name,
@@ -112,7 +115,7 @@ def mcp_tool_wrapper(runnable_tool: RunnableTool, log_method: Callable) -> Struc
 
 
 # --- Handoff Tool ---
-def create_handoff_tool(agent_name: str, description: str | None, log_method: Callable) -> StructuredTool:
+def create_handoff_tool(agent_name: str, description: str | None, log_method: Callable):
     tool_name = f"transfer_to_{agent_name}"
     tool_description = (
         f"Ask agent '{agent_name}' for help. "
@@ -130,4 +133,4 @@ def create_handoff_tool(agent_name: str, description: str | None, log_method: Ca
             update={"messages": [ToolMessage(content=f"Transferred to {agent_name}", tool_call_id=tool_call_id, name=tool_name)]},
         )
 
-    return cast(StructuredTool, handoff_tool)
+    return handoff_tool
