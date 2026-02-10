@@ -24,6 +24,7 @@ from alembic import command as alembic_command
 import typer
 from rich.console import Console
 
+from dingent.core.db.session import create_db_and_tables
 from dingent.core.paths import paths
 
 if sys.platform == "win32":
@@ -391,6 +392,7 @@ def run(
     if data_dir:
         os.environ["DINGENT_HOME"] = str(data_dir.resolve())
 
+    create_db_and_tables()
     if not skip_migration:
         _run_migrations()
 

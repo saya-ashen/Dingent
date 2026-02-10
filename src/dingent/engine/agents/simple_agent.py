@@ -343,20 +343,16 @@ class JsonTodoListMiddleware(TodoListMiddleware):
         def write_todos(todos: list[Todo], tool_call_id: Annotated[str, InjectedToolCallId]) -> Command[Any]:
             """Create and manage a structured task list for your current work session."""
 
-            todos_json = json.dumps(todos, ensure_ascii=False)
-
-            result_payload = json.dumps(
-                {
-                    "message": "Updated todo list successfully",
-                    "todos": json.loads(todos_json),  # 确保它是对象不是二次转义的字符串
-                },
-                ensure_ascii=False,
-            )
-
             return Command(
                 update={
                     "todos": todos,
-                    "messages": [ToolMessage(result_payload, tool_call_id=tool_call_id)],
+                    "messages": [
+                        ToolMessage(
+                            f"Updated todo list to {todos}",
+                            tool_call_id=tool_call_id,
+                            name="write_todos",
+                        )
+                    ],
                 }
             )
 

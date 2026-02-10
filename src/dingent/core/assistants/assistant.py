@@ -109,9 +109,12 @@ class AssistantRuntime:
                     meta = meta or {}
                     meta.update(_config)
 
-                    # arguments.update({"_meta": meta})
                     async with _runtime.mcp_client as tool_client:
-                        result = await tool_client.call_tool(_tool.name, arguments=arguments, meta=meta)
+                        result = await tool_client.call_tool(
+                            _tool.name,
+                            arguments=arguments,
+                            meta=meta,
+                        )
                         result.isError = result.is_error
                         result.structuredContent = result.structured_content
                         result = _convert_call_tool_result(result)
