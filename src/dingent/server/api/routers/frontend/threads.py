@@ -168,6 +168,7 @@ async def get_agents(
 async def run(
     ctx: AgentContext = Depends(get_agent_context),
 ):
+
     async def event_generator():
         async for event in ctx.agent.run(
             ctx.input_data,

@@ -109,6 +109,8 @@ dev = [
     "python-dotenv>=1.1.0",
     "pyinstaller>=6.17.0",
     "mlflow>=3.9.0",
+    "pytest-benchmark>=5.2.3",
+    "locust>=2.43.3",
 ]
 
 
