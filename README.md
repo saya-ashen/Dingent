@@ -19,10 +19,9 @@ entire development lifecycle of intelligent applications.**
 
 **English** · [简体中文](./README.zh-CN.md)
 
-[Quick Start](https://saya-ashen.github.io/Dingent/docs/intro%23quick-start) |
-[Installation](https://saya-ashen.github.io/Dingent/docs/getting-started/installation)
-|
-[Configuration](https://saya-ashen.github.io/Dingent/docs/getting-started/configuration)
+[Introduction & Quick Start](https://ngdc.cncb.ac.cn/dingent/docs/getting-started/introduction) |
+[Installation](https://ngdc.cncb.ac.cn/dingent/docs/getting-started/installation) |
+[Admin Dashboard Guide](https://ngdc.cncb.ac.cn/dingent/docs/admin-dashboard-guide/overview)
 
 </div>
 
