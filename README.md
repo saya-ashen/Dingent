@@ -1,13 +1,14 @@
 > [!WARNING]
-> **Documentation Outdated / 文档已过期**
+> **Documentation Moved / 文档已迁移**
 >
 > This project is currently under **rapid development**. The content in this
 > README is **outdated** and may not reflect the latest features or
-> architecture. Please refer to the code or wait for upcoming documentation
-> updates.
+> architecture. For the latest and most accurate documentation, please visit:
+> **[ngdc.cncb.ac.cn/dingent](https://ngdc.cncb.ac.cn/dingent/)**
 >
 > 本项目当前处于**快速迭代开发**阶段。本 README
-> 中的内容**已经过时**，可能无法反映最新的功能或架构变更。请以最新代码为准或等待文档更新。
+> 中的内容**已经过时**，可能无法反映最新的功能或架构变更。获取最新文档和使用指南，请访问：
+> **[ngdc.cncb.ac.cn/dingent](https://ngdc.cncb.ac.cn/dingent/)**
 
 <div align="center"><a name="readme-top"></a>
 
