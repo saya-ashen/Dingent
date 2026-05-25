@@ -1,255 +1,189 @@
-> This project is currently under **rapid development**. For the latest and most accurate documentation, please visit:
-> **[ngdc.cncb.ac.cn/dingent](https://ngdc.cncb.ac.cn/dingent/)**
->
-> 最新文档和使用指南，请访问：
-> **[ngdc.cncb.ac.cn/dingent](https://ngdc.cncb.ac.cn/dingent/)**
-
-<div align="center"><a name="readme-top"></a>
-
 # Dingent
 
-**A powerful, yet user-friendly LLM Agent framework designed to streamline the
-entire development lifecycle of intelligent applications.**
+Dingent is a cross-platform AI agent framework. It combines a Python backend, a Next.js frontend, workspace-based collaboration, assistant/workflow management, plugin execution, and chat runtime APIs into one deployable application.
 
-</div>
+The project is under active development. The current codebase is centered around the bundled FastAPI service and the `ui/` Next.js application.
 
-**Dingent** is an agent framework whose core goal is to simplify the process of
-creating any application powered by Large Language Models (LLMs). We provide a
-concise yet powerful toolkit... to build applications capable of automating
-complex workflows, interacting with various services, and performing intelligent
-analysis. For any custom logic or integration, Dingent offers a flexible
-framework that developers can easily extend by writing custom code.
+## What Is Included
 
-### Chat Interface
+- FastAPI backend under `src/dingent/`.
+- Next.js dashboard and chat UI under `ui/`.
+- SQLModel persistence with Alembic migrations.
+- Workspace membership and role checks.
+- Local email/password authentication with Dingent-issued JWT access tokens.
+- Open SSO extension points for CAS and private enterprise providers.
+- Assistant, workflow, plugin, market, logging, and model configuration services.
 
-|          Chat View 1          |          Chat View 2          |
-| :---------------------------: | :---------------------------: |
-| ![chat1](./assets/Chart1.png) | ![chat2](./assets/Chart2.png) |
+## Repository Layout
 
-### Admin Dashboard
+- `src/dingent/`: Python package, FastAPI app, CLI, database models, services, auth, and runtime logic.
+- `ui/`: Next.js frontend built with Bun.
+- `alembic/`: Database migrations.
+- `tests/`: Backend and integration tests.
+- `docs/`, `examples/`, `website/`: Project documentation and examples.
+- `justfile`: Common development commands.
 
-|             Dashboard - Overview             |           Dashboard - Workflows            |
-| :------------------------------------------: | :----------------------------------------: |
-|   ![overview](./assets/admin-overview.png)   | ![workflows](./assets/admin-workflows.png) |
-|           **Dashboard - Settings**           |            **Dashboard - Logs**            |
-|   ![settings](./assets/admin-settings.png)   |      ![logs](./assets/admin-logs.png)      |
-|          **Dashboard - Assistants**          |           **Dashboard - Market**           |
-| ![assistants](./assets/admin-assistants.png) |    ![market](./assets/admin-market.png)    |
+## Development
 
-## 🎯 Why Choose Dingent?
-
-When building LLM applications, developers often spend a significant amount of
-time on "glue code": creating backend services, wrapping APIs, setting up
-frontend-backend communication... These tasks are tedious and repetitive.
-
-**Dingent's core value lies in:**
-
-- **No More Repetition**: We package the best practices for backend services
-  (LangGraph), data interfaces (**Plugin System**), a chat interface
-  (CopilotKit), and a **full-featured admin dashboard** into a single command.
-  You no longer need to build everything from scratch and can start writing your
-  core business logic immediately.
-
-* **Configuration via UI**: Forget manually editing complex configuration files.
-  With Dingent's integrated admin dashboard, you can manage assistants, build
-  workflows, and configure settings through an intuitive graphical interface.
-* **Extensible and Versatile**: While Dingent began with a focus on data
-  retrieval, it has evolved into a powerful general-purpose framework. Its
-  modular architecture and robust plugin system allow you to build any type of
-  agent—from simple task automation bots to complex multi-agent systems. Dingent
-  provides the solid foundation, you bring the vision.
-* **Core Features Built-In**: We believe a simple and easy-to-use agent
-  shouldn't require users to spend a lot of time maintaining plugins. Therefore,
-  we are committed to integrating features the community deems important
-  directly into the framework. If you think a feature is crucial, we encourage
-  you to open an Issue or PR. This directly reflects our core mission of "making
-  Agents simpler for users."
-
-- **Smooth Learning Curve**: You only need a basic understanding of Python to
-  build powerful, general-purpose agents, without needing to be an expert in
-  LangGraph or FastAPI. At the same time, we retain the flexibility to expand
-  functionalities, ensuring the framework can fully support custom development
-  when needed.
-
-## ✨ Features
-
-- **Instant Project Setup**: Simply run `dingent dev` in any directory to
-  initialize a new project.
-- **Integrated Admin Dashboard**: A powerful, React-based web interface to
-  visually manage your assistants, workflows, plugins, and settings.
-- **Bundled Frontend**: A pre-built, standalone Next.js chat interface is
-  included out-of-the-box. No need for manual setup or compilation.
-- **Lightweight and Easy to Use**: A clean design and a gentle learning curve
-  let you focus on business logic rather than tedious configuration.
-- **Guest Mode Support**: Allow unauthenticated users to chat with AI agents
-  without requiring registration. See
-  [Guest Mode Documentation](./GUEST_MODE.md) for details.
-
-## 🚀 Quick Start
-
-Just download the latest executable for your platform from the releases page and run it.
-
-
-# Run the development server
-uvx dingent dev # or uvx dingent run
-```
-
-The first time you run this command, Dingent will ask if you want to create a
-`dingent.toml` configuration file, officially turning the directory into a
-Dingent project root.
-
-The `dev` command will start all necessary services:
-
-- **Frontend Chat**: Accessible at
-  [http://localhost:3000](http://localhost:3000)
-- **Backend API**: Running at [http://localhost:8000](http://localhost:8000)
-- **Admin Dashboard**: Accessible at
-  [http://localhost:8000/admin](http://localhost:8000/admin)
-
-Your project is now live\! You can now:
-
-- **Configure your application**: Open the admin dashboard at
-  `http://localhost:8000/admin` to create assistants, build workflows, and
-  configure your LLM settings.
-- **Add custom tools**: Place your custom MCP server plugins into the `plugins/`
-  directory.
-- **Interact with your agent**: Start chatting with your agent through the
-  frontend at `http://localhost:3000`.
-
-## 🐳 Docker Deployment
-
-Dingent can also be deployed using Docker and Docker Compose for easy setup and deployment.
-
-### Prerequisites
-
-- **Docker**: [Install Docker](https://docs.docker.com/get-docker/)
-- **Docker Compose**: [Install Docker Compose](https://docs.docker.com/compose/install/)
-
-### Quick Start with Docker
-
-1. Clone the repository:
+Python dependencies are managed with `uv`; frontend dependencies are managed with `bun`.
 
 ```bash
-git clone -b Docker-Dev https://github.com/littleLice/Dingent.git
-cd Dingent
+uv sync
+cd ui && bun install
 ```
 
-2. Start the services using Docker Compose:
+Run backend tests:
 
 ```bash
-docker-compose up -d
+uv run pytest
 ```
 
-This will pull the pre-built images and start both the backend and frontend services.
-
-3. Access the services:
-
-- **Frontend Chat**: [http://localhost:3000](http://localhost:3000)
-- **Backend API**: [http://localhost:8000](http://localhost:8000)
-- **Admin Dashboard**: [http://localhost:8000/admin](http://localhost:8000/admin)
-
-### Stopping the Services
-
-To stop the services, run:
+Run lint and format checks:
 
 ```bash
-docker-compose down
+uv run ruff check .
+uv run ruff format --check .
+uv run basedpyright
 ```
 
-### Rebuilding the Services
-
-If you make changes to the code and need to rebuild the Docker images:
+Build the frontend:
 
 ```bash
-docker-compose up -d --build
+just _build-ui
 ```
 
-## 🏛️ Project Architecture
+Build the assembled application:
 
-A Dingent project has a simple and intuitive structure, managed automatically
-for you:
-
-```plaintext
-my-awesome-agent/
-├── 📄 dingent.toml     # Main project config (ports, model, etc.). Marks the project root.
-├── 📁 config/          # Stores all application configurations managed by the dashboard.
-│   ├── 📁 assistants/
-│   ├── 📁 plugins/
-│   └── 📁 workflows/
-└── 📁 plugins/         # Directory for your custom tool plugins (e.g., MCP servers).
+```bash
+just build
 ```
 
-- **`dingent.toml`**: The single source of truth for your project's core
-  settings. The presence of this file tells Dingent commands that they are in a
-  project directory.
-- **`config/`**: This directory holds the configuration for your assistants,
-  plugins, and workflows. You typically won't need to edit these files manually,
-  as they are managed through the **Admin Dashboard**.
-- **`plugins/`**: This is where you add your own functionality. Place any
-  MCP-compatible server in this directory, and Dingent will automatically
-  discover and integrate it.
+## Authentication
 
-## 🗺️ Roadmap
+Dingent uses a two-layer authentication model:
 
-- **✅ 1. Documentation & Tutorials**
+- External authentication proves who the user is.
+- Dingent authentication issues a Dingent JWT and applies workspace permissions.
 
-  - [x] **Basic Docs:** Installation and configuration guides.
-  - [x] **Core Concepts:** In-depth explanations of key features and design.
-  - [ ] **Plugin Dev Guide:** How to build your own plugins.
-  - [x] **End-to-End Tutorials:** Complete, step-by-step project examples.
+The built-in password login flow remains available at `/api/v1/auth/token`. SSO providers should authenticate the external identity, map it to a local Dingent `User`, and then reuse the same Dingent token flow.
 
-- **✅ 2. Admin Dashboard**
+Core open-source auth pieces:
 
-  - [x] **Core UI**: Fully functional dashboard for managing assistants,
-        workflows, and settings.
-  - [x] **Plugin Management**: Add/remove plugins directly from the UI.
-  - [x] **Advanced Workflow Editor**: Visual node-based tools for building complex
-        agent behaviors and logic flow.
+- `User`: Dingent's internal account and permission subject.
+- `UserIdentity`: external identity binding, keyed by `provider` and `provider_subject`.
+- `SSOProvider`: provider interface for login redirects and callback validation.
+- `MockSSOProvider`: local development provider.
+- `StandardCASProvider`: basic CAS `/serviceValidate` or `/p3/serviceValidate` XML integration.
+- `/api/v1/auth/config`: frontend-safe auth configuration.
+- `/api/v1/auth/sso/login`: starts SSO login.
+- `/api/v1/auth/sso/callback`: completes SSO login and redirects to the frontend callback page.
 
-- **✅ 3. Plugin System**
+## SSO Configuration
 
-  - [x] **Auto-Discovery**: Automatically loads plugins from the `plugins/`
-        directory.
-  - [ ] ~~**Plugin CLI:** Install and manage plugins via the command line.~~
-        (Superseded by UI management in the Admin Dashboard)
-  - [x] **Plugin Marketplace:** Discover, search, and dynamically mount community
-        plugins via the dashboard.
+Common settings are read from the Dingent environment or `.env` file:
 
-- **✅ 4. Core Plugins**
+```env
+SECRET_KEY=change-me
+ACCESS_TOKEN_EXPIRE_MINUTES=3600
+SSO_ENABLED=false
+SSO_PROVIDER=mock
+SSO_LABEL=SSO
+SSO_AUTO_CREATE_USER=true
+SSO_ALLOW_EMAIL_LINKING=false
+SSO_CALLBACK_FRONTEND_URL=/auth/sso/callback
+SSO_PROVIDER_CLASS=
+```
 
-  - [x] **Database Plugin:** Connect to mainstream databases via specialized Text2SQL engines.
-  - [x] **Knowledge Base Q\&A Plugin:** Intelligent retrieval and QA using entity-enhanced RAG and vector databases.
-  - [x] **Heterogeneous Integration:** Out-of-the-box support for cross-platform data sources (e.g., GenBase, iDog, BioKA).
+For a standard CAS server:
 
-- **✅ 5. Core Architecture & Deployment**
+```env
+SSO_ENABLED=true
+SSO_PROVIDER=cas
+SSO_LABEL=CAS
+CAS_LOGIN_URL=https://sso.example.com/cas/login
+CAS_VALIDATE_URL=https://sso.example.com/cas/p3/serviceValidate
+CAS_EMAIL_ATTRIBUTE=email
+CAS_USERNAME_ATTRIBUTE=username
+CAS_DISPLAY_NAME_ATTRIBUTE=displayName
+```
 
-  - [x] **Dynamic Workflow Engine:** `GraphFactory` for zero-code, Just-In-Time (JIT) compilation of multi-agent state machines.
-  - [x] **MCP Native:** Deep integration with the Model Context Protocol for decoupled, decentralized tool execution and sandboxing.
-  - [x] **Zero-Config Deployment:** Heterogeneous dual-process packaging (Next.js + PyInstaller) for seamless cross-platform setup.
+`SSO_ALLOW_EMAIL_LINKING` is disabled by default. This prevents a new external identity from being silently attached to an existing local account just because the email matches.
 
-## 🤝 How to Contribute
+## Private Enterprise SSO
 
-We created this project to make Agents simpler for users, not to build yet
-another complex development framework. Therefore, we warmly welcome and heavily
-rely on community contributions to shape the future of **Dingent**.
+Internal company SSO details should not be committed to this open-source repository.
 
-If a feature is important to you, we strongly encourage you to discuss it by
-opening a GitHub Issue or contributing code directly through a Pull Request. Our
-core philosophy is that the developer community should decide which features are
-built into the software, rather than leaving users to maintain their own
-plugins\!
+Keep these in a separate private package or private deployment layer:
 
-If you share our vision and wish to contribute code, please follow these steps:
+- Internal CAS or SSO URLs.
+- App IDs, secrets, certificates, and private keys.
+- Java SDK compatibility logic.
+- Non-standard ticket validation, signing, encryption, or token exchange.
+- Internal employee ID, department, role, and organization mapping.
+- Internal audit and error-code handling.
 
-1. Fork this repository.
-2. Create a new feature branch (`git checkout -b feature/YourAmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push your branch to GitHub (`git push origin feature/YourAmazingFeature`).
-5. Create a Pull Request and clearly describe the value of your feature.
+Recommended private package shape:
 
-We believe that through our collective efforts, Dingent can become a truly
-powerful and "out-of-the-box" tool.
+```text
+company-dingent-auth/
+  company_auth/
+    dingent.py
+```
 
-## 📄 License
+The private package should expose a provider class:
+
+```python
+from dingent.server.auth.sso import SSOProfile
+
+
+class CompanyCasProvider:
+    name = "company_cas"
+
+    def build_login_redirect_url(self, *, request, next_url=None) -> str:
+        ...
+
+    async def authenticate_callback(self, *, request) -> SSOProfile:
+        ...
+```
+
+Then configure the deployment without changing the open-source Dingent code:
+
+```env
+SSO_ENABLED=true
+SSO_PROVIDER=company_cas
+SSO_PROVIDER_CLASS=company_auth.dingent.CompanyCasProvider
+```
+
+The provider only needs to return `SSOProfile(provider, subject, email, username, display_name, attributes)`. Dingent handles local user binding, account creation, JWT issuance, and workspace permissions.
+
+## Frontend Auth Flow
+
+The frontend reads `/api/v1/auth/config` to decide whether to show the SSO button. It does not know CAS URLs, secrets, ticket validation rules, or internal user mapping.
+
+SSO flow:
+
+```text
+Login page -> /api/v1/auth/sso/login -> external SSO -> /api/v1/auth/sso/callback -> /auth/sso/callback -> Dingent app
+```
+
+## Contributing
+
+Open-source contributions should keep enterprise-specific integrations behind generic interfaces. If a feature requires private infrastructure, add an extension point, a mock implementation, and documentation instead of committing private logic or secrets.
+
+Before opening a pull request, run:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest
+```
+
+For frontend changes, also run:
+
+```bash
+cd ui && bun run build
+```
+
+## License
 
 This project is licensed under the [MIT License](./LICENSE).
