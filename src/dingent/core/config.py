@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = f"sqlite:///{paths.sqlite_path}"
 
+    LOG_LEVEL: str = "INFO"
+
 
 @lru_cache
 def get_settings() -> Settings:

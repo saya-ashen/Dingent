@@ -374,6 +374,8 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
         )
         event_counts: dict[str, int] = {}
 
+        accumulated_text: dict[str, str] = {}
+
         try:
             async for event_str in super().run(input):
                 event_type = getattr(event_str, "type", None)
@@ -383,6 +385,7 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
                     delta = getattr(event_str, "delta", None)
                     if message_id and delta:
                         streamed_message_content[message_id] = streamed_message_content.get(message_id, "") + delta
+                        accumulated_text[message_id] = accumulated_text.get(message_id, "") + delta
                 elif event_type == EventType.MESSAGES_SNAPSHOT:
                     for message in getattr(event_str, "messages", []) or []:
                         if getattr(message, "role", None) != "assistant":
@@ -392,6 +395,37 @@ class DingLangGraphAGUIAgent(LangGraphAGUIAgent):
                         content = getattr(message, "content", None)
                         if message_id in streamed_message_content and not content:
                             message.content = streamed_message_content[message_id]
+                elif event_type == EventType.TEXT_MESSAGE_END:
+                    message_id = getattr(event_str, "message_id", "")
+                    text = accumulated_text.pop(message_id, "")
+                    preview = text[:800] + ("..." if len(text) > 800 else "")
+                    logger.info("[{}] 💬 回答完成 ({} 字符):\n{}", self.name, len(text), preview)
+                elif event_type == EventType.TOOL_CALL_START:
+                    tool_name = getattr(event_str, "tool_call_name", "unknown")
+                    logger.info("[{}] 🔧 调用工具: {}", self.name, tool_name)
+                elif event_type == EventType.TOOL_CALL_ARGS:
+                    args = getattr(event_str, "delta", "")
+                    if len(args) > 500:
+                        args = args[:500] + "..."
+                    logger.info("[{}]   └ 参数: {}", self.name, args)
+                elif event_type == EventType.TOOL_CALL_END:
+                    tool_name = getattr(event_str, "tool_call_name", "unknown")
+                    logger.info("[{}] ✅ 工具完成: {}", self.name, tool_name)
+                elif event_type == EventType.TOOL_CALL_RESULT:
+                    result = getattr(event_str, "content", "")
+                    if isinstance(result, str) and len(result) > 300:
+                        result = result[:300] + "..."
+                    logger.info("[{}]   └ 结果: {}", self.name, result)
+                elif event_type == EventType.THINKING_START:
+                    logger.info("[{}] 💭 开始思考...", self.name)
+                elif event_type == EventType.THINKING_END:
+                    logger.info("[{}] 💭 思考完成", self.name)
+                elif event_type == EventType.ACTIVITY_SNAPSHOT:
+                    activity_type = getattr(event_str, "activity_type", "?")
+                    logger.info("[{}] 📊 界面刷新 (type={})", self.name, activity_type)
+                elif event_type == EventType.RUN_ERROR:
+                    message = getattr(event_str, "message", "未知错误")
+                    logger.error("[{}] ❌ 运行错误: {}", self.name, message)
 
                 yield event_str
             logger.info("AG-UI agent run completed: agent={}, thread_id={}, run_id={}, event_counts={}", self.name, input.thread_id, input.run_id, event_counts)
