@@ -1,11 +1,14 @@
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from loguru import logger
 from sqlmodel import Session
 
 from dingent.core.assistants.assistant_factory import AssistantFactory
+from dingent.core.config import settings
 from dingent.core.context import initialize_app_context
 from dingent.core.db.session import engine
 from dingent.core.logs.log_manager import LogManager
@@ -21,8 +24,21 @@ from dingent.server.services.plugin_sync_service import PluginSyncService
 from .api import api_router
 
 
+def _setup_loguru():
+    """Configure loguru with a human-readable terminal format and configurable level."""
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        level=settings.LOG_LEVEL,
+        format="<green>{time:HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    )
+
+
 def _setup_global_services(app: FastAPI):
     """初始化核心服务并挂载到 app.state"""
+    # 0. 日志初始化 (必须在 LogManager 之前配置)
+    _setup_loguru()
+
     # 1. 基础服务初始化
     log_manager = LogManager()
     plugin_registry = PluginRegistry(paths.plugins_dir, log_manager)

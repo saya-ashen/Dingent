@@ -279,6 +279,8 @@ function ChatPageContent({ isGuest, visitorId, slug }: ChatPageProps) {
 
         if (event.type === "THINKING_TEXT_MESSAGE_CONTENT") {
           const thinkingEvent = event as ThinkingTextMessageContentEvent;
+          stats.thinkingDeltaCount += 1;
+          stats.thinkingCharCount += getDeltaLength(thinkingEvent.delta);
           appendThinkingText(thinkingEvent.delta);
         } else if (event.type === "ACTIVITY_SNAPSHOT") {
           handleActivitySnapshot(event);

@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     CAS_DISPLAY_NAME_ATTRIBUTE: str = "displayName"
     CAS_VALIDATE_TIMEOUT_SECONDS: int = 10
 
+    LOG_LEVEL: str = "INFO"
+
 
 @lru_cache
 def get_settings() -> Settings:

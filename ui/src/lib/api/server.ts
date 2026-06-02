@@ -3,8 +3,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ApiClient } from "@/services";
 
-const getBaseUrl = () =>
-  process.env.API_BASE_URL || "http://127.0.0.1:8000/api/v1";
+const getBaseUrl = () => {
+  if (process.env.API_BASE_URL) return process.env.API_BASE_URL;
+  const backendUrl = process.env.BACKEND_URL || process.env.DING_BACKEND_URL;
+  if (backendUrl) return backendUrl.replace(/\/$/, "") + "/api/v1";
+  return "http://127.0.0.1:8000/api/v1";
+};
 
 export async function getServerApi() {
   const cookieStore = await cookies();
