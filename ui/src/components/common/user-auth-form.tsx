@@ -99,9 +99,7 @@ export function UserAuthForm({
       return;
     }
 
-    const currentPath = `${window.location.pathname}${window.location.search}`;
-    const returnTo = currentPath.replace(/^\/dingent\/web/, "") || "/";
-    window.location.href = `${api.http.defaults.baseURL}${loginUrl}?next=${encodeURIComponent(returnTo)}`;
+    window.location.href = `${api.http.defaults.baseURL}${loginUrl}?next=${encodeURIComponent("/")}`;
   }
 
   return (
