@@ -1,6 +1,6 @@
 "use client";
 import { useAuthStore } from "@/store";
-import { useRouter } from "next/navigation";
+import { getBaseUrl } from "@/lib/api/client";
 import { ConfirmDialog } from "./confirm-dialog";
 
 interface SignOutDialogProps {
@@ -9,12 +9,11 @@ interface SignOutDialogProps {
 }
 
 export function SignOutDialog({ open, onOpenChange }: SignOutDialogProps) {
-  const router = useRouter();
   const { logout } = useAuthStore();
 
   const handleSignOut = () => {
     logout();
-    router.replace("/auth/login");
+    window.location.href = `${getBaseUrl()}/auth/sso/logout`;
   };
 
   return (

@@ -13,6 +13,7 @@ from dingent.server.auth.sso import SSOProfile
 _CAS_SERVER_BASE_URL = "https://sso.cncb.ac.cn"
 _CAS_LOGIN_URL = f"{_CAS_SERVER_BASE_URL}/login"
 _CAS_VALIDATE_URL = f"{_CAS_SERVER_BASE_URL}/serviceValidate"
+_CAS_LOGOUT_URL = f"{_CAS_SERVER_BASE_URL}/logout"
 
 
 class InternalCASProvider:
@@ -21,6 +22,7 @@ class InternalCASProvider:
     def __init__(self) -> None:
         self.login_url = os.getenv("INTERNAL_SSO_LOGIN_URL", _CAS_LOGIN_URL)
         self.validate_url = os.getenv("INTERNAL_SSO_VALIDATE_URL", _CAS_VALIDATE_URL)
+        self.logout_url = os.getenv("INTERNAL_SSO_LOGOUT_URL", _CAS_LOGOUT_URL)
         self.timeout_seconds = int(os.getenv("INTERNAL_SSO_TIMEOUT_SECONDS", "10"))
         self.subject_attribute = os.getenv("INTERNAL_SSO_SUBJECT_ATTRIBUTE", "userId")
         self.email_attribute = os.getenv("INTERNAL_SSO_EMAIL_ATTRIBUTE", "email")
@@ -30,6 +32,12 @@ class InternalCASProvider:
     def build_login_redirect_url(self, *, request: Request, next_url: str | None = None) -> str:
         service_url = self._service_url(request=request, next_url=next_url)
         return f"{self.login_url}?{urlencode({'service': service_url})}"
+
+    def build_logout_url(self, *, service_url: str | None = None) -> str | None:
+        url = self.logout_url
+        if service_url:
+            url = f"{url}?{urlencode({'service': service_url})}"
+        return url
 
     async def authenticate_callback(self, *, request: Request) -> SSOProfile:
         ticket = request.query_params.get("ticket")

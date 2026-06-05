@@ -29,6 +29,8 @@ class SSOProvider(Protocol):
 
     async def authenticate_callback(self, *, request: Request) -> SSOProfile: ...
 
+    def build_logout_url(self, *, service_url: str | None = None) -> str | None: ...
+
 
 class MockSSOProvider:
     name = "mock"
@@ -62,6 +64,9 @@ class MockSSOProvider:
             attributes=dict(request.query_params),
         )
 
+    def build_logout_url(self, *, service_url: str | None = None) -> str | None:
+        return None
+
 
 class StandardCASProvider:
     name = "cas"
@@ -93,6 +98,14 @@ class StandardCASProvider:
             payload = response.read()
 
         return parse_cas_service_response(payload)
+
+    def build_logout_url(self, *, service_url: str | None = None) -> str | None:
+        if not settings.CAS_LOGOUT_URL:
+            return None
+        url = settings.CAS_LOGOUT_URL
+        if service_url:
+            url = f"{url}?{urlencode({'service': service_url})}"
+        return url
 
 
 def parse_cas_service_response(payload: bytes) -> SSOProfile:

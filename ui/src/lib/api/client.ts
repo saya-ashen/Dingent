@@ -5,7 +5,7 @@ import { getOrSetVisitorId } from "../utils";
 
 const BASE_PATH = "/dingent/web";
 
-const getBaseUrl = () => `${BASE_PATH}/api/v1`;
+export const getBaseUrl = () => `${BASE_PATH}/api/v1`;
 
 let clientInstance: ApiClient | null = null;
 let cachedToken: string | null = null;

@@ -102,6 +102,8 @@ export function UserAuthForm({
     window.location.href = `${api.http.defaults.baseURL}${loginUrl}?next=${encodeURIComponent("/")}`;
   }
 
+  const passwordEnabled = authConfig?.password_login_enabled !== false;
+
   return (
     <Form {...form}>
       <form
@@ -109,69 +111,77 @@ export function UserAuthForm({
         className={cn("grid gap-3", className)}
         {...props}
       >
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="name@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem className="relative">
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <PasswordInput placeholder="********" {...field} />
-              </FormControl>
-              <FormMessage />
-              <Link
-                href="/forgot-password"
-                className="text-muted-foreground absolute end-0 -top-0.5 text-sm font-medium hover:opacity-75"
-              >
-                Forgot password?
+        {passwordEnabled ? (
+          <>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input placeholder="name@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem className="relative">
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <PasswordInput placeholder="********" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                  <Link
+                    href="/forgot-password"
+                    className="text-muted-foreground absolute end-0 -top-0.5 text-sm font-medium hover:opacity-75"
+                  >
+                    Forgot password?
+                  </Link>
+                </FormItem>
+              )}
+            />
+            <Button className="mt-2" disabled={isLoading}>
+              {isLoading ? <Loader2 className="animate-spin" /> : <LogIn />}
+              Sign in
+            </Button>
+
+            <div className="relative my-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background text-muted-foreground px-2">Or</span>
+              </div>
+            </div>
+
+            <div className={authConfig?.sso_enabled ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
+              <Link href="/auth/sign-up">
+                <Button
+                  variant="outline"
+                  type="button"
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  Sign up
+                </Button>
               </Link>
-            </FormItem>
-          )}
-        />
-        <Button className="mt-2" disabled={isLoading}>
-          {isLoading ? <Loader2 className="animate-spin" /> : <LogIn />}
-          Sign in
-        </Button>
-
-        <div className="relative my-2">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background text-muted-foreground px-2">Or</span>
-          </div>
-        </div>
-
-        <div className={authConfig?.sso_enabled ? "grid grid-cols-2 gap-2" : "grid gap-2"}>
-          <Link href="/auth/sign-up">
-            <Button
-              variant="outline"
-              type="button"
-              disabled={isLoading}
-              className="w-full" // 确保按钮填满 Link 容器的宽度
-            >
-              Sign up
-            </Button>
-          </Link>
-          {authConfig?.sso_enabled && (
-            <Button variant="outline" type="button" disabled={isLoading} onClick={handleSsoLogin}>
-              {authConfig.sso_label || "SSO"}
-            </Button>
-          )}
-        </div>
+              {authConfig?.sso_enabled && (
+                <Button variant="outline" type="button" disabled={isLoading} onClick={handleSsoLogin}>
+                  {authConfig.sso_label || "SSO"}
+                </Button>
+              )}
+            </div>
+          </>
+        ) : (
+          <Button variant="outline" type="button" disabled={isLoading} onClick={handleSsoLogin} className="w-full">
+            {authConfig?.sso_label || "SSO"} Login
+          </Button>
+        )}
       </form>
     </Form>
   );

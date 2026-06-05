@@ -41,10 +41,10 @@ export function ProfileDropdown() {
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
             <DropdownMenuItem asChild>
-              <Link href="/settings">
+              <a href="https://sso.cncb.ac.cn/account/api/go-user-profile" target="_blank" rel="noopener noreferrer">
                 Profile
                 <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-              </Link>
+              </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/settings">

@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     CAS_USERNAME_ATTRIBUTE: str = "username"
     CAS_DISPLAY_NAME_ATTRIBUTE: str = "displayName"
     CAS_VALIDATE_TIMEOUT_SECONDS: int = 10
+    CAS_LOGOUT_URL: str | None = None
+    CAS_LOGOUT_SERVICE_URL: str | None = None
 
 
 @lru_cache

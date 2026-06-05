@@ -9,7 +9,7 @@ from starlette.responses import RedirectResponse
 
 from dingent.core.config import settings
 from dingent.core.db.crud.user import create_external_user, create_user, get_user, get_user_identity, link_user_identity
-from dingent.core.db.models import User
+from dingent.core.db.models import User, UserIdentity
 from dingent.core.workspaces.schemas import UserCreate, UserRead
 from dingent.server.api.dependencies import authenticate_user, get_current_user, get_db_session
 from dingent.server.auth.security import ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token
@@ -55,10 +55,55 @@ def issue_login_response(user: User | UserRead) -> LoginResponse:
     )
 
 
+def sync_sso_user(session: Session, identity: UserIdentity, profile: SSOProfile) -> User:
+    user = identity.user
+    updated = False
+
+    if profile.email and profile.email != user.email:
+        existing = get_user(session, profile.email)
+        if existing and existing.id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="SSO email conflicts with another existing account",
+            )
+        user.email = profile.email
+        updated = True
+
+    if profile.username and profile.username != user.username:
+        user.username = profile.username
+        updated = True
+
+    if profile.display_name != user.full_name:
+        user.full_name = profile.display_name
+        updated = True
+
+    if profile.username and profile.username != identity.username:
+        identity.username = profile.username
+        updated = True
+
+    if profile.email and profile.email != identity.email:
+        identity.email = profile.email
+        updated = True
+
+    if profile.display_name != identity.display_name:
+        identity.display_name = profile.display_name
+        updated = True
+
+    if profile.attributes != identity.raw_profile:
+        identity.raw_profile = profile.attributes
+        updated = True
+
+    if updated:
+        session.commit()
+        session.refresh(user)
+
+    return user
+
+
 def get_or_create_sso_user(session: Session, profile: SSOProfile) -> User:
     identity = get_user_identity(session, profile.provider, profile.subject)
     if identity:
-        return identity.user
+        return sync_sso_user(session, identity, profile)
 
     if profile.email and settings.SSO_ALLOW_EMAIL_LINKING:
         existing_user = get_user(session, profile.email)
@@ -96,6 +141,7 @@ def get_or_create_sso_user(session: Session, profile: SSOProfile) -> User:
 @router.get("/config", response_model=AuthConfigResponse)
 def get_auth_config() -> AuthConfigResponse:
     return AuthConfigResponse(
+        password_login_enabled=not settings.SSO_ENABLED,
         sso_enabled=settings.SSO_ENABLED,
         sso_label=settings.SSO_LABEL,
         sso_login_url="/auth/sso/login" if settings.SSO_ENABLED else None,
@@ -111,6 +157,8 @@ def get_me(current_user: User = Depends(get_current_user)) -> UserRead:
 async def login_for_access_token(
     user: UserRead = Depends(authenticate_user),
 ):
+    if settings.SSO_ENABLED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Password login is disabled when SSO is enabled")
     return issue_login_response(user)
 
 
@@ -119,6 +167,8 @@ def register_user(user_in: UserCreate, session: Session = Depends(get_db_session
     """
     用户注册接口
     """
+    if settings.SSO_ENABLED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User registration is disabled when SSO is enabled")
     existing_user = get_user(session, user_in.email)
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Email {user_in.email} already registered")
@@ -155,3 +205,16 @@ async def sso_callback(request: Request, next: str | None = Query(default=None),
         }
     )
     return RedirectResponse(f"{callback_url}?{query}")
+
+
+@router.get("/sso/logout")
+async def sso_logout(request: Request):
+    if not settings.SSO_ENABLED:
+        return RedirectResponse("/auth/login")
+
+    provider = get_sso_provider()
+    service_url = settings.CAS_LOGOUT_SERVICE_URL or str(request.base_url).rstrip("/")
+    logout_url = provider.build_logout_url(service_url=service_url)
+    if not logout_url:
+        return RedirectResponse("/auth/login")
+    return RedirectResponse(logout_url, status_code=status.HTTP_302_FOUND)
