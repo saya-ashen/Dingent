@@ -9,6 +9,7 @@ Create Date: 2026-05-25 00:00:00.000000
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+from sqlalchemy import inspect as sa_inspect
 
 from alembic import op
 
@@ -20,27 +21,33 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.create_table(
-        "useridentity",
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
-        sa.Column("provider", sa.String(), nullable=False),
-        sa.Column("provider_subject", sa.String(), nullable=False),
-        sa.Column("email", sa.String(), nullable=True),
-        sa.Column("username", sa.String(), nullable=True),
-        sa.Column("display_name", sa.String(), nullable=True),
-        sa.Column("raw_profile", sa.JSON(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
-        sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("provider", "provider_subject", name="unique_provider_subject"),
-    )
-    op.create_index(op.f("ix_useridentity_id"), "useridentity", ["id"], unique=False)
-    op.create_index(op.f("ix_useridentity_user_id"), "useridentity", ["user_id"], unique=False)
-    op.create_index(op.f("ix_useridentity_provider"), "useridentity", ["provider"], unique=False)
-    op.create_index(op.f("ix_useridentity_provider_subject"), "useridentity", ["provider_subject"], unique=False)
-    op.create_index(op.f("ix_useridentity_email"), "useridentity", ["email"], unique=False)
+    conn = op.get_bind()
+    inspector = sa_inspect(conn)
+    existing = inspector.get_table_names()
+
+    if "useridentity" not in existing:
+        op.create_table(
+            "useridentity",
+            sa.Column("id", sa.Uuid(), nullable=False),
+            sa.Column("user_id", sa.Uuid(), nullable=False),
+            sa.Column("provider", sa.String(), nullable=False),
+            sa.Column("provider_subject", sa.String(), nullable=False),
+            sa.Column("email", sa.String(), nullable=True),
+            sa.Column("username", sa.String(), nullable=True),
+            sa.Column("display_name", sa.String(), nullable=True),
+            sa.Column("raw_profile", sa.JSON(), nullable=True),
+            sa.Column("created_at", sa.DateTime(), nullable=False),
+            sa.Column("updated_at", sa.DateTime(), nullable=False),
+            sa.ForeignKeyConstraint(["user_id"], ["user.id"]),
+            sa.PrimaryKeyConstraint("id"),
+            sa.UniqueConstraint("provider", "provider_subject", name="unique_provider_subject"),
+        )
+        op.create_index(op.f("ix_useridentity_id"), "useridentity", ["id"], unique=False)
+        op.create_index(op.f("ix_useridentity_user_id"), "useridentity", ["user_id"], unique=False)
+        op.create_index(op.f("ix_useridentity_provider"), "useridentity", ["provider"], unique=False)
+        op.create_index(op.f("ix_useridentity_provider_subject"), "useridentity", ["provider_subject"], unique=False)
+        op.create_index(op.f("ix_useridentity_email"), "useridentity", ["email"], unique=False)
+
     op.alter_column("user", "hashed_password", existing_type=sa.String(), nullable=True)
 
 
