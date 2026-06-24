@@ -115,13 +115,19 @@ def ding_langchain_messages_to_agui(messages: list[BaseMessage]):
             )
         elif message.type == "activity":
             try:
-                agui_messages.append(
-                    ActivityMessage(
-                        activity_type="a2ui-surface",
-                        id=str(message.id or uuid.uuid4()),
-                        content=message.content[0],
+                activity_id = str(message.id or uuid.uuid4())
+                contents = message.content if isinstance(message.content, list) else [message.content]
+                for idx, content_item in enumerate(contents):
+                    if not isinstance(content_item, dict):
+                        continue
+                    content_message_id = activity_id if len(contents) == 1 else f"{activity_id}:{idx}"
+                    agui_messages.append(
+                        ActivityMessage(
+                            activity_type="a2ui-surface",
+                            id=content_message_id,
+                            content=content_item,
+                        )
                     )
-                )
             except Exception as e:
                 print(f"Error processing artifact in ToolMessage: {e}")
         elif isinstance(message, HumanMessage):
